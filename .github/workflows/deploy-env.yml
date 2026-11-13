@@ -1,0 +1,76 @@
+name: Deploy environment
+on:
+  workflow_call:
+    inputs:
+      environment: { type: string, required: true }
+      image-tag: { type: string, required: true }
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Protection rules on the "prod" environment give the manual approval step.
+    environment: ${{ inputs.environment }}
+    env:
+      RG: ${{ vars.RESOURCE_GROUP }}
+      PG_ADMIN_GROUP_ID: ${{ vars.PG_ADMIN_GROUP_ID }}
+      PG_ADMIN_GROUP_NAME: ${{ vars.PG_ADMIN_GROUP_NAME }}
+      OIDC_ISSUER: ${{ vars.OIDC_ISSUER }}
+      OIDC_AUDIENCE: ${{ vars.OIDC_AUDIENCE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Infrastructure (Bicep)
+        id: bicep
+        run: |
+          az bicep install
+          out=$(az deployment group create -g "$RG" -n "em-${{ github.run_id }}" \
+            -f infra/main.bicep -p infra/env/${{ inputs.environment }}.bicepparam \
+            -p imageTag=${{ inputs.image-tag }} --query properties.outputs -o json)
+          echo "migrate_job=$(echo "$out" | jq -r .migrateJobName.value)" >> "$GITHUB_OUTPUT"
+          echo "storage=$(echo "$out" | jq -r .adminStorageAccount.value)" >> "$GITHUB_OUTPUT"
+          echo "host=$(echo "$out" | jq -r .frontDoorHost.value)" >> "$GITHUB_OUTPUT"
+
+      # Container Apps roll out the new image when Bicep updates the template; migrations
+      # are additive within a version (ADR 0007), so old revisions keep working meanwhile.
+      - name: Run migrations
+        run: |
+          exec=$(az containerapp job start -g "$RG" -n "${{ steps.bicep.outputs.migrate_job }}" --query name -o tsv)
+          for i in $(seq 1 90); do
+            status=$(az containerapp job execution show -g "$RG" -n "${{ steps.bicep.outputs.migrate_job }}" --job-execution-name "$exec" --query properties.status -o tsv)
+            echo "migration: $status"
+            [ "$status" = "Succeeded" ] && exit 0
+            [ "$status" = "Failed" ] && exit 1
+            sleep 10
+          done
+          exit 1
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - name: Build and upload admin
+        env:
+          VITE_API_BASE_URL: ""
+          VITE_AUTH_MODE: msal
+          VITE_ENTRA_CLIENT_ID: ${{ vars.ENTRA_ADMIN_CLIENT_ID }}
+          VITE_ENTRA_AUTHORITY: ${{ vars.ENTRA_AUTHORITY }}
+          VITE_ENTRA_API_SCOPE: ${{ vars.ENTRA_API_SCOPE }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm turbo run build --filter=@event-manager/admin...
+          az storage blob service-properties update --account-name "${{ steps.bicep.outputs.storage }}" --static-website --index-document index.html --auth-mode login
+          az storage blob upload-batch --account-name "${{ steps.bicep.outputs.storage }}" -d '$web' -s apps/admin/dist --overwrite --auth-mode login
+
+      - name: Smoke test
+        run: |
+          curl -fsS "https://${{ steps.bicep.outputs.host }}/v1/openapi.json" > /dev/null
+          code=$(curl -s -o /dev/null -w '%{http_code}' "https://${{ steps.bicep.outputs.host }}/v1/me")
+          test "$code" = "401"
