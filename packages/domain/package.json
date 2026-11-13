@@ -1,0 +1,26 @@
+{
+  "name": "@event-manager/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "@event-manager/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@event-manager/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "^11.14.0",
+    "pg": "^8.23.1",
+    "@types/pg": "^8.23.1"
+  }
+}

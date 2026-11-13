@@ -1,0 +1,35 @@
+{
+  "name": "@event-manager/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "@event-manager/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "@event-manager/source": "./src/testing.ts",
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "migrate": "tsx --conditions=@event-manager/source src/migrate-cli.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "graphile-worker": "~0.17.1",
+    "kysely": "^0.29.9",
+    "pg": "^8.23.1",
+    "uuid": "^14.0.3",
+    "@azure/identity": "^4.13.0"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "^11.14.0",
+    "@types/pg": "^8.23.1"
+  }
+}
