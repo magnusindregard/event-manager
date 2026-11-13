@@ -5,6 +5,7 @@
 ## Admin
 
 - React + TypeScript single-page app (Vite).
+- Built on one well-defined, expansive component library. The choice is open (see open question 6 in [docs/mvp.md](../mvp.md)) and will be recorded in its own ADR; the grid choice below follows from it.
 - Uses the same public API as every other client. No private admin endpoints. This keeps the API complete, which pays off for connectors, SDKs and the MCP server.
 - Components chosen early for the hard parts:
   - Recurrence editor: rrule.js, Outlook-style add/edit/exclude per occurrence.
