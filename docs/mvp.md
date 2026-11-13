@@ -175,3 +175,9 @@ packages/
 3. Pilot client, and whether a Sanity plugin is part of the MVP or the step after.
 4. Should the public API be fully open (no key) for clients that want that, with rate limits only?
 5. Should rules also be allowed at account level (across events), e.g. "all events in Gallery 3 during renovation → Gallery 4"?
+6. **Admin UI component library.** The admin should be built on a well-defined, expansive component library rather than assembled from separate components, so that later modules (offers, price grid, capacity, registration forms, check-in dashboards) reuse the same building blocks. To decide before milestone 1:
+   - **Candidates:** MUI with MUI X, Ant Design, Mantine, Fluent UI v9, React Aria Components / React Spectrum. shadcn/ui is an option only if we accept owning the components ourselves.
+   - **Must cover:** data grid with inline editing and bulk selection (price grid, occurrence lists); date, time and date-range pickers that handle timezones; calendar view; tree view (venues and spaces); form building blocks with validation; dialogs, drawers, notifications.
+   - **Criteria:** WCAG 2.1 AA, Norwegian (nb) localization, TypeScript types, theming, long-term maintenance and release cadence, and which features sit behind commercial licences.
+   - This also settles the grid choice left open in ADR 0006 (AG Grid or TanStack Table). If the library has a grid that covers the price grid, use it.
+   - Record the decision as a new ADR.
