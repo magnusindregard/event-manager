@@ -1,8 +1,53 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "api", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@event-manager/api", "dev"], "port": 3000 },
-    { "name": "worker", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@event-manager/worker", "dev"], "port": 3999 },
-    { "name": "admin", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@event-manager/admin", "dev"], "port": 5173 }
+    {
+      "name": "api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@event-manager/api",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "worker",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@event-manager/worker",
+        "dev"
+      ],
+      "port": 3999
+    },
+    {
+      "name": "admin",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@event-manager/admin",
+        "dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "admin-msal",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_AUTH_MODE=msal",
+        "VITE_ENTRA_CLIENT_ID=00000000-0000-0000-0000-000000000001",
+        "VITE_ENTRA_AUTHORITY=https://emstaff-example.ciamlogin.com/",
+        "VITE_ENTRA_API_SCOPE=api://em-api-staging/access",
+        "pnpm",
+        "--filter",
+        "@event-manager/admin",
+        "exec",
+        "vite",
+        "--port",
+        "5174"
+      ],
+      "port": 5174
+    }
   ]
 }

@@ -7,7 +7,7 @@ const resources = {
     translation: {
       app: { title: "Arrangementer" },
       nav: { events: "Arrangementer", locations: "Steder", settings: "Innstillinger", members: "Brukere", audit: "Endringslogg" },
-      auth: { signIn: "Logg inn", signOut: "Logg ut", devEmail: "E-post (lokal utvikling)", signedInAs: "Innlogget som {{email}}" },
+      auth: { signIn: "Logg inn", signOut: "Logg ut", devEmail: "E-post (lokal utvikling)", signedInAs: "Innlogget som {{email}}", failed: "Innloggingen feilet. Sjekk Entra-innstillingene." },
       account: { choose: "Velg konto", none: "Du har ikke tilgang til noen konto ennå. Be en eier om en invitasjon.", switch: "Bytt konto" },
       settings: {
         title: "Kontoinnstillinger", name: "Navn", timezone: "Tidssone", locales: "Språk", defaultLocale: "Standardspråk",
@@ -24,7 +24,7 @@ const resources = {
     translation: {
       app: { title: "Events" },
       nav: { events: "Events", locations: "Locations", settings: "Settings", members: "Users", audit: "Audit log" },
-      auth: { signIn: "Sign in", signOut: "Sign out", devEmail: "Email (local development)", signedInAs: "Signed in as {{email}}" },
+      auth: { signIn: "Sign in", signOut: "Sign out", devEmail: "Email (local development)", signedInAs: "Signed in as {{email}}", failed: "Sign-in failed. Check the Entra settings." },
       account: { choose: "Choose account", none: "You don't have access to an account yet. Ask an owner for an invitation.", switch: "Switch account" },
       settings: {
         title: "Account settings", name: "Name", timezone: "Timezone", locales: "Languages", defaultLocale: "Default language",

@@ -1,11 +1,10 @@
 name: Deploy
-# Merge to main → build images → deploy staging.
-# Prod is manual: run this workflow with "promote to prod" and the image tag (git SHA)
-# that is already running in staging. Images are copied from the staging registry, so
-# prod runs exactly what staging tested.
+# Manual only until staging exists (planned for the end of milestone 2, see
+# docs/implementation-plan.md). Run without inputs → build images → deploy staging.
+# To deploy staging on every merge, add back:  push: { branches: [main] }
+# Prod: run with "promote to prod" and the image tag (git SHA) staging already runs.
+# Images are copied from the staging registry, so prod runs exactly what staging tested.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       promote_to_prod:

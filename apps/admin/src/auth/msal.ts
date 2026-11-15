@@ -4,10 +4,17 @@ import type { Auth } from "./types.js";
 // Entra External ID (ADR 0012). Authorization code + PKCE; tokens kept in sessionStorage.
 export async function createMsalAuth(onChange: () => void): Promise<Auth> {
   const scope = import.meta.env.VITE_ENTRA_API_SCOPE as string;
+  const authority = import.meta.env.VITE_ENTRA_AUTHORITY as string;
+  const clientId = import.meta.env.VITE_ENTRA_CLIENT_ID as string;
+  if (!authority || !clientId || !scope) {
+    throw new Error("Set VITE_ENTRA_AUTHORITY, VITE_ENTRA_CLIENT_ID and VITE_ENTRA_API_SCOPE, or VITE_AUTH_MODE=dev");
+  }
   const pca = new PublicClientApplication({
     auth: {
-      clientId: import.meta.env.VITE_ENTRA_CLIENT_ID as string,
-      authority: import.meta.env.VITE_ENTRA_AUTHORITY as string,
+      clientId,
+      authority,
+      // External ID authorities (<prefix>.ciamlogin.com) must be listed as known.
+      knownAuthorities: [new URL(authority).host],
       redirectUri: window.location.origin,
     },
     cache: { cacheLocation: "sessionStorage" },

@@ -1,6 +1,6 @@
 # MVP implementation plan – event catalog on Azure
 
-*13 November 2026. Decisions recorded in ADRs 0011–0014. Milestone 1 (foundation) is implemented on `feat/m1-foundation`.*
+*13 November 2026, updated 15 November. Decisions recorded in ADRs 0011–0014. Milestone 1 (foundation) is implemented on `feat/m1-foundation`; paid staging moved to the end of milestone 2.*
 
 ## Context
 
@@ -103,8 +103,8 @@ Vite + React 18 + TypeScript, MUI + MUI X Community, TanStack Query + generated 
 
 ## Milestones (map to mvp.md and epics)
 
-1. **Foundation** (#1): clone repo, monorepo scaffold, ADRs 0011–0014, db package with roles/RLS/`withTenant`, RLS test generator, tenancy module (accounts, users, memberships, audit), Entra sign-in end to end, admin shell with i18n + account switcher, outbox + worker skeleton, Bicep for staging, CI/CD, OTel. *Exit:* staff signs in on staging, edits account settings, sees the audit entry.
-2. **Catalog** (#2, #10): locations, events + translations + tags, one-off occurrences, inline resolver (defaults/overrides only), `/v1` CRUD with ETags, public API (`/events`, `/events/{idOrSlug}`, `/occurrences`, `/locations`), publishable/preview keys, Front Door caching, SDK generation. *Exit:* acceptance "next 30 days in nb and en" with one-off occurrences.
+1. **Foundation** (#1): clone repo, monorepo scaffold, ADRs 0011–0014, db package with roles/RLS/`withTenant`, RLS test generator, tenancy module (accounts, users, memberships, audit), Entra sign-in end to end, admin shell with i18n + account switcher, outbox + worker skeleton, Bicep (written, not deployed), CI/CD, OTel. *Exit:* staff signs in **locally with a real Entra External ID token**, edits account settings, sees the audit entry. Paid staging is deferred to save cost; the identity design is the risk that matters at this stage, and it can be tested for free (infra/README.md).
+2. **Catalog** (#2, #10): locations, events + translations + tags, one-off occurrences, inline resolver (defaults/overrides only), `/v1` CRUD with ETags, public API (`/events`, `/events/{idOrSlug}`, `/occurrences`, `/locations`), publishable/preview keys, Front Door caching, SDK generation. **Lean staging** at the end: stand up Azure per the staging runbook, aiming for roughly $15–35/month (API apps scale to zero; the worker scales on queued jobs or runs in-process; free-tier or stop-when-idle Postgres), and verify the cache key separates tenants. *Exit:* acceptance "next 30 days in nb and en" with one-off occurrences, served through staging.
 3. **Series** (#3): recurrence module, regeneration + conflicts, Outlook edits, horizon cron, recurrence editor + dry-run preview, calendar view. *Exit:* tour, DST and 18-month acceptance scenarios pass as integration tests.
 4. **Rules** (#5): rules schema, effect registry, resolver in worker, effective values in public API, occurrence filter, bulk override, rule editor with preview. *Exit:* rooftop/late-opening scenario passes, including occurrences added by extending the series.
 5. **Pilot:** prod environment, load real events for the pilot client (MUNCH Sanity "what's on" is the candidate), `.ics` + webhook delivery as stretch goals.

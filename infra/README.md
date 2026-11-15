@@ -12,7 +12,45 @@ Bicep for one environment per resource group (ADR 0009, 0014). `main.bicep` crea
 | Storage account | Admin SPA (static website) |
 | Front Door Standard + WAF | `/v1/*` → api (no cache), `/public/v1/*` → public-api (cached, key in query string), `/*` → admin |
 
-## Staging runbook (one-time)
+## Now: local sign-in with Entra External ID (no Azure resources, $0)
+
+Until staging exists (planned for the end of milestone 2, see `docs/implementation-plan.md`), the
+identity design is tested against real Entra tokens from the local stack. This needs only the External ID
+tenant; nothing in Azure is created and nothing is billed.
+
+1. **Get an Entra account to create the tenant with.** Any of these works:
+   - an existing work account where you may create tenants;
+   - the External ID free trial at <https://aka.ms/ciam-free-trial> (no subscription needed for the trial;
+     link a subscription later to keep the tenant, which stays free up to 50 000 monthly active users);
+   - a new Azure account (staging runbook, step 0.2).
+2. **Create the external tenant and its app registrations:** follow staging runbook step 4, with two changes:
+   skip linking a subscription if you are on the trial, and name the apps `em-api-local` / `em-admin-local`
+   (scope `api://em-api-local/access`). The admin's redirect URI is `http://localhost:5173`.
+3. **Point the local stack at it** in `.env` (keep `AUTH_DEV_SECRET`, so dev sign-in still works too):
+   ```bash
+   OIDC_ISSUER=https://<external-tenant-id>.ciamlogin.com/<external-tenant-id>/v2.0
+   OIDC_AUDIENCE=<em-api-local client ID>
+   VITE_AUTH_MODE=msal
+   VITE_ENTRA_CLIENT_ID=<em-admin-local client ID>
+   VITE_ENTRA_AUTHORITY=https://<prefix>.ciamlogin.com/
+   VITE_ENTRA_API_SCOPE=api://em-api-local/access
+   ```
+4. **Invite yourself and sign in:**
+   ```bash
+   pnpm db:up && pnpm db:migrate
+   pnpm create-account --slug entra-test --name "Entra test" --owner-email <the email you sign up with>
+   pnpm dev
+   ```
+   Open <http://localhost:5173>, sign in (sign up the first time), change a setting, and check the audit log.
+   This is the milestone 1 exit check until staging exists.
+
+**What this proves:** the access token's issuer and audience match what the API expects, the `email` claim
+reaches the API (otherwise invitations never match; see ADR 0012), and MSAL works with a `ciamlogin.com`
+authority. If sign-in fails, the error appears on the sign-in screen and in the API log.
+
+## Staging runbook (deferred until the end of milestone 2)
+
+The Deploy workflow is manual-only until this is done; re-add its `push` trigger afterwards.
 
 Steps 0–5 are done by a person: they need a browser, a payment method and admin consent screens.
 Steps 6–9 can be handed over (to a colleague or Claude). Values marked **→** are what the hand-over needs.
@@ -116,7 +154,7 @@ Staff sign in through a **second, separate tenant** of the "external" type (ADR 
 1. **Create the external tenant.** Go to <https://entra.microsoft.com> → *Entra ID* → *Overview* → *Manage tenants*
    → *Create* → *External*. Pick location *Europe*, a name (e.g. `Event manager staff`) and a domain prefix
    (e.g. `emstaff`; it becomes `emstaff.ciamlogin.com`). Link it to the subscription and resource group
-   `rg-em-staging` for billing. The first 50 000 monthly active users are free.
+   `rg-em-staging` for billing (not needed on the free trial). The first 50 000 monthly active users are free.
 2. **Switch to it.** Top-right *Settings* (gear) → *Directories + subscriptions* → switch to the new tenant.
    Steps 3–5 happen there.
 3. **App registration for the API:** *App registrations* → *New registration* → name `em-api-staging`,
@@ -164,7 +202,7 @@ gh variable set ACR_NAME --env staging --body "<registry name without .azurecr.i
 
 ### 7. First full deploy
 
-Merge to `main` (or run the *Deploy* workflow). It builds images, deploys Bicep with the apps, runs the
+Run the *Deploy* workflow (Actions → *Deploy* → *Run workflow*; then re-add its `push` trigger so merges deploy). It builds images, deploys Bicep with the apps, runs the
 `migrate` job (which also registers the app identity in Postgres), uploads the admin and smoke-tests
 `/v1/me` → 401 through Front Door. Then add `https://<front door host>/` as a redirect URI on **em-admin-staging**.
 
