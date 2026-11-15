@@ -35,16 +35,18 @@ jobs:
           out=$(az deployment group create -g "$RG" -n "em-${{ github.run_id }}" \
             -f infra/main.bicep -p infra/env/${{ inputs.environment }}.bicepparam \
             -p imageTag=${{ inputs.image-tag }} --query properties.outputs -o json)
-          echo "migrate_job=$(echo "$out" | jq -r .migrateJobName.value)" >> "$GITHUB_OUTPUT"
-          echo "storage=$(echo "$out" | jq -r .adminStorageAccount.value)" >> "$GITHUB_OUTPUT"
-          echo "host=$(echo "$out" | jq -r .frontDoorHost.value)" >> "$GITHUB_OUTPUT"
+          {
+            echo "migrate_job=$(echo "$out" | jq -r .migrateJobName.value)"
+            echo "storage=$(echo "$out" | jq -r .adminStorageAccount.value)"
+            echo "host=$(echo "$out" | jq -r .frontDoorHost.value)"
+          } >> "$GITHUB_OUTPUT"
 
       # Container Apps roll out the new image when Bicep updates the template; migrations
       # are additive within a version (ADR 0007), so old revisions keep working meanwhile.
       - name: Run migrations
         run: |
           exec=$(az containerapp job start -g "$RG" -n "${{ steps.bicep.outputs.migrate_job }}" --query name -o tsv)
-          for i in $(seq 1 90); do
+          for _ in $(seq 1 90); do
             status=$(az containerapp job execution show -g "$RG" -n "${{ steps.bicep.outputs.migrate_job }}" --job-execution-name "$exec" --query properties.status -o tsv)
             echo "migration: $status"
             [ "$status" = "Succeeded" ] && exit 0
@@ -67,6 +69,7 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm turbo run build --filter=@event-manager/admin...
           az storage blob service-properties update --account-name "${{ steps.bicep.outputs.storage }}" --static-website --index-document index.html --auth-mode login
+          # shellcheck disable=SC2016 # '$web' is the literal static-website container name
           az storage blob upload-batch --account-name "${{ steps.bicep.outputs.storage }}" -d '$web' -s apps/admin/dist --overwrite --auth-mode login
 
       - name: Smoke test

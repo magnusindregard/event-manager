@@ -75,7 +75,8 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
         ])
         probes: probesFor(3000)
       }]
-      scale: { minReplicas: 1, maxReplicas: prod ? 6 : 2, rules: [{ name: 'http', http: { metadata: { concurrentRequests: '50' } } }] }
+      // Staging scales to zero (cold start of a few seconds) to keep cost down.
+      scale: { minReplicas: prod ? 1 : 0, maxReplicas: prod ? 6 : 2, rules: [{ name: 'http', http: { metadata: { concurrentRequests: '50' } } }] }
     }
   }
 }
@@ -100,7 +101,7 @@ resource publicApi 'Microsoft.App/containerApps@2024-03-01' = {
         env: concat(runtimeEnv, [{ name: 'PORT', value: '3001' }])
         probes: probesFor(3001)
       }]
-      scale: { minReplicas: 1, maxReplicas: prod ? 10 : 2, rules: [{ name: 'http', http: { metadata: { concurrentRequests: '100' } } }] }
+      scale: { minReplicas: prod ? 1 : 0, maxReplicas: prod ? 10 : 2, rules: [{ name: 'http', http: { metadata: { concurrentRequests: '100' } } }] }
     }
   }
 }
@@ -121,6 +122,7 @@ resource worker 'Microsoft.App/containerApps@2024-03-01' = {
         resources: { cpu: json('0.5'), memory: '1Gi' }
         env: runtimeEnv
       }]
+      // Always one replica: graphile-worker listens for new jobs (LISTEN/NOTIFY).
       scale: { minReplicas: 1, maxReplicas: prod ? 3 : 1 }
     }
   }

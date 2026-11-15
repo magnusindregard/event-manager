@@ -25,9 +25,9 @@ resource endpoint 'Microsoft.Cdn/profiles/afdEndpoints@2024-02-01' = {
 }
 
 var originDefs = [
-  { key: 'api', host: apiHost, probe: '/healthz' }
-  { key: 'public', host: publicApiHost, probe: '/healthz' }
-  { key: 'admin', host: adminHost, probe: '/index.html' }
+  { key: 'api', host: apiHost }
+  { key: 'public', host: publicApiHost }
+  { key: 'admin', host: adminHost }
 ]
 
 resource groups 'Microsoft.Cdn/profiles/originGroups@2024-02-01' = [for o in originDefs: {
@@ -35,7 +35,8 @@ resource groups 'Microsoft.Cdn/profiles/originGroups@2024-02-01' = [for o in ori
   name: 'og-${o.key}'
   properties: {
     loadBalancingSettings: { sampleSize: 4, successfulSamplesRequired: 3, additionalLatencyInMilliseconds: 50 }
-    healthProbeSettings: { probePath: o.probe, probeRequestType: 'GET', probeProtocol: 'Https', probeIntervalInSeconds: 60 }
+    // One origin per group, so health probes add nothing; they would also keep
+    // scale-to-zero apps in staging awake. Container Apps probes handle health.
   }
 }]
 
