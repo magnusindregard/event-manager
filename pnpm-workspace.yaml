@@ -1,0 +1,6 @@
+packages:
+  - apps/*
+  - packages/*
+injectWorkspacePackages: true
+onlyBuiltDependencies:
+  - esbuild

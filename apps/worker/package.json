@@ -1,0 +1,24 @@
+{
+  "name": "@event-manager/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx watch --conditions=@event-manager/source --env-file-if-exists=../../.env src/main.ts",
+    "start": "node dist/main.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@azure/monitor-opentelemetry": "^1.21.0",
+    "@event-manager/db": "workspace:*",
+    "@event-manager/domain": "workspace:*",
+    "graphile-worker": "~0.17.1"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "^11.14.0",
+    "pg": "^8.23.1",
+    "@types/pg": "^8.23.1"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "event-manager",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.7.0",
+  "engines": { "node": ">=22.12" },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint .",
+    "test": "turbo run test",
+    "dev": "turbo run dev --parallel",
+    "db:up": "docker compose up -d postgres",
+    "db:migrate": "pnpm --filter @event-manager/db migrate",
+    "create-account": "pnpm --filter @event-manager/api create-account"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@types/node": "^22.15.0",
+    "eslint": "^10.14.0",
+    "globals": "^16.0.0",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.11",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

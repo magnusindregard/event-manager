@@ -1,0 +1,43 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      # Unit + integration tests; Testcontainers starts Postgres 16 on the runner's Docker.
+      - run: pnpm test
+      - run: pnpm build
+
+      - name: OpenAPI and SDK are up to date
+        run: |
+          pnpm --filter @event-manager/sdk generate
+          git diff --exit-code -- packages/sdk/openapi packages/sdk/src/core.d.ts \
+            || (echo "::error::Run 'pnpm --filter @event-manager/sdk generate' and commit the result" && exit 1)
+
+      - name: No breaking API changes against main (ADR 0007)
+        if: github.event_name == 'pull_request'
+        run: |
+          git show origin/${{ github.base_ref }}:packages/sdk/openapi/core.json > /tmp/base.json 2>/dev/null || { echo "no base spec"; exit 0; }
+          docker run --rm -v /tmp:/base -v "$PWD/packages/sdk/openapi:/head" tufin/oasdiff:v1.11.7 \
+            breaking /base/base.json /head/core.json --fail-on ERR
+
+  infra:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: az bicep install && az bicep build --file infra/main.bicep --stdout > /dev/null

@@ -1,0 +1,11 @@
+{
+  "name": "@event-manager/schemas",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": { "@event-manager/source": "./src/index.ts", "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+  },
+  "scripts": { "build": "tsc -p tsconfig.build.json", "typecheck": "tsc --noEmit" },
+  "dependencies": { "typebox": "^1.4.7" }
+}

@@ -1,6 +1,6 @@
 # 0009 – Azure, Norway East
 
-**Status:** Proposed · 2026-11-12
+**Status:** Accepted · 2026-11-13 (proposed 2026-11-12; IaC settled in [0014](0014-infrastructure-as-code.md))
 
 ## Context
 
@@ -15,7 +15,7 @@ Data includes special-category personal data (dietary/allergy information). Clie
 - Edge: Azure Front Door (CDN, WAF, routing per surface).
 - Secrets and tenant keys: Azure Key Vault.
 - Observability: OpenTelemetry → Azure Monitor / Application Insights.
-- Infrastructure as code: Bicep or Terraform (to decide).
+- Infrastructure as code: Bicep (see 0014).
 
 ## Consequences
 

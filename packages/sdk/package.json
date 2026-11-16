@@ -1,0 +1,16 @@
+{
+  "name": "@event-manager/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": { "@event-manager/source": "./src/index.ts", "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+  },
+  "scripts": {
+    "generate": "pnpm --filter @event-manager/api openapi && openapi-typescript openapi/core.json -o src/core.d.ts",
+    "build": "tsc -p tsconfig.build.json && cp src/core.d.ts dist/core.d.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": { "openapi-fetch": "^0.17.0" },
+  "devDependencies": { "openapi-typescript": "^7.13.0" }
+}
