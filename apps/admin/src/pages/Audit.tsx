@@ -23,15 +23,15 @@ function describeDiff(diff: unknown): string {
     .join("; ");
 }
 
-export function Audit() {
+export function Audit({ entityType, entityId, embedded }: { entityType?: string; entityId?: string; embedded?: boolean } = {}) {
   const { t, i18n } = useTranslation();
   const { api, accountId } = useApp();
 
   const query = useInfiniteQuery({
-    queryKey: ["audit", accountId],
+    queryKey: ["audit", accountId, entityType, entityId],
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) =>
-      unwrap(await api.GET("/v1/audit", { params: { query: { limit: 50, ...(pageParam ? { cursor: pageParam } : {}) } } })),
+      unwrap(await api.GET("/v1/audit", { params: { query: { limit: 50, entityType, entityId, ...(pageParam ? { cursor: pageParam } : {}) } } })),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 
@@ -48,7 +48,7 @@ export function Audit() {
 
   return (
     <div>
-      <PageHeader title={t("audit.title")} />
+      {!embedded && <PageHeader title={t("audit.title")} />}
       <div className="space-y-4">
         {query.isError && (
           <Alert variant="destructive">

@@ -3,7 +3,7 @@ import tseslint from "typescript-eslint";
 import globals from "globals";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/.turbo/**", "infra/**", "packages/sdk/src/core.d.ts"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/.turbo/**", "infra/**", "packages/sdk/src/core.d.ts", "packages/sdk/src/public.d.ts"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

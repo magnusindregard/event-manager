@@ -1,5 +1,6 @@
 import type { Tx } from "@event-manager/db";
 import type { outbox } from "@event-manager/domain";
+import { enqueueProvisioning } from "./provision.js";
 
 /**
  * Internal consumers of domain events (ADR 0008). Each runs in the event's tenant
@@ -28,4 +29,4 @@ export const auditTrailHandler: InternalHandler = {
   },
 };
 
-export const defaultHandlers: InternalHandler[] = [auditTrailHandler];
+export const defaultHandlers: InternalHandler[] = [auditTrailHandler, enqueueProvisioning];

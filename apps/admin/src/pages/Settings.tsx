@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, Info } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -6,15 +6,15 @@ import { toast } from "sonner";
 import { Combobox } from "@/components/combobox";
 import { Field, PageHeader } from "@/components/page";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConflictDialog } from "@/components/conflict-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type Account, ApiProblem, unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
+import { useAccount } from "../queries.js";
+import { ApiKeys } from "./settings/ApiKeys.js";
+import { TagVocabularies } from "./settings/TagVocabularies.js";
 
 const TIMEZONES: string[] = (() => {
   try {
@@ -42,13 +42,7 @@ export function Settings() {
     }
   };
 
-  const query = useQuery({
-    queryKey: ["account", accountId],
-    queryFn: async () => {
-      const r = await api.GET("/v1/account");
-      return { account: unwrap(r), etag: r.response.headers.get("etag") ?? "" };
-    },
-  });
+  const query = useAccount();
 
   useEffect(() => {
     if (query.data) {
@@ -162,18 +156,10 @@ export function Settings() {
         </form>
       </div>
 
-      <AlertDialog open={conflict} onOpenChange={setConflict}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("conflict.title")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("conflict.body")}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("conflict.cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void query.refetch()}>{t("conflict.reload")}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <TagVocabularies canEdit={canEdit} />
+      {canEdit && <ApiKeys />}
+
+      <ConflictDialog open={conflict} onOpenChange={setConflict} onReload={() => void query.refetch()} />
     </div>
   );
 }

@@ -29,3 +29,36 @@ export function createCoreClient(opts: CoreClientOptions) {
 }
 
 export type CoreClient = ReturnType<typeof createCoreClient>;
+
+import type { paths as publicPaths, components as publicComponents } from "./public.js";
+export type { publicPaths, publicComponents };
+export type PublicSchemas = publicComponents["schemas"];
+
+export interface PublicClientOptions {
+  /** e.g. https://<front door host> */
+  baseUrl: string;
+  /** Publishable key (pk_…), sent as ?key= so edge caches keep tenants apart. */
+  publishableKey?: string;
+  /** Preview token (prv_…) for CMS previews. Server-side only. */
+  previewToken?: string;
+}
+
+/** Typed client for the public read API (/public/v1). */
+export function createPublicClient(opts: PublicClientOptions) {
+  const client = createClient<publicPaths>({ baseUrl: opts.baseUrl });
+  client.use({
+    onRequest({ request }) {
+      if (opts.previewToken) {
+        request.headers.set("authorization", `Bearer ${opts.previewToken}`);
+        return request;
+      }
+      if (!opts.publishableKey) return request;
+      const url = new URL(request.url);
+      url.searchParams.set("key", opts.publishableKey);
+      return new Request(url, request);
+    },
+  });
+  return client;
+}
+
+export type PublicClient = ReturnType<typeof createPublicClient>;

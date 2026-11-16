@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@azure/identity": "^4.13.0",
     "@azure/monitor-opentelemetry": "^1.21.0",
     "@event-manager/db": "workspace:*",
     "@event-manager/domain": "workspace:*",
@@ -18,7 +19,7 @@
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^11.14.0",
-    "pg": "^8.23.1",
-    "@types/pg": "^8.23.1"
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1"
   }
 }

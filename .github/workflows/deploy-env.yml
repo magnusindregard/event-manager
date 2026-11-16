@@ -20,6 +20,12 @@ jobs:
       PG_ADMIN_GROUP_NAME: ${{ vars.PG_ADMIN_GROUP_NAME }}
       OIDC_ISSUER: ${{ vars.OIDC_ISSUER }}
       OIDC_AUDIENCE: ${{ vars.OIDC_AUDIENCE }}
+      DEPLOY_FRONT_DOOR: ${{ vars.DEPLOY_FRONT_DOOR || 'true' }}
+      GRAPH_TENANT_ID: ${{ vars.GRAPH_TENANT_ID }}
+      GRAPH_CLIENT_ID: ${{ vars.GRAPH_CLIENT_ID }}
+      GRAPH_TENANT_DOMAIN: ${{ vars.GRAPH_TENANT_DOMAIN }}
+      MAIL_FROM: ${{ vars.MAIL_FROM }}
+      ADMIN_URL: ${{ vars.ADMIN_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: azure/login@v2
@@ -38,7 +44,7 @@ jobs:
           {
             echo "migrate_job=$(echo "$out" | jq -r .migrateJobName.value)"
             echo "storage=$(echo "$out" | jq -r .adminStorageAccount.value)"
-            echo "host=$(echo "$out" | jq -r .frontDoorHost.value)"
+            echo "host=$(echo "$out" | jq -r 'if .frontDoorHost.value != "" then .frontDoorHost.value else .apiHost.value end')"
           } >> "$GITHUB_OUTPUT"
 
       # Container Apps roll out the new image when Bicep updates the template; migrations

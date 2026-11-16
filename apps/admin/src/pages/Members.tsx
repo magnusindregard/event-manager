@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleAlert, Trash2 } from "lucide-react";
+import { CircleAlert, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/components/page";
@@ -14,6 +14,7 @@ import { unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
 
 type Role = "owner" | "editor";
+type SigninKind = "auto" | "work" | "local";
 
 export function Members() {
   const { t } = useTranslation();
@@ -22,12 +23,13 @@ export function Members() {
   const isOwner = roles.includes("owner");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("editor");
+  const [signinKind, setSigninKind] = useState<SigninKind>("auto");
 
   const query = useQuery({ queryKey: ["members", accountId], queryFn: async () => unwrap(await api.GET("/v1/account/members")) });
   const refresh = () => qc.invalidateQueries({ queryKey: ["members", accountId] });
 
   const invite = useMutation({
-    mutationFn: async () => unwrap(await api.POST("/v1/account/invitations", { body: { email, role } })),
+    mutationFn: async () => unwrap(await api.POST("/v1/account/invitations", { body: { email, role, signinKind } })),
     onSuccess: () => {
       setEmail("");
       void refresh();
@@ -41,7 +43,12 @@ export function Members() {
     onSuccess: () => void refresh(),
   });
 
-  const error = invite.error ?? remove.error;
+  const retry = useMutation({
+    mutationFn: async (id: string) => unwrap(await api.POST("/v1/account/invitations/{id}/retry", { params: { path: { id } } })),
+    onSuccess: () => void refresh(),
+  });
+
+  const error = invite.error ?? remove.error ?? retry.error;
   const roleLabel = (r: string) => t(`members.roles.${r}`, r);
 
   return (
@@ -76,6 +83,17 @@ export function Members() {
                 <SelectContent>
                   <SelectItem value="editor">{roleLabel("editor")}</SelectItem>
                   <SelectItem value="owner">{roleLabel("owner")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="invite-signin">{t("members.signin")}</Label>
+              <Select value={signinKind} onValueChange={(v) => setSigninKind(v as SigninKind)}>
+                <SelectTrigger id="invite-signin" className="w-full sm:w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(["auto", "work", "local"] as const).map((k) => <SelectItem key={k} value={k}>{t(`members.signinKinds.${k}`)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -123,12 +141,25 @@ export function Members() {
                 <TableRow key={i.id}>
                   <TableCell>
                     <div className="font-medium">{i.email}</div>
-                    <div className="text-xs text-muted-foreground">{t("members.pending")}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                      {t("members.pending")} ·
+                      <Badge variant={i.provisioning.status === "failed" ? "destructive" : "outline"} className="font-normal">
+                        {t(`members.provisioning.${i.provisioning.status}`, { kind: i.provisioning.kind ? t(`members.signinKinds.${i.provisioning.kind}`) : "" })}
+                      </Badge>
+                      {i.provisioning.emailSent && <span>{t("members.emailSent")}</span>}
+                    </div>
+                    {i.provisioning.error && <div className="mt-1 max-w-md truncate text-xs text-destructive" title={i.provisioning.error}>{i.provisioning.error}</div>}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">{roleLabel(i.role)}</Badge>
                   </TableCell>
-                  <TableCell />
+                  <TableCell>
+                    {isOwner && (
+                      <Button variant="ghost" size="icon" aria-label={`${t("members.retry")} ${i.email}`} onClick={() => retry.mutate(i.id)} disabled={retry.isPending}>
+                        <RefreshCw />
+                      </Button>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

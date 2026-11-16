@@ -1,6 +1,6 @@
 # MVP implementation plan – event catalog on Azure
 
-*13 November 2026, updated 15 November. Decisions recorded in ADRs 0011–0014. Milestone 1 (foundation) is implemented on `feat/m1-foundation`; paid staging moved to the end of milestone 2.*
+*13 November 2026, updated 16 November. Decisions recorded in ADRs 0011–0015. Milestone 1 (foundation) is implemented on `feat/m1-foundation`; milestone 2 (catalog) on `feat/m2-catalog`, with the staging stand-up still to do.*
 
 ## Context
 
@@ -106,6 +106,14 @@ Vite + React 19 + TypeScript, shadcn/ui + Tailwind v4 (tokens in `src/index.css`
 
 1. **Foundation** (#1): clone repo, monorepo scaffold, ADRs 0011–0014, db package with roles/RLS/`withTenant`, RLS test generator, tenancy module (accounts, users, memberships, audit), Entra sign-in end to end, admin shell with i18n + account switcher, outbox + worker skeleton, Bicep (written, not deployed), CI/CD, OTel. *Exit:* staff signs in **locally with a real Entra External ID token**, edits account settings, sees the audit entry. Paid staging is deferred to save cost; the identity design is the risk that matters at this stage, and it can be tested for free (infra/README.md).
 2. **Catalog** (#2, #10): locations, events + translations + tags, one-off occurrences, inline resolver (defaults/overrides only), `/v1` CRUD with ETags, public API (`/events`, `/events/{idOrSlug}`, `/occurrences`, `/locations`), publishable/preview keys, Front Door caching, SDK generation. **Entra provisioning** from the invite flow (ADR 0012), needed before any client staff sign in. **Lean staging** at the end: stand up Azure per the staging runbook, aiming for roughly $15–35/month (API apps scale to zero; the worker scales on queued jobs or runs in-process; free-tier or stop-when-idle Postgres), and verify the cache key separates tenants. *Exit:* acceptance "next 30 days in nb and en" with one-off occurrences, served through staging.
+   *Status (16 November):* built and tested locally. The acceptance scenario runs as `apps/public-api/test/public.test.ts`. Still to do: the staging stand-up (`infra/README.md`, steps 0–10). Decisions taken while building:
+   - Locations store `lat`/`lng` columns instead of a `point`; easier to validate and serialize.
+   - Every reference between tenant tables is a composite foreign key on `(tenant_id, id)`, because foreign key checks bypass RLS.
+   - API keys are `pk_<id>_<secret>` and `prv_<id>_<secret>`, with a SHA-256 hash of 32 random bytes. A pepper adds nothing for secrets with that much entropy, so there is none. Key lookups are cached for 60 s per replica, so revocation takes up to a minute.
+   - Occurrence audit entries are recorded on the event (`entity_type = event`), so the event's audit tab shows its schedule changes.
+   - Cancel and reinstate an occurrence with `PATCH {status}`; one-offs are deleted outright (series occurrences get EXDATE in milestone 3).
+   - Staging runs the worker as a sidecar container of the `api` app (scales to zero with it), not in-process. Milestone 3's nightly horizon job needs a Container Apps cron job in staging.
+   - Front Door Standard's base fee (~$35) is more than the rest of staging together, so it has a `DEPLOY_FRONT_DOOR` toggle.
 3. **Series** (#3): recurrence module, regeneration + conflicts, Outlook edits, horizon cron, recurrence editor + dry-run preview, calendar view. *Exit:* tour, DST and 18-month acceptance scenarios pass as integration tests.
 4. **Rules** (#5): rules schema, effect registry, resolver in worker, effective values in public API, occurrence filter, bulk override, rule editor with preview. *Exit:* rooftop/late-opening scenario passes, including occurrences added by extending the series.
 5. **Pilot:** prod environment, load real events for the pilot client (MUNCH Sanity "what's on" is the candidate), `.ics` + webhook delivery as stretch goals.

@@ -10,7 +10,9 @@ import { AuthProvider, useAuth } from "./auth/AuthProvider.js";
 import { Layout } from "./components/Layout.js";
 import { AccountPicker } from "./pages/AccountPicker.js";
 import { Audit } from "./pages/Audit.js";
-import { ComingSoon } from "./pages/ComingSoon.js";
+import { EventEditor } from "./pages/EventEditor.js";
+import { Events } from "./pages/Events.js";
+import { Locations } from "./pages/Locations.js";
 import { Members } from "./pages/Members.js";
 import { Settings } from "./pages/Settings.js";
 import { SignIn } from "./pages/SignIn.js";
@@ -40,13 +42,14 @@ function Routed() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route index element={<Navigate to="/settings" replace />} />
-        <Route path="events" element={<ComingSoon titleKey="nav.events" milestone={2} />} />
-        <Route path="locations" element={<ComingSoon titleKey="nav.locations" milestone={2} />} />
+        <Route index element={<Navigate to="/events" replace />} />
+        <Route path="events" element={<Events />} />
+        <Route path="events/:id" element={<EventEditor />} />
+        <Route path="locations" element={<Locations />} />
         <Route path="settings" element={<Settings />} />
         <Route path="members" element={<Members />} />
         <Route path="audit" element={<Audit />} />
-        <Route path="*" element={<Navigate to="/settings" replace />} />
+        <Route path="*" element={<Navigate to="/events" replace />} />
       </Route>
     </Routes>
   );

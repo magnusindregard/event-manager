@@ -45,7 +45,7 @@ it("dispatches outbox events to handlers once, under the event's tenant, as the 
   await admin.query(`update graphile_worker._private_jobs set run_at = now()`);
   await runOnce({ connectionString: tdb.appUrl, taskList: buildTaskList(db, [recorder]) });
 
-  expect(seen.map((s) => s.type).sort()).toEqual(["account.changed.v1", "account.created.v1"]);
+  expect(seen.map((s) => s.type).sort()).toEqual(["account.changed.v1", "account.created.v1", "member.invited.v1"]);
   expect(seen.every((s) => s.tenant === account.id)).toBe(true);
 
   const res = await admin.query(`select count(*)::int as n from outbox.event where tenant_id = $1 and dispatched_at is null`, [account.id]);

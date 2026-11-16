@@ -3,6 +3,7 @@ import { Type } from "typebox";
 import { tenancy } from "@event-manager/domain";
 import { Account, AccountPatch, AuditEntry, Invitation, InvitationCreate, Member, Page, Problem, Uuid } from "@event-manager/schemas";
 import { inTenant } from "../plugins/context.js";
+import { decodeCursor, isString, page } from "../plugins/cursor.js";
 import { expectedVersion, setEtag } from "../plugins/etag.js";
 
 const toDto = (a: tenancy.Account) => ({ ...a, updatedAt: a.updatedAt.toISOString() });
@@ -58,8 +59,26 @@ export const accountRoutes: FastifyPluginAsyncTypebox = async (app) => {
     "/account/invitations",
     { schema: { operationId: "inviteMember", tags: ["account"], ...accountScoped, body: InvitationCreate, response: { 201: Invitation, ...errors, 409: Problem, 422: Problem } } },
     async (req, reply) => {
-      const inv = await inTenant(app, req, (tx, ctx) => tenancy.inviteMember(tx, ctx, req.body.email, req.body.role));
+      const inv = await inTenant(app, req, (tx, ctx) => tenancy.inviteMember(tx, ctx, req.body.email, req.body.role, req.body.signinKind));
       return reply.status(201).send({ ...inv, createdAt: inv.createdAt.toISOString() });
+    },
+  );
+
+  app.post(
+    "/account/invitations/:id/retry",
+    {
+      schema: {
+        operationId: "retryInvitation",
+        tags: ["account"],
+        summary: "Provision the sign-in identity again and resend the invitation email (owner)",
+        ...accountScoped,
+        params: Type.Object({ id: Uuid }),
+        response: { 200: Invitation, ...errors },
+      },
+    },
+    async (req) => {
+      const inv = await inTenant(app, req, (tx, ctx) => tenancy.retryInvitation(tx, ctx, req.params.id));
+      return { ...inv, createdAt: inv.createdAt.toISOString() };
     },
   );
 
@@ -90,14 +109,13 @@ export const accountRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req) => {
       const { entityType, entityId, cursor, limit } = req.query;
-      const before = cursor ? Buffer.from(cursor, "base64url").toString() : undefined;
+      const before = decodeCursor(cursor, isString);
       const rows = await inTenant(app, req, async (tx, ctx) => {
         tenancy.assertCan(ctx, "audit.read");
         return tenancy.listAudit(tx, { entityType, entityId, before, limit: limit + 1 });
       });
-      const items = rows.slice(0, limit).map((r) => ({ ...r, at: r.at.toISOString() }));
-      const nextCursor = rows.length > limit ? Buffer.from(items[items.length - 1]!.id).toString("base64url") : null;
-      return { items, nextCursor };
+      const p = page(rows, limit, (r) => r.id);
+      return { items: p.items.map((r) => ({ ...r, at: r.at.toISOString() })), nextCursor: p.nextCursor };
     },
   );
 };

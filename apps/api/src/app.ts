@@ -7,6 +7,8 @@ import type { TokenVerifier } from "./auth.js";
 import { contextPlugin } from "./plugins/context.js";
 import { problemPlugin } from "./plugins/problem.js";
 import { accountRoutes } from "./routes/account.js";
+import { apiKeyRoutes } from "./routes/api-keys.js";
+import { catalogRoutes } from "./routes/catalog.js";
 import { meRoutes } from "./routes/me.js";
 
 export interface AppDeps {
@@ -55,6 +57,8 @@ export async function buildApp(deps: AppDeps) {
     async (v1) => {
       await v1.register(meRoutes);
       await v1.register(accountRoutes);
+      await v1.register(catalogRoutes);
+      await v1.register(apiKeyRoutes);
       v1.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: "/v1" },

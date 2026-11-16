@@ -48,6 +48,95 @@
         "5174"
       ],
       "port": 5174
+    },
+    {
+      "name": "api-alt",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3001",
+        "CORS_ORIGINS=http://localhost:5175",
+        "pnpm",
+        "--filter",
+        "@event-manager/api",
+        "dev"
+      ],
+      "port": 3001
+    },
+    {
+      "name": "admin-alt",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_AUTH_MODE=dev",
+        "VITE_API_BASE_URL=http://localhost:3001",
+        "pnpm",
+        "--filter",
+        "@event-manager/admin",
+        "exec",
+        "vite",
+        "--port",
+        "5175",
+        "--strictPort"
+      ],
+      "port": 5175
+    },
+    {
+      "name": "api-m2",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3010",
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_m2",
+        "CORS_ORIGINS=http://localhost:5180",
+        "OIDC_ISSUER=",
+        "OIDC_AUDIENCE=",
+        "pnpm",
+        "--filter",
+        "@event-manager/api",
+        "dev"
+      ],
+      "port": 3010
+    },
+    {
+      "name": "public-api-m2",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3011",
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_m2",
+        "pnpm",
+        "--filter",
+        "@event-manager/public-api",
+        "dev"
+      ],
+      "port": 3011
+    },
+    {
+      "name": "admin-m2",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_AUTH_MODE=dev",
+        "VITE_API_BASE_URL=http://localhost:3010",
+        "pnpm",
+        "--filter",
+        "@event-manager/admin",
+        "exec",
+        "vite",
+        "--port",
+        "5180",
+        "--strictPort"
+      ],
+      "port": 5180
+    },
+    {
+      "name": "worker-m2",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_m2",
+        "ADMIN_URL=http://localhost:5180/",
+        "pnpm",
+        "--filter",
+        "@event-manager/worker",
+        "dev"
+      ],
+      "port": 3998
     }
   ]
 }

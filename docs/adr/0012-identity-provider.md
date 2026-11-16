@@ -32,12 +32,20 @@ Testing against a real External ID tenant (see `infra/README.md`, *Entra pitfall
     apply: disabling the account at home blocks sign-in here, without per-client federation.
   - **Other addresses** become **local customer accounts** with email sign-in through **one-time passcode**.
     No passwords to deliver or reset, and each sign-in proves control of the mailbox.
-  - How to tell the two apart (a realm lookup on the address domain) is decided when this is built; an owner-chosen
-    fallback ("they sign in with their work account") is acceptable.
-  - The API calls Graph as an app registration in the external tenant with the least permissions that work
+  - **Telling them apart** (decided in milestone 2): a realm lookup (`login.microsoftonline.com/common/userrealm`)
+    on the address. `Managed` or `Federated` means a work account. Well-known consumer domains (gmail.com,
+    outlook.com …) are always local. The owner can override this per invitation ("work account" or
+    "one-time code"), and that choice wins.
+  - **Local accounts** are created with `POST /users` and an `emailAddress` identity issued by
+    `<prefix>.onmicrosoft.com`. Graph requires a password, so a random one is set and never shown; the user flow
+    signs them in with a one-time passcode.
+  - An identity that already exists for the address (a person in several accounts) is reused, not duplicated.
+  - The **worker**, not the API, calls Graph. It runs on the `member.invited.v1` outbox event as an
+    `invitation.provision` job (one per invitation, retried with backoff), and records the outcome on the
+    invitation. It uses an app registration in the external tenant with the least permissions that work
     (`User.Invite.All` for guests, `User.ReadWrite.All` for local accounts). In Azure it authenticates with a
     federated credential from its managed identity, so there is no client secret. Locally and in tests, Graph is
-    replaced by a fake.
+    replaced by a fake (`IDENTITY_DIRECTORY=graph` turns on the real one).
 - **Federation with a client's own tenant** (OIDC identity provider per organisation) is optional, for clients
   that require it. Guests already give single sign-on with their work account.
 - Identity in our database is `(issuer, subject)`. Email is used once: to accept a pending invitation on first
@@ -59,14 +67,15 @@ management turns out to be a burden.
 ## Consequences
 
 - Inviting someone has two steps: our invitation row, then the Graph call. If Graph fails, the invitation is kept,
-  marked as not provisioned and retried by the worker; the owner sees the state. Removing a member removes our
-  membership; whether to also delete the Entra identity is decided when this is built (a person may belong to
-  several accounts).
-- A guest invitation sends Microsoft's invitation email, and the guest must redeem it once. Our own invitation
-  email (Postmark, ADR 0010) explains this and links to the admin.
+  marked as failed with the error, and retried by the worker; the owner sees the state on *Users* and can retry.
+  Removing a member removes our membership only. The Entra identity is kept, since a person may belong to several
+  accounts, and without a membership it grants nothing. Cleaning up identities with no membership is left for later.
+- Guest invitations are created with `sendInvitationMessage: false`, so the guest gets one email: ours (Postmark,
+  ADR 0010), with Microsoft's redeem link and a short explanation. A guest who skips the link redeems on first
+  sign-in to the admin.
 - Invitation matching trusts the email claim. That holds because every identity is created by us for the invited
   address (guests are verified by their home organisation; local accounts by one-time passcode). If public
   sign-up is ever enabled, require email verification or an invitation link token first.
-- Until provisioning is built, identities are created by hand in the Entra admin center (`infra/README.md`).
+- The bootstrap owner created by the CLI is provisioned the same way (`createAccount` emits `member.invited.v1`).
 - The External ID tenant, its app registrations, user flow and the Graph app registration are configured
   manually; they are not in Bicep.

@@ -16,6 +16,16 @@ param postgresAdminGroupName string
 param oidcIssuer string
 @description('Application ID URI or client ID of the API app registration.')
 param oidcAudience string
+@description('Front Door Standard costs about $35/month before traffic. Staging can turn it off between cache tests; the apps stay reachable on their Container Apps hosts.')
+param deployFrontDoor bool = true
+@description('Invitation provisioning through Microsoft Graph (ADR 0012). Empty graphClientId keeps the fake directory.')
+param graphTenantId string = ''
+param graphClientId string = ''
+param graphTenantDomain string = ''
+@description('Sender for invitation emails (Postmark). Needs Key Vault secret "postmark-token". Empty keeps the fake mailer.')
+param mailFrom string = ''
+@description('Admin URL in invitation emails, e.g. https://<front door host>/ (known after the first deploy).')
+param adminUrl string = ''
 
 var prod = env == 'prod'
 var name = 'em-${env}'
@@ -144,11 +154,17 @@ module apps 'modules/apps.bicep' = if (deployApps) {
     databaseName: postgres.outputs.databaseName
     oidcIssuer: oidcIssuer
     oidcAudience: oidcAudience
+    graphTenantId: graphTenantId
+    graphClientId: graphClientId
+    graphTenantDomain: graphTenantDomain
+    keyVaultUri: vault.properties.vaultUri
+    mailFrom: mailFrom
+    adminUrl: adminUrl
   }
-  dependsOn: [appAcrPull, migratorAcrPull]
+  dependsOn: [appAcrPull, migratorAcrPull, appVaultAccess]
 }
 
-module edge 'modules/frontdoor.bicep' = if (deployApps) {
+module edge 'modules/frontdoor.bicep' = if (deployApps && deployFrontDoor) {
   name: 'frontdoor'
   params: {
     name: name
@@ -161,6 +177,8 @@ module edge 'modules/frontdoor.bicep' = if (deployApps) {
 
 output registryServer string = registry.properties.loginServer
 output adminStorageAccount string = adminStorage.name
-output frontDoorHost string = deployApps ? edge!.outputs.endpointHost : ''
+output frontDoorHost string = deployApps && deployFrontDoor ? edge!.outputs.endpointHost : ''
+output apiHost string = deployApps ? apps!.outputs.apiFqdn : ''
+output publicApiHost string = deployApps ? apps!.outputs.publicApiFqdn : ''
 output migrateJobName string = deployApps ? apps!.outputs.migrateJobName : ''
 output appInsightsConnectionString string = appInsights.properties.ConnectionString
