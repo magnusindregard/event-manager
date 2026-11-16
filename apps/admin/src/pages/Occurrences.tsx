@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, CircleAlert, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Ban, CalendarDays, CircleAlert, List, Pencil, Plus, Repeat, RotateCcw, Trash2, TriangleAlert, Undo2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -19,9 +19,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { type CatalogEvent, etagOf, isConflict, type Occurrence, unwrap } from "../api.js";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { type CatalogEvent, etagOf, isConflict, type Occurrence, type Series, unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
+import { describeRule } from "../lib/recurrence.js";
 import { locationPath, useLocations, useTagLabels, useVocabularies } from "../queries.js";
+import { OccurrenceCalendar } from "./schedule/OccurrenceCalendar.js";
+import { type EditorMode, RecurrenceEditor } from "./schedule/RecurrenceEditor.js";
 
 type Draft = {
   occ: Occurrence | null;
@@ -39,7 +43,11 @@ function nextHour(): string {
   return d.toISOString();
 }
 
-/** One-off occurrences of an event, with effective values and where they come from. Series arrive in milestone 3. */
+/**
+ * An event's schedule: its series, and every occurrence with effective values and where they
+ * come from. Series occurrences follow Outlook: edit this one (detaches it), this and
+ * following (splits the series), or the entire series.
+ */
 export function Occurrences({ event }: { event: CatalogEvent }) {
   const { t, i18n } = useTranslation();
   const { api, accountId } = useApp();
@@ -50,15 +58,36 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [toDelete, setToDelete] = useState<Occurrence | null>(null);
   const [conflict, setConflict] = useState(false);
+  const [editor, setEditor] = useState<EditorMode | null>(null);
+  const [seriesToDelete, setSeriesToDelete] = useState<Series | null>(null);
+  const [view, setView] = useState<"list" | "calendar">("list");
 
   const key = ["occurrences", accountId, event.id];
+  const seriesKey = ["series", accountId, event.id];
   const query = useQuery({
     queryKey: key,
-    queryFn: async () => unwrap(await api.GET("/v1/events/{id}/occurrences", { params: { path: { id: event.id }, query: { limit: 500 } } })).items,
+    queryFn: async () => {
+      // Every occurrence (an open-ended daily series has ~550 in 18 months), a page at a time.
+      const all: Occurrence[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = unwrap(await api.GET("/v1/events/{id}/occurrences", { params: { path: { id: event.id }, query: { limit: 500, cursor } } }));
+        all.push(...page.items);
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor && all.length < 10_000);
+      return all;
+    },
   });
+  const seriesQuery = useQuery({
+    queryKey: seriesKey,
+    queryFn: async () => unwrap(await api.GET("/v1/events/{id}/series", { params: { path: { id: event.id } } })).items,
+  });
+  const seriesById = new Map((seriesQuery.data ?? []).map((s) => [s.id, s]));
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: key });
+    void qc.invalidateQueries({ queryKey: seriesKey });
     void qc.invalidateQueries({ queryKey: ["events", accountId] });
+    void qc.invalidateQueries({ queryKey: ["audit", accountId] });
   };
   const onError = (e: Error) => isConflict(e) && setConflict(true);
 
@@ -109,7 +138,31 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
     onError,
   });
 
-  const error = [save.error, setStatus.error, remove.error].find((e) => e && !isConflict(e));
+  const settle = useMutation({
+    mutationFn: async ({ o, how }: { o: Occurrence; how: "keep" | "reattach" }) => {
+      const headers = { "If-Match": etagOf(o.version) };
+      return how === "keep"
+        ? unwrap(await api.PATCH("/v1/occurrences/{id}", { params: { path: { id: o.id } }, body: { conflict: false }, headers }))
+        : unwrap(await api.POST("/v1/occurrences/{id}/reattach", { params: { path: { id: o.id } }, headers }));
+    },
+    onSuccess: () => {
+      setDraft(null);
+      refresh();
+    },
+    onError,
+  });
+
+  const removeSeries = useMutation({
+    mutationFn: async (s: Series) => unwrap(await api.DELETE("/v1/series/{id}", { params: { path: { id: s.id } }, headers: { "If-Match": etagOf(s.version) } })),
+    onSuccess: (r) => {
+      setSeriesToDelete(null);
+      toast.success(t("series.deletedSummary", { deleted: r.changes.counts.deleted, kept: r.changes.counts.unchanged }));
+      refresh();
+    },
+    onError,
+  });
+
+  const error = [save.error, setStatus.error, remove.error, settle.error, removeSeries.error].find((e) => e && !isConflict(e));
   const fmt = (iso: string) => formatInZone(iso, event.timezone, i18n.language);
   const archived = event.status === "archived";
 
@@ -132,8 +185,20 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
       header: t("occurrences.when"),
       cell: ({ row }) => (
         <div className="whitespace-nowrap">
-          <div className={row.original.status === "cancelled" ? "line-through" : ""}>{fmt(row.original.startUtc)}</div>
+          <div className="flex items-center gap-1.5">
+            {row.original.seriesId && <Repeat className="size-3.5 text-muted-foreground" aria-label={t("series.badge.series")} />}
+            <span className={row.original.status === "cancelled" ? "line-through" : ""}>{fmt(row.original.startUtc)}</span>
+          </div>
           <div className="text-xs text-muted-foreground">→ {fmt(row.original.endUtc)}</div>
+          {(row.original.conflict || (row.original.seriesId && row.original.detached)) && (
+            <div className="mt-1 flex gap-1">
+              {row.original.conflict ? (
+                <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400"><TriangleAlert /> {t("series.badge.conflict")}</Badge>
+              ) : (
+                <Badge variant="outline">{t("series.badge.detached")}</Badge>
+              )}
+            </div>
+          )}
         </div>
       ),
     },
@@ -212,8 +277,50 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">{t("occurrences.timesIn", { tz: event.timezone })}</p>
+      <section aria-labelledby="series-heading" className="grid gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="series-heading" className="text-sm font-medium">{t("series.title")}</h2>
+          <Button variant="outline" onClick={() => setEditor({ kind: "create" })} disabled={archived}>
+            <Repeat /> {t("series.add")}
+          </Button>
+        </div>
+        {(seriesQuery.data ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t("series.empty")}</p>
+        ) : (
+          <ul className="grid gap-2">
+            {seriesQuery.data!.map((s) => (
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm">{describeRule(s.rrule, s.dtstartLocal, t, i18n.language)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("series.meta", { duration: s.durationMin, tz: s.timezone })}
+                    {!s.complete && ` · ${t("series.generatedUntil", { date: new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeZone: s.timezone }).format(new Date(s.generatedUntil)) })}`}
+                  </p>
+                </div>
+                <div className="flex">
+                  <Button variant="ghost" size="sm" disabled={archived} onClick={() => setEditor({ kind: "edit", series: s })}>
+                    <Pencil /> {t("series.editAll")}
+                  </Button>
+                  <Button variant="ghost" size="icon" aria-label={t("series.delete")} disabled={archived} onClick={() => setSeriesToDelete(s)}>
+                    <Trash2 />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+        <div className="flex items-center gap-3">
+          <Tabs value={view} onValueChange={(v) => setView(v as "list" | "calendar")}>
+            <TabsList>
+              <TabsTrigger value="list"><List /> {t("series.view.list")}</TabsTrigger>
+              <TabsTrigger value="calendar"><CalendarDays /> {t("series.view.calendar")}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <p className="text-sm text-muted-foreground">{t("occurrences.timesIn", { tz: event.timezone })}</p>
+        </div>
         <Button onClick={() => open(null)} disabled={archived}>
           <Plus /> {t("occurrences.add")}
         </Button>
@@ -224,7 +331,11 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
           <AlertDescription>{error.message}</AlertDescription>
         </Alert>
       )}
-      <DataTable columns={columns} data={query.data ?? []} loading={query.isLoading} empty={t("occurrences.empty")} getRowId={(r) => r.id} />
+      {view === "list" ? (
+        <DataTable columns={columns} data={query.data ?? []} loading={query.isLoading} empty={t("occurrences.empty")} getRowId={(r) => r.id} />
+      ) : (
+        <OccurrenceCalendar occurrences={query.data ?? []} timezone={event.timezone} title={eventTitleShort(event, i18n.language)} onSelect={(o) => !archived && open(o)} />
+      )}
 
       <Sheet open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
         <SheetContent className="sm:max-w-md">
@@ -241,6 +352,22 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
                 <SheetDescription>{t("occurrences.timesIn", { tz: event.timezone })}</SheetDescription>
               </SheetHeader>
               <div className="grid gap-4 px-4">
+                {draft.occ?.seriesId && seriesById.get(draft.occ.seriesId) && (
+                  <SeriesScope
+                    occ={draft.occ}
+                    series={seriesById.get(draft.occ.seriesId)!}
+                    busy={settle.isPending}
+                    onFollowing={(series, at) => {
+                      setDraft(null);
+                      setEditor({ kind: "split", series, at });
+                    }}
+                    onAll={(series) => {
+                      setDraft(null);
+                      setEditor({ kind: "edit", series });
+                    }}
+                    onSettle={(how) => settle.mutate({ o: draft.occ!, how })}
+                  />
+                )}
                 <Field label={t("occurrences.start")} htmlFor="occ-start">
                   <ZonedDateTimeField
                     id="occ-start"
@@ -287,7 +414,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("occurrences.deleteTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("occurrences.deleteBody")}</AlertDialogDescription>
+            <AlertDialogDescription>{toDelete?.seriesId ? t("series.deleteOccurrenceBody") : t("occurrences.deleteBody")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("conflict.cancel")}</AlertDialogCancel>
@@ -295,7 +422,77 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AlertDialog open={!!seriesToDelete} onOpenChange={(o) => !o && setSeriesToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("series.deleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("series.deleteBody")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("conflict.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => seriesToDelete && removeSeries.mutate(seriesToDelete)}>{t("common.delete")}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <RecurrenceEditor
+        event={event}
+        mode={editor}
+        onClose={() => setEditor(null)}
+        onSaved={() => {
+          setEditor(null);
+          refresh();
+        }}
+        onConflict={() => {
+          setEditor(null);
+          setConflict(true);
+        }}
+      />
       <ConflictDialog open={conflict} onOpenChange={setConflict} onReload={refresh} />
+    </div>
+  );
+}
+
+const eventTitleShort = (e: CatalogEvent, language: string) => e.translations[language]?.title ?? Object.values(e.translations)[0]?.title ?? e.slug;
+
+/** Outlook's choice for a series occurrence, plus how to settle a conflict. */
+function SeriesScope({ occ, series, busy, onFollowing, onAll, onSettle }: {
+  occ: Occurrence;
+  series: Series;
+  busy: boolean;
+  onFollowing(series: Series, at: string): void;
+  onAll(series: Series): void;
+  onSettle(how: "keep" | "reattach"): void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="grid gap-3">
+      {occ.conflict && (
+        <Alert className="border-amber-500">
+          <TriangleAlert />
+          <AlertDescription>
+            <p>{t("series.conflictHelp")}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onSettle("keep")}>{t("series.keep")}</Button>
+              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onSettle("reattach")}><Undo2 /> {t("series.reattach")}</Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      <Alert>
+        <Repeat />
+        <AlertDescription>
+          <p>{occ.detached ? t("series.thisDetached") : t("series.thisOnly")}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {occ.recurrenceIdLocal && (
+              <Button type="button" size="sm" variant="outline" onClick={() => onFollowing(series, occ.recurrenceIdLocal!)}>{t("series.editFollowing")}</Button>
+            )}
+            <Button type="button" size="sm" variant="outline" onClick={() => onAll(series)}>{t("series.editAll")}</Button>
+            {occ.detached && !occ.conflict && (
+              <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => onSettle("reattach")}><Undo2 /> {t("series.reattach")}</Button>
+            )}
+          </div>
+        </AlertDescription>
+      </Alert>
     </div>
   );
 }

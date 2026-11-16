@@ -140,7 +140,7 @@ var workerContainer = {
 
 // Prod: always one replica, since graphile-worker listens for new jobs (LISTEN/NOTIFY).
 // Staging: the worker runs inside the api app instead (see api above), and handles jobs while
-// a request keeps the api awake. Scheduled jobs (milestone 3) need a Container Apps cron job there.
+// a request keeps the api awake, so the nightly horizon job runs as a Container Apps cron job (below).
 resource worker 'Microsoft.App/containerApps@2024-03-01' = if (!workerAsSidecar) {
   name: 'ca-${name}-worker'
   location: location
@@ -184,6 +184,35 @@ resource migrate 'Microsoft.App/jobs@2024-03-01' = {
           { name: 'AZURE_CLIENT_ID', value: migratorIdentityClientId }
           { name: 'APP_DB_PRINCIPAL', value: appIdentityName }
         ]
+      }]
+    }
+  }
+}
+
+// Staging only: the series horizon (docs/mvp.md, 18 months ahead) without an always-on worker.
+// In prod the worker's own crontab runs the same job. Extending is idempotent, so overlap is harmless.
+resource horizon 'Microsoft.App/jobs@2024-03-01' = if (workerAsSidecar) {
+  name: 'caj-${name}-horizon'
+  location: location
+  tags: tags
+  identity: identity
+  properties: {
+    environmentId: environment.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      triggerType: 'Schedule'
+      replicaTimeout: 1800
+      replicaRetryLimit: 1
+      scheduleTriggerConfig: { cronExpression: '0 2 * * *', parallelism: 1, replicaCompletionCount: 1 }
+      registries: registries
+    }
+    template: {
+      containers: [{
+        name: 'horizon'
+        image: '${registryServer}/event-manager/worker:${imageTag}'
+        command: ['node', 'dist/cli/extend-horizons.js']
+        resources: { cpu: json('0.25'), memory: '0.5Gi' }
+        env: runtimeEnv
       }]
     }
   }

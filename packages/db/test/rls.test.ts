@@ -9,7 +9,7 @@ import { startTestDatabase, type TestDatabase } from "../src/testing.js";
 
 type Ids = {
   tenantA: string; tenantB: string; user: string; event: string;
-  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string;
+  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string;
 };
 type Fixture = (c: pg.ClientBase, tenantId: string, ids: Ids) => Promise<void>;
 
@@ -46,12 +46,15 @@ const fixtures: Record<string, Fixture> = {
   "catalog.occurrence": (c, t, ids) =>
     c.query(`insert into catalog.occurrence (id, tenant_id, event_id, start_utc, end_utc) values ($1, $2, $3, now(), now() + interval '1 hour')`,
       [ids.occurrence, t, ids.catalogEvent]).then(() => {}),
+  "catalog.series": (c, t, ids) =>
+    c.query(`insert into catalog.series (id, tenant_id, event_id, rrule, dtstart_local, duration_min, timezone, generated_until)
+              values ($1, $2, $3, 'FREQ=WEEKLY', '2027-01-04 14:00', 60, 'Europe/Oslo', now())`, [ids.series, t, ids.catalogEvent]).then(() => {}),
   "rules.effective_value": (c, t, ids) =>
     c.query(`insert into rules.effective_value (tenant_id, occurrence_id, field, value, source) values ($1, $2, 'location', 'null', 'default')`,
       [t, ids.occurrence]).then(() => {}),
 };
 
-const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID() });
+const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID() });
 
 let db: TestDatabase;
 let admin: pg.Client;

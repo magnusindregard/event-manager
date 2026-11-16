@@ -74,10 +74,10 @@
         "exec",
         "vite",
         "--port",
-        "5175",
+        "5173",
         "--strictPort"
       ],
-      "port": 5175
+      "port": 5173
     },
     {
       "name": "api-m2",
@@ -137,6 +137,21 @@
         "dev"
       ],
       "port": 3998
+    },
+    {
+      "name": "admin-dev",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_AUTH_MODE=dev",
+        "pnpm",
+        "--filter",
+        "@event-manager/admin",
+        "exec",
+        "vite",
+        "--port",
+        "5173"
+      ],
+      "port": 5173
     }
   ]
 }

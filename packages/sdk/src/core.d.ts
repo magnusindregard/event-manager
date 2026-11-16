@@ -352,12 +352,81 @@ export interface paths {
         get: operations["getOccurrence"];
         put?: never;
         post?: never;
-        /** Delete a one-off occurrence. Requires If-Match. */
+        /** Delete an occurrence. A series occurrence's slot is excluded from the series (EXDATE). Requires If-Match. */
         delete: operations["deleteOccurrence"];
         options?: never;
         head?: never;
-        /** Move, cancel or override one occurrence. Requires If-Match. */
+        /** Move, cancel or override one occurrence (Outlook "this occurrence"). Changing time or overrides detaches a series occurrence. Requires If-Match. */
         patch: operations["updateOccurrence"];
+        trace?: never;
+    };
+    "/v1/occurrences/{id}/reattach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Put a detached series occurrence back on its slot, without overrides. Requires If-Match. */
+        post: operations["reattachOccurrence"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/events/{id}/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listEventSeries"];
+        put?: never;
+        /** Add a recurring series; its occurrences are generated up to the account horizon. dryRun=true previews. */
+        post: operations["createSeries"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/series/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSeries"];
+        put?: never;
+        post?: never;
+        /** Delete a series. Upcoming occurrences go; past and hand-edited ones are kept as one-off occurrences. Requires If-Match. */
+        delete: operations["deleteSeries"];
+        options?: never;
+        head?: never;
+        /** Edit the entire series (Outlook). Upcoming occurrences follow the rule; detached ones stay and are flagged. dryRun=true previews. Requires If-Match. */
+        patch: operations["updateSeries"];
+        trace?: never;
+    };
+    "/v1/series/{id}/split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Edit this and following (Outlook): the series ends before the slot `at`, and a new series with the changes starts there. Returns the new series. dryRun=true previews. Requires If-Match. */
+        post: operations["splitSeries"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/api-keys": {
@@ -5071,6 +5140,7 @@ export interface operations {
             query: {
                 from?: string;
                 to?: string;
+                seriesId?: string;
                 cursor?: string;
                 limit: number;
             };
@@ -5095,12 +5165,16 @@ export interface operations {
                             /** Format: uuid */
                             eventId: string;
                             seriesId: string | null;
+                            recurrenceIdLocal: string | null;
                             /** Format: date-time */
                             startUtc: string;
                             /** Format: date-time */
                             endUtc: string;
                             status: "scheduled" | "cancelled";
+                            /** @description Edited by hand; the series no longer moves it */
                             detached: boolean;
+                            /** @description Detached, and a series change has since moved or removed its slot */
+                            conflict: boolean;
                             overrides: {
                                 locationId: string | null;
                                 externalUrl: string | null;
@@ -5264,12 +5338,16 @@ export interface operations {
                         /** Format: uuid */
                         eventId: string;
                         seriesId: string | null;
+                        recurrenceIdLocal: string | null;
                         /** Format: date-time */
                         startUtc: string;
                         /** Format: date-time */
                         endUtc: string;
                         status: "scheduled" | "cancelled";
+                        /** @description Edited by hand; the series no longer moves it */
                         detached: boolean;
+                        /** @description Detached, and a series change has since moved or removed its slot */
+                        conflict: boolean;
                         overrides: {
                             locationId: string | null;
                             externalUrl: string | null;
@@ -5508,12 +5586,16 @@ export interface operations {
                         /** Format: uuid */
                         eventId: string;
                         seriesId: string | null;
+                        recurrenceIdLocal: string | null;
                         /** Format: date-time */
                         startUtc: string;
                         /** Format: date-time */
                         endUtc: string;
                         status: "scheduled" | "cancelled";
+                        /** @description Edited by hand; the series no longer moves it */
                         detached: boolean;
+                        /** @description Detached, and a series change has since moved or removed its slot */
+                        conflict: boolean;
                         overrides: {
                             locationId: string | null;
                             externalUrl: string | null;
@@ -5861,6 +5943,11 @@ export interface operations {
                     locationOverrideId?: string | null;
                     externalUrlOverride?: string | null;
                     tagsOverride?: string[] | null;
+                    /**
+                     * @description Dismiss a series conflict and keep the occurrence as it is
+                     * @enum {boolean}
+                     */
+                    conflict?: false;
                 };
             };
         };
@@ -5877,12 +5964,16 @@ export interface operations {
                         /** Format: uuid */
                         eventId: string;
                         seriesId: string | null;
+                        recurrenceIdLocal: string | null;
                         /** Format: date-time */
                         startUtc: string;
                         /** Format: date-time */
                         endUtc: string;
                         status: "scheduled" | "cancelled";
+                        /** @description Edited by hand; the series no longer moves it */
                         detached: boolean;
+                        /** @description Detached, and a series change has since moved or removed its slot */
+                        conflict: boolean;
                         overrides: {
                             locationId: string | null;
                             externalUrl: string | null;
@@ -5909,6 +6000,1773 @@ export interface operations {
                         version: number;
                         /** Format: date-time */
                         updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    reattachOccurrence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        eventId: string;
+                        seriesId: string | null;
+                        recurrenceIdLocal: string | null;
+                        /** Format: date-time */
+                        startUtc: string;
+                        /** Format: date-time */
+                        endUtc: string;
+                        status: "scheduled" | "cancelled";
+                        /** @description Edited by hand; the series no longer moves it */
+                        detached: boolean;
+                        /** @description Detached, and a series change has since moved or removed its slot */
+                        conflict: boolean;
+                        overrides: {
+                            locationId: string | null;
+                            externalUrl: string | null;
+                            tagIds: string[] | null;
+                        };
+                        /** @description Resolved values with their source (default, rule or override) */
+                        effective: {
+                            location?: {
+                                value: string | null;
+                                source: "default" | "rule" | "override";
+                                ruleId: string | null;
+                            };
+                            tags?: {
+                                value: string[];
+                                source: "default" | "rule" | "override";
+                                ruleId: string | null;
+                            };
+                            externalUrl?: {
+                                value: string | null;
+                                source: "default" | "rule" | "override";
+                                ruleId: string | null;
+                            };
+                        };
+                        version: number;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    listEventSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            rrule: string;
+                            dtstartLocal: string;
+                            durationMin: number;
+                            timezone: string;
+                            /** @description Slots removed from the series, as local starts */
+                            exdates: string[];
+                            /**
+                             * Format: date-time
+                             * @description Occurrences exist up to here; open-ended series are extended nightly
+                             */
+                            generatedUntil: string;
+                            /** @description Every occurrence of the rule is generated */
+                            complete: boolean;
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    createSeries: {
+        parameters: {
+            query: {
+                /** @description Only report what would change (preview); nothing is saved */
+                dryRun: boolean;
+            };
+            header?: {
+                /** @description Makes the POST safe to retry for 24 hours */
+                "idempotency-key"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description RFC 5545 RRULE without DTSTART, e.g. FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=24. UNTIL is local time.
+                     * @example FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=24
+                     */
+                    rrule: string;
+                    /**
+                     * @description Local wall time in the series' timezone, no offset
+                     * @example 2027-01-04T14:00
+                     */
+                    dtstartLocal: string;
+                    /** @description Defaults to the event's default duration */
+                    durationMin?: number;
+                    /** @description IANA timezone; defaults to the event's */
+                    timezone?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description series is null in the preview of a series that does not exist yet */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        series: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            rrule: string;
+                            dtstartLocal: string;
+                            durationMin: number;
+                            timezone: string;
+                            /** @description Slots removed from the series, as local starts */
+                            exdates: string[];
+                            /**
+                             * Format: date-time
+                             * @description Occurrences exist up to here; open-ended series are extended nightly
+                             */
+                            generatedUntil: string;
+                            /** @description Every occurrence of the rule is generated */
+                            complete: boolean;
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        } | null;
+                        /** @description What the change does to occurrences. Lists hold at most 200 items; counts are exact. */
+                        changes: {
+                            counts: {
+                                created: number;
+                                moved: number;
+                                deleted: number;
+                                conflicts: number;
+                                unchanged: number;
+                            };
+                            created: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                            }[];
+                            moved: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                                /** Format: date-time */
+                                fromStartUtc: string;
+                                /** Format: date-time */
+                                fromEndUtc: string;
+                            }[];
+                            deleted: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                            }[];
+                            conflicts: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                                reason: "moved" | "removed";
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description series is null in the preview of a series that does not exist yet */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        series: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            rrule: string;
+                            dtstartLocal: string;
+                            durationMin: number;
+                            timezone: string;
+                            /** @description Slots removed from the series, as local starts */
+                            exdates: string[];
+                            /**
+                             * Format: date-time
+                             * @description Occurrences exist up to here; open-ended series are extended nightly
+                             */
+                            generatedUntil: string;
+                            /** @description Every occurrence of the rule is generated */
+                            complete: boolean;
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        } | null;
+                        /** @description What the change does to occurrences. Lists hold at most 200 items; counts are exact. */
+                        changes: {
+                            counts: {
+                                created: number;
+                                moved: number;
+                                deleted: number;
+                                conflicts: number;
+                                unchanged: number;
+                            };
+                            created: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                            }[];
+                            moved: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                                /** Format: date-time */
+                                fromStartUtc: string;
+                                /** Format: date-time */
+                                fromEndUtc: string;
+                            }[];
+                            deleted: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                            }[];
+                            conflicts: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                                reason: "moved" | "removed";
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    getSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        eventId: string;
+                        rrule: string;
+                        dtstartLocal: string;
+                        durationMin: number;
+                        timezone: string;
+                        /** @description Slots removed from the series, as local starts */
+                        exdates: string[];
+                        /**
+                         * Format: date-time
+                         * @description Occurrences exist up to here; open-ended series are extended nightly
+                         */
+                        generatedUntil: string;
+                        /** @description Every occurrence of the rule is generated */
+                        complete: boolean;
+                        version: number;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    deleteSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description What the change does to occurrences. Lists hold at most 200 items; counts are exact. */
+                        changes: {
+                            counts: {
+                                created: number;
+                                moved: number;
+                                deleted: number;
+                                conflicts: number;
+                                unchanged: number;
+                            };
+                            created: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                            }[];
+                            moved: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                                /** Format: date-time */
+                                fromStartUtc: string;
+                                /** Format: date-time */
+                                fromEndUtc: string;
+                            }[];
+                            deleted: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                            }[];
+                            conflicts: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                                reason: "moved" | "removed";
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    updateSeries: {
+        parameters: {
+            query: {
+                /** @description Only report what would change (preview); nothing is saved */
+                dryRun: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description RFC 5545 RRULE without DTSTART, e.g. FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=24. UNTIL is local time.
+                     * @example FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=24
+                     */
+                    rrule?: string;
+                    /**
+                     * @description Local wall time in the series' timezone, no offset
+                     * @example 2027-01-04T14:00
+                     */
+                    dtstartLocal?: string;
+                    /** @description Defaults to the event's default duration */
+                    durationMin?: number;
+                    /** @description IANA timezone; defaults to the event's */
+                    timezone?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description series is null in the preview of a series that does not exist yet */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        series: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            rrule: string;
+                            dtstartLocal: string;
+                            durationMin: number;
+                            timezone: string;
+                            /** @description Slots removed from the series, as local starts */
+                            exdates: string[];
+                            /**
+                             * Format: date-time
+                             * @description Occurrences exist up to here; open-ended series are extended nightly
+                             */
+                            generatedUntil: string;
+                            /** @description Every occurrence of the rule is generated */
+                            complete: boolean;
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        } | null;
+                        /** @description What the change does to occurrences. Lists hold at most 200 items; counts are exact. */
+                        changes: {
+                            counts: {
+                                created: number;
+                                moved: number;
+                                deleted: number;
+                                conflicts: number;
+                                unchanged: number;
+                            };
+                            created: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                            }[];
+                            moved: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                                /** Format: date-time */
+                                fromStartUtc: string;
+                                /** Format: date-time */
+                                fromEndUtc: string;
+                            }[];
+                            deleted: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                            }[];
+                            conflicts: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                                reason: "moved" | "removed";
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    splitSeries: {
+        parameters: {
+            query: {
+                /** @description Only report what would change (preview); nothing is saved */
+                dryRun: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description The slot (recurrenceIdLocal) the new series starts at
+                     * @example 2027-01-04T14:00
+                     */
+                    at: string;
+                    /**
+                     * @description RFC 5545 RRULE without DTSTART, e.g. FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=24. UNTIL is local time.
+                     * @example FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=24
+                     */
+                    rrule?: string;
+                    /**
+                     * @description Local wall time in the series' timezone, no offset
+                     * @example 2027-01-04T14:00
+                     */
+                    dtstartLocal?: string;
+                    /** @description Defaults to the event's default duration */
+                    durationMin?: number;
+                    /** @description IANA timezone; defaults to the event's */
+                    timezone?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description series is null in the preview of a series that does not exist yet */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        series: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            rrule: string;
+                            dtstartLocal: string;
+                            durationMin: number;
+                            timezone: string;
+                            /** @description Slots removed from the series, as local starts */
+                            exdates: string[];
+                            /**
+                             * Format: date-time
+                             * @description Occurrences exist up to here; open-ended series are extended nightly
+                             */
+                            generatedUntil: string;
+                            /** @description Every occurrence of the rule is generated */
+                            complete: boolean;
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        } | null;
+                        /** @description What the change does to occurrences. Lists hold at most 200 items; counts are exact. */
+                        changes: {
+                            counts: {
+                                created: number;
+                                moved: number;
+                                deleted: number;
+                                conflicts: number;
+                                unchanged: number;
+                            };
+                            created: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                            }[];
+                            moved: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                                /** Format: date-time */
+                                fromStartUtc: string;
+                                /** Format: date-time */
+                                fromEndUtc: string;
+                            }[];
+                            deleted: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                            }[];
+                            conflicts: {
+                                occurrenceId: string | null;
+                                recurrenceIdLocal: string | null;
+                                /** Format: date-time */
+                                startUtc: string;
+                                /** Format: date-time */
+                                endUtc: string;
+                                reason: "moved" | "removed";
+                            }[];
+                        };
                     };
                 };
             };

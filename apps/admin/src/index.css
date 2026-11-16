@@ -111,3 +111,28 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* FullCalendar (schedule tab), mapped onto the design tokens. */
+.em-calendar {
+  --fc-border-color: var(--border);
+  --fc-page-bg-color: var(--background);
+  --fc-neutral-bg-color: var(--muted);
+  --fc-today-bg-color: var(--accent);
+  --fc-event-bg-color: var(--primary);
+  --fc-event-border-color: var(--primary);
+  --fc-event-text-color: var(--primary-foreground);
+  --fc-button-bg-color: var(--background);
+  --fc-button-border-color: var(--border);
+  --fc-button-text-color: var(--foreground);
+  --fc-button-hover-bg-color: var(--accent);
+  --fc-button-hover-border-color: var(--border);
+  --fc-button-active-bg-color: var(--secondary);
+  --fc-button-active-border-color: var(--border);
+  font-size: 0.875rem;
+}
+.em-calendar .fc .fc-toolbar-title { font-size: 1rem; font-weight: 600; }
+.em-calendar .fc .fc-button { font-size: 0.8125rem; text-transform: none; box-shadow: none; }
+.em-calendar .em-occ { cursor: pointer; }
+.em-calendar .em-occ-cancelled { opacity: 0.55; text-decoration: line-through; }
+.em-calendar .em-occ-detached { outline: 2px dashed var(--ring); outline-offset: -2px; }
+.em-calendar .em-occ-conflict { outline: 2px solid oklch(0.75 0.17 70); outline-offset: -2px; }

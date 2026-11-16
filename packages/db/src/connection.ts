@@ -5,12 +5,30 @@ import pg from "pg";
 // DATABASE_AUTH=entra; the user in DATABASE_URL is the identity's Postgres principal name.
 const ENTRA_SCOPE = "https://ossrdbms-aad.database.windows.net/.default";
 
+// timestamp (without time zone) holds floating local wall time (series slots). node-pg would
+// read it in the process's timezone; keep it as an ISO string "YYYY-MM-DDTHH:mm:ss" instead.
+const TIMESTAMP = 1114;
+const TIMESTAMP_ARRAY = 1115;
+const TEXT_ARRAY = 1009;
+const localIso = (s: string) => s.replace(" ", "T").replace(/\.\d+$/, "");
+const types = {
+  getTypeParser(oid: number, format?: "text" | "binary") {
+    if (oid === TIMESTAMP) return localIso;
+    if (oid === TIMESTAMP_ARRAY) {
+      const parseArray = pg.types.getTypeParser(TEXT_ARRAY as never) as (s: string) => string[];
+      return (s: string) => parseArray(s).map(localIso);
+    }
+    return pg.types.getTypeParser(oid as never, format as "text");
+  },
+} as pg.CustomTypesConfig;
+
 export function poolConfig(connectionString: string, max: number): pg.PoolConfig {
-  if (process.env.DATABASE_AUTH !== "entra") return { connectionString, max };
+  if (process.env.DATABASE_AUTH !== "entra") return { connectionString, max, types };
   let credential: { getToken(scope: string): Promise<{ token: string } | null> } | undefined;
   return {
     connectionString,
     max,
+    types,
     ssl: { rejectUnauthorized: true },
     password: async () => {
       if (!credential) {
