@@ -1,14 +1,15 @@
 import type { Tx } from "@event-manager/db";
 import type { outbox } from "@event-manager/domain";
 import { enqueueProvisioning } from "./provision.js";
+import { queueResolution } from "./resolver.js";
 
 /**
  * Internal consumers of domain events (ADR 0008). Each runs in the event's tenant
  * transaction and must be idempotent; claimHandling guarantees at-most-once per
  * handler even though dispatch is at-least-once.
  *
- * Milestone 2+ adds: resolver (effective values), cache purge. Webhook delivery
- * subscribes here later without touching core modules.
+ * The resolver queues effective-value resolution for large events (milestone 4). Cache
+ * purge and webhook delivery subscribe here later without touching core modules.
  */
 export interface InternalHandler {
   name: string;
@@ -29,4 +30,4 @@ export const auditTrailHandler: InternalHandler = {
   },
 };
 
-export const defaultHandlers: InternalHandler[] = [auditTrailHandler, enqueueProvisioning];
+export const defaultHandlers: InternalHandler[] = [auditTrailHandler, enqueueProvisioning, queueResolution];

@@ -10,10 +10,13 @@ const ENTRA_SCOPE = "https://ossrdbms-aad.database.windows.net/.default";
 const TIMESTAMP = 1114;
 const TIMESTAMP_ARRAY = 1115;
 const TEXT_ARRAY = 1009;
+// date (rule date ranges) stays "YYYY-MM-DD"; node-pg would make it local midnight.
+const DATE = 1082;
 const localIso = (s: string) => s.replace(" ", "T").replace(/\.\d+$/, "");
 const types = {
   getTypeParser(oid: number, format?: "text" | "binary") {
     if (oid === TIMESTAMP) return localIso;
+    if (oid === DATE) return (s: string) => s;
     if (oid === TIMESTAMP_ARRAY) {
       const parseArray = pg.types.getTypeParser(TEXT_ARRAY as never) as (s: string) => string[];
       return (s: string) => parseArray(s).map(localIso);

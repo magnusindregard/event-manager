@@ -1,9 +1,9 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
-import { Type } from "typebox";
+import { type Static, Type } from "typebox";
 import { catalog } from "@event-manager/domain";
 import {
   Event, EventCreate, EventPatch, EventStatus, EventSummary, Location, LocationCreate, LocationPatch, Occurrence,
-  OccurrenceCreate, OccurrencePatch, Page, Problem, Series, SeriesChangeResult, SeriesChanges, SeriesCreate, SeriesPatch, SeriesSplit, Tag, TagCreate, TagPatch, TagVocabulary, TagVocabularyCreate,
+  OccurrenceBulkUpdate, OccurrenceCreate, OccurrencePatch, Page, Problem, Rule, RuleChangeResult, RuleCreate, RuleEffect, RulePatch, Series, SeriesChangeResult, SeriesChanges, SeriesCreate, SeriesPatch, SeriesSplit, Tag, TagCreate, TagPatch, TagVocabulary, TagVocabularyCreate,
   TagVocabularyPatch, Uuid,
 } from "@event-manager/schemas";
 import { inTenant } from "../plugins/context.js";
@@ -34,6 +34,19 @@ const changesDto = (c: catalog.SeriesChanges) => ({
   conflicts: c.conflicts.map(slotDto),
 });
 const changeResultDto = (r: catalog.SeriesChangeResult) => ({ series: r.series ? seriesDto(r.series) : null, changes: changesDto(r.changes) });
+const ruleDto = (r: catalog.Rule) => ({
+  id: r.id, eventId: r.eventId, name: r.name, priority: r.priority, active: r.active, conditions: r.conditions,
+  effects: r.effects as Static<typeof RuleEffect>[], version: r.version, createdAt: iso(r.createdAt), updatedAt: iso(r.updatedAt),
+});
+const ruleResultDto = (r: catalog.RuleChangeResult) => ({
+  rule: r.rule ? ruleDto(r.rule) : null,
+  resolution: r.resolution,
+  preview: {
+    counts: r.preview.counts,
+    changes: r.preview.changes.map((c) => ({ ...c, startUtc: iso(c.startUtc) })),
+    conflicts: r.preview.conflicts.map((c) => ({ ...c, startUtc: iso(c.startUtc) })),
+  },
+});
 const DryRun = Type.Object({ dryRun: Type.Boolean({ default: false, description: "Only report what would change (preview); nothing is saved" }) });
 const date = (s: string | undefined) => (s === undefined ? undefined : new Date(s));
 
@@ -294,6 +307,97 @@ export const catalogRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const o = await inTenant(app, req, (tx, ctx) => catalog.reattachOccurrence(tx, ctx, req.params.id, v));
       setEtag(reply, o.version);
       return occurrenceDto(o);
+    },
+  );
+
+  app.post(
+    "/events/:id/occurrences/bulk-update",
+    {
+      schema: {
+        operationId: "bulkUpdateOccurrences", tags: ["occurrences"], ...accountScoped,
+        summary: "Set the same overrides or status on up to 1000 occurrences of the event. All or nothing: 412 if any version is stale. Overrides detach series occurrences.",
+        params: IdParams, body: OccurrenceBulkUpdate, response: { 200: Type.Object({ items: Type.Array(Occurrence) }), ...writeErrors },
+      },
+    },
+    async (req) => {
+      const items = await inTenant(app, req, (tx, ctx) => catalog.bulkUpdateOccurrences(tx, ctx, req.params.id, req.body.items, req.body.set));
+      return { items: items.map(occurrenceDto) };
+    },
+  );
+
+  // ── Rules ────────────────────────────────────────────────────────────────────
+  app.get(
+    "/events/:id/rules",
+    { schema: { operationId: "listEventRules", tags: ["rules"], ...accountScoped, summary: "The event's rules in resolution order", params: IdParams, response: { 200: Type.Object({ items: Type.Array(Rule) }), ...errors } } },
+    async (req) => ({
+      items: (await inTenant(app, req, async (tx) => {
+        await catalog.getEvent(tx, req.params.id);
+        return catalog.listRules(tx, req.params.id);
+      })).map(ruleDto),
+    }),
+  );
+
+  app.post(
+    "/events/:id/rules",
+    {
+      schema: {
+        operationId: "createRule", tags: ["rules"], ...accountScoped,
+        summary: "Add a rule; the event's occurrences are resolved again. dryRun=true previews.",
+        params: IdParams, querystring: DryRun, headers: idempotencyHeader, body: RuleCreate,
+        response: { 200: RuleChangeResult, 201: RuleChangeResult, ...writeErrors },
+      },
+    },
+    async (req, reply) => {
+      if (req.query.dryRun) {
+        return ruleResultDto(await inTenant(app, req, (tx, ctx) => catalog.createRule(tx, ctx, req.params.id, req.body, { dryRun: true })));
+      }
+      const r = await inTenant(app, req, (tx, ctx) =>
+        idempotent(tx, req, ctx.tenantId, 201, async () => ruleResultDto(await catalog.createRule(tx, ctx, req.params.id, req.body))),
+      );
+      setEtag(reply, (r.body as { rule: { version: number } }).rule.version);
+      return reply.status(r.status).send(r.body as never);
+    },
+  );
+
+  app.get(
+    "/rules/:id",
+    { schema: { operationId: "getRule", tags: ["rules"], ...accountScoped, params: IdParams, response: { 200: Rule, ...errors } } },
+    async (req, reply) => {
+      const r = await inTenant(app, req, (tx) => catalog.getRule(tx, req.params.id));
+      setEtag(reply, r.version);
+      return ruleDto(r);
+    },
+  );
+
+  app.patch(
+    "/rules/:id",
+    {
+      schema: {
+        operationId: "updateRule", tags: ["rules"], ...accountScoped,
+        summary: "Edit a rule; the event's occurrences are resolved again. dryRun=true previews. Requires If-Match.",
+        params: IdParams, querystring: DryRun, body: RulePatch, response: { 200: RuleChangeResult, ...writeErrors },
+      },
+    },
+    async (req, reply) => {
+      const v = expectedVersion(req);
+      const r = await inTenant(app, req, (tx, ctx) => catalog.updateRule(tx, ctx, req.params.id, v, req.body, { dryRun: req.query.dryRun }));
+      if (r.rule && !req.query.dryRun) setEtag(reply, r.rule.version);
+      return ruleResultDto(r);
+    },
+  );
+
+  app.delete(
+    "/rules/:id",
+    {
+      schema: {
+        operationId: "deleteRule", tags: ["rules"], ...accountScoped,
+        summary: "Delete a rule; its occurrences fall back to other rules or the event default. dryRun=true previews. Requires If-Match.",
+        params: IdParams, querystring: DryRun, response: { 200: RuleChangeResult, ...writeErrors },
+      },
+    },
+    async (req) => {
+      const v = expectedVersion(req);
+      return ruleResultDto(await inTenant(app, req, (tx, ctx) => catalog.deleteRule(tx, ctx, req.params.id, v, { dryRun: req.query.dryRun })));
     },
   );
 

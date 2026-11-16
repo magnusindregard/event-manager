@@ -377,6 +377,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/events/{id}/occurrences/bulk-update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set the same overrides or status on up to 1000 occurrences of the event. All or nothing: 412 if any version is stale. Overrides detach series occurrences. */
+        post: operations["bulkUpdateOccurrences"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/events/{id}/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The event's rules in resolution order */
+        get: operations["listEventRules"];
+        put?: never;
+        /** Add a rule; the event's occurrences are resolved again. dryRun=true previews. */
+        post: operations["createRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRule"];
+        put?: never;
+        post?: never;
+        /** Delete a rule; its occurrences fall back to other rules or the event default. dryRun=true previews. Requires If-Match. */
+        delete: operations["deleteRule"];
+        options?: never;
+        head?: never;
+        /** Edit a rule; the event's occurrences are resolved again. dryRun=true previews. Requires If-Match. */
+        patch: operations["updateRule"];
+        trace?: never;
+    };
     "/v1/events/{id}/series": {
         parameters: {
             query?: never;
@@ -6248,6 +6301,1642 @@ export interface operations {
                         version: number;
                         /** Format: date-time */
                         updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    bulkUpdateOccurrences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    items: {
+                        /** Format: uuid */
+                        id: string;
+                        /** @description As in the occurrence's ETag */
+                        version: number;
+                    }[];
+                    /** @description Applied to every occurrence. null clears an override. */
+                    set: {
+                        locationOverrideId?: string | null;
+                        externalUrlOverride?: string | null;
+                        tagsOverride?: string[] | null;
+                        status?: "scheduled" | "cancelled";
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            seriesId: string | null;
+                            recurrenceIdLocal: string | null;
+                            /** Format: date-time */
+                            startUtc: string;
+                            /** Format: date-time */
+                            endUtc: string;
+                            status: "scheduled" | "cancelled";
+                            /** @description Edited by hand; the series no longer moves it */
+                            detached: boolean;
+                            /** @description Detached, and a series change has since moved or removed its slot */
+                            conflict: boolean;
+                            overrides: {
+                                locationId: string | null;
+                                externalUrl: string | null;
+                                tagIds: string[] | null;
+                            };
+                            /** @description Resolved values with their source (default, rule or override) */
+                            effective: {
+                                location?: {
+                                    value: string | null;
+                                    source: "default" | "rule" | "override";
+                                    ruleId: string | null;
+                                };
+                                tags?: {
+                                    value: string[];
+                                    source: "default" | "rule" | "override";
+                                    ruleId: string | null;
+                                };
+                                externalUrl?: {
+                                    value: string | null;
+                                    source: "default" | "rule" | "override";
+                                    ruleId: string | null;
+                                };
+                            };
+                            version: number;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    listEventRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            name: string;
+                            /** @description Higher wins; on equal priority the older rule wins and the tie is reported */
+                            priority: number;
+                            active: boolean;
+                            /** @description On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to). */
+                            conditions: {
+                                dateFrom: string | null;
+                                dateTo: string | null;
+                                weekdays: number[] | null;
+                                startTimeFrom: string | null;
+                                startTimeTo: string | null;
+                            };
+                            effects: ({
+                                /** @enum {string} */
+                                type: "location";
+                                targetRef?: null;
+                                /** Format: uuid */
+                                value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "tags";
+                                targetRef?: null;
+                                value: {
+                                    add?: string[];
+                                    remove?: string[];
+                                };
+                            } | {
+                                /** @enum {string} */
+                                type: "externalUrl";
+                                targetRef?: null;
+                                value: string;
+                            })[];
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    createRule: {
+        parameters: {
+            query: {
+                /** @description Only report what would change (preview); nothing is saved */
+                dryRun: boolean;
+            };
+            header?: {
+                /** @description Makes the POST safe to retry for 24 hours */
+                "idempotency-key"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** @default 0 */
+                    priority?: number;
+                    /** @default true */
+                    active?: boolean;
+                    conditions?: {
+                        dateFrom?: string | null;
+                        dateTo?: string | null;
+                        weekdays?: number[] | null;
+                        startTimeFrom?: string | null;
+                        startTimeTo?: string | null;
+                    };
+                    effects: ({
+                        /** @enum {string} */
+                        type: "location";
+                        /** Format: uuid */
+                        value: string;
+                    } | {
+                        /** @enum {string} */
+                        type: "tags";
+                        value: {
+                            add?: string[];
+                            remove?: string[];
+                        };
+                    } | {
+                        /** @enum {string} */
+                        type: "externalUrl";
+                        value: string;
+                    })[];
+                };
+            };
+        };
+        responses: {
+            /** @description rule is null in the preview of a new rule and after a delete */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rule: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            name: string;
+                            /** @description Higher wins; on equal priority the older rule wins and the tie is reported */
+                            priority: number;
+                            active: boolean;
+                            /** @description On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to). */
+                            conditions: {
+                                dateFrom: string | null;
+                                dateTo: string | null;
+                                weekdays: number[] | null;
+                                startTimeFrom: string | null;
+                                startTimeTo: string | null;
+                            };
+                            effects: ({
+                                /** @enum {string} */
+                                type: "location";
+                                targetRef?: null;
+                                /** Format: uuid */
+                                value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "tags";
+                                targetRef?: null;
+                                value: {
+                                    add?: string[];
+                                    remove?: string[];
+                                };
+                            } | {
+                                /** @enum {string} */
+                                type: "externalUrl";
+                                targetRef?: null;
+                                value: string;
+                            })[];
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        } | null;
+                        /** @description What the change does to the event's occurrences. Lists hold at most 200 items; counts are exact. */
+                        preview: {
+                            counts: {
+                                /** @description Occurrences meeting the rule's conditions */
+                                matched: number;
+                                /** @description Occurrences whose effective values change */
+                                changed: number;
+                                /** @description Matched occurrences where an override keeps a field the rule sets */
+                                overridden: number;
+                                /** @description Occurrences where the rule ties with another rule of the same priority */
+                                conflicts: number;
+                            };
+                            changes: {
+                                /** Format: uuid */
+                                occurrenceId: string;
+                                /** Format: date-time */
+                                startUtc: string;
+                                fields: {
+                                    field: "location" | "tags" | "externalUrl";
+                                    from: {
+                                        value: unknown;
+                                        source: "default" | "rule" | "override";
+                                        ruleId: string | null;
+                                    };
+                                    to: {
+                                        value: unknown;
+                                        source: "default" | "rule" | "override";
+                                        ruleId: string | null;
+                                    };
+                                }[];
+                            }[];
+                            conflicts: {
+                                /** Format: uuid */
+                                occurrenceId: string;
+                                /** Format: date-time */
+                                startUtc: string;
+                                field: "location" | "tags" | "externalUrl";
+                                /** @description The winner first */
+                                ruleIds: string[];
+                            }[];
+                        };
+                        /** @description done: effective values are updated. queued: the worker updates them within seconds. none: nothing changes. */
+                        resolution: "done" | "queued" | "none";
+                    };
+                };
+            };
+            /** @description rule is null in the preview of a new rule and after a delete */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rule: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            name: string;
+                            /** @description Higher wins; on equal priority the older rule wins and the tie is reported */
+                            priority: number;
+                            active: boolean;
+                            /** @description On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to). */
+                            conditions: {
+                                dateFrom: string | null;
+                                dateTo: string | null;
+                                weekdays: number[] | null;
+                                startTimeFrom: string | null;
+                                startTimeTo: string | null;
+                            };
+                            effects: ({
+                                /** @enum {string} */
+                                type: "location";
+                                targetRef?: null;
+                                /** Format: uuid */
+                                value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "tags";
+                                targetRef?: null;
+                                value: {
+                                    add?: string[];
+                                    remove?: string[];
+                                };
+                            } | {
+                                /** @enum {string} */
+                                type: "externalUrl";
+                                targetRef?: null;
+                                value: string;
+                            })[];
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        } | null;
+                        /** @description What the change does to the event's occurrences. Lists hold at most 200 items; counts are exact. */
+                        preview: {
+                            counts: {
+                                /** @description Occurrences meeting the rule's conditions */
+                                matched: number;
+                                /** @description Occurrences whose effective values change */
+                                changed: number;
+                                /** @description Matched occurrences where an override keeps a field the rule sets */
+                                overridden: number;
+                                /** @description Occurrences where the rule ties with another rule of the same priority */
+                                conflicts: number;
+                            };
+                            changes: {
+                                /** Format: uuid */
+                                occurrenceId: string;
+                                /** Format: date-time */
+                                startUtc: string;
+                                fields: {
+                                    field: "location" | "tags" | "externalUrl";
+                                    from: {
+                                        value: unknown;
+                                        source: "default" | "rule" | "override";
+                                        ruleId: string | null;
+                                    };
+                                    to: {
+                                        value: unknown;
+                                        source: "default" | "rule" | "override";
+                                        ruleId: string | null;
+                                    };
+                                }[];
+                            }[];
+                            conflicts: {
+                                /** Format: uuid */
+                                occurrenceId: string;
+                                /** Format: date-time */
+                                startUtc: string;
+                                field: "location" | "tags" | "externalUrl";
+                                /** @description The winner first */
+                                ruleIds: string[];
+                            }[];
+                        };
+                        /** @description done: effective values are updated. queued: the worker updates them within seconds. none: nothing changes. */
+                        resolution: "done" | "queued" | "none";
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    getRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        eventId: string;
+                        name: string;
+                        /** @description Higher wins; on equal priority the older rule wins and the tie is reported */
+                        priority: number;
+                        active: boolean;
+                        /** @description On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to). */
+                        conditions: {
+                            dateFrom: string | null;
+                            dateTo: string | null;
+                            weekdays: number[] | null;
+                            startTimeFrom: string | null;
+                            startTimeTo: string | null;
+                        };
+                        effects: ({
+                            /** @enum {string} */
+                            type: "location";
+                            targetRef?: null;
+                            /** Format: uuid */
+                            value: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "tags";
+                            targetRef?: null;
+                            value: {
+                                add?: string[];
+                                remove?: string[];
+                            };
+                        } | {
+                            /** @enum {string} */
+                            type: "externalUrl";
+                            targetRef?: null;
+                            value: string;
+                        })[];
+                        version: number;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    deleteRule: {
+        parameters: {
+            query: {
+                /** @description Only report what would change (preview); nothing is saved */
+                dryRun: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description rule is null in the preview of a new rule and after a delete */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rule: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            name: string;
+                            /** @description Higher wins; on equal priority the older rule wins and the tie is reported */
+                            priority: number;
+                            active: boolean;
+                            /** @description On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to). */
+                            conditions: {
+                                dateFrom: string | null;
+                                dateTo: string | null;
+                                weekdays: number[] | null;
+                                startTimeFrom: string | null;
+                                startTimeTo: string | null;
+                            };
+                            effects: ({
+                                /** @enum {string} */
+                                type: "location";
+                                targetRef?: null;
+                                /** Format: uuid */
+                                value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "tags";
+                                targetRef?: null;
+                                value: {
+                                    add?: string[];
+                                    remove?: string[];
+                                };
+                            } | {
+                                /** @enum {string} */
+                                type: "externalUrl";
+                                targetRef?: null;
+                                value: string;
+                            })[];
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        } | null;
+                        /** @description What the change does to the event's occurrences. Lists hold at most 200 items; counts are exact. */
+                        preview: {
+                            counts: {
+                                /** @description Occurrences meeting the rule's conditions */
+                                matched: number;
+                                /** @description Occurrences whose effective values change */
+                                changed: number;
+                                /** @description Matched occurrences where an override keeps a field the rule sets */
+                                overridden: number;
+                                /** @description Occurrences where the rule ties with another rule of the same priority */
+                                conflicts: number;
+                            };
+                            changes: {
+                                /** Format: uuid */
+                                occurrenceId: string;
+                                /** Format: date-time */
+                                startUtc: string;
+                                fields: {
+                                    field: "location" | "tags" | "externalUrl";
+                                    from: {
+                                        value: unknown;
+                                        source: "default" | "rule" | "override";
+                                        ruleId: string | null;
+                                    };
+                                    to: {
+                                        value: unknown;
+                                        source: "default" | "rule" | "override";
+                                        ruleId: string | null;
+                                    };
+                                }[];
+                            }[];
+                            conflicts: {
+                                /** Format: uuid */
+                                occurrenceId: string;
+                                /** Format: date-time */
+                                startUtc: string;
+                                field: "location" | "tags" | "externalUrl";
+                                /** @description The winner first */
+                                ruleIds: string[];
+                            }[];
+                        };
+                        /** @description done: effective values are updated. queued: the worker updates them within seconds. none: nothing changes. */
+                        resolution: "done" | "queued" | "none";
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    updateRule: {
+        parameters: {
+            query: {
+                /** @description Only report what would change (preview); nothing is saved */
+                dryRun: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string;
+                    priority?: number;
+                    active?: boolean;
+                    /** @description Given conditions replace the stored ones; others are kept */
+                    conditions?: {
+                        dateFrom?: string | null;
+                        dateTo?: string | null;
+                        weekdays?: number[] | null;
+                        startTimeFrom?: string | null;
+                        startTimeTo?: string | null;
+                    };
+                    effects?: ({
+                        /** @enum {string} */
+                        type: "location";
+                        /** Format: uuid */
+                        value: string;
+                    } | {
+                        /** @enum {string} */
+                        type: "tags";
+                        value: {
+                            add?: string[];
+                            remove?: string[];
+                        };
+                    } | {
+                        /** @enum {string} */
+                        type: "externalUrl";
+                        value: string;
+                    })[];
+                };
+            };
+        };
+        responses: {
+            /** @description rule is null in the preview of a new rule and after a delete */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rule: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            name: string;
+                            /** @description Higher wins; on equal priority the older rule wins and the tie is reported */
+                            priority: number;
+                            active: boolean;
+                            /** @description On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to). */
+                            conditions: {
+                                dateFrom: string | null;
+                                dateTo: string | null;
+                                weekdays: number[] | null;
+                                startTimeFrom: string | null;
+                                startTimeTo: string | null;
+                            };
+                            effects: ({
+                                /** @enum {string} */
+                                type: "location";
+                                targetRef?: null;
+                                /** Format: uuid */
+                                value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "tags";
+                                targetRef?: null;
+                                value: {
+                                    add?: string[];
+                                    remove?: string[];
+                                };
+                            } | {
+                                /** @enum {string} */
+                                type: "externalUrl";
+                                targetRef?: null;
+                                value: string;
+                            })[];
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        } | null;
+                        /** @description What the change does to the event's occurrences. Lists hold at most 200 items; counts are exact. */
+                        preview: {
+                            counts: {
+                                /** @description Occurrences meeting the rule's conditions */
+                                matched: number;
+                                /** @description Occurrences whose effective values change */
+                                changed: number;
+                                /** @description Matched occurrences where an override keeps a field the rule sets */
+                                overridden: number;
+                                /** @description Occurrences where the rule ties with another rule of the same priority */
+                                conflicts: number;
+                            };
+                            changes: {
+                                /** Format: uuid */
+                                occurrenceId: string;
+                                /** Format: date-time */
+                                startUtc: string;
+                                fields: {
+                                    field: "location" | "tags" | "externalUrl";
+                                    from: {
+                                        value: unknown;
+                                        source: "default" | "rule" | "override";
+                                        ruleId: string | null;
+                                    };
+                                    to: {
+                                        value: unknown;
+                                        source: "default" | "rule" | "override";
+                                        ruleId: string | null;
+                                    };
+                                }[];
+                            }[];
+                            conflicts: {
+                                /** Format: uuid */
+                                occurrenceId: string;
+                                /** Format: date-time */
+                                startUtc: string;
+                                field: "location" | "tags" | "externalUrl";
+                                /** @description The winner first */
+                                ruleIds: string[];
+                            }[];
+                        };
+                        /** @description done: effective values are updated. queued: the worker updates them within seconds. none: nothing changes. */
+                        resolution: "done" | "queued" | "none";
                     };
                 };
             };

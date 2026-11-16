@@ -3,7 +3,7 @@ import { emit } from "../outbox/index.js";
 import { type ActorContext, DomainError } from "../shared/index.js";
 import { assertCan, diffFields, getAccount, isValidTimezone, recordAudit } from "../tenancy/index.js";
 import { assertUsableLocation } from "./locations.js";
-import { resolveEventOccurrences } from "./resolve.js";
+import { resolveEventSoon } from "./resolve.js";
 import { assertUrl, invalid, notFound, pgCode, SLUG_RE, slugify, versionConflict } from "./shared.js";
 import { assertUsableTags } from "./tags.js";
 
@@ -314,9 +314,13 @@ export async function updateEvent(tx: Tx, ctx: ActorContext, id: string, expecte
 
   const after = await getEvent(tx, id);
   const diff = diffFields(before as unknown as Record<string, unknown>, patch as Record<string, unknown>);
-  if (DEFAULT_FIELDS.some((f) => f in diff)) await resolveEventOccurrences(tx, id);
+  // Rules match on local time, so a timezone change can change which rules apply.
+  const resolution = DEFAULT_FIELDS.some((f) => f in diff) || "timezone" in diff ? await resolveEventSoon(tx, id) : undefined;
   await recordAudit(tx, ctx, { action: "event.updated", entityType: "event", entityId: id, diff });
-  await emit(tx, ctx.tenantId, { type: "event.changed.v1", subject: `event/${id}`, data: { id, change: "updated", changed: Object.keys(diff) } });
+  await emit(tx, ctx.tenantId, {
+    type: "event.changed.v1", subject: `event/${id}`,
+    data: { id, eventId: id, change: "updated", changed: Object.keys(diff), ...(resolution ? { resolution } : {}) },
+  });
   return after;
 }
 

@@ -137,13 +137,22 @@ export async function createOccurrence(tx: Tx, ctx: ActorContext, eventId: strin
   return occ;
 }
 
-export async function updateOccurrence(tx: Tx, ctx: ActorContext, id: string, expectedVersion: number, patch: OccurrencePatch): Promise<Occurrence> {
-  assertCan(ctx, "content.write");
-  const before = await getOccurrence(tx, id);
+interface Patched {
+  before: Occurrence;
+  diff: Record<string, { from: unknown; to: unknown }>;
+  cancelled: boolean;
+}
+
+const flat = (o: { startUtc: Date; endUtc: Date; status: OccurrenceStatus; overrides: Occurrence["overrides"] }) => ({
+  startUtc: o.startUtc.toISOString(), endUtc: o.endUtc.toISOString(), status: o.status,
+  locationOverrideId: o.overrides.locationId, externalUrlOverride: o.overrides.externalUrl, tagsOverride: o.overrides.tagIds,
+});
+
+/** Writes one occurrence change and its outbox event; the caller resolves and audits. */
+async function patchOccurrence(tx: Tx, ctx: ActorContext, before: Occurrence, expectedVersion: number, patch: OccurrencePatch): Promise<Patched> {
   const startUtc = patch.startUtc ?? before.startUtc;
   const endUtc = patch.endUtc ?? (patch.startUtc ? new Date(startUtc.getTime() + (before.endUtc.getTime() - before.startUtc.getTime())) : before.endUtc);
   if (endUtc <= startUtc) throw invalid("endUtc", "End must be after start");
-  await validateOverrides(tx, patch);
   // Hand edits of time or overrides detach a series occurrence, so regeneration leaves it
   // alone. Cancelling does not: a cancelled occurrence still follows its series.
   const sameTags = (a: string[] | null, b: string[] | null) => JSON.stringify(a && [...a].sort()) === JSON.stringify(b && [...b].sort());
@@ -169,27 +178,81 @@ export async function updateOccurrence(tx: Tx, ctx: ActorContext, id: string, ex
       conflict: edited || patch.conflict === false ? false : undefined,
       version: sql<number>`version + 1`,
     })
-    .where("id", "=", id)
+    .where("id", "=", before.id)
     .where("version", "=", expectedVersion)
     .returning("id")
     .executeTakeFirst();
   if (!row) throw versionConflict("Occurrence", before.version);
-  await resolveEventOccurrences(tx, before.eventId, [id]);
-  const after = await getOccurrence(tx, id);
 
-  const flat = (o: Occurrence) => ({
-    startUtc: o.startUtc.toISOString(), endUtc: o.endUtc.toISOString(), status: o.status,
-    locationOverrideId: o.overrides.locationId, externalUrlOverride: o.overrides.externalUrl, tagsOverride: o.overrides.tagIds,
-  });
+  const after = {
+    startUtc, endUtc, status: patch.status ?? before.status,
+    overrides: {
+      locationId: patch.locationOverrideId !== undefined ? patch.locationOverrideId : before.overrides.locationId,
+      externalUrl: patch.externalUrlOverride !== undefined ? patch.externalUrlOverride : before.overrides.externalUrl,
+      tagIds: patch.tagsOverride !== undefined ? patch.tagsOverride : before.overrides.tagIds,
+    },
+  };
   const diff = diffFields(flat(before), flat(after));
   const cancelled = patch.status === "cancelled" && before.status !== "cancelled";
-  await recordAudit(tx, ctx, { action: cancelled ? "occurrence.cancelled" : "occurrence.updated", entityType: "event", entityId: before.eventId, diff: { occurrenceId: id, ...diff } });
   await emit(tx, ctx.tenantId, {
     type: cancelled ? "occurrence.cancelled.v1" : "occurrence.changed.v1",
-    subject: `occurrence/${id}`,
-    data: { id, eventId: before.eventId, changed: Object.keys(diff) },
+    subject: `occurrence/${before.id}`,
+    data: { id: before.id, eventId: before.eventId, changed: Object.keys(diff) },
   });
-  return after;
+  return { before, diff, cancelled };
+}
+
+export async function updateOccurrence(tx: Tx, ctx: ActorContext, id: string, expectedVersion: number, patch: OccurrencePatch): Promise<Occurrence> {
+  assertCan(ctx, "content.write");
+  const before = await getOccurrence(tx, id);
+  await validateOverrides(tx, patch);
+  const r = await patchOccurrence(tx, ctx, before, expectedVersion, patch);
+  await resolveEventOccurrences(tx, before.eventId, [id]);
+  await recordAudit(tx, ctx, {
+    action: r.cancelled ? "occurrence.cancelled" : "occurrence.updated", entityType: "event", entityId: before.eventId, diff: { occurrenceId: id, ...r.diff },
+  });
+  return getOccurrence(tx, id);
+}
+
+export type BulkOccurrencePatch = Pick<OccurrencePatch, "locationOverrideId" | "externalUrlOverride" | "tagsOverride" | "status">;
+
+export const BULK_LIMIT = 1000;
+
+/**
+ * Sets the same overrides or status on many occurrences of an event (the admin's "override
+ * these"). All or nothing: if any occurrence has moved on from the given version, nothing
+ * is saved. Overrides detach series occurrences, as a single edit does. One audit entry.
+ */
+export async function bulkUpdateOccurrences(
+  tx: Tx, ctx: ActorContext, eventId: string, items: readonly { id: string; version: number }[], patch: BulkOccurrencePatch,
+): Promise<Occurrence[]> {
+  assertCan(ctx, "content.write");
+  if (items.length === 0) return [];
+  if (items.length > BULK_LIMIT) throw invalid("items", `At most ${BULK_LIMIT} occurrences at a time`);
+  if (new Set(items.map((i) => i.id)).size !== items.length) throw invalid("items", "An occurrence is listed twice");
+  if (Object.values(patch).every((v) => v === undefined)) throw invalid("set", "Nothing to change");
+  const event = await tx.selectFrom("catalog.event").select("status").where("id", "=", eventId).executeTakeFirst();
+  if (!event) throw notFound("Event");
+  if (event.status === "archived") throw new DomainError("conflict", "The event is archived");
+  await validateOverrides(tx, patch);
+
+  const rows = await tx.selectFrom("catalog.occurrence").select(columns).where("id", "in", items.map((i) => i.id)).orderBy("id").forUpdate().execute();
+  const befores = new Map((await hydrate(tx, rows)).map((o) => [o.id, o]));
+  for (const i of items) {
+    const b = befores.get(i.id);
+    if (!b || b.eventId !== eventId) throw invalid("items", "Every occurrence must belong to the event");
+  }
+  let changed = 0;
+  for (const i of items) {
+    const r = await patchOccurrence(tx, ctx, befores.get(i.id)!, i.version, patch);
+    if (Object.keys(r.diff).length) changed++;
+  }
+  const ids = items.map((i) => i.id);
+  await resolveEventOccurrences(tx, eventId, ids);
+  const set = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
+  await recordAudit(tx, ctx, { action: "occurrence.bulk_updated", entityType: "event", entityId: eventId, diff: { count: items.length, changed, set, occurrenceIds: ids } });
+  const after = await tx.selectFrom("catalog.occurrence").select(columns).where("id", "in", ids).orderBy("start_utc").orderBy("id").execute();
+  return hydrate(tx, after);
 }
 
 /**

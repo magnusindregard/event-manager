@@ -53,10 +53,10 @@ The publishable key goes in `?key=` (the edge cache keys on the query string); a
 ```
 apps/api          core API (/v1), Fastify
 apps/public-api   /public/v1, read-only, edge-cached
-apps/worker       graphile-worker: outbox dispatch, invitation provisioning; later resolver and series horizon
+apps/worker       graphile-worker: outbox dispatch, invitation provisioning, rule resolution, series horizon
 apps/admin        React + shadcn/ui admin
 packages/db       Kysely, migrations, roles and RLS, withTenant
-packages/domain   modules: tenancy, catalog, outbox (rules follow)
+packages/domain   modules: tenancy, catalog, rules, outbox
 packages/schemas  TypeBox schemas → OpenAPI
 packages/sdk      generated TypeScript client
 infra/            Bicep

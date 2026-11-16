@@ -188,6 +188,34 @@ describe("/public/v1", () => {
     expect(ev.body.event.occurrences.map((o: { id: string }) => o.id)).toEqual([ids.o1, ids.o2, ids.cancelled, ids.late]);
   });
 
+  it("serves rule-resolved locations, tags and ticket links", async () => {
+    const c = await bootstrap("pub-rules");
+    const key = await withTenant(db, c, async (tx) => {
+      const venue = await catalog.createLocation(tx, c, { kind: "venue", name: "MUNCH" });
+      const rooftop = await catalog.createLocation(tx, c, { kind: "space", parentId: venue.id, name: "Rooftop" });
+      const vocab = await catalog.createVocabulary(tx, c, { key: "program", labels: { nb: "Program", en: "Programme" } });
+      const late = await catalog.createTag(tx, c, vocab.id, { key: "late-opening", labels: { nb: "Kveldsåpent", en: "Late opening" } });
+      let ev = await catalog.createEvent(tx, c, {
+        slug: "tour", translations: { nb: { title: "Omvisning" } }, defaultLocationId: venue.id, externalUrl: "https://tix.example/day",
+      });
+      ev = await catalog.transitionEvent(tx, c, ev.id, ev.version, "publish");
+      ids.cDay = (await catalog.createOccurrence(tx, c, ev.id, { startUtc: inDays(3, 10) })).id;
+      ids.cEvening = (await catalog.createOccurrence(tx, c, ev.id, { startUtc: inDays(3, 18) })).id;
+      // Europe/Oslo is UTC+1 or +2, so 18:00 UTC is 19:00 or 20:00 local.
+      await catalog.createRule(tx, c, ev.id, {
+        name: "Kveld", conditions: { startTimeFrom: "18:00" },
+        effects: [{ type: "location", value: rooftop.id }, { type: "tags", value: { add: [late.id] } }, { type: "externalUrl", value: "https://tix.example/evening" }],
+      });
+      return (await tenancy.createApiKey(tx, c, "publishable", "web")).secret;
+    });
+    const res = await get(`/public/v1/occurrences?key=${key}&locale=en`);
+    const byId = new Map(res.body.items.map((o: { id: string }) => [o.id, o]));
+    expect(byId.get(ids.cDay)).toMatchObject({ location: { name: "MUNCH" }, tags: [], admission: { mode: "external", url: "https://tix.example/day" } });
+    expect(byId.get(ids.cEvening)).toMatchObject({
+      location: { name: "Rooftop", venue: { name: "MUNCH" } }, tags: [{ key: "late-opening", label: "Late opening" }], admission: { mode: "external", url: "https://tix.example/evening" },
+    });
+  });
+
   it("rate-limits per key", async () => {
     const small = await buildPublicApp({ db, rateLimit: { capacity: 2, refillPerSecond: 0.01 } });
     const url = `/public/v1/locations?key=${keyB}`;

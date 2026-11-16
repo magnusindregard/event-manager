@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, CalendarDays, CircleAlert, List, Pencil, Plus, Repeat, RotateCcw, Trash2, TriangleAlert, Undo2 } from "lucide-react";
+import { Ban, CalendarDays, CircleAlert, List, Pencil, Plus, Repeat, RotateCcw, SquarePen, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -23,7 +23,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type CatalogEvent, etagOf, isConflict, type Occurrence, type Series, unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
 import { describeRule } from "../lib/recurrence.js";
-import { locationPath, useLocations, useTagLabels, useVocabularies } from "../queries.js";
+import { locationPath, useEventRules, useLocations, useTagLabels, useVocabularies } from "../queries.js";
+import { useRuleRefresh } from "./Rules.js";
+import { BulkOverride } from "./schedule/BulkOverride.js";
+import { EMPTY_FILTER, filterOccurrences, isFiltering, OccurrenceFilter, type OccurrenceFilterValue } from "./schedule/OccurrenceFilter.js";
+import { RuleEditor, type RuleEditorMode } from "./schedule/RuleEditor.js";
 import { OccurrenceCalendar } from "./schedule/OccurrenceCalendar.js";
 import { type EditorMode, RecurrenceEditor } from "./schedule/RecurrenceEditor.js";
 
@@ -61,6 +65,13 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
   const [editor, setEditor] = useState<EditorMode | null>(null);
   const [seriesToDelete, setSeriesToDelete] = useState<Series | null>(null);
   const [view, setView] = useState<"list" | "calendar">("list");
+  const [filter, setFilter] = useState<OccurrenceFilterValue>(EMPTY_FILTER);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [ruleEditor, setRuleEditor] = useState<RuleEditorMode | null>(null);
+  const rules = useEventRules(event.id).data ?? [];
+  const ruleName = (id: string | null | undefined) => rules.find((r) => r.id === id)?.name;
+  const ruleRefresh = useRuleRefresh(event.id);
 
   const key = ["occurrences", accountId, event.id];
   const seriesKey = ["series", accountId, event.id];
@@ -90,6 +101,27 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
     void qc.invalidateQueries({ queryKey: ["audit", accountId] });
   };
   const onError = (e: Error) => isConflict(e) && setConflict(true);
+  const visible = filterOccurrences(query.data ?? [], filter, event.timezone, locations.data ?? []);
+  const chosen = visible.filter((o) => selected.has(o.id));
+  const setChosen = (ids: string[], on: boolean) => {
+    const next = new Set(selected);
+    for (const id of ids) if (on) next.add(id); else next.delete(id);
+    setSelected(next);
+  };
+
+  const bulkStatus = useMutation({
+    mutationFn: async (status: "scheduled" | "cancelled") =>
+      unwrap(await api.POST("/v1/events/{id}/occurrences/bulk-update", {
+        params: { path: { id: event.id } },
+        body: { items: chosen.filter((o) => o.status !== status).map((o) => ({ id: o.id, version: o.version })), set: { status } },
+      })),
+    onSuccess: (r, status) => {
+      toast.success(t(status === "cancelled" ? "bulk.cancelled" : "bulk.reinstated", { count: r.items.length }));
+      setSelected(new Set());
+      refresh();
+    },
+    onError,
+  });
 
   const save = useMutation({
     mutationFn: async (d: Draft) => {
@@ -162,7 +194,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
     onError,
   });
 
-  const error = [save.error, setStatus.error, remove.error, settle.error, removeSeries.error].find((e) => e && !isConflict(e));
+  const error = [save.error, setStatus.error, remove.error, settle.error, removeSeries.error, bulkStatus.error].find((e) => e && !isConflict(e));
   const fmt = (iso: string) => formatInZone(iso, event.timezone, i18n.language);
   const archived = event.status === "archived";
 
@@ -179,7 +211,27 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
     });
   };
 
+  const allChosen = visible.length > 0 && chosen.length === visible.length;
   const columns: ColumnDef<Occurrence>[] = [
+    {
+      id: "select",
+      header: () => (
+        <Checkbox
+          aria-label={t("bulk.selectAll")}
+          checked={allChosen ? true : chosen.length ? "indeterminate" : false}
+          disabled={archived || visible.length === 0}
+          onCheckedChange={(v) => setChosen(visible.map((o) => o.id), v === true)}
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          aria-label={`${t("bulk.select")} ${fmt(row.original.startUtc)}`}
+          checked={selected.has(row.original.id)}
+          disabled={archived}
+          onCheckedChange={(v) => setChosen([row.original.id], v === true)}
+        />
+      ),
+    },
     {
       id: "when",
       header: t("occurrences.when"),
@@ -210,7 +262,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         return (
           <div className="flex flex-wrap items-center gap-1.5">
             <span>{e?.value ? path(e.value) : "—"}</span>
-            <SourceChip source={e?.source} />
+            <SourceChip source={e?.source} rule={ruleName(e?.ruleId)} />
           </div>
         );
       },
@@ -223,7 +275,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         return (
           <div className="flex max-w-48 flex-wrap items-center gap-1.5">
             <span className="block max-w-full truncate text-xs" title={e?.value ?? undefined}>{e?.value?.replace(/^https?:\/\//, "") ?? "—"}</span>
-            <SourceChip source={e?.source} />
+            <SourceChip source={e?.source} rule={ruleName(e?.ruleId)} />
           </div>
         );
       },
@@ -236,7 +288,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         return (
           <div className="flex flex-wrap items-center gap-1">
             {(e?.value ?? []).map((id) => <Badge key={id} variant="outline" className="font-normal">{tagLabels.get(id)?.text ?? "…"}</Badge>)}
-            {e?.source === "override" && <SourceChip source="override" />}
+            {e?.source !== "default" && <SourceChip source={e?.source} rule={ruleName(e?.ruleId)} />}
           </div>
         );
       },
@@ -331,10 +383,40 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
           <AlertDescription>{error.message}</AlertDescription>
         </Alert>
       )}
+      <OccurrenceFilter
+        value={filter}
+        onChange={(f) => {
+          setFilter(f);
+          setSelected(new Set());
+        }}
+        onSaveAsRule={(conditions) => setRuleEditor({ kind: "create", conditions })}
+        disabled={archived}
+      />
+      {(chosen.length > 0 || isFiltering(filter)) && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/50 px-3 py-2" role="region" aria-label={t("bulk.region")}>
+          <span className="text-sm">
+            {isFiltering(filter) && t("filter.showing", { count: visible.length, total: query.data?.length ?? 0 })}
+            {isFiltering(filter) && chosen.length > 0 && " · "}
+            {chosen.length > 0 && t("bulk.selected", { count: chosen.length })}
+          </span>
+          {chosen.length > 0 && (
+            <div className="ml-auto flex flex-wrap gap-2">
+              <Button size="sm" onClick={() => setBulkOpen(true)} disabled={archived}><SquarePen /> {t("bulk.override")}</Button>
+              <Button size="sm" variant="outline" disabled={archived || bulkStatus.isPending || chosen.every((o) => o.status === "cancelled")} onClick={() => bulkStatus.mutate("cancelled")}>
+                <Ban /> {t("occurrences.cancel")}
+              </Button>
+              <Button size="sm" variant="outline" disabled={archived || bulkStatus.isPending || chosen.every((o) => o.status === "scheduled")} onClick={() => bulkStatus.mutate("scheduled")}>
+                <RotateCcw /> {t("occurrences.reinstate")}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}><X /> {t("bulk.clear")}</Button>
+            </div>
+          )}
+        </div>
+      )}
       {view === "list" ? (
-        <DataTable columns={columns} data={query.data ?? []} loading={query.isLoading} empty={t("occurrences.empty")} getRowId={(r) => r.id} />
+        <DataTable columns={columns} data={visible} loading={query.isLoading} empty={isFiltering(filter) ? t("filter.none") : t("occurrences.empty")} getRowId={(r) => r.id} />
       ) : (
-        <OccurrenceCalendar occurrences={query.data ?? []} timezone={event.timezone} title={eventTitleShort(event, i18n.language)} onSelect={(o) => !archived && open(o)} />
+        <OccurrenceCalendar occurrences={visible} timezone={event.timezone} title={eventTitleShort(event, i18n.language)} onSelect={(o) => !archived && open(o)} />
       )}
 
       <Sheet open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
@@ -444,6 +526,36 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         }}
         onConflict={() => {
           setEditor(null);
+          setConflict(true);
+        }}
+      />
+      <BulkOverride
+        event={event}
+        occurrences={chosen}
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        onSaved={() => {
+          setBulkOpen(false);
+          setSelected(new Set());
+          refresh();
+        }}
+        onConflict={() => {
+          setBulkOpen(false);
+          setConflict(true);
+        }}
+      />
+      <RuleEditor
+        event={event}
+        rules={rules}
+        mode={ruleEditor}
+        onClose={() => setRuleEditor(null)}
+        onSaved={(r) => {
+          setRuleEditor(null);
+          setFilter(EMPTY_FILTER);
+          ruleRefresh(r);
+        }}
+        onConflict={() => {
+          setRuleEditor(null);
           setConflict(true);
         }}
       />

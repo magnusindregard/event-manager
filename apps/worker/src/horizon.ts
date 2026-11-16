@@ -2,7 +2,8 @@ import type { Task } from "graphile-worker";
 import { type Db, withoutTenant, withTenant } from "@event-manager/db";
 import { catalog } from "@event-manager/domain";
 
-export const HORIZON_TASK = "series.extend_horizons";
+// Crontab task names may not contain dots, so this one uses a colon.
+export const HORIZON_TASK = "series:extend_horizons";
 /** Nightly at 02:00 UTC (graphile-worker crontab). Staging runs the same job as a Container Apps cron job. */
 export const HORIZON_CRONTAB = `0 2 * * * ${HORIZON_TASK}`;
 

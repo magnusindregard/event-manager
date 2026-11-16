@@ -9,7 +9,7 @@ import { startTestDatabase, type TestDatabase } from "../src/testing.js";
 
 type Ids = {
   tenantA: string; tenantB: string; user: string; event: string;
-  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string;
+  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string;
 };
 type Fixture = (c: pg.ClientBase, tenantId: string, ids: Ids) => Promise<void>;
 
@@ -49,12 +49,18 @@ const fixtures: Record<string, Fixture> = {
   "catalog.series": (c, t, ids) =>
     c.query(`insert into catalog.series (id, tenant_id, event_id, rrule, dtstart_local, duration_min, timezone, generated_until)
               values ($1, $2, $3, 'FREQ=WEEKLY', '2027-01-04 14:00', 60, 'Europe/Oslo', now())`, [ids.series, t, ids.catalogEvent]).then(() => {}),
+  "rules.rule": (c, t, ids) =>
+    c.query(`insert into rules.rule (id, tenant_id, event_id, name, weekdays, start_time_from) values ($1, $2, $3, 'Kveld', '{3}', '18:00')`,
+      [ids.rule, t, ids.catalogEvent]).then(() => {}),
+  "rules.rule_effect": (c, t, ids) =>
+    c.query(`insert into rules.rule_effect (id, tenant_id, rule_id, effect_type, value) values ($1, $2, $3, 'externalUrl', '"https://x.test"')`,
+      [randomUUID(), t, ids.rule]).then(() => {}),
   "rules.effective_value": (c, t, ids) =>
     c.query(`insert into rules.effective_value (tenant_id, occurrence_id, field, value, source) values ($1, $2, 'location', 'null', 'default')`,
       [t, ids.occurrence]).then(() => {}),
 };
 
-const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID() });
+const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID() });
 
 let db: TestDatabase;
 let admin: pg.Client;

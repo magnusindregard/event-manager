@@ -236,6 +236,37 @@ export interface EffectiveValueTable {
   rule_id: string | null;
 }
 
+/** Calendar date "YYYY-MM-DD" (Postgres date). */
+export type LocalDate = string;
+/** Wall-clock time "HH:mm:ss" (Postgres time). */
+export type LocalTime = string;
+
+export interface RuleTable {
+  id: string;
+  tenant_id: string;
+  event_id: string;
+  name: string;
+  priority: Generated<number>;
+  date_from: LocalDate | null;
+  date_to: LocalDate | null;
+  weekdays: number[] | null;
+  start_time_from: LocalTime | null;
+  start_time_to: LocalTime | null;
+  active: Generated<boolean>;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface RuleEffectTable {
+  id: string;
+  tenant_id: string;
+  rule_id: string;
+  effect_type: string;
+  target_ref: string | null;
+  value: Json;
+}
+
 export interface DB {
   "tenancy.tag_vocabulary": TagVocabularyTable;
   "tenancy.tag": TagTable;
@@ -247,6 +278,8 @@ export interface DB {
   "catalog.occurrence": OccurrenceTable;
   "catalog.series": SeriesTable;
   "rules.effective_value": EffectiveValueTable;
+  "rules.rule": RuleTable;
+  "rules.rule_effect": RuleEffectTable;
   "tenancy.account": AccountTable;
   "tenancy.user": UserTable;
   "tenancy.membership": MembershipTable;
