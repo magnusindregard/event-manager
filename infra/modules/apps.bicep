@@ -30,6 +30,8 @@ param keyVaultUri string = ''
 param mailFrom string = ''
 @description('Where invitees sign in, e.g. https://<front door host>/')
 param adminUrl string = ''
+@description('Comma-separated origins allowed to call the core API from a browser. Empty behind Front Door (same origin).')
+param corsOrigins string = ''
 
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: 'cae-${name}'
@@ -84,7 +86,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'PORT', value: '3000' }
           { name: 'OIDC_ISSUER', value: oidcIssuer }
           { name: 'OIDC_AUDIENCE', value: oidcAudience }
-        ])
+        ], empty(corsOrigins) ? [] : [{ name: 'CORS_ORIGINS', value: corsOrigins }])
         probes: probesFor(3000)
       }], workerAsSidecar ? [workerContainer] : [])
       // Staging scales to zero (cold start of a few seconds) to keep cost down.

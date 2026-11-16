@@ -138,6 +138,10 @@ Vite + React 19 + TypeScript, shadcn/ui + Tailwind v4 (tokens in `src/index.css`
    - Effect input has no `targetRef` (no MVP type targets anything); responses carry `targetRef: null` so price and capacity per offer can add it without a breaking change.
    - Fixed in passing: the worker's crontab used the task name `series.extend_horizons`, which graphile-worker rejects (no dots in crontab task names), so the worker could not start with the default crontab. The task is now `series:extend_horizons`, and a test parses the crontab.
 5. **Pilot:** prod environment, load real events for the pilot client (MUNCH Sanity "what's on" is the candidate), `.ics` + webhook delivery as stretch goals.
+   *Status (16 November):* no pilot client yet, so this milestone put the product online for our own testing first: the `staging` environment runs lean in a personal Azure subscription, without Front Door (about $25/month), with the admin on the storage static website and CORS to the API. A `seed-demo` CLI loads a demo account. Prod, real events, `.ics` and webhooks wait for a client. Setup and use: `infra/README.md`, "Test environment (milestone 5)". Decisions taken:
+   - One deploy script (`scripts/deploy-env.sh`) for the workflow and for hand deploys; the workflow only builds images and calls it.
+   - Sign-in reuses the External ID apps from the local test, with the online admin added as a redirect URI.
+   - Test databases are migrated by a non-superuser that creates the roles itself, like Azure's Entra administrator; the first deploy failed on exactly that difference.
 
 ## Verification
 

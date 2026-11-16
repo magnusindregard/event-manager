@@ -36,7 +36,7 @@ async function bootstrap(slug: string): Promise<ActorContext> {
 beforeAll(async () => {
   tdb = await startTestDatabase();
   db = createDb(tdb.appUrl);
-  admin = new pg.Client({ connectionString: tdb.migratorUrl });
+  admin = new pg.Client({ connectionString: tdb.superuserUrl });
   await admin.connect();
   app = await buildPublicApp({ db, rateLimit: { capacity: 1000, refillPerSecond: 1000 } });
 

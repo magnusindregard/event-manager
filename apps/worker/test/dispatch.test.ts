@@ -14,7 +14,7 @@ let admin: pg.Client;
 beforeAll(async () => {
   tdb = await startTestDatabase();
   db = createDb(tdb.appUrl);
-  admin = new pg.Client({ connectionString: tdb.migratorUrl });
+  admin = new pg.Client({ connectionString: tdb.superuserUrl });
   await admin.connect();
 });
 afterAll(async () => {

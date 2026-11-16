@@ -30,7 +30,7 @@ const invitation = (email: string) =>
 beforeAll(async () => {
   tdb = await startTestDatabase();
   db = createDb(tdb.appUrl);
-  admin = new pg.Client({ connectionString: tdb.migratorUrl });
+  admin = new pg.Client({ connectionString: tdb.superuserUrl });
   await admin.connect();
   const account = await tenancy.createAccount(db, { slug: "prov", name: "MUNCH", ownerEmail: "owner@munch.test" });
   const userId = await tenancy.login(db, { issuer: "t", subject: "o", email: "owner@munch.test", name: "Olga Owner" });
