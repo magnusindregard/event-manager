@@ -1,8 +1,9 @@
+import { parseCrontab } from "graphile-worker";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { createDb, type Db, withTenant } from "@event-manager/db";
 import { startTestDatabase, type TestDatabase } from "@event-manager/db/testing";
 import { catalog, tenancy } from "@event-manager/domain";
-import { extendHorizons } from "../src/horizon.js";
+import { extendHorizons, HORIZON_CRONTAB, HORIZON_TASK } from "../src/horizon.js";
 
 let tdb: TestDatabase;
 let db: Db;
@@ -35,4 +36,8 @@ it("extends open-ended series in every tenant to that tenant's horizon", async (
   const r = await extendHorizons(db, later, () => {});
   expect(r).toEqual({ series: 2, created: 9, failed: 0 }); // about a month of weekly slots in each tenant
   expect(await extendHorizons(db, later, () => {})).toEqual({ series: 0, created: 0, failed: 0 });
+});
+
+it("has a crontab graphile-worker accepts", () => {
+  expect(parseCrontab(HORIZON_CRONTAB)).toMatchObject([{ task: HORIZON_TASK }]);
 });

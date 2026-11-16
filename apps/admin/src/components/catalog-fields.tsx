@@ -64,12 +64,16 @@ export function TagPicker({ id, value, onChange, disabled }: { id: string; value
 }
 
 /** "default / rule: X / override" chip next to a resolved value. */
-export function SourceChip({ source }: { source: "default" | "rule" | "override" | undefined }) {
+export function SourceChip({ source, rule }: { source: "default" | "rule" | "override" | undefined; rule?: string | undefined }) {
   const { t } = useTranslation();
   if (!source) return null;
   return (
-    <Badge variant={source === "override" ? "default" : "outline"} className={cn("font-normal", source === "default" && "text-muted-foreground")}>
-      {t(`occurrences.source.${source}`)}
+    <Badge
+      variant={source === "override" ? "default" : "outline"}
+      className={cn("max-w-48 truncate font-normal", source === "default" && "text-muted-foreground", source === "rule" && "border-sky-500 text-sky-700 dark:text-sky-400")}
+      title={source === "rule" && rule ? rule : undefined}
+    >
+      {source === "rule" ? t("occurrences.source.ruleNamed", { name: rule ?? "…" }) : t(`occurrences.source.${source}`)}
     </Badge>
   );
 }

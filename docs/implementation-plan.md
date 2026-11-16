@@ -1,6 +1,6 @@
 # MVP implementation plan – event catalog on Azure
 
-*13 November 2026, updated 16 November. Decisions recorded in ADRs 0011–0015. Milestone 1 (foundation) is implemented on `feat/m1-foundation`; milestone 2 (catalog) on `feat/m2-catalog`, with the staging stand-up still to do; milestone 3 (series) on `feat/m3-series`.*
+*13 November 2026, updated 16 November. Decisions recorded in ADRs 0011–0015. Milestone 1 (foundation) is implemented on `feat/m1-foundation`; milestone 2 (catalog) on `feat/m2-catalog`, with the staging stand-up still to do; milestone 3 (series) on `feat/m3-series`; milestone 4 (rules) on the same branch.*
 
 ## Context
 
@@ -125,6 +125,18 @@ Vite + React 19 + TypeScript, shadcn/ui + Tailwind v4 (tokens in `src/index.css`
    - Series changes resolve their occurrences inline (chunked, at most 10,000 slots per series) instead of a `resolve-event` job; milestone 4 moves resolution to the worker when rules make it expensive.
    - The horizon job finds due series through the `SECURITY DEFINER` function `catalog.series_due_for_extension` (ids only) and extends each under its tenant. Prod runs it from the worker's crontab (02:00 UTC); staging runs `dist/cli/extend-horizons.js` as the Container Apps cron job `caj-<name>-horizon`.
 4. **Rules** (#5): rules schema, effect registry, resolver in worker, effective values in public API, occurrence filter, bulk override, rule editor with preview. *Exit:* rooftop/late-opening scenario passes, including occurrences added by extending the series.
+   *Status (16 November):* built and tested locally. The acceptance scenario runs in `packages/domain/test/acceptance/rules.test.ts`; engine unit tests in `packages/domain/test/rules.test.ts`; the worker path in `apps/worker/test/resolver.test.ts`. Decisions taken while building:
+   - The `rules` module holds the engine (effect registry, matching, resolution, preview) and the rule tables; `catalog/rules.ts` orchestrates rule changes (validation of referenced locations and tags, audit, outbox, resolution), so the dependency runs catalog → rules only.
+   - Conditions match the occurrence's local start in the event's timezone. Dates are inclusive; the time window is `[from, to)` and wraps midnight when `from > to`; weekdays are ISO (1 = Monday).
+   - Per field, the highest-priority active matching rule with an effect on that field wins; on equal priority the older rule (lower UUIDv7) wins and the tie is reported in the preview. The `tags` effect adds to and removes from the event's tags (`{ add, remove }`), so a "late opening" rule keeps the event's own tags.
+   - Previews are `?dryRun=true` on create, edit and delete. They compare the rules before and after the change over every occurrence of the event, and report matched, changed, overridden (an override keeps a field the rule sets) and equal-priority conflicts.
+   - Rule and event-default changes resolve inline for events with up to 2,000 occurrences. Larger events are resolved by the worker: the outbox event says `resolution: "queued"`, the resolver handler queues `rules.resolve_event` with a job key per event, so a burst of edits runs once. Until then the public API keeps serving the previous values. Occurrence and series edits still resolve inline, now with rules.
+   - The resolver locks the occurrences it resolves (in id order), so a concurrent edit cannot be overwritten with stale values.
+   - `effective_value.rule_id` has no foreign key: after a rule is deleted on a large event, the old values (with that rule id) stay until the worker resolves them.
+   - Bulk override is `POST /v1/events/{id}/occurrences/bulk-update` with `[{id, version}]`: all or nothing (412 on any stale version), up to 1,000 occurrences, one audit entry. Overrides detach series occurrences, as a single edit does.
+   - The occurrence filter runs in the admin over the loaded occurrences, with a copy of the engine's matcher (`apps/admin/src/lib/rules.ts`), so "save as rule" matches exactly what the filter shows; the server preview confirms the count. There is no server-side filter on `/v1` occurrences yet.
+   - Effect input has no `targetRef` (no MVP type targets anything); responses carry `targetRef: null` so price and capacity per offer can add it without a breaking change.
+   - Fixed in passing: the worker's crontab used the task name `series.extend_horizons`, which graphile-worker rejects (no dots in crontab task names), so the worker could not start with the default crontab. The task is now `series:extend_horizons`, and a test parses the crontab.
 5. **Pilot:** prod environment, load real events for the pilot client (MUNCH Sanity "what's on" is the candidate), `.ics` + webhook delivery as stretch goals.
 
 ## Verification

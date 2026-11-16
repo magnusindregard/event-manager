@@ -58,3 +58,12 @@ export function locationPath(locations: Location[] | undefined) {
     return parent ? `${parent.name} › ${l.name}` : l.name;
   };
 }
+
+/** An event's rules, in resolution order. Shared by the rules tab and the schedule's source chips. */
+export function useEventRules(eventId: string) {
+  const { api, accountId } = useApp();
+  return useQuery({
+    queryKey: ["rules", accountId, eventId],
+    queryFn: async () => unwrap(await api.GET("/v1/events/{id}/rules", { params: { path: { id: eventId } } })).items,
+  });
+}

@@ -22,6 +22,7 @@ import { useAccount } from "../queries.js";
 import { Audit } from "./Audit.js";
 import { eventTitle, statusVariant } from "./Events.js";
 import { Occurrences } from "./Occurrences.js";
+import { Rules } from "./Rules.js";
 
 const TIMEZONES: string[] = (() => {
   try {
@@ -171,6 +172,7 @@ export function EventEditor() {
           <TabsList>
             <TabsTrigger value="details">{t("events.tabs.details")}</TabsTrigger>
             <TabsTrigger value="occurrences">{t("events.tabs.occurrences")}</TabsTrigger>
+            <TabsTrigger value="rules">{t("events.tabs.rules")}</TabsTrigger>
             <TabsTrigger value="audit">{t("events.tabs.audit")}</TabsTrigger>
           </TabsList>
           <TabsContent value="details" className="pt-4">
@@ -178,6 +180,9 @@ export function EventEditor() {
           </TabsContent>
           <TabsContent value="occurrences" className="pt-4">
             <Occurrences event={event!} />
+          </TabsContent>
+          <TabsContent value="rules" className="pt-4">
+            <Rules event={event!} />
           </TabsContent>
           <TabsContent value="audit" className="pt-4">
             <Audit entityType="event" entityId={event!.id} embedded />

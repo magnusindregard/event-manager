@@ -239,3 +239,114 @@ export const ApiKeyKind = Type.Union([Type.Literal("publishable"), Type.Literal(
 export const ApiKey = Type.Object({ id: Uuid, kind: ApiKeyKind, prefix: Type.String(), label: Type.String(), createdAt: DateTime, revokedAt: Nullable(DateTime) });
 export const ApiKeyCreate = Type.Object({ kind: ApiKeyKind, label: Type.String({ minLength: 1, maxLength: 100 }) }, { additionalProperties: false });
 export const ApiKeyCreated = Type.Object({ ...ApiKey.properties, secret: Type.String({ description: "The full key. Shown once; only a hash is stored." }) });
+
+// ── Rules (milestone 4) ──────────────────────────────────────────────────────
+const LocalDate = Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "Local date in the event's timezone", examples: ["2027-06-01"] });
+const LocalTime = Type.String({ pattern: "^([01]\\d|2[0-3]):[0-5]\\d$", description: "Local time in the event's timezone", examples: ["18:00"] });
+const Weekdays = Type.Array(Type.Integer({ minimum: 1, maximum: 7 }), { uniqueItems: true, minItems: 1, maxItems: 7, description: "ISO weekdays, 1 = Monday" });
+
+const conditionFields = {
+  dateFrom: Nullable(LocalDate),
+  dateTo: Nullable(LocalDate),
+  weekdays: Nullable(Weekdays),
+  startTimeFrom: Nullable(LocalTime),
+  startTimeTo: Nullable(Type.String({ ...LocalTime, description: "Exclusive. Earlier than startTimeFrom wraps midnight." })),
+};
+export const RuleConditions = Type.Object(conditionFields, {
+  description: "On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to).",
+});
+export const RuleConditionsInput = Type.Object(
+  Object.fromEntries(Object.entries(conditionFields).map(([k, v]) => [k, Type.Optional(v)])) as { [K in keyof typeof conditionFields]: ReturnType<typeof Type.Optional<(typeof conditionFields)[K]>> },
+  { additionalProperties: false },
+);
+
+// Input effects have no targetRef: none of the MVP types targets anything. Responses carry
+// targetRef (null) so per-offer types (price, capacity) can add it without a breaking change.
+const effectBodies = {
+  location: [Uuid, "Sets the location"],
+  tags: [
+    Type.Object(
+      { add: Type.Optional(Type.Array(Uuid, { uniqueItems: true, maxItems: 100 })), remove: Type.Optional(Type.Array(Uuid, { uniqueItems: true, maxItems: 100 })) },
+      { additionalProperties: false },
+    ),
+    "Adds tags to, and removes tags from, the event's tags",
+  ],
+  externalUrl: [HttpUrl, "Sets the ticket link"],
+} as const;
+const effectIn = <K extends keyof typeof effectBodies>(type: K) =>
+  Type.Object({ type: Type.Literal(type), value: effectBodies[type][0] }, { additionalProperties: false, description: effectBodies[type][1] });
+const effectOut = <K extends keyof typeof effectBodies>(type: K) =>
+  Type.Object({ type: Type.Literal(type), targetRef: Type.Optional(Type.Null()), value: effectBodies[type][0] }, { description: effectBodies[type][1] });
+export const RuleEffectInput = Type.Union([effectIn("location"), effectIn("tags"), effectIn("externalUrl")]);
+export const RuleEffect = Type.Union([effectOut("location"), effectOut("tags"), effectOut("externalUrl")]);
+
+export const Rule = Type.Object({
+  id: Uuid,
+  eventId: Uuid,
+  name: Type.String(),
+  priority: Type.Integer({ description: "Higher wins; on equal priority the older rule wins and the tie is reported" }),
+  active: Type.Boolean(),
+  conditions: RuleConditions,
+  effects: Type.Array(RuleEffect),
+  version: Type.Integer(),
+  createdAt: DateTime,
+  updatedAt: DateTime,
+});
+export type Rule = Static<typeof Rule>;
+
+const ruleFields = {
+  name: Type.String({ minLength: 1, maxLength: 200 }),
+  priority: Type.Optional(Type.Integer({ minimum: -1000, maximum: 1000, default: 0 })),
+  active: Type.Optional(Type.Boolean({ default: true })),
+  conditions: Type.Optional(RuleConditionsInput),
+  effects: Type.Array(RuleEffectInput, { minItems: 1, maxItems: 20 }),
+};
+export const RuleCreate = Type.Object(ruleFields, { additionalProperties: false });
+export const RulePatch = Type.Object(
+  {
+    name: Type.Optional(ruleFields.name),
+    priority: Type.Optional(Type.Integer({ minimum: -1000, maximum: 1000 })),
+    active: Type.Optional(Type.Boolean()),
+    conditions: Type.Optional(Type.Object(RuleConditionsInput.properties, { additionalProperties: false, description: "Given conditions replace the stored ones; others are kept" })),
+    effects: Type.Optional(ruleFields.effects),
+  },
+  { additionalProperties: false, minProperties: 1 },
+);
+
+const EffectiveField = Type.Union([Type.Literal("location"), Type.Literal("tags"), Type.Literal("externalUrl")]);
+const ResolvedAny = Type.Object({ value: Type.Unknown(), source: ValueSource, ruleId: Nullable(Uuid) });
+export const RulePreview = Type.Object(
+  {
+    counts: Type.Object({
+      matched: Type.Integer({ description: "Occurrences meeting the rule's conditions" }),
+      changed: Type.Integer({ description: "Occurrences whose effective values change" }),
+      overridden: Type.Integer({ description: "Matched occurrences where an override keeps a field the rule sets" }),
+      conflicts: Type.Integer({ description: "Occurrences where the rule ties with another rule of the same priority" }),
+    }),
+    changes: Type.Array(Type.Object({
+      occurrenceId: Uuid,
+      startUtc: DateTime,
+      fields: Type.Array(Type.Object({ field: EffectiveField, from: ResolvedAny, to: ResolvedAny })),
+    })),
+    conflicts: Type.Array(Type.Object({ occurrenceId: Uuid, startUtc: DateTime, field: EffectiveField, ruleIds: Type.Array(Uuid, { description: "The winner first" }) })),
+  },
+  { description: "What the change does to the event's occurrences. Lists hold at most 200 items; counts are exact." },
+);
+export const RuleChangeResult = Type.Object({
+  rule: Nullable(Rule),
+  preview: RulePreview,
+  resolution: Type.Union([Type.Literal("done"), Type.Literal("queued"), Type.Literal("none")], {
+    description: "done: effective values are updated. queued: the worker updates them within seconds. none: nothing changes.",
+  }),
+}, { description: "rule is null in the preview of a new rule and after a delete" });
+
+export const OccurrenceBulkUpdate = Type.Object(
+  {
+    items: Type.Array(Type.Object({ id: Uuid, version: Type.Integer({ description: "As in the occurrence's ETag" }) }, { additionalProperties: false }), { minItems: 1, maxItems: 1000 }),
+    set: Type.Object(
+      { ...overrideFields, status: Type.Optional(OccurrenceStatus) },
+      { additionalProperties: false, minProperties: 1, description: "Applied to every occurrence. null clears an override." },
+    ),
+  },
+  { additionalProperties: false },
+);

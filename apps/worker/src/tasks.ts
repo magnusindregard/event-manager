@@ -4,6 +4,7 @@ import { outbox } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
 import { HORIZON_TASK, horizonTask } from "./horizon.js";
 import { PROVISION_TASK, type ProvisionDeps, provisionTask } from "./provision.js";
+import { RESOLVE_TASK, resolveTask } from "./resolver.js";
 
 interface DispatchPayload {
   eventId: string;
@@ -38,6 +39,7 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
   return {
     "outbox.dispatch": dispatchTask(db, handlers),
     [HORIZON_TASK]: horizonTask(db),
+    [RESOLVE_TASK]: resolveTask(db),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
   };
 }
