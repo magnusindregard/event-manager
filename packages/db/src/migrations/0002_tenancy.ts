@@ -147,9 +147,12 @@ export async function up(db: Kysely<unknown>): Promise<void> {
        WHERE k.prefix = p_prefix AND k.revoked_at IS NULL
     $f$;
 
+    -- A new owner needs CREATE on the schema; superusers skip that check, Azure's admin does not.
+    GRANT CREATE ON SCHEMA tenancy TO em_definer;
     ALTER FUNCTION tenancy.login(uuid, text, text, text, text) OWNER TO em_definer;
     ALTER FUNCTION tenancy.my_accounts(uuid) OWNER TO em_definer;
     ALTER FUNCTION tenancy.resolve_api_key(text) OWNER TO em_definer;
+    REVOKE CREATE ON SCHEMA tenancy FROM em_definer;
     REVOKE ALL ON FUNCTION tenancy.login(uuid, text, text, text, text), tenancy.my_accounts(uuid), tenancy.resolve_api_key(text) FROM PUBLIC;
     GRANT EXECUTE ON FUNCTION tenancy.login(uuid, text, text, text, text), tenancy.my_accounts(uuid), tenancy.resolve_api_key(text) TO em_app;
   `.execute(db);

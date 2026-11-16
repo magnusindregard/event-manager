@@ -80,7 +80,7 @@ async function asTenant<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
 
 beforeAll(async () => {
   db = await startTestDatabase();
-  admin = new pg.Client({ connectionString: db.migratorUrl });
+  admin = new pg.Client({ connectionString: db.superuserUrl });
   app = new pg.Client({ connectionString: db.appUrl });
   await Promise.all([admin.connect(), app.connect()]);
 

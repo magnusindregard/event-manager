@@ -61,7 +61,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
            AND s.generated_until < at + make_interval(months => a.horizon_months) - interval '1 day'
          ORDER BY s.tenant_id, s.id
     $f$;
+    GRANT CREATE ON SCHEMA catalog TO em_definer;
     ALTER FUNCTION catalog.series_due_for_extension(timestamptz) OWNER TO em_definer;
+    REVOKE CREATE ON SCHEMA catalog FROM em_definer;
     REVOKE ALL ON FUNCTION catalog.series_due_for_extension(timestamptz) FROM PUBLIC;
     GRANT EXECUTE ON FUNCTION catalog.series_due_for_extension(timestamptz) TO em_app;
   `.execute(db);
