@@ -1,6 +1,6 @@
 # 0013 – Admin UI: MUI with MUI X Community (no commercial licences)
 
-**Status:** Accepted · 2026-11-13 · Settles open question 6 in [docs/mvp.md](../mvp.md) and the grid choice in [0006](0006-admin-and-validator-apps.md)
+**Status:** Superseded by [0015](0015-admin-ui-shadcn.md) · 2026-11-13 · Settles open question 6 in [docs/mvp.md](../mvp.md) and the grid choice in [0006](0006-admin-and-validator-apps.md)
 
 ## Considered
 

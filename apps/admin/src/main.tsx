@@ -1,11 +1,9 @@
-import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
-import { enUS as coreEn, nbNO as coreNb } from "@mui/material/locale";
-import { enUS as gridEn, nbNO as gridNb } from "@mui/x-data-grid/locales";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { StrictMode, useMemo } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { useTranslation } from "react-i18next";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { Toaster } from "@/components/ui/sonner";
+import "./index.css";
 import "./i18n.js";
 import { AppProvider, useApp } from "./AppContext.js";
 import { AuthProvider, useAuth } from "./auth/AuthProvider.js";
@@ -19,19 +17,11 @@ import { SignIn } from "./pages/SignIn.js";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
 
-function Themed({ children }: { children: React.ReactNode }) {
-  const { i18n } = useTranslation();
-  const theme = useMemo(() => {
-    const nb = i18n.language === "nb";
-    return createTheme({ cssVariables: true, colorSchemes: { light: true, dark: true } }, nb ? coreNb : coreEn, nb ? gridNb : gridEn);
-  }, [i18n.language]);
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      {children}
-    </ThemeProvider>
-  );
-}
+// Dark mode follows the OS for now; shadcn's tokens switch on the .dark class.
+const dark = window.matchMedia("(prefers-color-scheme: dark)");
+const applyScheme = () => document.documentElement.classList.toggle("dark", dark.matches);
+applyScheme();
+dark.addEventListener("change", applyScheme);
 
 function Shell() {
   const auth = useAuth();
@@ -65,13 +55,12 @@ function Routed() {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <Themed>
-        <BrowserRouter>
-          <AuthProvider>
-            <Shell />
-          </AuthProvider>
-        </BrowserRouter>
-      </Themed>
+      <BrowserRouter>
+        <AuthProvider>
+          <Shell />
+        </AuthProvider>
+      </BrowserRouter>
+      <Toaster />
     </QueryClientProvider>
   </StrictMode>,
 );

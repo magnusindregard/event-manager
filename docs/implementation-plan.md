@@ -12,12 +12,12 @@ The product is specced in `magnusindregard/event-manager` (`docs/adr/0001–0010
 |---|---|---|
 | HTTP / data / schemas | Fastify + Kysely + TypeBox (Fastify's native type provider; `@fastify/swagger` → OpenAPI 3.1) | 0011 (resolves 0002 options) |
 | Staff IdP | Microsoft Entra External ID (external tenant), OIDC federation to client Entra ID / Google; MSAL.js in admin, `jose` JWKS validation in API | 0012 (resolves 0005 open item) |
-| Admin UI | MUI core + MUI X **Community (MIT only)**, FullCalendar standard (MIT), rrule.js; no commercial licences | 0013 (resolves MVP Q6) |
+| Admin UI | shadcn/ui (Radix + Tailwind v4), TanStack Table v9, react-day-picker + `@date-fns/tz`, FullCalendar standard (MIT), rrule.js; permissive licences only | 0015 (supersedes 0013, resolves MVP Q6) |
 | Hosting / IaC | 0009 → Accepted; **Bicep**; GitHub Actions with OIDC federated credentials to Azure | 0009 status + 0014 |
 | Job queue | graphile-worker (LISTEN/NOTIFY, `jobKey` dedupe, built-in crontab for nightly horizon) | in 0011 |
 | Migrations | Kysely `Migrator` with raw `sql` (RLS policies stay plain SQL); `kysely-codegen` for DB types | in 0011 |
 
-MUI free limits accepted: no DateRangePicker (two pickers), single grid filter (the custom occurrence filter replaces it), no pinning/tree-data. The phase-2 price grid revisits this (AG Grid Community or TanStack Table as free options).
+We own the components (shadcn copies them in), so inline cell editing, bulk selection, the zoned date-time field and the locations tree are ours to build in milestone 2. TanStack Table also covers the phase-2 price grid (pinning, cell-range selection).
 
 Assumed answers to MVP open questions (change if wrong): horizon 18 months as an account setting with that default; locales nb + en (the schema allows any BCP 47); Sanity plugin after the MVP; the public API always requires a publishable key; no account-level rules.
 
@@ -27,7 +27,7 @@ Assumed answers to MVP open questions (change if wrong): horizon 18 months as an
 apps/api          Fastify, /v1 (admin + future integrations)
 apps/public-api   Fastify, /public/v1, read-only
 apps/worker       graphile-worker: outbox dispatch, resolver, horizon, cache purge
-apps/admin        Vite + React + MUI
+apps/admin        Vite + React + shadcn/ui
 packages/domain   modules: tenancy/, catalog/, rules/, outbox/ – each exports index.ts only
 packages/db       Kysely instance, migrations, RLS helpers, codegen types, test fixtures
 packages/schemas  TypeBox schemas shared by API + admin → OpenAPI
@@ -86,7 +86,7 @@ pnpm workspaces + Turborepo; ESLint with `eslint-plugin-boundaries` (or dependen
 
 ## Admin (apps/admin)
 
-Vite + React 18 + TypeScript, MUI + MUI X Community, TanStack Query + generated SDK, React Router, react-hook-form + TypeBox resolver, i18next (nb, en) with MUI `nbNO` locale packs, MSAL React. Screens: sign-in/account switcher; account settings (timezone, locales, tag vocabularies, API keys, users – owner only); locations tree (RichTreeView + drawer form); events list (DataGrid server mode + filter bar); event editor (locale tabs, tags, defaults, external link, CMS refs, publish/unpublish/cancel, ETag conflict dialog); schedule tab (recurrence editor with rrule.js and a preview list from the dry-run; occurrence DataGrid with checkbox selection + FullCalendar week/month; source chips "default / rule: X / override", detached + conflict badges); occurrence filter component → bulk override / save as rule; rules tab with live preview; audit tab. Accessibility: eslint-plugin-jsx-a11y + axe in Playwright.
+Vite + React 19 + TypeScript, shadcn/ui + Tailwind v4 (tokens in `src/index.css`), TanStack Query + generated SDK, React Router, react-hook-form + TypeBox resolver, i18next (nb, en), date-fns `nb` locale for the calendar, MSAL. Screens: sign-in/account switcher; account settings (timezone, locales, tag vocabularies, API keys, users – owner only); locations tree (headless tree + sheet form); events list (`DataTable` server mode + filter bar); event editor (locale tabs, tags, defaults, external link, CMS refs, publish/unpublish/cancel, ETag conflict dialog); schedule tab (recurrence editor with rrule.js and a preview list from the dry-run; occurrence `DataTable` with row selection + FullCalendar week/month; source chips "default / rule: X / override", detached + conflict badges); occurrence filter component → bulk override / save as rule; rules tab with live preview; audit tab. Accessibility: eslint-plugin-jsx-a11y + axe in Playwright.
 
 ## Azure (infra/, Bicep, Norway East)
 

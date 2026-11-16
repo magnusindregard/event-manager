@@ -1,10 +1,18 @@
-import {
-  Alert, Autocomplete, Button, Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-  MenuItem, Snackbar, Stack, TextField, Typography,
-} from "@mui/material";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CircleAlert, Info } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { Combobox } from "@/components/combobox";
+import { Field, PageHeader } from "@/components/page";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type Account, ApiProblem, unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
 
@@ -20,13 +28,19 @@ const LOCALE_OPTIONS = ["nb", "nn", "en", "se", "sv", "da", "de", "fr"];
 type Form = Pick<Account, "name" | "defaultTimezone" | "defaultLocale" | "locales" | "horizonMonths">;
 
 export function Settings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { api, accountId, roles } = useApp();
   const qc = useQueryClient();
   const canEdit = roles.includes("owner");
   const [form, setForm] = useState<Form | null>(null);
-  const [saved, setSaved] = useState(false);
   const [conflict, setConflict] = useState(false);
+  const localeName = (code: string) => {
+    try {
+      return `${new Intl.DisplayNames([i18n.language], { type: "language" }).of(code) ?? code} (${code})`;
+    } catch {
+      return code;
+    }
+  };
 
   const query = useQuery({
     queryKey: ["account", accountId],
@@ -51,89 +65,115 @@ export function Settings() {
     onSuccess: (data) => {
       qc.setQueryData(["account", accountId], data);
       void qc.invalidateQueries({ queryKey: ["me"] });
-      setSaved(true);
+      toast.success(t("settings.saved"));
     },
     onError: (e) => {
       if (e instanceof ApiProblem && e.code === "version_conflict") setConflict(true);
     },
   });
 
-  if (query.isError) return <Alert severity="error">{t("error.generic")}</Alert>;
+  if (query.isError) {
+    return (
+      <Alert variant="destructive">
+        <CircleAlert />
+        <AlertDescription>{t("error.generic")}</AlertDescription>
+      </Alert>
+    );
+  }
   if (!form) return null;
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm({ ...form, [k]: v });
   const otherError = save.error && !(save.error instanceof ApiProblem && save.error.code === "version_conflict");
 
   return (
-    <Stack spacing={3} sx={{ maxWidth: 560 }}>
-      <Typography variant="h4" component="h1">{t("settings.title")}</Typography>
-      {!canEdit && <Alert severity="info">{t("settings.ownerOnly")}</Alert>}
-      {otherError && <Alert severity="error">{save.error.message}</Alert>}
-      <Stack
-        component="form"
-        spacing={2}
-        onSubmit={(e) => {
-          e.preventDefault();
-          save.mutate(form);
-        }}
-      >
-        <TextField label={t("settings.name")} value={form.name} onChange={(e) => set("name", e.target.value)} required disabled={!canEdit} />
-        <Autocomplete
-          options={TIMEZONES}
-          value={form.defaultTimezone}
-          onChange={(_, v) => v && set("defaultTimezone", v)}
-          disabled={!canEdit}
-          disableClearable
-          renderInput={(p) => <TextField {...p} label={t("settings.timezone")} />}
-        />
-        <Autocomplete
-          multiple
-          options={LOCALE_OPTIONS}
-          value={form.locales}
-          onChange={(_, v) => set("locales", v)}
-          disabled={!canEdit}
-          renderValue={(value, getItemProps) =>
-            value.map((option, index) => <Chip label={option} {...getItemProps({ index })} key={option} />)
-          }
-          renderInput={(p) => <TextField {...p} label={t("settings.locales")} />}
-        />
-        <TextField select label={t("settings.defaultLocale")} value={form.defaultLocale} onChange={(e) => set("defaultLocale", e.target.value)} disabled={!canEdit}>
-          {form.locales.map((l) => <MenuItem key={l} value={l}>{l}</MenuItem>)}
-        </TextField>
-        <TextField
-          type="number"
-          label={t("settings.horizon")}
-          value={form.horizonMonths}
-          onChange={(e) => set("horizonMonths", Number(e.target.value))}
-          slotProps={{ htmlInput: { min: 1, max: 60 } }}
-          disabled={!canEdit}
-        />
-        {canEdit && (
-          <Button type="submit" variant="contained" disabled={save.isPending} sx={{ alignSelf: "flex-start" }}>
-            {t("settings.save")}
-          </Button>
+    <div className="max-w-xl">
+      <PageHeader title={t("settings.title")} />
+      <div className="space-y-4">
+        {!canEdit && (
+          <Alert>
+            <Info />
+            <AlertDescription>{t("settings.ownerOnly")}</AlertDescription>
+          </Alert>
         )}
-      </Stack>
+        {otherError && (
+          <Alert variant="destructive">
+            <CircleAlert />
+            <AlertDescription>{save.error.message}</AlertDescription>
+          </Alert>
+        )}
 
-      <Snackbar open={saved} autoHideDuration={3000} onClose={() => setSaved(false)} message={t("settings.saved")} />
-      <Dialog open={conflict} onClose={() => setConflict(false)}>
-        <DialogTitle>{t("conflict.title")}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>{t("conflict.body")}</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConflict(false)}>{t("conflict.cancel")}</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              setConflict(false);
-              void query.refetch();
-            }}
-          >
-            {t("conflict.reload")}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Stack>
+        <form
+          className="space-y-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save.mutate(form);
+          }}
+        >
+          <Field label={t("settings.name")} htmlFor="name">
+            <Input id="name" value={form.name} onChange={(e) => set("name", e.target.value)} required disabled={!canEdit} />
+          </Field>
+          <Field label={t("settings.timezone")} htmlFor="timezone">
+            <Combobox
+              id="timezone"
+              options={TIMEZONES}
+              value={form.defaultTimezone}
+              onChange={(v) => set("defaultTimezone", v)}
+              disabled={!canEdit}
+              searchPlaceholder={t("common.search")}
+              emptyText={t("common.noResults")}
+            />
+          </Field>
+          <Field label={t("settings.locales")} htmlFor="locales">
+            <Combobox
+              id="locales"
+              multiple
+              options={LOCALE_OPTIONS}
+              value={form.locales}
+              label={localeName}
+              onChange={(v) => setForm({ ...form, locales: v, defaultLocale: v.includes(form.defaultLocale) ? form.defaultLocale : (v[0] ?? "") })}
+              disabled={!canEdit}
+              searchPlaceholder={t("common.search")}
+              emptyText={t("common.noResults")}
+            />
+          </Field>
+          <Field label={t("settings.defaultLocale")} htmlFor="defaultLocale">
+            <Select value={form.defaultLocale} onValueChange={(v) => set("defaultLocale", v)} disabled={!canEdit}>
+              <SelectTrigger id="defaultLocale" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {form.locales.map((l) => <SelectItem key={l} value={l}>{localeName(l)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label={t("settings.horizon")} htmlFor="horizon">
+            <Input
+              id="horizon"
+              type="number"
+              min={1}
+              max={60}
+              className="w-32"
+              value={form.horizonMonths}
+              onChange={(e) => set("horizonMonths", Number(e.target.value))}
+              disabled={!canEdit}
+            />
+          </Field>
+          {canEdit && <Button type="submit" disabled={save.isPending}>{t("settings.save")}</Button>}
+        </form>
+      </div>
+
+      <AlertDialog open={conflict} onOpenChange={setConflict}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("conflict.title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("conflict.body")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("conflict.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void query.refetch()}>{t("conflict.reload")}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }

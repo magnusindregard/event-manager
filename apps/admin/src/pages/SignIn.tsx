@@ -1,6 +1,11 @@
-import { Alert, Box, Button, Paper, Stack, TextField, Typography } from "@mui/material";
+import { CircleAlert } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Field } from "@/components/page";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useAuth } from "../auth/AuthProvider.js";
 
 export function SignIn() {
@@ -11,34 +16,40 @@ export function SignIn() {
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <Box component="main" sx={{ minHeight: "100vh", display: "grid", placeItems: "center", p: 2, bgcolor: "background.default" }}>
-      <Paper sx={{ p: 4, width: "100%", maxWidth: 400 }}>
-        <Stack
-          component="form"
-          spacing={2}
-          onSubmit={(e) => {
-            e.preventDefault();
-            setError(null);
-            // Misconfiguration (wrong authority, unknown tenant) surfaces here instead of a dead button.
-            auth.signIn(dev ? email : undefined).catch((err: unknown) => {
-              console.error(err);
-              setError(err instanceof Error ? err.message : String(err));
-            });
-          }}
-        >
-          <Typography variant="h5" component="h1">{t("app.title")}</Typography>
-          {error && (
-            <Alert severity="error">
-              {t("auth.failed")}
-              <Typography variant="body2" component="div" sx={{ mt: 1, wordBreak: "break-word" }}>{error}</Typography>
-            </Alert>
-          )}
-          {dev && (
-            <TextField label={t("auth.devEmail")} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
-          )}
-          <Button type="submit" variant="contained">{t("auth.signIn")}</Button>
-        </Stack>
-      </Paper>
-    </Box>
+    <main className="grid min-h-svh place-items-center bg-muted/40 p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle><h1>{t("app.title")}</h1></CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="grid gap-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setError(null);
+              // Misconfiguration (wrong authority, unknown tenant) surfaces here instead of a dead button.
+              auth.signIn(dev ? email : undefined).catch((err: unknown) => {
+                console.error(err);
+                setError(err instanceof Error ? err.message : String(err));
+              });
+            }}
+          >
+            {error && (
+              <Alert variant="destructive">
+                <CircleAlert />
+                <AlertTitle>{t("auth.failed")}</AlertTitle>
+                <AlertDescription className="break-words">{error}</AlertDescription>
+              </Alert>
+            )}
+            {dev && (
+              <Field label={t("auth.devEmail")} htmlFor="email">
+                <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoFocus />
+              </Field>
+            )}
+            <Button type="submit" className="w-full">{t("auth.signIn")}</Button>
+          </form>
+        </CardContent>
+      </Card>
+    </main>
   );
 }

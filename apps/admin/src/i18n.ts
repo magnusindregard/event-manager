@@ -13,9 +13,10 @@ const resources = {
         title: "Kontoinnstillinger", name: "Navn", timezone: "Tidssone", locales: "Språk", defaultLocale: "Standardspråk",
         horizon: "Horisont for gjentakelser (måneder)", save: "Lagre", saved: "Lagret", ownerOnly: "Bare eiere kan endre innstillinger.",
       },
-      members: { title: "Brukere", invite: "Inviter", email: "E-post", role: "Rolle", pending: "Venter", remove: "Fjern", roles: { owner: "Eier", editor: "Redaktør" } },
+      members: { title: "Brukere", user: "Bruker", invite: "Inviter", email: "E-post", role: "Rolle", pending: "Venter", remove: "Fjern", roles: { owner: "Eier", editor: "Redaktør" } },
       audit: { title: "Endringslogg", when: "Tidspunkt", who: "Hvem", action: "Handling", entity: "Objekt", changes: "Endringer", loadMore: "Last flere" },
       conflict: { title: "Endret av noen andre", body: "Kontoen ble endret mens du redigerte. Last inn på nytt for å se siste versjon. Endringene dine går tapt.", reload: "Last inn på nytt", cancel: "Avbryt" },
+      common: { language: "Språk", menu: "Meny", search: "Søk …", noResults: "Ingen treff", empty: "Ingenting her ennå" },
       comingSoon: "Kommer i milepæl {{n}}.",
       error: { generic: "Noe gikk galt" },
     },
@@ -30,9 +31,10 @@ const resources = {
         title: "Account settings", name: "Name", timezone: "Timezone", locales: "Languages", defaultLocale: "Default language",
         horizon: "Recurrence horizon (months)", save: "Save", saved: "Saved", ownerOnly: "Only owners can change settings.",
       },
-      members: { title: "Users", invite: "Invite", email: "Email", role: "Role", pending: "Pending", remove: "Remove", roles: { owner: "Owner", editor: "Editor" } },
+      members: { title: "Users", user: "User", invite: "Invite", email: "Email", role: "Role", pending: "Pending", remove: "Remove", roles: { owner: "Owner", editor: "Editor" } },
       audit: { title: "Audit log", when: "When", who: "Who", action: "Action", entity: "Entity", changes: "Changes", loadMore: "Load more" },
       conflict: { title: "Changed by someone else", body: "The account changed while you were editing. Reload to see the latest version. Your changes will be lost.", reload: "Reload", cancel: "Cancel" },
+      common: { language: "Language", menu: "Menu", search: "Search…", noResults: "No results", empty: "Nothing here yet" },
       comingSoon: "Coming in milestone {{n}}.",
       error: { generic: "Something went wrong" },
     },
@@ -52,6 +54,26 @@ void i18n.use(initReactI18next).init({
   lng: stored ?? (navigator.language.startsWith("en") ? "en" : "nb"),
   fallbackLng: "nb",
   interpolation: { escapeValue: false },
+});
+
+export const LANGUAGES = [
+  { code: "nb", label: "Norsk" },
+  { code: "en", label: "English" },
+] as const;
+
+export function setLanguage(code: string) {
+  void i18n.changeLanguage(code);
+  try {
+    localStorage.setItem("em.lang", code);
+  } catch {
+    /* ignore */
+  }
+}
+
+// Keep <html lang> in step so screen readers and Intl pick the right language.
+document.documentElement.lang = i18n.language;
+i18n.on("languageChanged", (lng) => {
+  document.documentElement.lang = lng;
 });
 
 export default i18n;

@@ -1,12 +1,7 @@
-import { Typography } from "@mui/material";
 import { useTranslation } from "react-i18next";
+import { PageHeader } from "@/components/page";
 
 export function ComingSoon({ titleKey, milestone }: { titleKey: string; milestone: number }) {
   const { t } = useTranslation();
-  return (
-    <>
-      <Typography variant="h4" component="h1" gutterBottom>{t(titleKey)}</Typography>
-      <Typography color="text.secondary">{t("comingSoon", { n: milestone })}</Typography>
-    </>
-  );
+  return <PageHeader title={t(titleKey)} description={t("comingSoon", { n: milestone })} />;
 }

@@ -35,7 +35,7 @@ Locally the admin signs dev tokens (`VITE_AUTH_MODE=dev`); in Azure it uses Entr
 apps/api          core API (/v1), Fastify
 apps/public-api   /public/v1, read-only (milestone 2)
 apps/worker       graphile-worker: outbox dispatch, later resolver and series horizon
-apps/admin        React + MUI admin
+apps/admin        React + shadcn/ui admin
 packages/db       Kysely, migrations, roles and RLS, withTenant
 packages/domain   modules: tenancy, outbox (catalog and rules follow)
 packages/schemas  TypeBox schemas → OpenAPI
