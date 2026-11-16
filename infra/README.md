@@ -233,6 +233,14 @@ az ad app federated-credential create --id $APP_ID --parameters '{
   "subject": "repo:magnusindregard/event-manager:environment:staging",
   "audiences": ["api://AzureADTokenExchange"]
 }'
+# GitHub may send the subject with immutable owner and repo IDs instead (AADSTS700213 names the one it sent),
+# e.g. repo:magnusindregard@12936209/event-manager@1448121727:environment:staging. Add that form too:
+az ad app federated-credential create --id $APP_ID --parameters '{
+  "name": "github-staging-ids",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:magnusindregard@12936209/event-manager@1448121727:environment:staging",
+  "audiences": ["api://AzureADTokenExchange"]
+}'
 RG_ID=$(az group show -n rg-em-staging --query id -o tsv)
 for role in "Contributor" "Role Based Access Control Administrator" "Storage Blob Data Contributor"; do
   az role assignment create --assignee $APP_ID --role "$role" --scope $RG_ID

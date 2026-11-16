@@ -28,8 +28,14 @@ const types = {
 export function poolConfig(connectionString: string, max: number): pg.PoolConfig {
   if (process.env.DATABASE_AUTH !== "entra") return { connectionString, max, types };
   let credential: { getToken(scope: string): Promise<{ token: string } | null> } | undefined;
+  // No connectionString here: node-postgres lets its parsed fields override the config, and a URL
+  // without a password parses to password "", which would replace the token callback below.
+  const url = new URL(connectionString);
   return {
-    connectionString,
+    host: url.hostname,
+    port: Number(url.port || 5432),
+    user: decodeURIComponent(url.username),
+    database: decodeURIComponent(url.pathname.slice(1)),
     max,
     types,
     ssl: { rejectUnauthorized: true },
