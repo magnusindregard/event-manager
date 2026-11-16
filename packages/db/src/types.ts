@@ -52,7 +52,18 @@ export interface InvitationTable {
   invited_by: string | null;
   created_at: GeneratedTimestamp;
   accepted_at: Timestamp | null;
+  signin_kind: Generated<SigninKind>;
+  provision_status: Generated<ProvisionStatus>;
+  provisioned_kind: "work" | "local" | null;
+  entra_object_id: string | null;
+  provision_error: string | null;
+  provision_attempts: Generated<number>;
+  provisioned_at: Timestamp | null;
+  email_sent_at: Timestamp | null;
 }
+
+export type SigninKind = "auto" | "work" | "local";
+export type ProvisionStatus = "pending" | "provisioned" | "failed";
 
 export interface AuditLogTable {
   id: string;
@@ -95,7 +106,127 @@ export interface OutboxHandledTable {
   handled_at: GeneratedTimestamp;
 }
 
+export interface TagVocabularyTable {
+  id: string;
+  tenant_id: string;
+  key: string;
+  labels: ColumnType<Record<string, string>, string | undefined, string>;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+}
+
+export interface TagTable {
+  id: string;
+  tenant_id: string;
+  vocabulary_id: string;
+  key: string;
+  labels: ColumnType<Record<string, string>, string | undefined, string>;
+  archived_at: Timestamp | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+}
+
+export interface IdempotencyKeyTable {
+  tenant_id: string;
+  key: string;
+  request_hash: string;
+  status_code: number;
+  response: Json;
+  created_at: GeneratedTimestamp;
+}
+
+export type LocationKind = "venue" | "space";
+export type EventStatus = "draft" | "published" | "cancelled" | "archived";
+export type AdmissionMode = "none" | "external";
+export type OccurrenceStatus = "scheduled" | "cancelled";
+export type ValueSource = "default" | "rule" | "override";
+export type EffectiveField = "location" | "tags" | "externalUrl";
+
+export interface LocationTable {
+  id: string;
+  tenant_id: string;
+  kind: LocationKind;
+  parent_id: string | null;
+  name: string;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  archived_at: Timestamp | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface EventTable {
+  id: string;
+  tenant_id: string;
+  slug: string;
+  status: Generated<EventStatus>;
+  timezone: string;
+  default_location_id: string | null;
+  default_duration_min: Generated<number>;
+  admission_mode: Generated<AdmissionMode>;
+  external_url: string | null;
+  external_refs: ColumnType<Record<string, string>, string | undefined, string>;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface EventTranslationTable {
+  tenant_id: string;
+  event_id: string;
+  locale: string;
+  title: string;
+  short_description: string | null;
+  image_url: string | null;
+  image_alt: string | null;
+}
+
+export interface EventTagTable {
+  tenant_id: string;
+  event_id: string;
+  tag_id: string;
+}
+
+export interface OccurrenceTable {
+  id: string;
+  tenant_id: string;
+  event_id: string;
+  series_id: string | null;
+  recurrence_id_local: Timestamp | null;
+  start_utc: Timestamp;
+  end_utc: Timestamp;
+  status: Generated<OccurrenceStatus>;
+  detached: Generated<boolean>;
+  location_override_id: string | null;
+  external_url_override: string | null;
+  tags_override: string[] | null;
+  resolved_version: number | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface EffectiveValueTable {
+  tenant_id: string;
+  occurrence_id: string;
+  field: EffectiveField;
+  value: Json;
+  source: ValueSource;
+  rule_id: string | null;
+}
+
 export interface DB {
+  "tenancy.tag_vocabulary": TagVocabularyTable;
+  "tenancy.tag": TagTable;
+  "tenancy.idempotency_key": IdempotencyKeyTable;
+  "catalog.location": LocationTable;
+  "catalog.event": EventTable;
+  "catalog.event_translation": EventTranslationTable;
+  "catalog.event_tag": EventTagTable;
+  "catalog.occurrence": OccurrenceTable;
+  "rules.effective_value": EffectiveValueTable;
   "tenancy.account": AccountTable;
   "tenancy.user": UserTable;
   "tenancy.membership": MembershipTable;

@@ -1,7 +1,10 @@
-import { Alert, Button, Paper, Stack, Typography } from "@mui/material";
-import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { type ColumnDef, DataTable } from "@/components/data-table";
+import { PageHeader } from "@/components/page";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { type AuditPage, unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
 
@@ -20,41 +23,46 @@ function describeDiff(diff: unknown): string {
     .join("; ");
 }
 
-export function Audit() {
+export function Audit({ entityType, entityId, embedded }: { entityType?: string; entityId?: string; embedded?: boolean } = {}) {
   const { t, i18n } = useTranslation();
   const { api, accountId } = useApp();
 
   const query = useInfiniteQuery({
-    queryKey: ["audit", accountId],
+    queryKey: ["audit", accountId, entityType, entityId],
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) =>
-      unwrap(await api.GET("/v1/audit", { params: { query: { limit: 50, ...(pageParam ? { cursor: pageParam } : {}) } } })),
+      unwrap(await api.GET("/v1/audit", { params: { query: { limit: 50, entityType, entityId, ...(pageParam ? { cursor: pageParam } : {}) } } })),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 
   const rows = query.data?.pages.flatMap((p) => p.items) ?? [];
   const fmt = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" });
-  // MUI X Data Grid (MIT): server-driven "load more" instead of Pro features.
-  const columns: GridColDef<Entry>[] = [
-    { field: "at", headerName: t("audit.when"), width: 180, valueFormatter: (v: string) => fmt.format(new Date(v)) },
-    { field: "actor", headerName: t("audit.who"), width: 220, valueGetter: (_v, row) => row.actor.email ?? row.actor.clientId ?? "system" },
-    { field: "action", headerName: t("audit.action"), width: 180 },
-    { field: "entityType", headerName: t("audit.entity"), width: 120 },
-    { field: "diff", headerName: t("audit.changes"), flex: 1, minWidth: 240, valueGetter: (_v, row) => describeDiff(row.diff) },
+  // Server-driven "load more" (cursor pagination); the table only renders.
+  const columns: ColumnDef<Entry>[] = [
+    { id: "at", header: t("audit.when"), cell: ({ row }) => <span className="whitespace-nowrap">{fmt.format(new Date(row.original.at))}</span> },
+    { id: "actor", header: t("audit.who"), cell: ({ row }) => row.original.actor.email ?? row.original.actor.clientId ?? "system" },
+    { id: "action", header: t("audit.action"), cell: ({ row }) => <code className="text-xs">{row.original.action}</code> },
+    { id: "entity", header: t("audit.entity"), accessorKey: "entityType" },
+    { id: "diff", header: t("audit.changes"), cell: ({ row }) => <span className="text-muted-foreground">{describeDiff(row.original.diff)}</span> },
   ];
 
   return (
-    <Stack spacing={2}>
-      <Typography variant="h4" component="h1">{t("audit.title")}</Typography>
-      {query.isError && <Alert severity="error">{t("error.generic")}</Alert>}
-      <Paper sx={{ width: "100%" }}>
-        <DataGrid rows={rows} columns={columns} loading={query.isLoading} hideFooter autoHeight disableRowSelectionOnClick density="compact" />
-      </Paper>
-      {query.hasNextPage && (
-        <Button onClick={() => void query.fetchNextPage()} disabled={query.isFetchingNextPage} sx={{ alignSelf: "flex-start" }}>
-          {t("audit.loadMore")}
-        </Button>
-      )}
-    </Stack>
+    <div>
+      {!embedded && <PageHeader title={t("audit.title")} />}
+      <div className="space-y-4">
+        {query.isError && (
+          <Alert variant="destructive">
+            <CircleAlert />
+            <AlertDescription>{t("error.generic")}</AlertDescription>
+          </Alert>
+        )}
+        <DataTable columns={columns} data={rows} loading={query.isLoading} empty={t("common.empty")} getRowId={(r) => r.id} />
+        {query.hasNextPage && (
+          <Button variant="outline" onClick={() => void query.fetchNextPage()} disabled={query.isFetchingNextPage}>
+            {t("audit.loadMore")}
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }

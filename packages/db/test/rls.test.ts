@@ -7,7 +7,10 @@ import { startTestDatabase, type TestDatabase } from "../src/testing.js";
 // tests on every table." Tables are discovered from the catalog, so a new
 // tenant-owned table fails this suite until it has RLS and a fixture below.
 
-type Ids = { tenantA: string; tenantB: string; user: string; event: string };
+type Ids = {
+  tenantA: string; tenantB: string; user: string; event: string;
+  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string;
+};
 type Fixture = (c: pg.ClientBase, tenantId: string, ids: Ids) => Promise<void>;
 
 const fixtures: Record<string, Fixture> = {
@@ -25,13 +28,36 @@ const fixtures: Record<string, Fixture> = {
     c.query(`insert into outbox.event (id, tenant_id, type, source, subject, data) values ($1, $2, 'account.changed.v1', 'test', 's', '{}')`, [t === ids.tenantA ? ids.event : randomUUID(), t]).then(() => {}),
   "outbox.handled": (c, t, ids) =>
     c.query(`insert into outbox.handled (handler, event_id, tenant_id) values ($1, $2, $3)`, [randomUUID(), ids.event, t]).then(() => {}),
+  "tenancy.idempotency_key": (c, t) =>
+    c.query(`insert into tenancy.idempotency_key (tenant_id, key, request_hash, status_code, response) values ($1, $2, 'h', 201, '{}')`, [t, randomUUID()]).then(() => {}),
+  "tenancy.tag_vocabulary": (c, t, ids) =>
+    c.query(`insert into tenancy.tag_vocabulary (id, tenant_id, key) values ($1, $2, $3)`, [ids.vocabulary, t, `v${ids.vocabulary.slice(0, 8)}`]).then(() => {}),
+  "tenancy.tag": (c, t, ids) =>
+    c.query(`insert into tenancy.tag (id, tenant_id, vocabulary_id, key) values ($1, $2, $3, 'x')`, [ids.tag, t, ids.vocabulary]).then(() => {}),
+  "catalog.location": (c, t, ids) =>
+    c.query(`insert into catalog.location (id, tenant_id, kind, name) values ($1, $2, 'venue', 'Venue')`, [ids.location, t]).then(() => {}),
+  "catalog.event": (c, t, ids) =>
+    c.query(`insert into catalog.event (id, tenant_id, slug, timezone, default_location_id) values ($1, $2, $3, 'Europe/Oslo', $4)`,
+      [ids.catalogEvent, t, `e-${ids.catalogEvent.slice(0, 8)}`, ids.location]).then(() => {}),
+  "catalog.event_translation": (c, t, ids) =>
+    c.query(`insert into catalog.event_translation (tenant_id, event_id, locale, title) values ($1, $2, 'nb', 'Tittel')`, [t, ids.catalogEvent]).then(() => {}),
+  "catalog.event_tag": (c, t, ids) =>
+    c.query(`insert into catalog.event_tag (tenant_id, event_id, tag_id) values ($1, $2, $3)`, [t, ids.catalogEvent, ids.tag]).then(() => {}),
+  "catalog.occurrence": (c, t, ids) =>
+    c.query(`insert into catalog.occurrence (id, tenant_id, event_id, start_utc, end_utc) values ($1, $2, $3, now(), now() + interval '1 hour')`,
+      [ids.occurrence, t, ids.catalogEvent]).then(() => {}),
+  "rules.effective_value": (c, t, ids) =>
+    c.query(`insert into rules.effective_value (tenant_id, occurrence_id, field, value, source) values ($1, $2, 'location', 'null', 'default')`,
+      [t, ids.occurrence]).then(() => {}),
 };
+
+const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID() });
 
 let db: TestDatabase;
 let admin: pg.Client;
 let app: pg.Client;
 let tables: string[];
-const ids: Ids = { tenantA: randomUUID(), tenantB: randomUUID(), user: randomUUID(), event: randomUUID() };
+const ids: Ids = { tenantA: randomUUID(), tenantB: randomUUID(), user: randomUUID(), event: randomUUID(), ...randomRowIds() };
 
 async function asTenant<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
   await app.query("begin");
@@ -144,7 +170,7 @@ describe("row-level security", () => {
   it("tenant B cannot insert rows for tenant A", async () => {
     for (const t of tables) {
       await asTenant(ids.tenantB, async () => {
-        const err = await fixtures[t]!(app, ids.tenantA, { ...ids, event: randomUUID() }).then(
+        const err = await fixtures[t]!(app, ids.tenantA, { ...ids, event: randomUUID(), ...randomRowIds() }).then(
           () => null,
           (e: { code?: string }) => e,
         );

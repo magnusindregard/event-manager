@@ -15,8 +15,9 @@ Short records of significant decisions: context, decision, consequences. One fil
 | [0009](0009-hosting.md) | Azure, Norway East | Accepted (see 0014) |
 | [0010](0010-buy-not-build.md) | Buy IdP, email, waiting room and pass signing | Accepted |
 | [0011](0011-backend-stack.md) | Fastify, Kysely, TypeBox, graphile-worker; database roles | Accepted |
-| [0012](0012-identity-provider.md) | Staff IdP: Microsoft Entra External ID | Accepted |
-| [0013](0013-admin-ui-library.md) | Admin UI: MUI + MUI X Community, no commercial licences | Accepted |
+| [0012](0012-identity-provider.md) | Staff IdP: Microsoft Entra External ID; invitation-only, identities provisioned through Graph | Accepted |
+| [0013](0013-admin-ui-library.md) | Admin UI: MUI + MUI X Community, no commercial licences | Superseded by 0015 |
 | [0014](0014-infrastructure-as-code.md) | Bicep, deployed from GitHub Actions | Accepted |
+| [0015](0015-admin-ui-shadcn.md) | Admin UI: shadcn/ui on Tailwind, TanStack Table for grids | Accepted |
 
 Architecture diagrams: FigJam board "Event-Management".

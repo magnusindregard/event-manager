@@ -62,6 +62,24 @@ resource spaFallback 'Microsoft.Cdn/profiles/ruleSets/rules@2024-02-01' = {
   }
 }
 
+// Preview tokens (Authorization: Bearer prv_…) read drafts. The public API already answers
+// them with "private, no-store"; this rule also turns caching off at the edge for any
+// request with an Authorization header (a route override without cacheConfiguration).
+resource publicRules 'Microsoft.Cdn/profiles/ruleSets@2024-02-01' = {
+  parent: profile
+  name: 'publicapi'
+}
+
+resource previewNoCache 'Microsoft.Cdn/profiles/ruleSets/rules@2024-02-01' = {
+  parent: publicRules
+  name: 'previewBypassCache'
+  properties: {
+    order: 1
+    conditions: [{ name: 'RequestHeader', parameters: { typeName: 'DeliveryRuleRequestHeaderConditionParameters', selector: 'Authorization', operator: 'Any', negateCondition: false, transforms: [] } }]
+    actions: [{ name: 'RouteConfigurationOverride', parameters: { typeName: 'DeliveryRuleRouteConfigurationOverrideActionParameters' } }]
+  }
+}
+
 resource apiRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2024-02-01' = {
   parent: endpoint
   name: 'r-api'
@@ -82,6 +100,7 @@ resource publicRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2024-02-01' = {
   properties: {
     originGroup: { id: groups[1].id }
     patternsToMatch: ['/public/v1/*']
+    ruleSets: [{ id: publicRules.id }]
     supportedProtocols: ['Https']
     httpsRedirect: 'Enabled'
     forwardingProtocol: 'HttpsOnly'
@@ -91,7 +110,7 @@ resource publicRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2024-02-01' = {
       compressionSettings: { isCompressionEnabled: true, contentTypesToCompress: ['application/json', 'text/calendar'] }
     }
   }
-  dependsOn: [origins, apiRoute]
+  dependsOn: [origins, apiRoute, previewNoCache]
 }
 
 resource adminRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2024-02-01' = {

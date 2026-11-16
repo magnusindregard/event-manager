@@ -19,6 +19,17 @@ param postgresHost string
 param databaseName string
 param oidcIssuer string
 param oidcAudience string
+@description('Staging: run the worker as a sidecar of the api app, so it scales to zero with it. Prod: its own always-on app.')
+param workerAsSidecar bool = !prod
+@description('Invitation provisioning (ADR 0012). Empty graphClientId keeps the fake directory (no Entra identities are created).')
+param graphTenantId string = ''
+param graphClientId string = ''
+param graphTenantDomain string = ''
+@description('Postmark token in Key Vault as secret "postmark-token". Empty mailFrom keeps the fake mailer.')
+param keyVaultUri string = ''
+param mailFrom string = ''
+@description('Where invitees sign in, e.g. https://<front door host>/')
+param adminUrl string = ''
 
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: 'cae-${name}'
@@ -62,9 +73,10 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
       // Reached through Front Door. TODO before personal data (phase 1): Front Door Premium + Private Link.
       ingress: { external: true, targetPort: 3000, transport: 'http' }
       registries: registries
+      secrets: workerAsSidecar ? workerSecrets : []
     }
     template: {
-      containers: [{
+      containers: concat([{
         name: 'api'
         image: '${registryServer}/event-manager/api:${imageTag}'
         resources: { cpu: json('0.5'), memory: '1Gi' }
@@ -74,7 +86,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'OIDC_AUDIENCE', value: oidcAudience }
         ])
         probes: probesFor(3000)
-      }]
+      }], workerAsSidecar ? [workerContainer] : [])
       // Staging scales to zero (cold start of a few seconds) to keep cost down.
       scale: { minReplicas: prod ? 1 : 0, maxReplicas: prod ? 6 : 2, rules: [{ name: 'http', http: { metadata: { concurrentRequests: '50' } } }] }
     }
@@ -106,7 +118,30 @@ resource publicApi 'Microsoft.App/containerApps@2024-03-01' = {
   }
 }
 
-resource worker 'Microsoft.App/containerApps@2024-03-01' = {
+var mailEnabled = !empty(mailFrom) && !empty(keyVaultUri)
+var workerSecrets = mailEnabled ? [{ name: 'postmark-token', keyVaultUrl: '${keyVaultUri}secrets/postmark-token', identity: appIdentityId }] : []
+var workerContainer = {
+  name: 'worker'
+  image: '${registryServer}/event-manager/worker:${imageTag}'
+  resources: { cpu: json('0.5'), memory: '1Gi' }
+  env: concat(runtimeEnv, [
+    { name: 'ADMIN_URL', value: adminUrl }
+  ], empty(graphClientId) ? [] : [
+    { name: 'IDENTITY_DIRECTORY', value: 'graph' }
+    { name: 'GRAPH_TENANT_ID', value: graphTenantId }
+    { name: 'GRAPH_CLIENT_ID', value: graphClientId }
+    { name: 'GRAPH_TENANT_DOMAIN', value: graphTenantDomain }
+  ], mailEnabled ? [
+    { name: 'MAILER', value: 'postmark' }
+    { name: 'MAIL_FROM', value: mailFrom }
+    { name: 'POSTMARK_TOKEN', secretRef: 'postmark-token' }
+  ] : [])
+}
+
+// Prod: always one replica, since graphile-worker listens for new jobs (LISTEN/NOTIFY).
+// Staging: the worker runs inside the api app instead (see api above), and handles jobs while
+// a request keeps the api awake. Scheduled jobs (milestone 3) need a Container Apps cron job there.
+resource worker 'Microsoft.App/containerApps@2024-03-01' = if (!workerAsSidecar) {
   name: 'ca-${name}-worker'
   location: location
   tags: tags
@@ -114,15 +149,9 @@ resource worker 'Microsoft.App/containerApps@2024-03-01' = {
   properties: {
     environmentId: environment.id
     workloadProfileName: 'Consumption'
-    configuration: { registries: registries }
+    configuration: { registries: registries, secrets: workerSecrets }
     template: {
-      containers: [{
-        name: 'worker'
-        image: '${registryServer}/event-manager/worker:${imageTag}'
-        resources: { cpu: json('0.5'), memory: '1Gi' }
-        env: runtimeEnv
-      }]
-      // Always one replica: graphile-worker listens for new jobs (LISTEN/NOTIFY).
+      containers: [workerContainer]
       scale: { minReplicas: 1, maxReplicas: prod ? 3 : 1 }
     }
   }

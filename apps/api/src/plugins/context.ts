@@ -14,6 +14,8 @@ declare module "fastify" {
     db: Db;
     /** preHandler: requires a valid staff token. */
     authenticate: (req: FastifyRequest) => Promise<void>;
+    /** Like authenticate, but always runs tenancy.login so new invitations apply at once. */
+    authenticateFresh: (req: FastifyRequest) => Promise<void>;
     /** preHandler: requires a token plus membership of the account in the Account-Id header. */
     requireAccount: (req: FastifyRequest) => Promise<void>;
   }
@@ -32,23 +34,26 @@ export const contextPlugin = fp(async (app: FastifyInstance, opts: { db: Db; ver
   app.decorate("db", opts.db);
 
   // tenancy.login upserts the user and accepts invitations. Cache it briefly so every
-  // request does not write; a new invitation is picked up within a minute.
+  // request does not write. GET /v1/me (the admin's first call after sign-in) bypasses
+  // the cache, so a fresh invitation applies on the next page load.
   const logins = new Map<string, { userId: string; until: number }>();
   const LOGIN_TTL_MS = 60_000;
 
-  app.decorate("authenticate", async (req: FastifyRequest) => {
+  const authenticate = async (req: FastifyRequest, fresh: boolean) => {
     const header = req.headers.authorization;
     if (!header?.startsWith("Bearer ")) throw new AuthError("Missing bearer token");
     const identity = await opts.verifier.verify(header.slice(7));
     const key = `${identity.issuer}|${identity.subject}`;
     let cached = logins.get(key);
-    if (!cached || cached.until < Date.now()) {
+    if (fresh || !cached || cached.until < Date.now()) {
       cached = { userId: await tenancy.login(opts.db, identity), until: Date.now() + LOGIN_TTL_MS };
       logins.set(key, cached);
       if (logins.size > 10_000) logins.clear();
     }
     req.identity = { ...identity, userId: cached.userId };
-  });
+  };
+  app.decorate("authenticate", (req: FastifyRequest) => authenticate(req, false));
+  app.decorate("authenticateFresh", (req: FastifyRequest) => authenticate(req, true));
 
   app.decorate("requireAccount", async (req: FastifyRequest) => {
     await app.authenticate(req);

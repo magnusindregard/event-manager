@@ -123,13 +123,16 @@ export async function createAccount(db: Db, input: CreateAccountInput): Promise<
       })
       .returning(columns)
       .executeTakeFirstOrThrow();
+    const invitationId = newId();
     await tx
       .insertInto("tenancy.invitation")
-      .values({ id: newId(), tenant_id: id, email: input.ownerEmail.toLowerCase(), role: "owner", invited_by: null })
+      .values({ id: invitationId, tenant_id: id, email: input.ownerEmail.toLowerCase(), role: "owner", invited_by: null })
       .execute();
     const system: ActorContext = { tenantId: id, userId: null, clientId: "admin-cli", roles: ["owner"] };
     await recordAudit(tx, system, { action: "account.created", entityType: "account", entityId: id, diff: { ownerEmail: input.ownerEmail } });
     await emit(tx, id, { type: "account.created.v1", subject: `account/${id}`, data: { id, slug: input.slug } });
+    // The first owner gets an Entra identity like any other invitee (ADR 0012).
+    await emit(tx, id, { type: "member.invited.v1", subject: `invitation/${invitationId}`, data: { id: invitationId, role: "owner" } });
     return toAccount(row);
   });
 }

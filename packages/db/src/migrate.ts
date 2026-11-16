@@ -6,11 +6,15 @@ import { runMigrations as runWorkerMigrations } from "graphile-worker";
 import * as m0001 from "./migrations/0001_foundation.js";
 import * as m0002 from "./migrations/0002_tenancy.js";
 import * as m0003 from "./migrations/0003_outbox.js";
+import * as m0004 from "./migrations/0004_catalog.js";
+import * as m0005 from "./migrations/0005_provisioning.js";
 
 const migrations: Record<string, Migration> = {
   "0001_foundation": m0001,
   "0002_tenancy": m0002,
   "0003_outbox": m0003,
+  "0004_catalog": m0004,
+  "0005_provisioning": m0005,
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

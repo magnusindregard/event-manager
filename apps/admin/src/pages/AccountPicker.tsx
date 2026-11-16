@@ -1,5 +1,6 @@
-import { Box, List, ListItemButton, ListItemText, Paper, Typography } from "@mui/material";
+import { ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useApp } from "../AppContext.js";
 
 export function AccountPicker() {
@@ -7,21 +8,35 @@ export function AccountPicker() {
   const { me, selectAccount } = useApp();
   const accounts = me?.accounts ?? [];
   return (
-    <Box component="main" sx={{ minHeight: "100vh", display: "grid", placeItems: "center", p: 2 }}>
-      <Paper sx={{ p: 3, width: "100%", maxWidth: 480 }}>
-        <Typography variant="h5" component="h1" gutterBottom>{t("account.choose")}</Typography>
-        {accounts.length === 0 ? (
-          <Typography>{t("account.none")}</Typography>
-        ) : (
-          <List>
-            {accounts.map((a) => (
-              <ListItemButton key={a.accountId} onClick={() => selectAccount(a.accountId)}>
-                <ListItemText primary={a.name} secondary={a.roles.map((r) => t(`members.roles.${r}`, r)).join(", ")} />
-              </ListItemButton>
-            ))}
-          </List>
-        )}
-      </Paper>
-    </Box>
+    <main className="grid min-h-svh place-items-center bg-muted/40 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle><h1>{t("account.choose")}</h1></CardTitle>
+        </CardHeader>
+        <CardContent>
+          {accounts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("account.none")}</p>
+          ) : (
+            <ul className="-mx-2 grid gap-1">
+              {accounts.map((a) => (
+                <li key={a.accountId}>
+                  <button
+                    type="button"
+                    onClick={() => selectAccount(a.accountId)}
+                    className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  >
+                    <span>
+                      <span className="block text-sm font-medium">{a.name}</span>
+                      <span className="block text-xs text-muted-foreground">{a.roles.map((r) => t(`members.roles.${r}`, r)).join(", ")}</span>
+                    </span>
+                    <ChevronRight className="size-4 text-muted-foreground" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </main>
   );
 }

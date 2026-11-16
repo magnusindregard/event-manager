@@ -1,6 +1,6 @@
 # MVP implementation plan – event catalog on Azure
 
-*13 November 2026, updated 15 November. Decisions recorded in ADRs 0011–0014. Milestone 1 (foundation) is implemented on `feat/m1-foundation`; paid staging moved to the end of milestone 2.*
+*13 November 2026, updated 16 November. Decisions recorded in ADRs 0011–0015. Milestone 1 (foundation) is implemented on `feat/m1-foundation`; milestone 2 (catalog) on `feat/m2-catalog`, with the staging stand-up still to do.*
 
 ## Context
 
@@ -12,12 +12,12 @@ The product is specced in `magnusindregard/event-manager` (`docs/adr/0001–0010
 |---|---|---|
 | HTTP / data / schemas | Fastify + Kysely + TypeBox (Fastify's native type provider; `@fastify/swagger` → OpenAPI 3.1) | 0011 (resolves 0002 options) |
 | Staff IdP | Microsoft Entra External ID (external tenant), OIDC federation to client Entra ID / Google; MSAL.js in admin, `jose` JWKS validation in API | 0012 (resolves 0005 open item) |
-| Admin UI | MUI core + MUI X **Community (MIT only)**, FullCalendar standard (MIT), rrule.js; no commercial licences | 0013 (resolves MVP Q6) |
+| Admin UI | shadcn/ui (Radix + Tailwind v4), TanStack Table v9, react-day-picker + `@date-fns/tz`, FullCalendar standard (MIT), rrule.js; permissive licences only | 0015 (supersedes 0013, resolves MVP Q6) |
 | Hosting / IaC | 0009 → Accepted; **Bicep**; GitHub Actions with OIDC federated credentials to Azure | 0009 status + 0014 |
 | Job queue | graphile-worker (LISTEN/NOTIFY, `jobKey` dedupe, built-in crontab for nightly horizon) | in 0011 |
 | Migrations | Kysely `Migrator` with raw `sql` (RLS policies stay plain SQL); `kysely-codegen` for DB types | in 0011 |
 
-MUI free limits accepted: no DateRangePicker (two pickers), single grid filter (the custom occurrence filter replaces it), no pinning/tree-data. The phase-2 price grid revisits this (AG Grid Community or TanStack Table as free options).
+We own the components (shadcn copies them in), so inline cell editing, bulk selection, the zoned date-time field and the locations tree are ours to build in milestone 2. TanStack Table also covers the phase-2 price grid (pinning, cell-range selection).
 
 Assumed answers to MVP open questions (change if wrong): horizon 18 months as an account setting with that default; locales nb + en (the schema allows any BCP 47); Sanity plugin after the MVP; the public API always requires a publishable key; no account-level rules.
 
@@ -27,7 +27,7 @@ Assumed answers to MVP open questions (change if wrong): horizon 18 months as an
 apps/api          Fastify, /v1 (admin + future integrations)
 apps/public-api   Fastify, /public/v1, read-only
 apps/worker       graphile-worker: outbox dispatch, resolver, horizon, cache purge
-apps/admin        Vite + React + MUI
+apps/admin        Vite + React + shadcn/ui
 packages/domain   modules: tenancy/, catalog/, rules/, outbox/ – each exports index.ts only
 packages/db       Kysely instance, migrations, RLS helpers, codegen types, test fixtures
 packages/schemas  TypeBox schemas shared by API + admin → OpenAPI
@@ -52,6 +52,7 @@ pnpm workspaces + Turborepo; ESLint with `eslint-plugin-boundaries` (or dependen
 - Admin sends an Entra access token plus an `Account-Id` header. The API verifies the JWT, looks up the membership, and attaches `ctx = {userId, tenantId, role}`. Permissions live only in our DB.
 - `tenancy.audit_log(tenant_id, actor_id, client_id, action, entity_type, entity_id, diff jsonb, at)`, written by a domain helper in the same transaction as the change.
 - First-user bootstrap: a CLI command `pnpm admin create-account --owner-email` (run as a Container Apps Job).
+- Invitation-only access (ADR 0012, revised after the sign-in test): inviting someone also provisions their Entra identity through Microsoft Graph, as a guest for work accounts or a local one-time-passcode account otherwise, with retries in the worker and an invitation email (Postmark). Until then, identities are created by hand.
 
 **Outbox (ADR 0008)**
 - `outbox.event(id, tenant_id, type, subject, data, created_at, dispatched_at)` in CloudEvents shape, types versioned (`occurrence.changed.v1`). Written by `emit(tx, event)` inside the domain transaction.
@@ -86,7 +87,7 @@ pnpm workspaces + Turborepo; ESLint with `eslint-plugin-boundaries` (or dependen
 
 ## Admin (apps/admin)
 
-Vite + React 18 + TypeScript, MUI + MUI X Community, TanStack Query + generated SDK, React Router, react-hook-form + TypeBox resolver, i18next (nb, en) with MUI `nbNO` locale packs, MSAL React. Screens: sign-in/account switcher; account settings (timezone, locales, tag vocabularies, API keys, users – owner only); locations tree (RichTreeView + drawer form); events list (DataGrid server mode + filter bar); event editor (locale tabs, tags, defaults, external link, CMS refs, publish/unpublish/cancel, ETag conflict dialog); schedule tab (recurrence editor with rrule.js and a preview list from the dry-run; occurrence DataGrid with checkbox selection + FullCalendar week/month; source chips "default / rule: X / override", detached + conflict badges); occurrence filter component → bulk override / save as rule; rules tab with live preview; audit tab. Accessibility: eslint-plugin-jsx-a11y + axe in Playwright.
+Vite + React 19 + TypeScript, shadcn/ui + Tailwind v4 (tokens in `src/index.css`), TanStack Query + generated SDK, React Router, react-hook-form + TypeBox resolver, i18next (nb, en), date-fns `nb` locale for the calendar, MSAL. Screens: sign-in/account switcher; account settings (timezone, locales, tag vocabularies, API keys, users – owner only); locations tree (headless tree + sheet form); events list (`DataTable` server mode + filter bar); event editor (locale tabs, tags, defaults, external link, CMS refs, publish/unpublish/cancel, ETag conflict dialog); schedule tab (recurrence editor with rrule.js and a preview list from the dry-run; occurrence `DataTable` with row selection + FullCalendar week/month; source chips "default / rule: X / override", detached + conflict badges); occurrence filter component → bulk override / save as rule; rules tab with live preview; audit tab. Accessibility: eslint-plugin-jsx-a11y + axe in Playwright.
 
 ## Azure (infra/, Bicep, Norway East)
 
@@ -104,7 +105,15 @@ Vite + React 18 + TypeScript, MUI + MUI X Community, TanStack Query + generated 
 ## Milestones (map to mvp.md and epics)
 
 1. **Foundation** (#1): clone repo, monorepo scaffold, ADRs 0011–0014, db package with roles/RLS/`withTenant`, RLS test generator, tenancy module (accounts, users, memberships, audit), Entra sign-in end to end, admin shell with i18n + account switcher, outbox + worker skeleton, Bicep (written, not deployed), CI/CD, OTel. *Exit:* staff signs in **locally with a real Entra External ID token**, edits account settings, sees the audit entry. Paid staging is deferred to save cost; the identity design is the risk that matters at this stage, and it can be tested for free (infra/README.md).
-2. **Catalog** (#2, #10): locations, events + translations + tags, one-off occurrences, inline resolver (defaults/overrides only), `/v1` CRUD with ETags, public API (`/events`, `/events/{idOrSlug}`, `/occurrences`, `/locations`), publishable/preview keys, Front Door caching, SDK generation. **Lean staging** at the end: stand up Azure per the staging runbook, aiming for roughly $15–35/month (API apps scale to zero; the worker scales on queued jobs or runs in-process; free-tier or stop-when-idle Postgres), and verify the cache key separates tenants. *Exit:* acceptance "next 30 days in nb and en" with one-off occurrences, served through staging.
+2. **Catalog** (#2, #10): locations, events + translations + tags, one-off occurrences, inline resolver (defaults/overrides only), `/v1` CRUD with ETags, public API (`/events`, `/events/{idOrSlug}`, `/occurrences`, `/locations`), publishable/preview keys, Front Door caching, SDK generation. **Entra provisioning** from the invite flow (ADR 0012), needed before any client staff sign in. **Lean staging** at the end: stand up Azure per the staging runbook, aiming for roughly $15–35/month (API apps scale to zero; the worker scales on queued jobs or runs in-process; free-tier or stop-when-idle Postgres), and verify the cache key separates tenants. *Exit:* acceptance "next 30 days in nb and en" with one-off occurrences, served through staging.
+   *Status (16 November):* built and tested locally. The acceptance scenario runs as `apps/public-api/test/public.test.ts`. Still to do: the staging stand-up (`infra/README.md`, steps 0–10). Decisions taken while building:
+   - Locations store `lat`/`lng` columns instead of a `point`; easier to validate and serialize.
+   - Every reference between tenant tables is a composite foreign key on `(tenant_id, id)`, because foreign key checks bypass RLS.
+   - API keys are `pk_<id>_<secret>` and `prv_<id>_<secret>`, with a SHA-256 hash of 32 random bytes. A pepper adds nothing for secrets with that much entropy, so there is none. Key lookups are cached for 60 s per replica, so revocation takes up to a minute.
+   - Occurrence audit entries are recorded on the event (`entity_type = event`), so the event's audit tab shows its schedule changes.
+   - Cancel and reinstate an occurrence with `PATCH {status}`; one-offs are deleted outright (series occurrences get EXDATE in milestone 3).
+   - Staging runs the worker as a sidecar container of the `api` app (scales to zero with it), not in-process. Milestone 3's nightly horizon job needs a Container Apps cron job in staging.
+   - Front Door Standard's base fee (~$35) is more than the rest of staging together, so it has a `DEPLOY_FRONT_DOOR` toggle.
 3. **Series** (#3): recurrence module, regeneration + conflicts, Outlook edits, horizon cron, recurrence editor + dry-run preview, calendar view. *Exit:* tour, DST and 18-month acceptance scenarios pass as integration tests.
 4. **Rules** (#5): rules schema, effect registry, resolver in worker, effective values in public API, occurrence filter, bulk override, rule editor with preview. *Exit:* rooftop/late-opening scenario passes, including occurrences added by extending the series.
 5. **Pilot:** prod environment, load real events for the pilot client (MUNCH Sanity "what's on" is the candidate), `.ics` + webhook delivery as stretch goals.

@@ -2,22 +2,27 @@ import { useAzureMonitor } from "@azure/monitor-opentelemetry";
 
 if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) useAzureMonitor();
 
-const { default: Fastify } = await import("fastify");
-const { createDb, sql } = await import("@event-manager/db");
+const { createDb } = await import("@event-manager/db");
+const { buildPublicApp } = await import("./app.js");
 
-// /public/v1 – read-only, cached at the edge (ADR 0007). Endpoints arrive in milestone 2:
-// events, occurrences, locations. Caching rule (see docs/implementation-plan.md): the
-// publishable key travels in the query string, because Front Door does not vary its
-// cache on request headers.
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is required");
 const db = createDb(url);
-const app = Fastify({ logger: { level: process.env.LOG_LEVEL ?? "info" } });
-
-app.get("/healthz", async () => ({ ok: true }));
-app.get("/readyz", async () => {
-  await sql`select 1`.execute(db);
-  return { ok: true };
+const app = await buildPublicApp({
+  db,
+  logger: { level: process.env.LOG_LEVEL ?? "info" },
+  rateLimit: {
+    capacity: Number(process.env.PUBLIC_RATE_LIMIT_BURST ?? 300),
+    refillPerSecond: Number(process.env.PUBLIC_RATE_LIMIT_PER_SECOND ?? 20),
+  },
 });
+
+const shutdown = async () => {
+  await app.close();
+  await db.destroy();
+  process.exit(0);
+};
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
 
 await app.listen({ port: Number(process.env.PORT ?? 3001), host: "0.0.0.0" });

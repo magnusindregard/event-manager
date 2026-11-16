@@ -1,95 +1,120 @@
-import {
-  AppBar, Box, Button, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText,
-  MenuItem, Select, Toolbar, Typography, useMediaQuery, useTheme,
-} from "@mui/material";
-import EventIcon from "@mui/icons-material/Event";
-import PlaceIcon from "@mui/icons-material/Place";
-import SettingsIcon from "@mui/icons-material/Settings";
-import PeopleIcon from "@mui/icons-material/People";
-import HistoryIcon from "@mui/icons-material/History";
-import MenuIcon from "@mui/icons-material/Menu";
+import { CalendarDays, ChevronsUpDown, History, LogOut, MapPin, Menu, Repeat, Settings, Users } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet } from "react-router";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup,
+  DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 import { useApp } from "../AppContext.js";
 import { useAuth } from "../auth/AuthProvider.js";
+import { LANGUAGES, setLanguage } from "../i18n.js";
 
-const WIDTH = 240;
-
-export function Layout() {
+function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { t, i18n } = useTranslation();
   const auth = useAuth();
   const { me, accountId, selectAccount } = useApp();
-  const theme = useTheme();
-  const wide = useMediaQuery(theme.breakpoints.up("md"));
-  const [open, setOpen] = useState(false);
   const account = me?.accounts.find((a) => a.accountId === accountId);
 
   const nav = [
-    { to: "/events", label: t("nav.events"), icon: <EventIcon /> },
-    { to: "/locations", label: t("nav.locations"), icon: <PlaceIcon /> },
-    { to: "/settings", label: t("nav.settings"), icon: <SettingsIcon /> },
-    { to: "/members", label: t("nav.members"), icon: <PeopleIcon /> },
-    { to: "/audit", label: t("nav.audit"), icon: <HistoryIcon /> },
+    { to: "/events", label: t("nav.events"), icon: CalendarDays },
+    { to: "/locations", label: t("nav.locations"), icon: MapPin },
+    { to: "/settings", label: t("nav.settings"), icon: Settings },
+    { to: "/members", label: t("nav.members"), icon: Users },
+    { to: "/audit", label: t("nav.audit"), icon: History },
   ];
 
-  const drawer = (
-    <List component="nav" aria-label={t("app.title")}>
-      {nav.map((n) => (
-        <ListItemButton key={n.to} component={NavLink} to={n.to} onClick={() => setOpen(false)} sx={{ "&.active": { bgcolor: "action.selected" } }}>
-          <ListItemIcon>{n.icon}</ListItemIcon>
-          <ListItemText primary={n.label} />
-        </ListItemButton>
-      ))}
-    </List>
+  return (
+    <div className="flex h-full flex-col gap-4 p-3">
+      <div className="px-2 pt-1">
+        <div className="text-xs text-muted-foreground">{t("app.title")}</div>
+        <div className="truncate text-sm font-semibold">{account?.name}</div>
+      </div>
+
+      <nav aria-label={t("app.title")} className="flex flex-1 flex-col gap-0.5">
+        {nav.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                isActive && "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
+              )
+            }
+          >
+            <Icon className="size-4" />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-auto justify-between px-2 py-1.5 text-left">
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium">{auth.user?.name ?? auth.user?.email}</span>
+              <span className="block truncate text-xs text-muted-foreground">{auth.user?.email}</span>
+            </span>
+            <ChevronsUpDown className="opacity-50" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" align="start" className="w-56">
+          <DropdownMenuLabel>{t("common.language")}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={i18n.language} onValueChange={setLanguage}>
+            {LANGUAGES.map((l) => (
+              <DropdownMenuRadioItem key={l.code} value={l.code}>{l.label}</DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
+          {(me?.accounts.length ?? 0) > 1 && (
+            <DropdownMenuItem onSelect={() => selectAccount(null)}>
+              <Repeat /> {t("account.switch")}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onSelect={() => void auth.signOut()}>
+            <LogOut /> {t("auth.signOut")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
+}
+
+export function Layout() {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
-      <AppBar position="fixed" sx={{ zIndex: (th) => th.zIndex.drawer + 1 }}>
-        <Toolbar sx={{ gap: 1 }}>
-          {!wide && (
-            <IconButton color="inherit" edge="start" aria-label="menu" onClick={() => setOpen(true)}>
-              <MenuIcon />
-            </IconButton>
-          )}
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }} noWrap>
-            {account?.name ?? t("app.title")}
-          </Typography>
-          {(me?.accounts.length ?? 0) > 1 && (
-            <Button color="inherit" onClick={() => selectAccount(null)}>{t("account.switch")}</Button>
-          )}
-          <Select
-            size="small"
-            value={i18n.language}
-            onChange={(e) => {
-              void i18n.changeLanguage(e.target.value);
-              try { localStorage.setItem("em.lang", e.target.value); } catch { /* ignore */ }
-            }}
-            inputProps={{ "aria-label": "Language" }}
-            sx={{ color: "inherit", ".MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,.4)" } }}
-          >
-            <MenuItem value="nb">Norsk</MenuItem>
-            <MenuItem value="en">English</MenuItem>
-          </Select>
-          <Button color="inherit" onClick={() => void auth.signOut()} title={t("auth.signedInAs", { email: auth.user?.email })}>
-            {t("auth.signOut")}
-          </Button>
-        </Toolbar>
-      </AppBar>
-      <Drawer
-        variant={wide ? "permanent" : "temporary"}
-        open={wide || open}
-        onClose={() => setOpen(false)}
-        sx={{ width: WIDTH, flexShrink: 0, "& .MuiDrawer-paper": { width: WIDTH, boxSizing: "border-box" } }}
-      >
-        <Toolbar />
-        {drawer}
-      </Drawer>
-      <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 3 }, minWidth: 0 }}>
-        <Toolbar />
-        <Outlet />
-      </Box>
-    </Box>
+    <div className="min-h-svh md:grid md:grid-cols-[15rem_1fr]">
+      <aside className="sticky top-0 hidden h-svh border-r bg-sidebar md:block">
+        <Sidebar />
+      </aside>
+
+      <header className="sticky top-0 z-10 flex h-12 items-center gap-2 border-b bg-background/95 px-2 backdrop-blur md:hidden">
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={t("common.menu")}>
+              <Menu />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 bg-sidebar p-0">
+            <SheetTitle className="sr-only">{t("common.menu")}</SheetTitle>
+            <Sidebar onNavigate={() => setOpen(false)} />
+          </SheetContent>
+        </Sheet>
+        <span className="text-sm font-semibold">{t("app.title")}</span>
+      </header>
+
+      <main className="min-w-0 px-4 py-6 md:px-8 md:py-8">
+        <div className="mx-auto max-w-5xl">
+          <Outlet />
+        </div>
+      </main>
+    </div>
   );
 }

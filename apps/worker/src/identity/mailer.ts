@@ -1,0 +1,58 @@
+/** Transactional email (ADR 0010: Postmark). */
+export interface Mailer {
+  send(msg: { to: string; subject: string; text: string }): Promise<void>;
+}
+
+export class PostmarkMailer implements Mailer {
+  constructor(private readonly cfg: { token: string; from: string; stream?: string }) {}
+
+  async send(msg: { to: string; subject: string; text: string }): Promise<void> {
+    const res = await fetch("https://api.postmarkapp.com/email", {
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json", "X-Postmark-Server-Token": this.cfg.token },
+      body: JSON.stringify({ From: this.cfg.from, To: msg.to, Subject: msg.subject, TextBody: msg.text, MessageStream: this.cfg.stream ?? "outbound" }),
+    });
+    if (!res.ok) throw new Error(`Postmark → ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  }
+}
+
+/** Collects messages instead of sending them; logs a line so local runs show what would go out. */
+export class FakeMailer implements Mailer {
+  readonly sent: { to: string; subject: string; text: string }[] = [];
+  constructor(private readonly log: (line: string) => void = () => {}) {}
+
+  async send(msg: { to: string; subject: string; text: string }): Promise<void> {
+    this.sent.push(msg);
+    this.log(`[fake mail] to=${msg.to} subject=${JSON.stringify(msg.subject)}`);
+  }
+}
+
+export function invitationEmail(opts: {
+  locale: string;
+  accountName: string;
+  invitedBy: string | null;
+  adminUrl: string;
+  kind: "work" | "local";
+  redeemUrl: string | null;
+}): { subject: string; text: string } {
+  const nb = opts.locale.startsWith("n");
+  const who = opts.invitedBy ? (nb ? `${opts.invitedBy} har invitert deg` : `${opts.invitedBy} has invited you`) : nb ? "Du er invitert" : "You have been invited";
+  const link = opts.redeemUrl ?? opts.adminUrl;
+  const how =
+    opts.kind === "work"
+      ? nb
+        ? "Du logger inn med jobbkontoen din. Første gang ber Microsoft deg godta invitasjonen."
+        : "You sign in with your work account. The first time, Microsoft asks you to accept the invitation."
+      : nb
+        ? "Du logger inn med e-postadressen din og får en engangskode på e-post. Du trenger ikke noe passord."
+        : "You sign in with your email address and get a one-time code by email. No password is needed.";
+  const subject = nb ? `Invitasjon til ${opts.accountName}` : `Invitation to ${opts.accountName}`;
+  const text = [
+    `${who} ${nb ? "til" : "to"} ${opts.accountName}.`,
+    "",
+    how,
+    "",
+    link,
+  ].join("\n");
+  return { subject, text };
+}

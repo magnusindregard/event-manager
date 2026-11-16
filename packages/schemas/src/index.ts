@@ -76,12 +76,32 @@ export const Member = Type.Object(
   { userId: Uuid, email: Type.String(), name: Type.Union([Type.String(), Type.Null()]), roles: Type.Array(Role) },
 );
 
+export const SigninKind = Type.Union([Type.Literal("auto"), Type.Literal("work"), Type.Literal("local")], {
+  description: "auto: decided by a realm lookup on the address. work: guest with their organisation's account. local: email one-time passcode.",
+});
+
 export const Invitation = Type.Object(
-  { id: Uuid, email: Type.String(), role: Role, createdAt: DateTime },
+  {
+    id: Uuid,
+    email: Type.String(),
+    role: Role,
+    createdAt: DateTime,
+    signinKind: SigninKind,
+    provisioning: Type.Object(
+      {
+        status: Type.Union([Type.Literal("pending"), Type.Literal("provisioned"), Type.Literal("failed")]),
+        kind: Type.Union([Type.Literal("work"), Type.Literal("local"), Type.Null()]),
+        error: Type.Union([Type.String(), Type.Null()]),
+        attempts: Type.Integer(),
+        emailSent: Type.Boolean(),
+      },
+      { description: "Creation of the sign-in identity in Entra External ID (ADR 0012)" },
+    ),
+  },
 );
 
 export const InvitationCreate = Type.Object(
-  { email: Type.String({ format: "email" }), role: EnabledRole },
+  { email: Type.String({ format: "email" }), role: EnabledRole, signinKind: Type.Optional(SigninKind) },
   { additionalProperties: false },
 );
 export type InvitationCreate = Static<typeof InvitationCreate>;
@@ -103,3 +123,5 @@ export const AuditEntry = Type.Object(
   },
 );
 
+export * from "./catalog.js";
+export * from "./public.js";
