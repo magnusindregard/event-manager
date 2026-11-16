@@ -24,8 +24,11 @@ param graphClientId string = ''
 param graphTenantDomain string = ''
 @description('Sender for invitation emails (Postmark). Needs Key Vault secret "postmark-token". Empty keeps the fake mailer.')
 param mailFrom string = ''
-@description('Admin URL in invitation emails, e.g. https://<front door host>/ (known after the first deploy).')
+@description('Admin URL in invitation emails. Defaults to where the admin is served (Front Door, or the storage static website without it).')
 param adminUrl string = ''
+@description('Postgres Entra admin principal type. Group is the runbook default; User lets one person administer a test environment where creating groups is not allowed.')
+@allowed(['Group', 'User'])
+param postgresAdminType string = 'Group'
 
 var prod = env == 'prod'
 var name = 'em-${env}'
@@ -115,7 +118,7 @@ module postgres 'modules/postgres.bicep' = {
     subnetId: network.outputs.postgresSubnetId
     privateDnsZoneId: network.outputs.postgresDnsZoneId
     admins: [
-      { objectId: postgresAdminGroupObjectId, name: postgresAdminGroupName, type: 'Group' }
+      { objectId: postgresAdminGroupObjectId, name: postgresAdminGroupName, type: postgresAdminType }
       { objectId: migratorIdentity.properties.principalId, name: migratorIdentity.name, type: 'ServicePrincipal' }
     ]
   }
@@ -130,6 +133,11 @@ resource adminStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   sku: { name: prod ? 'Standard_ZRS' : 'Standard_LRS' }
   properties: { minimumTlsVersion: 'TLS1_2', allowBlobPublicAccess: false, supportsHttpsTrafficOnly: true }
 }
+
+// Without Front Door the admin is served from the storage static website, on another origin
+// than the API, so the API allows it through CORS and the admin calls the API's own host.
+var adminWebOrigin = replace(adminStorage.properties.primaryEndpoints.web, '.net/', '.net')
+var adminOrigin = deployFrontDoor ? '' : adminWebOrigin
 
 module apps 'modules/apps.bicep' = if (deployApps) {
   name: 'apps'
@@ -159,7 +167,8 @@ module apps 'modules/apps.bicep' = if (deployApps) {
     graphTenantDomain: graphTenantDomain
     keyVaultUri: vault.properties.vaultUri
     mailFrom: mailFrom
-    adminUrl: adminUrl
+    adminUrl: !empty(adminUrl) ? adminUrl : (deployFrontDoor ? '' : '${adminWebOrigin}/')
+    corsOrigins: adminOrigin
   }
   dependsOn: [appAcrPull, migratorAcrPull, appVaultAccess]
 }
@@ -177,6 +186,8 @@ module edge 'modules/frontdoor.bicep' = if (deployApps && deployFrontDoor) {
 
 output registryServer string = registry.properties.loginServer
 output adminStorageAccount string = adminStorage.name
+@description('Where staff open the admin.')
+output adminOrigin string = deployApps && deployFrontDoor ? 'https://${edge!.outputs.endpointHost}' : adminWebOrigin
 output frontDoorHost string = deployApps && deployFrontDoor ? edge!.outputs.endpointHost : ''
 output apiHost string = deployApps ? apps!.outputs.apiFqdn : ''
 output publicApiHost string = deployApps ? apps!.outputs.publicApiFqdn : ''

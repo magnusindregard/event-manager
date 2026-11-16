@@ -10,7 +10,8 @@
     "start": "node dist/main.js",
     "test": "vitest run",
     "openapi": "tsx --conditions=@event-manager/source src/cli/emit-openapi.ts ../../packages/sdk/openapi/core.json",
-    "create-account": "tsx --conditions=@event-manager/source --env-file-if-exists=../../.env src/cli/create-account.ts"
+    "create-account": "tsx --conditions=@event-manager/source --env-file-if-exists=../../.env src/cli/create-account.ts",
+    "seed-demo": "tsx --conditions=@event-manager/source --env-file-if-exists=../../.env src/cli/seed-demo.ts"
   },
   "dependencies": {
     "@azure/monitor-opentelemetry": "^1.21.0",

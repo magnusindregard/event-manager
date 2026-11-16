@@ -60,6 +60,73 @@ authority. If sign-in fails, the error appears on the sign-in screen and in the 
 | "Denne kontoen finnes ikke … `<aadSelfSignup>`opprett en ny`</aadSelfSignup>`" with no working link | Self-service sign-up is not offered, even with the app in a sign-up/sign-in user flow; `prompt=create` is ignored too. **Cause not yet found** | Create users directly (step 4). The product is invitation-only, so public sign-up is not needed |
 | The account that created the tenant cannot sign in to the app | It is stored as an admin identity (e.g. a Microsoft account, `…#EXT#@…`), not a customer account with email sign-in | Create a separate customer user (step 4) with a different email |
 
+## Test environment (milestone 5): online for our own testing
+
+There is no pilot client yet, so the `staging` environment runs lean: **no Front Door** (no edge cache,
+no WAF), apps that scale to zero, and Postgres B1ms. About $25/month, mostly Postgres, less when it is
+stopped. Without Front Door the admin is served from the storage account's static website, the core API
+from its Container Apps host (CORS allows the admin's origin), and the public API from its own host.
+Turning Front Door on later is one variable (`DEPLOY_FRONT_DOOR=true`) and a redeploy.
+
+What exists (set up 16 November 2026 in the personal subscription "Azure subscription 1", a free trial):
+
+| Piece | Value |
+|---|---|
+| Resource group | `rg-em-staging` (Norway East) |
+| Deploy identity | app registration `em-github-staging`, federated to the GitHub environment `staging` |
+| Postgres admins | group `em-postgres-admins` (you are a member) |
+| Sign-in | the local test's External ID apps `em-api-local` / `em-admin-local` (same users locally and online) |
+| GitHub | environment `staging` with the variables from step 5, `DEPLOY_FRONT_DOOR=false`, `ACR_NAME` |
+
+**Deploy** a branch or `main` (builds images on GitHub's runners, then runs `scripts/deploy-env.sh`):
+
+```bash
+gh workflow run deploy.yml --ref <branch> -R magnusindregard/event-manager
+gh run watch -R magnusindregard/event-manager
+```
+
+By hand, from a signed-in `az` (images built in the registry with ACR Tasks; free trials may not allow them):
+
+```bash
+set -a; . ./.env; set +a     # OIDC_*, VITE_ENTRA_* of the local apps
+export RESOURCE_GROUP=rg-em-staging PG_ADMIN_GROUP_ID=<id> PG_ADMIN_GROUP_NAME=em-postgres-admins DEPLOY_FRONT_DOOR=false \
+       ENTRA_ADMIN_CLIENT_ID=$VITE_ENTRA_CLIENT_ID ENTRA_AUTHORITY=$VITE_ENTRA_AUTHORITY ENTRA_API_SCOPE=$VITE_ENTRA_API_SCOPE
+ACR_NAME=<registry> scripts/build-images.sh && scripts/deploy-env.sh staging "$(git rev-parse HEAD)"
+```
+
+**Demo data.** A fresh environment is empty. This creates a demo account (venue, spaces, tags, a recurring
+tour with an evening rule, concerts, a family series with one cancellation, a draft) with you as owner, and
+prints a publishable and a preview key:
+
+```bash
+curl -s https://<api host>/healthz >/dev/null   # wake the api (scales to zero)
+az containerapp exec -g rg-em-staging -n ca-em-staging-api \
+  --command "node dist/cli/seed-demo.js --slug demo --owner-email <your sign-in email>"
+```
+
+Locally: `pnpm --filter @event-manager/api seed-demo --owner-email <email>`.
+
+**Try the public API** with the printed key:
+
+```bash
+curl -s "https://<public api host>/public/v1/occurrences?key=<pk_…>&locale=en&limit=5" | jq '.items[] | {start: .startUtc, title: .event.title, location: .location.name, admission}'
+```
+
+**Save money when idle.** Stop Postgres (Azure restarts it after 7 days); the apps already scale to zero:
+
+```bash
+az postgres flexible-server stop -g rg-em-staging -n psql-em-staging
+az postgres flexible-server start -g rg-em-staging -n psql-em-staging
+```
+
+Deleting everything: `az group delete -n rg-em-staging`. The Key Vault has purge protection, so its name
+stays reserved for 90 days; a new deploy gets a new name anyway (it includes a hash of the group's ID).
+
+**Not production grade, on purpose:** no edge cache (each public request hits the app), no WAF, public
+Container Apps ingress, the worker runs only while the api is awake (a few minutes after each request; the
+nightly horizon runs as a Container Apps cron job), invitation emails are logged instead of sent, and
+invitees get no Entra identity automatically (create the user in the external tenant, as in the local test).
+
 ## Staging runbook (end of milestone 2)
 
 The Deploy workflow is manual-only until this is done; re-add its `push` trigger afterwards.
