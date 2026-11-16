@@ -32,21 +32,33 @@ tenant; nothing in Azure is created and nothing is billed.
    OIDC_AUDIENCE=<em-api-local client ID>
    VITE_AUTH_MODE=msal
    VITE_ENTRA_CLIENT_ID=<em-admin-local client ID>
-   VITE_ENTRA_AUTHORITY=https://<prefix>.ciamlogin.com/
+   VITE_ENTRA_AUTHORITY=https://<prefix>.ciamlogin.com/<external-tenant-id>/
    VITE_ENTRA_API_SCOPE=api://em-api-local/access
    ```
-4. **Invite yourself and sign in:**
+4. **Create a user to sign in with.** In the external tenant: *Users* → *All users* → *New user* →
+   *Create new user*, sign-in method **Email**, with a password. Use an address that is not already in the
+   tenant (see the pitfalls below).
+5. **Invite that email and sign in:**
    ```bash
    pnpm db:up && pnpm db:migrate
-   pnpm create-account --slug entra-test --name "Entra test" --owner-email <the email you sign up with>
+   pnpm create-account --slug entra-test --name "Entra test" --owner-email <that email>
    pnpm dev
    ```
-   Open <http://localhost:5173>, sign in (sign up the first time), change a setting, and check the audit log.
-   This is the milestone 1 exit check until staging exists.
+   Open <http://localhost:5173>, sign in, change a setting, and check the audit log.
+   This is the milestone 1 exit check until staging exists. It passed on 16 November 2026.
 
 **What this proves:** the access token's issuer and audience match what the API expects, the `email` claim
 reaches the API (otherwise invitations never match; see ADR 0012), and MSAL works with a `ciamlogin.com`
 authority. If sign-in fails, the error appears on the sign-in screen and in the API log.
+
+### Entra pitfalls (found while setting this up)
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `endpoints_resolution_error` on the admin's sign-in screen | Authority without the tenant ID. MSAL accepts the tenant's issuer (`https://<tenant-id>.ciamlogin.com/<tenant-id>/v2.0`) only when the authority path has the same ID; a bare host or `<prefix>.onmicrosoft.com` fails | `VITE_ENTRA_AUTHORITY=https://<prefix>.ciamlogin.com/<tenant-id>/` (the admin now refuses other forms with a clear message) |
+| `AADSTS50020 … does not exist in tenant` | A **work account** (e.g. a company's Entra ID) is sent to its home tenant, then refused because it is unknown in the external tenant | Invite it as an external (guest) user in the external tenant, or federate that company's Entra tenant. Client staff will hit this; see ADR 0012 |
+| "Denne kontoen finnes ikke … `<aadSelfSignup>`opprett en ny`</aadSelfSignup>`" with no working link | Self-service sign-up is not offered, even with the app in a sign-up/sign-in user flow; `prompt=create` is ignored too. **Cause not yet found** | Create users directly (step 4). The product is invitation-only, so public sign-up is not needed |
+| The account that created the tenant cannot sign in to the app | It is stored as an admin identity (e.g. a Microsoft account, `…#EXT#@…`), not a customer account with email sign-in | Create a separate customer user (step 4) with a different email |
 
 ## Staging runbook (deferred until the end of milestone 2)
 
@@ -169,7 +181,8 @@ Staff sign in through a **second, separate tenant** of the "external" type (ADR 
      → *Add* → *Grant admin consent*.
 5. **User flow:** *External Identities* → *User flows* → *New user flow* → name `signin`, identity provider
    *Email with password* (or *Email one-time passcode*) → *Create*. Open it → *Applications* → *Add application*
-   → add `em-admin-staging`. Self sign-up is harmless: access requires an invitation stored in our database.
+   → add `em-admin-staging`. Self-service sign-up did not appear in our tenant even so (see *Entra pitfalls*);
+   users can always be created directly, and access requires an invitation stored in our database.
    Each client's own Entra ID or Google Workspace is added here as an identity provider later.
 
 **→** external tenant ID (external tenant → *Overview*), domain prefix (`<prefix>.ciamlogin.com`), and the
@@ -185,7 +198,7 @@ gh api -X PUT repos/magnusindregard/event-manager/environments/staging
 for kv in AZURE_CLIENT_ID=<APP_ID> AZURE_TENANT_ID=<tenant> AZURE_SUBSCRIPTION_ID=<sub> RESOURCE_GROUP=rg-em-staging \
           PG_ADMIN_GROUP_ID=<group id> PG_ADMIN_GROUP_NAME=em-postgres-admins \
           OIDC_ISSUER=https://<ext-tenant>.ciamlogin.com/<ext-tenant>/v2.0 OIDC_AUDIENCE=<API client ID> \
-          ENTRA_ADMIN_CLIENT_ID=<admin client ID> ENTRA_AUTHORITY=https://<subdomain>.ciamlogin.com/ \
+          ENTRA_ADMIN_CLIENT_ID=<admin client ID> ENTRA_AUTHORITY=https://<prefix>.ciamlogin.com/<ext-tenant>/ \
           ENTRA_API_SCOPE=api://em-api-staging/access; do
   gh variable set "${kv%%=*}" --env staging --body "${kv#*=}" -R magnusindregard/event-manager
 done

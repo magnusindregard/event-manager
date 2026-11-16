@@ -114,6 +114,13 @@ describe("/v1", () => {
     expect(invite.status).toBe(403);
   });
 
+  it("GET /me applies a new invitation immediately, without waiting for the login cache", async () => {
+    await call("GET", "/v1/me", { as: "late@a.test" }); // signed in, no account yet
+    await call("POST", "/v1/account/invitations", { as: "owner@a.test", account: accountA, body: { email: "late@a.test", role: "editor" } });
+    const me = await call("GET", "/v1/me", { as: "late@a.test" });
+    expect(me.body.accounts.map((a: { accountId: string }) => a.accountId)).toEqual([accountA]);
+  });
+
   it("paginates the audit log with an opaque cursor", async () => {
     const first = await call("GET", "/v1/audit?limit=1", { as: "owner@a.test", account: accountA });
     expect(first.body.items).toHaveLength(1);

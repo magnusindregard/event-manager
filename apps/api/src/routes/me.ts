@@ -6,7 +6,7 @@ export const meRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.get(
     "/me",
     {
-      preHandler: app.authenticate,
+      preHandler: app.authenticateFresh,
       schema: {
         operationId: "getMe",
         tags: ["identity"],
