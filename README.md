@@ -4,6 +4,7 @@ Event management, registration (RSVP) and ticketing platform: events and recurri
 
 - Roadmap: epics in [issues](https://github.com/magnusindregard/event-manager/issues?q=label%3Aepic)
 - MVP scope: [docs/mvp.md](docs/mvp.md)
+- Next: guest invitations and RSVP (draft): [docs/registration.md](docs/registration.md)
 - Architecture decisions: [docs/adr](docs/adr/README.md)
 - Implementation plan: [docs/implementation-plan.md](docs/implementation-plan.md)
 - Azure setup: [infra/README.md](infra/README.md)
