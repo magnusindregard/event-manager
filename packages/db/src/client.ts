@@ -12,9 +12,16 @@ export interface TenantScope {
   userId?: string | null | undefined;
 }
 
+/**
+ * A node-postgres pool with the environment's auth (Entra tokens and TLS in Azure). Pass it to
+ * anything that would otherwise connect with the bare URL, such as graphile-worker.
+ */
+export function createPool(connectionString: string, max = 10): pg.Pool {
+  return new pg.Pool(poolConfig(connectionString, max));
+}
+
 export function createDb(connectionString: string, opts: { max?: number } = {}): Db {
-  const pool = new pg.Pool(poolConfig(connectionString, opts.max ?? 10));
-  return new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
+  return new Kysely<DB>({ dialect: new PostgresDialect({ pool: createPool(connectionString, opts.max ?? 10) }) });
 }
 
 /**
