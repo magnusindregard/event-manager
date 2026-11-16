@@ -1,6 +1,6 @@
 # MVP implementation plan – event catalog on Azure
 
-*13 November 2026, updated 16 November. Decisions recorded in ADRs 0011–0015. Milestone 1 (foundation) is implemented on `feat/m1-foundation`; milestone 2 (catalog) on `feat/m2-catalog`, with the staging stand-up still to do.*
+*13 November 2026, updated 16 November. Decisions recorded in ADRs 0011–0015. Milestone 1 (foundation) is implemented on `feat/m1-foundation`; milestone 2 (catalog) on `feat/m2-catalog`, with the staging stand-up still to do; milestone 3 (series) on `feat/m3-series`.*
 
 ## Context
 
@@ -115,6 +115,15 @@ Vite + React 19 + TypeScript, shadcn/ui + Tailwind v4 (tokens in `src/index.css`
    - Staging runs the worker as a sidecar container of the `api` app (scales to zero with it), not in-process. Milestone 3's nightly horizon job needs a Container Apps cron job in staging.
    - Front Door Standard's base fee (~$35) is more than the rest of staging together, so it has a `DEPLOY_FRONT_DOOR` toggle.
 3. **Series** (#3): recurrence module, regeneration + conflicts, Outlook edits, horizon cron, recurrence editor + dry-run preview, calendar view. *Exit:* tour, DST and 18-month acceptance scenarios pass as integration tests.
+   *Status (16 November):* built and tested locally. The three acceptance scenarios run in `packages/domain/test/acceptance/series.test.ts`; DST and diff unit tests in `packages/domain/test/recurrence.test.ts`. Decisions taken while building:
+   - Local wall times (`dtstart_local`, `recurrence_id_local`, `exdates`) are `timestamp` columns read and written as ISO strings (`YYYY-MM-DDTHH:mm:ss`); the pool's type parser stops node-pg from applying the process timezone.
+   - Regeneration matches occurrences on the slot key first, then on local date and order within the day, so changing 14:00 to 15:00 moves each occurrence and keeps its ID instead of replacing it. EXDATEs are remapped the same way, so a deleted slot stays deleted.
+   - Occurrences that start before now are history: regeneration never moves, deletes or creates them. A new series may still start in the past (imports).
+   - A hand edit detaches only when time or overrides actually change; cancelling keeps the occurrence on the series. Conflicts are settled by editing, "keep as is" (`PATCH {conflict: false}`) or "reset to series" (`POST /occurrences/{id}/reattach`).
+   - Deleting a series removes its upcoming non-detached occurrences; past and detached ones stay as one-offs.
+   - Previews are `?dryRun=true` on the same endpoints (create, edit, split); the plan is computed purely, so nothing is rolled back.
+   - Series changes resolve their occurrences inline (chunked, at most 10,000 slots per series) instead of a `resolve-event` job; milestone 4 moves resolution to the worker when rules make it expensive.
+   - The horizon job finds due series through the `SECURITY DEFINER` function `catalog.series_due_for_extension` (ids only) and extends each under its tenant. Prod runs it from the worker's crontab (02:00 UTC); staging runs `dist/cli/extend-horizons.js` as the Container Apps cron job `caj-<name>-horizon`.
 4. **Rules** (#5): rules schema, effect registry, resolver in worker, effective values in public API, occurrence filter, bulk override, rule editor with preview. *Exit:* rooftop/late-opening scenario passes, including occurrences added by extending the series.
 5. **Pilot:** prod environment, load real events for the pilot client (MUNCH Sanity "what's on" is the candidate), `.ics` + webhook delivery as stretch goals.
 

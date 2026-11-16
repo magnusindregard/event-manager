@@ -3,7 +3,7 @@ import { Type } from "typebox";
 import { catalog } from "@event-manager/domain";
 import {
   Event, EventCreate, EventPatch, EventStatus, EventSummary, Location, LocationCreate, LocationPatch, Occurrence,
-  OccurrenceCreate, OccurrencePatch, Page, Problem, Tag, TagCreate, TagPatch, TagVocabulary, TagVocabularyCreate,
+  OccurrenceCreate, OccurrencePatch, Page, Problem, Series, SeriesChangeResult, SeriesChanges, SeriesCreate, SeriesPatch, SeriesSplit, Tag, TagCreate, TagPatch, TagVocabulary, TagVocabularyCreate,
   TagVocabularyPatch, Uuid,
 } from "@event-manager/schemas";
 import { inTenant } from "../plugins/context.js";
@@ -24,6 +24,17 @@ const locationDto = (l: catalog.Location) => ({ ...l, updatedAt: iso(l.updatedAt
 const eventDto = (e: catalog.CatalogEvent) => ({ ...e, createdAt: iso(e.createdAt), updatedAt: iso(e.updatedAt) });
 const summaryDto = (e: catalog.EventSummary) => ({ ...eventDto(e), occurrenceCount: e.occurrenceCount, nextStartUtc: e.nextStartUtc ? iso(e.nextStartUtc) : null });
 const occurrenceDto = (o: catalog.Occurrence) => ({ ...o, startUtc: iso(o.startUtc), endUtc: iso(o.endUtc), updatedAt: iso(o.updatedAt) });
+const seriesDto = (s: catalog.Series) => ({ ...s, exdates: [...s.exdates], generatedUntil: iso(s.generatedUntil), createdAt: iso(s.createdAt), updatedAt: iso(s.updatedAt) });
+const slotDto = <T extends { startUtc: Date; endUtc: Date }>(x: T) => ({ ...x, startUtc: iso(x.startUtc), endUtc: iso(x.endUtc) });
+const changesDto = (c: catalog.SeriesChanges) => ({
+  counts: c.counts,
+  created: c.created.map(slotDto),
+  moved: c.moved.map((m) => ({ ...slotDto(m), fromStartUtc: iso(m.fromStartUtc), fromEndUtc: iso(m.fromEndUtc) })),
+  deleted: c.deleted.map(slotDto),
+  conflicts: c.conflicts.map(slotDto),
+});
+const changeResultDto = (r: catalog.SeriesChangeResult) => ({ series: r.series ? seriesDto(r.series) : null, changes: changesDto(r.changes) });
+const DryRun = Type.Object({ dryRun: Type.Boolean({ default: false, description: "Only report what would change (preview); nothing is saved" }) });
 const date = (s: string | undefined) => (s === undefined ? undefined : new Date(s));
 
 export const catalogRoutes: FastifyPluginAsyncTypebox = async (app) => {
@@ -206,6 +217,7 @@ export const catalogRoutes: FastifyPluginAsyncTypebox = async (app) => {
         querystring: Type.Object({
           from: Type.Optional(Type.String({ format: "date-time" })),
           to: Type.Optional(Type.String({ format: "date-time" })),
+          seriesId: Type.Optional(Uuid),
           cursor: Type.Optional(Type.String()),
           limit: Type.Integer({ minimum: 1, maximum: 500, default: 100 }),
         }),
@@ -213,12 +225,12 @@ export const catalogRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => {
-      const { cursor, limit, from, to } = req.query;
+      const { cursor, limit, from, to, seriesId } = req.query;
       const c = decodeCursor(cursor, isTimeCursor);
       const rows = await inTenant(app, req, async (tx) => {
         await catalog.getEvent(tx, req.params.id); // 404 for unknown events
         return catalog.listOccurrences(tx, {
-          eventId: req.params.id, from: date(from), to: date(to), limit: limit + 1,
+          eventId: req.params.id, seriesId, from: date(from), to: date(to), limit: limit + 1,
           after: c ? { startUtc: new Date(c.s), id: c.id } : undefined,
         });
       });
@@ -254,7 +266,7 @@ export const catalogRoutes: FastifyPluginAsyncTypebox = async (app) => {
 
   app.patch(
     "/occurrences/:id",
-    { schema: { operationId: "updateOccurrence", tags: ["occurrences"], ...accountScoped, summary: "Move, cancel or override one occurrence. Requires If-Match.", params: IdParams, body: OccurrencePatch, response: { 200: Occurrence, ...writeErrors } } },
+    { schema: { operationId: "updateOccurrence", tags: ["occurrences"], ...accountScoped, summary: "Move, cancel or override one occurrence (Outlook \"this occurrence\"). Changing time or overrides detaches a series occurrence. Requires If-Match.", params: IdParams, body: OccurrencePatch, response: { 200: Occurrence, ...writeErrors } } },
     async (req, reply) => {
       const v = expectedVersion(req);
       const { startUtc, endUtc, ...rest } = req.body;
@@ -266,11 +278,116 @@ export const catalogRoutes: FastifyPluginAsyncTypebox = async (app) => {
 
   app.delete(
     "/occurrences/:id",
-    { schema: { operationId: "deleteOccurrence", tags: ["occurrences"], ...accountScoped, summary: "Delete a one-off occurrence. Requires If-Match.", params: IdParams, response: { 204: Type.Null(), ...writeErrors } } },
+    { schema: { operationId: "deleteOccurrence", tags: ["occurrences"], ...accountScoped, summary: "Delete an occurrence. A series occurrence's slot is excluded from the series (EXDATE). Requires If-Match.", params: IdParams, response: { 204: Type.Null(), ...writeErrors } } },
     async (req, reply) => {
       const v = expectedVersion(req);
       await inTenant(app, req, (tx, ctx) => catalog.deleteOccurrence(tx, ctx, req.params.id, v));
       return reply.status(204).send(null);
+    },
+  );
+
+  app.post(
+    "/occurrences/:id/reattach",
+    { schema: { operationId: "reattachOccurrence", tags: ["occurrences"], ...accountScoped, summary: "Put a detached series occurrence back on its slot, without overrides. Requires If-Match.", params: IdParams, response: { 200: Occurrence, ...writeErrors } } },
+    async (req, reply) => {
+      const v = expectedVersion(req);
+      const o = await inTenant(app, req, (tx, ctx) => catalog.reattachOccurrence(tx, ctx, req.params.id, v));
+      setEtag(reply, o.version);
+      return occurrenceDto(o);
+    },
+  );
+
+  // ── Series ───────────────────────────────────────────────────────────────────
+  app.get(
+    "/events/:id/series",
+    { schema: { operationId: "listEventSeries", tags: ["series"], ...accountScoped, params: IdParams, response: { 200: Type.Object({ items: Type.Array(Series) }), ...errors } } },
+    async (req) => ({
+      items: (await inTenant(app, req, async (tx) => {
+        await catalog.getEvent(tx, req.params.id);
+        return catalog.listSeries(tx, req.params.id);
+      })).map(seriesDto),
+    }),
+  );
+
+  app.post(
+    "/events/:id/series",
+    {
+      schema: {
+        operationId: "createSeries", tags: ["series"], ...accountScoped,
+        summary: "Add a recurring series; its occurrences are generated up to the account horizon. dryRun=true previews.",
+        params: IdParams, querystring: DryRun, headers: idempotencyHeader, body: SeriesCreate,
+        response: { 200: SeriesChangeResult, 201: SeriesChangeResult, ...writeErrors },
+      },
+    },
+    async (req, reply) => {
+      if (req.query.dryRun) {
+        return changeResultDto(await inTenant(app, req, (tx, ctx) => catalog.createSeries(tx, ctx, req.params.id, req.body, { dryRun: true })));
+      }
+      const r = await inTenant(app, req, (tx, ctx) =>
+        idempotent(tx, req, ctx.tenantId, 201, async () => changeResultDto(await catalog.createSeries(tx, ctx, req.params.id, req.body))),
+      );
+      setEtag(reply, (r.body as { series: { version: number } }).series.version);
+      return reply.status(r.status).send(r.body as never);
+    },
+  );
+
+  app.get(
+    "/series/:id",
+    { schema: { operationId: "getSeries", tags: ["series"], ...accountScoped, params: IdParams, response: { 200: Series, ...errors } } },
+    async (req, reply) => {
+      const s = await inTenant(app, req, (tx) => catalog.getSeries(tx, req.params.id));
+      setEtag(reply, s.version);
+      return seriesDto(s);
+    },
+  );
+
+  app.patch(
+    "/series/:id",
+    {
+      schema: {
+        operationId: "updateSeries", tags: ["series"], ...accountScoped,
+        summary: "Edit the entire series (Outlook). Upcoming occurrences follow the rule; detached ones stay and are flagged. dryRun=true previews. Requires If-Match.",
+        params: IdParams, querystring: DryRun, body: SeriesPatch, response: { 200: SeriesChangeResult, ...writeErrors },
+      },
+    },
+    async (req, reply) => {
+      const v = expectedVersion(req);
+      const r = await inTenant(app, req, (tx, ctx) => catalog.updateSeries(tx, ctx, req.params.id, v, req.body, { dryRun: req.query.dryRun }));
+      if (r.series && !req.query.dryRun) setEtag(reply, r.series.version);
+      return changeResultDto(r);
+    },
+  );
+
+  app.post(
+    "/series/:id/split",
+    {
+      schema: {
+        operationId: "splitSeries", tags: ["series"], ...accountScoped,
+        summary: "Edit this and following (Outlook): the series ends before the slot `at`, and a new series with the changes starts there. Returns the new series. dryRun=true previews. Requires If-Match.",
+        params: IdParams, querystring: DryRun, body: SeriesSplit, response: { 200: SeriesChangeResult, ...writeErrors },
+      },
+    },
+    async (req, reply) => {
+      const v = expectedVersion(req);
+      const { at, ...patch } = req.body;
+      const r = await inTenant(app, req, (tx, ctx) => catalog.splitSeries(tx, ctx, req.params.id, v, at, patch, { dryRun: req.query.dryRun }));
+      if (r.series) setEtag(reply, r.series.version);
+      return changeResultDto(r);
+    },
+  );
+
+  app.delete(
+    "/series/:id",
+    {
+      schema: {
+        operationId: "deleteSeries", tags: ["series"], ...accountScoped,
+        summary: "Delete a series. Upcoming occurrences go; past and hand-edited ones are kept as one-off occurrences. Requires If-Match.",
+        params: IdParams, response: { 200: Type.Object({ changes: SeriesChanges }), ...writeErrors },
+      },
+    },
+    async (req) => {
+      const v = expectedVersion(req);
+      return { changes: changesDto(await inTenant(app, req, (tx, ctx) => catalog.deleteSeries(tx, ctx, req.params.id, v))) };
     },
   );
 };

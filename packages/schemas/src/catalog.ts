@@ -134,10 +134,12 @@ export const Occurrence = Type.Object({
   id: Uuid,
   eventId: Uuid,
   seriesId: Nullable(Uuid),
+  recurrenceIdLocal: Nullable(Type.String({ description: "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)" })),
   startUtc: DateTime,
   endUtc: DateTime,
   status: OccurrenceStatus,
-  detached: Type.Boolean(),
+  detached: Type.Boolean({ description: "Edited by hand; the series no longer moves it" }),
+  conflict: Type.Boolean({ description: "Detached, and a series change has since moved or removed its slot" }),
   overrides: Type.Object({ locationId: Nullable(Uuid), externalUrl: Nullable(Type.String()), tagIds: Nullable(Type.Array(Uuid)) }),
   effective: Type.Object({
     location: Type.Optional(resolved(Nullable(Uuid))),
@@ -161,9 +163,77 @@ export const OccurrenceCreate = Type.Object(
 );
 
 export const OccurrencePatch = Type.Object(
-  { startUtc: Type.Optional(DateTime), endUtc: Type.Optional(DateTime), status: Type.Optional(OccurrenceStatus), ...overrideFields },
+  {
+    startUtc: Type.Optional(DateTime), endUtc: Type.Optional(DateTime), status: Type.Optional(OccurrenceStatus), ...overrideFields,
+    conflict: Type.Optional(Type.Literal(false, { description: "Dismiss a series conflict and keep the occurrence as it is" })),
+  },
   { additionalProperties: false, minProperties: 1 },
 );
+
+// ── Series (milestone 3) ─────────────────────────────────────────────────────
+export const LocalDateTime = Type.String({
+  pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2})?$",
+  description: "Local wall time in the series' timezone, no offset",
+  examples: ["2027-01-04T14:00"],
+});
+const Rrule = Type.String({
+  minLength: 6, maxLength: 1000,
+  description: "RFC 5545 RRULE without DTSTART, e.g. FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=24. UNTIL is local time.",
+  examples: ["FREQ=WEEKLY;BYDAY=MO,WE,FR;COUNT=24"],
+});
+
+export const Series = Type.Object({
+  id: Uuid,
+  eventId: Uuid,
+  rrule: Type.String(),
+  dtstartLocal: Type.String(),
+  durationMin: Type.Integer(),
+  timezone: Type.String(),
+  exdates: Type.Array(Type.String(), { description: "Slots removed from the series, as local starts" }),
+  generatedUntil: Type.String({ format: "date-time", description: "Occurrences exist up to here; open-ended series are extended nightly" }),
+  complete: Type.Boolean({ description: "Every occurrence of the rule is generated" }),
+  version: Type.Integer(),
+  createdAt: DateTime,
+  updatedAt: DateTime,
+});
+export type Series = Static<typeof Series>;
+
+const seriesFields = {
+  rrule: Rrule,
+  dtstartLocal: LocalDateTime,
+  durationMin: Type.Optional(Type.Integer({ minimum: 1, maximum: 100000, description: "Defaults to the event's default duration" })),
+  timezone: Type.Optional(Type.String({ minLength: 1, description: "IANA timezone; defaults to the event's" })),
+};
+export const SeriesCreate = Type.Object(seriesFields, { additionalProperties: false });
+export const SeriesPatch = Type.Object(
+  { rrule: Type.Optional(Rrule), dtstartLocal: Type.Optional(LocalDateTime), durationMin: seriesFields.durationMin, timezone: seriesFields.timezone },
+  { additionalProperties: false, minProperties: 1 },
+);
+export const SeriesSplit = Type.Object(
+  { at: Type.String({ ...LocalDateTime, description: "The slot (recurrenceIdLocal) the new series starts at" }), ...SeriesPatch.properties },
+  { additionalProperties: false },
+);
+
+const SlotSummary = Type.Object({
+  occurrenceId: Nullable(Uuid),
+  recurrenceIdLocal: Nullable(Type.String()),
+  startUtc: DateTime,
+  endUtc: DateTime,
+});
+export const SeriesChanges = Type.Object(
+  {
+    counts: Type.Object({ created: Type.Integer(), moved: Type.Integer(), deleted: Type.Integer(), conflicts: Type.Integer(), unchanged: Type.Integer() }),
+    created: Type.Array(SlotSummary),
+    moved: Type.Array(Type.Object({ ...SlotSummary.properties, fromStartUtc: DateTime, fromEndUtc: DateTime })),
+    deleted: Type.Array(SlotSummary),
+    conflicts: Type.Array(Type.Object({ ...SlotSummary.properties, reason: Type.Union([Type.Literal("moved"), Type.Literal("removed")]) })),
+  },
+  { description: "What the change does to occurrences. Lists hold at most 200 items; counts are exact." },
+);
+export const SeriesChangeResult = Type.Object({
+  series: Nullable(Series),
+  changes: SeriesChanges,
+}, { description: "series is null in the preview of a series that does not exist yet" });
 
 export const ApiKeyKind = Type.Union([Type.Literal("publishable"), Type.Literal("preview")]);
 export const ApiKey = Type.Object({ id: Uuid, kind: ApiKeyKind, prefix: Type.String(), label: Type.String(), createdAt: DateTime, revokedAt: Nullable(DateTime) });

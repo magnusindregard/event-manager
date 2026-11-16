@@ -6,6 +6,8 @@ import type { ColumnType, Generated } from "kysely";
 type Timestamp = ColumnType<Date, Date | string, Date | string>;
 type GeneratedTimestamp = ColumnType<Date, Date | string | undefined, Date | string>;
 type Json = ColumnType<unknown, string, string>;
+/** Floating local wall time, "YYYY-MM-DDTHH:mm:ss" (Postgres timestamp without time zone). */
+export type LocalDateTime = string;
 
 export type Role = "owner" | "editor" | "event_manager" | "box_office" | "door_staff" | "finance";
 export type ApiKeyKind = "publishable" | "preview";
@@ -194,7 +196,7 @@ export interface OccurrenceTable {
   tenant_id: string;
   event_id: string;
   series_id: string | null;
-  recurrence_id_local: Timestamp | null;
+  recurrence_id_local: LocalDateTime | null;
   start_utc: Timestamp;
   end_utc: Timestamp;
   status: Generated<OccurrenceStatus>;
@@ -203,6 +205,23 @@ export interface OccurrenceTable {
   external_url_override: string | null;
   tags_override: string[] | null;
   resolved_version: number | null;
+  conflict: Generated<boolean>;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface SeriesTable {
+  id: string;
+  tenant_id: string;
+  event_id: string;
+  rrule: string;
+  dtstart_local: LocalDateTime;
+  duration_min: number;
+  timezone: string;
+  exdates: ColumnType<LocalDateTime[], LocalDateTime[] | undefined, LocalDateTime[]>;
+  generated_until: Timestamp;
+  complete: Generated<boolean>;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -226,6 +245,7 @@ export interface DB {
   "catalog.event_translation": EventTranslationTable;
   "catalog.event_tag": EventTagTable;
   "catalog.occurrence": OccurrenceTable;
+  "catalog.series": SeriesTable;
   "rules.effective_value": EffectiveValueTable;
   "tenancy.account": AccountTable;
   "tenancy.user": UserTable;
