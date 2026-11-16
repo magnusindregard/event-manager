@@ -77,6 +77,10 @@ What exists (set up 16 November 2026 in the personal subscription "Azure subscri
 | Postgres admins | group `em-postgres-admins` (you are a member) |
 | Sign-in | the local test's External ID apps `em-api-local` / `em-admin-local` (same users locally and online) |
 | GitHub | environment `staging` with the variables from step 5, `DEPLOY_FRONT_DOOR=false`, `ACR_NAME` |
+| Admin | <https://stemstagingadminoh7q5wxr.z1.web.core.windows.net> (redirect URI added on the admin app) |
+| Core API | `https://ca-em-staging-api.delightfulsmoke-3e1e18a3.norwayeast.azurecontainerapps.io/v1` |
+| Public API | `https://ca-em-staging-public.delightfulsmoke-3e1e18a3.norwayeast.azurecontainerapps.io/public/v1` |
+| Demo account | slug `demo`, seeded 16 November; create API keys in the admin (*Settings → API keys*) |
 
 **Deploy** a branch or `main` (builds images on GitHub's runners, then runs `scripts/deploy-env.sh`):
 
@@ -99,6 +103,7 @@ tour with an evening rule, concerts, a family series with one cancellation, a dr
 prints a publishable and a preview key:
 
 ```bash
+# az containerapp exec needs an interactive terminal: run it in your own shell, not from a script.
 curl -s https://<api host>/healthz >/dev/null   # wake the api (scales to zero)
 az containerapp exec -g rg-em-staging -n ca-em-staging-api \
   --command "node dist/cli/seed-demo.js --slug demo --owner-email <your sign-in email>"
@@ -121,6 +126,12 @@ az postgres flexible-server start -g rg-em-staging -n psql-em-staging
 
 Deleting everything: `az group delete -n rg-em-staging`. The Key Vault has purge protection, so its name
 stays reserved for 90 days; a new deploy gets a new name anyway (it includes a hash of the group's ID).
+
+**Found by the first deploy** (all latent since milestone 1, because nothing ran in Azure before):
+GitHub's OIDC subject now carries numeric owner and repo IDs (step 2); the Entra token was dropped from
+database connections; migrations assumed a superuser (tests now migrate as a non-superuser); and the worker
+connected without Entra auth. Twice, a dispatched Deploy run stayed "queued" without jobs; dispatching it
+again started a new run.
 
 **Not production grade, on purpose:** no edge cache (each public request hits the app), no WAF, public
 Container Apps ingress, the worker runs only while the api is awake (a few minutes after each request; the

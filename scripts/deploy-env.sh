@@ -66,7 +66,9 @@ for i in $(seq 1 12); do
 done
 code=$(curl -s -o /dev/null -w '%{http_code}' "https://$host/v1/me")
 [ "$code" = "401" ] || { echo "Expected 401 from /v1/me, got $code" >&2; exit 1; }
-curl -fsS --max-time 30 "https://${FRONT_DOOR:-$PUBLIC_HOST}/public/v1/openapi.json" >/dev/null
+# The public API answers without a key only with 401 key_required.
+code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 "https://${FRONT_DOOR:-$PUBLIC_HOST}/public/v1/occurrences")
+[ "$code" = "401" ] || { echo "Expected 401 from /public/v1/occurrences without a key, got $code" >&2; exit 1; }
 
 echo
 echo "Admin:      $ADMIN_ORIGIN/"
