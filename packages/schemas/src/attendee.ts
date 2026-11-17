@@ -74,3 +74,41 @@ export const AttendeeRegistrationView = Type.Object({
   }),
   admissionToken: Nullable(Type.String({ description: "The QR code's content; null when cancelled" })),
 });
+
+// Invitations: the bearer is the invitation token from the guest's personal link.
+
+export const AttendeeInvitationView = Type.Object({
+  locale: Type.String(),
+  account: Type.Object({ name: Type.String() }),
+  invitation: Type.Object({
+    name: Nullable(Type.String()),
+    email: Type.String(),
+    status: Type.Union([Type.Literal("pending"), Type.Literal("sent"), Type.Literal("accepted"), Type.Literal("declined")]),
+    guestAllowed: Type.Boolean({ description: "Whether the guest may bring someone" }),
+  }),
+  event: Type.Object({
+    id: Uuid,
+    title: Type.String(),
+    shortDescription: Nullable(Type.String()),
+    image: Nullable(Type.Object({ url: Type.String(), alt: Nullable(Type.String()) })),
+  }),
+  occurrences: Type.Array(Type.Object({
+    id: Uuid,
+    startUtc: DateTime,
+    endUtc: DateTime,
+    timezone: Type.String(),
+    location: Nullable(Type.Object({ name: Type.String(), address: Nullable(Type.String()), venue: Nullable(Type.String()) })),
+    availability: Availability,
+  }), { description: "Times still to come; accept with one whose availability is available or few_left" }),
+  manageToken: Nullable(Type.String({ description: "Set when the guest has accepted: the bearer token for /registration" })),
+});
+
+export const AttendeeInvitationAccept = Type.Object(
+  {
+    occurrenceId: Uuid,
+    name: Type.Optional(Type.String({ minLength: 1, maxLength: 200, description: "Required when the guest list has no name" })),
+    locale: Type.Optional(Type.String({ pattern: "^[a-z]{2,3}(-[A-Z]{2})?$" })),
+    partySize: Type.Optional(Type.Integer({ minimum: 1, maximum: 2 })),
+  },
+  { additionalProperties: false },
+);

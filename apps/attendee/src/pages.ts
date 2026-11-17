@@ -4,10 +4,11 @@ import { DomainError } from "@event-manager/domain";
 import { html, page, raw, type Raw } from "./html.js";
 import { formatWhen, type Texts, textsFor } from "./i18n.js";
 import type { RateLimiter } from "./rate-limit.js";
-import { type AttendeeService, type Details, preferredLocale } from "./service.js";
+import { type AttendeeService, type Details, type InvitationDetails, preferredLocale } from "./service.js";
 
 // Hosted attendee pages (docs/registration.md, "Attendee pages"):
 //   /r/{occurrence}  open registration
+//   /i/{token}       an invitation: pick a time and accept, or decline
 //   /m/{token}       see, change or cancel a registration
 // Forms post back to the same URL and redirect (post/redirect/get). Basic bot protection:
 // a hidden honeypot field, a minimum time on the form and a per-IP rate limit on posts.
@@ -25,6 +26,9 @@ function notFound(reply: FastifyReply, locale: string, invalidLink = false) {
   const t = textsFor(locale);
   return send(reply, 404, page({ locale, title: t.notFound, body: html`<h1>${t.notFound}</h1><p>${invalidLink ? t.invalidLink : ""}</p>` }));
 }
+
+const whereText = (l: Details["target"]["location"]) =>
+  l ? [l.venue && l.venue !== l.name ? `${l.name}, ${l.venue}` : l.name, l.address].filter(Boolean).join(" · ") : null;
 
 const errorText = (t: Texts, e: unknown): string => {
   if (e instanceof DomainError && e.code in t.errors) return t.errors[e.code as keyof Texts["errors"]];
@@ -72,8 +76,91 @@ function registrationForm(d: Details, t: Texts, action: string, values: Form, er
 </form>`;
 }
 
+function invitationForm(d: InvitationDetails, t: Texts, action: string, values: Form): Raw {
+  const inv = d.invitation;
+  const bookable = d.options.filter((o) => o.bookable);
+  const single = d.options.length === 1 ? d.options[0]! : null;
+  const chosen = values.occurrenceId ?? (bookable.length === 1 ? bookable[0]!.target.occurrence.id : undefined);
+  const tz = d.event.timezone;
+  const times = single
+    ? html`<ul class="meta"><li>${formatWhen(d.locale, tz, single.target.occurrence.startUtc, single.target.occurrence.endUtc)}</li>${whereText(single.target.location) ? html`<li>${whereText(single.target.location)}</li>` : ""}</ul>
+      ${single.bookable ? html`<input type="hidden" name="occurrenceId" value="${single.target.occurrence.id}">` : html`<p><span class="status ${single.availability.status}">${t[single.availability.status]}</span></p>`}`
+    : d.options.length > 1
+      ? html`<fieldset><legend>${t.chooseTime}</legend>${d.options.map((o) => html`
+<label class="option"><input type="radio" name="occurrenceId" value="${o.target.occurrence.id}"${o.target.occurrence.id === chosen ? raw(" checked") : ""}${o.bookable ? "" : raw(" disabled")} required>
+<span><span class="when">${formatWhen(d.locale, tz, o.target.occurrence.startUtc, o.target.occurrence.endUtc)}</span>${whereText(o.target.location) ? html`<span class="where">${whereText(o.target.location)}</span>` : ""}${o.availability.status !== "available" ? html`<span class="status ${o.availability.status}">${t[o.availability.status]}</span>` : ""}</span></label>`)}</fieldset>`
+      : html`<p class="muted">${t.noTimes}</p>`;
+  return html`
+<form class="card" method="post" action="${action}" novalidate>
+  <h2 style="margin-top:0">${t.invitationTitle}</h2>
+  <input type="hidden" name="locale" value="${d.locale}">
+  ${times}
+  ${bookable.length ? html`
+  <label for="name">${t.name}</label>
+  <input type="text" id="name" name="name" required maxlength="200" autocomplete="name" value="${values.name ?? inv.name ?? ""}">
+  <label>${t.email}</label>
+  <p class="readonly">${inv.email}</p>
+  <p class="help">${t.emailFixed}</p>
+  ${d.guestAllowed ? html`<label class="check"><input type="checkbox" name="guest" value="1"${values.guest ? raw(" checked") : ""}> ${t.guest}</label>` : ""}` : ""}
+  <div class="actions">
+    ${bookable.length ? html`<button type="submit" name="answer" value="accept">${t.accept}</button>` : ""}
+    ${inv.status !== "declined" ? html`<button type="submit" name="answer" value="decline" class="secondary" formnovalidate>${t.decline}</button>` : ""}
+  </div>
+</form>`;
+}
+
 export function registerPages(app: FastifyInstance, svc: AttendeeService, limiter: RateLimiter) {
   const limited = (req: FastifyRequest) => limiter.take(`ip:${req.ip}`) > 0;
+
+  type InvNotice = { ok: "declined" } | { error: unknown } | null;
+  const renderInvitation = async (reply: FastifyReply, token: string, locale: string | undefined, n: InvNotice, values: Form = {}, status = 200) => {
+    const r = await svc.invitation(token, locale);
+    if (!r) return notFound(reply, locale ?? "en", true);
+    if ("accepted" in r) return reply.redirect(`/m/${r.accepted}${locale ? `?lang=${encodeURIComponent(locale)}` : ""}`, 303);
+    const d = r.details;
+    const t = textsFor(d.locale);
+    const base = `/i/${token}`;
+    const notice = !n ? (d.invitation.status === "declined" ? { text: t.declinedNotice, error: false } : null)
+      : "ok" in n ? { text: t.declinedDone, error: false }
+      : {
+          text: n.error instanceof DomainError && n.error.code === "already_registered" ? t.errors.already_accepted
+            : typeof n.error === "string" && n.error in t.errors ? t.errors[n.error as keyof Texts["errors"]] : errorText(t, n.error),
+          error: true,
+        };
+    const body = html`
+${notice ? html`<p class="notice${notice.error ? " error" : ""}" role="${notice.error ? "alert" : "status"}">${notice.text}</p>` : ""}
+${d.image ? html`<img class="hero" src="${d.image.url}" alt="${d.image.alt ?? ""}">` : ""}
+<p class="muted" style="margin-bottom:.25rem">${t.invitedBy(d.account.name)}</p>
+<h1>${d.title}</h1>
+${d.shortDescription ? html`<p class="muted">${d.shortDescription}</p>` : ""}
+${d.guestAllowed ? html`<p>${t.guestInvite}</p>` : ""}
+${invitationForm(d, t, base, values)}`;
+    const links = d.locales.length > 1 ? d.locales.filter((l) => l !== d.locale).map((l) => ({ locale: l, href: `${base}?lang=${encodeURIComponent(l)}` })) : [];
+    return send(reply, status, page({ locale: d.locale, title: d.title, account: d.account.name, langLinks: links, body }));
+  };
+
+  app.get<{ Params: { token: string }; Querystring: { declined?: string; lang?: string } }>("/i/:token", async (req, reply) =>
+    renderInvitation(reply, req.params.token, req.query.lang ?? preferredLocale(req.headers["accept-language"]), req.query.declined ? { ok: "declined" } : null));
+
+  app.post<{ Params: { token: string }; Body: Form }>("/i/:token", async (req, reply) => {
+    const form = req.body ?? {};
+    const token = req.params.token;
+    const langQ = form.locale ? `lang=${encodeURIComponent(form.locale)}` : "";
+    if (limited(req)) return renderInvitation(reply, token, form.locale, { error: "rate_limited" }, form, 429);
+    try {
+      if (form.answer === "decline") {
+        if (!(await svc.decline(token))) return notFound(reply, form.locale ?? "en", true);
+        return reply.redirect(`/i/${token}?declined=1${langQ ? `&${langQ}` : ""}`, 303);
+      }
+      if (!form.occurrenceId) return renderInvitation(reply, token, form.locale, { error: "not_found" }, form, 422);
+      const res = await svc.accept(token, { occurrenceId: form.occurrenceId, name: form.name, locale: form.locale, partySize: form.guest ? 2 : 1 });
+      if (!res) return notFound(reply, form.locale ?? "en", true);
+      return reply.redirect(`/m/${res.manageToken}?welcome=1${langQ ? `&${langQ}` : ""}`, 303);
+    } catch (e) {
+      if (!(e instanceof DomainError)) throw e;
+      return renderInvitation(reply, token, form.locale, { error: e }, form, e.status);
+    }
+  });
 
   const renderOpen = async (reply: FastifyReply, d: Details, values: Form = {}, error: string | null = null, status = 200) => {
     const t = textsFor(d.locale);

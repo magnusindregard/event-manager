@@ -6,7 +6,7 @@ import { Type } from "typebox";
 import { type Db, sql } from "@event-manager/db";
 import { DomainError, type registration } from "@event-manager/domain";
 import {
-  AttendeeOccurrence, AttendeeRegistration, AttendeeRegistrationCreate, AttendeeRegistrationCreated, AttendeeRegistrationPatch, AttendeeRegistrationView, Problem,
+  AttendeeInvitationAccept, AttendeeInvitationView, AttendeeOccurrence, AttendeeRegistration, AttendeeRegistrationCreate, AttendeeRegistrationCreated, AttendeeRegistrationPatch, AttendeeRegistrationView, Problem,
 } from "@event-manager/schemas";
 import { registerPages } from "./pages.js";
 import { RateLimiter } from "./rate-limit.js";
@@ -26,7 +26,8 @@ export interface AttendeeAppDeps {
 
 const TYPE_BASE = "https://docs.event-manager.dev/problems/";
 // Links carry the manage token in the path: keep it out of logs and referrers.
-const redactUrl = (url: string) => url.replace(/\/m\/[A-Za-z0-9_-]+/, "/m/[token]");
+/** Hides the token in /m/{token} and /i/{token}. The request log serializer in main.ts uses it too. */
+export const redactUrl = (url: string) => url.replace(/\/([mi])\/[A-Za-z0-9_-]+/, "/$1/[token]");
 
 class ApiProblem extends Error {
   constructor(readonly status: number, readonly code: string, message: string) {
@@ -68,7 +69,12 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
         version: "1.0.0",
         description: "Registration for attendees, behind the hosted pages. No accounts: open registration takes an occurrence id, the rest a signed manage token.",
       },
-      components: { securitySchemes: { manageToken: { type: "http", scheme: "bearer", description: "The token from the registration's manage link" } } },
+      components: {
+        securitySchemes: {
+          manageToken: { type: "http", scheme: "bearer", description: "The token from the registration's manage link" },
+          invitationToken: { type: "http", scheme: "bearer", description: "The token from the guest's personal invitation link" },
+        },
+      },
     },
   });
 
@@ -113,7 +119,7 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
 
   const bearer = (req: FastifyRequest) => {
     const h = req.headers.authorization;
-    if (!h?.startsWith("Bearer ")) throw new ApiProblem(401, "token_required", "Send the manage token as a bearer token");
+    if (!h?.startsWith("Bearer ")) throw new ApiProblem(401, "token_required", "Send the token from the link as a bearer token");
     return h.slice(7).trim();
   };
   const invalidToken = () => new ApiProblem(401, "invalid_token", "Unknown, replaced or malformed token");
@@ -206,6 +212,77 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
           const r = await svc.cancel(bearer(req));
           if (!r) throw invalidToken();
           return { registration: registrationDto(r) };
+        },
+      );
+
+      const invitationSecurity = [{ invitationToken: [] }];
+      const invalidInvitation = () => new ApiProblem(401, "invalid_token", "Unknown, replaced or malformed invitation token");
+
+      v1.get(
+        "/invitation",
+        {
+          schema: {
+            operationId: "getInvitation", tags: ["invitation"], summary: "The invitation behind the token, with the times to choose from", security: invitationSecurity,
+            querystring: LocaleQuery, response: { 200: AttendeeInvitationView, ...errors },
+          },
+        },
+        async (req) => {
+          const token = bearer(req);
+          const r = await svc.invitation(token, req.query.locale);
+          if (!r) throw invalidInvitation();
+          if ("accepted" in r) {
+            const v = await svc.view(r.accepted, req.query.locale);
+            if (!v) throw invalidInvitation();
+            return {
+              locale: v.details.locale, account: v.details.account,
+              invitation: { name: v.registration.name, email: v.registration.email, status: "accepted" as const, guestAllowed: v.details.target.event.guestAllowed },
+              event: { id: v.details.target.event.id, title: v.details.title, shortDescription: v.details.shortDescription, image: v.details.image },
+              occurrences: [], manageToken: r.accepted,
+            };
+          }
+          const d = r.details;
+          return {
+            locale: d.locale, account: d.account,
+            invitation: { name: d.invitation.name, email: d.invitation.email, status: d.invitation.status, guestAllowed: d.guestAllowed },
+            event: { id: d.event.id, title: d.title, shortDescription: d.shortDescription, image: d.image },
+            occurrences: d.options.map((o) => ({
+              id: o.target.occurrence.id, startUtc: iso(o.target.occurrence.startUtc), endUtc: iso(o.target.occurrence.endUtc), timezone: d.event.timezone,
+              location: o.target.location,
+              availability: { status: o.availability.status, opensAt: o.availability.opensAt ? iso(o.availability.opensAt) : null, closesAt: iso(o.availability.closesAt) },
+            })),
+            manageToken: null,
+          };
+        },
+      );
+
+      v1.post(
+        "/invitation/accept",
+        {
+          schema: {
+            operationId: "acceptInvitation", tags: ["invitation"], summary: "Accept for one of the event's times; confirmed at once. Returns the manage token", security: invitationSecurity,
+            body: AttendeeInvitationAccept, response: { 201: AttendeeRegistrationCreated, ...writeErrors },
+          },
+        },
+        async (req, reply) => {
+          rateLimited(req);
+          const res = await svc.accept(bearer(req), req.body);
+          if (!res) throw invalidInvitation();
+          return reply.status(201).send({ registration: registrationDto(res.registration), manageToken: res.manageToken });
+        },
+      );
+
+      v1.post(
+        "/invitation/decline",
+        {
+          schema: {
+            operationId: "declineInvitation", tags: ["invitation"], summary: "Decline. The link keeps working, so the guest can accept later while registration is open", security: invitationSecurity,
+            response: { 200: Type.Object({ status: Type.Literal("declined") }), ...writeErrors },
+          },
+        },
+        async (req) => {
+          rateLimited(req);
+          if (!(await svc.decline(bearer(req)))) throw invalidInvitation();
+          return { status: "declined" as const };
         },
       );
 

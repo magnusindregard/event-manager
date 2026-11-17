@@ -85,7 +85,8 @@ resource apiRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2024-02-01' = {
   name: 'r-api'
   properties: {
     originGroup: { id: groups[0].id }
-    patternsToMatch: ['/v1/*']
+    // /webhooks/*: delivery reports from Postmark, which would otherwise fall through to the admin site.
+    patternsToMatch: ['/v1/*', '/webhooks/*']
     supportedProtocols: ['Https']
     httpsRedirect: 'Enabled'
     forwardingProtocol: 'HttpsOnly'

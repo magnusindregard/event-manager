@@ -60,3 +60,11 @@ export type Registration = Json<"/v1/occurrences/{id}/registrations", "get">["it
 export const etagOf = (version: number) => `"${version}"`;
 
 export const isConflict = (e: unknown) => e instanceof ApiProblem && e.code === "version_conflict";
+
+type Body<P extends keyof paths, M extends keyof paths[P]> = paths[P][M] extends { requestBody?: { content: { "application/json": infer T } } } ? T : never;
+export type GuestInvitationList = Json<"/v1/events/{id}/invitations", "get">;
+export type GuestInvitation = GuestInvitationList["items"][number];
+export type GuestImportDraft = paths["/v1/events/{id}/guest-imports"]["post"]["responses"][201]["content"]["application/json"];
+export type GuestImportPreview = Json<"/v1/guest-imports/{id}/preview", "post">;
+export type GuestImportResult = Json<"/v1/guest-imports/{id}/commit", "post">;
+export type ImportMapping = Body<"/v1/guest-imports/{id}/preview", "post">["mapping"];

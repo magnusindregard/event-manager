@@ -24,6 +24,8 @@ param graphClientId string = ''
 param graphTenantDomain string = ''
 @description('Sender for invitation emails (Postmark). Needs Key Vault secret "postmark-token". Empty keeps the fake mailer.')
 param mailFrom string = ''
+@description('Postmark delivery webhook on the API (/webhooks/postmark). Needs Key Vault secret "postmark-webhook-auth" holding "user:password".')
+param postmarkWebhook bool = false
 @description('Admin URL in invitation emails. Defaults to where the admin is served (Front Door, or the storage static website without it).')
 param adminUrl string = ''
 @description('Postgres Entra admin principal type. Group is the runbook default; User lets one person administer a test environment where creating groups is not allowed.')
@@ -167,6 +169,7 @@ module apps 'modules/apps.bicep' = if (deployApps) {
     graphTenantDomain: graphTenantDomain
     keyVaultUri: vault.properties.vaultUri
     mailFrom: mailFrom
+    postmarkWebhook: postmarkWebhook
     adminUrl: !empty(adminUrl) ? adminUrl : (deployFrontDoor ? '' : '${adminWebOrigin}/')
     corsOrigins: adminOrigin
   }

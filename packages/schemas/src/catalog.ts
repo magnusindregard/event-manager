@@ -76,6 +76,7 @@ const settingsFields = {
   waitlistEnabled: Type.Boolean(),
   claimWindowMin: Type.Integer({ minimum: 5, maximum: 20160, description: "How long a waitlist offer can be claimed" }),
   waitlistCutoffMin: Type.Integer({ minimum: 0, maximum: 20160, description: "No waitlist offers this many minutes before start" }),
+  reminderMinBefore: Nullable(Type.Integer({ minimum: 60, maximum: 20160, description: "Email confirmed attendees a reminder this many minutes before each occurrence; null: no reminder" })),
 };
 export const RegistrationSettings = Type.Object(settingsFields, { description: "Used when admissionMode is registration" });
 const RegistrationSettingsInput = Type.Partial(Type.Object(settingsFields, { additionalProperties: false }), { additionalProperties: false });

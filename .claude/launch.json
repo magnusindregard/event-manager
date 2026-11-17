@@ -264,6 +264,65 @@
         "--strictPort"
       ],
       "port": 5185
+    },
+    {
+      "name": "api-r3",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3040",
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_r3",
+        "CORS_ORIGINS=http://localhost:5190",
+        "ATTENDEE_URL=http://localhost:3041",
+        "pnpm",
+        "--filter",
+        "@event-manager/api",
+        "dev"
+      ],
+      "port": 3040
+    },
+    {
+      "name": "attendee-r3",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3041",
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_r3",
+        "pnpm",
+        "--filter",
+        "@event-manager/attendee",
+        "dev"
+      ],
+      "port": 3041
+    },
+    {
+      "name": "worker-r3",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_r3",
+        "ATTENDEE_URL=http://localhost:3041",
+        "pnpm",
+        "--filter",
+        "@event-manager/worker",
+        "dev"
+      ],
+      "port": 3996
+    },
+    {
+      "name": "admin-r3",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_AUTH_MODE=dev",
+        "VITE_API_BASE_URL=http://localhost:3040",
+        "VITE_ATTENDEE_URL=http://localhost:3041",
+        "pnpm",
+        "--filter",
+        "@event-manager/admin",
+        "exec",
+        "vite",
+        "--port",
+        "5190",
+        "--strictPort"
+      ],
+      "port": 5190
     }
   ]
 }

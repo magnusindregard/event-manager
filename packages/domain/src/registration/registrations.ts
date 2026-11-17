@@ -17,6 +17,8 @@ export interface Registration {
   id: string;
   eventId: string;
   occurrenceId: string;
+  /** The guest invitation it came from, if any. */
+  invitationId: string | null;
   name: string;
   email: string;
   locale: string;
@@ -26,6 +28,8 @@ export interface Registration {
   cancelledAt: Date | null;
   cancelledBy: "attendee" | "staff" | null;
   tokenVersion: number;
+  /** When the reminder before the event went out. */
+  remindedAt: Date | null;
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -50,19 +54,19 @@ export interface RegistrationPatch {
 }
 
 const columns = [
-  "id", "event_id", "occurrence_id", "name", "email", "locale", "party_size", "status", "source", "cancelled_at", "cancelled_by",
-  "token_version", "version", "created_at", "updated_at",
+  "id", "event_id", "occurrence_id", "invitation_id", "name", "email", "locale", "party_size", "status", "source", "cancelled_at", "cancelled_by",
+  "token_version", "reminded_at", "version", "created_at", "updated_at",
 ] as const;
 type Row = {
-  id: string; event_id: string; occurrence_id: string; name: string; email: string; locale: string; party_size: number;
+  id: string; event_id: string; occurrence_id: string; invitation_id: string | null; name: string; email: string; locale: string; party_size: number;
   status: RegistrationStatus; source: RegistrationSource; cancelled_at: Date | null; cancelled_by: "attendee" | "staff" | null;
-  token_version: number; version: number; created_at: Date; updated_at: Date;
+  token_version: number; reminded_at: Date | null; version: number; created_at: Date; updated_at: Date;
 };
 
 const toRegistration = (r: Row): Registration => ({
-  id: r.id, eventId: r.event_id, occurrenceId: r.occurrence_id, name: r.name, email: r.email, locale: r.locale, partySize: r.party_size,
+  id: r.id, eventId: r.event_id, occurrenceId: r.occurrence_id, invitationId: r.invitation_id, name: r.name, email: r.email, locale: r.locale, partySize: r.party_size,
   status: r.status, source: r.source, cancelledAt: r.cancelled_at, cancelledBy: r.cancelled_by, tokenVersion: r.token_version,
-  version: r.version, createdAt: r.created_at, updatedAt: r.updated_at,
+  remindedAt: r.reminded_at, version: r.version, createdAt: r.created_at, updatedAt: r.updated_at,
 });
 
 const invalid = (field: string, message: string) => new DomainError("validation_failed", message, { field });
@@ -77,13 +81,13 @@ export function normalizeContact(name: string, email: string): { name: string; e
   return { name: n, email: e };
 }
 
-function assertPartySize(partySize: number, guestAllowed: boolean, actor: Actor) {
+export function assertPartySize(partySize: number, guestAllowed: boolean, actor: Actor) {
   if (partySize !== 1 && partySize !== 2) throw invalid("partySize", "Party size is 1, or 2 with a guest");
   // Staff may add a guest even where the event does not offer one.
   if (partySize === 2 && !guestAllowed && actor.kind === "attendee") throw invalid("partySize", "This event does not take guests");
 }
 
-async function pickLocale(tx: Tx, locale: string | undefined): Promise<string> {
+export async function pickLocale(tx: Tx, locale: string | undefined): Promise<string> {
   const account = await getAccount(tx);
   return locale && account.locales.includes(locale) ? locale : account.defaultLocale;
 }
@@ -117,12 +121,29 @@ export async function register(
   const partySize = input.partySize ?? 1;
   assertPartySize(partySize, target.event.guestAllowed, actor);
   const locale = await pickLocale(tx, input.locale);
+  const reg = await insertConfirmed(tx, tenantId, target, { name, email, locale, partySize, source: actor.kind === "staff" ? "staff" : "open", invitationId: null });
+  if (actor.kind === "staff") {
+    await recordAudit(tx, actor.ctx, { action: "registration.created", entityType: "event", entityId: target.event.id, diff: { registrationId: reg.id, occurrenceId, partySize } });
+  }
+  return reg;
+}
 
+/**
+ * Internal: inserts a confirmed registration, takes its places, issues the admission and
+ * emits registration.confirmed. The caller has checked who may register and the window.
+ */
+export async function insertConfirmed(
+  tx: Tx, tenantId: string, target: catalog.RegistrationTarget,
+  r: { name: string; email: string; locale: string; partySize: number; source: RegistrationSource; invitationId: string | null },
+): Promise<Registration> {
   const id = newId();
-  const source: RegistrationSource = actor.kind === "staff" ? "staff" : "open";
+  const occurrenceId = target.occurrence.id;
   const row = await tx
     .insertInto("registration.registration")
-    .values({ id, tenant_id: tenantId, event_id: target.event.id, occurrence_id: occurrenceId, name, email, locale, party_size: partySize, status: "confirmed", source })
+    .values({
+      id, tenant_id: tenantId, event_id: target.event.id, occurrence_id: occurrenceId, invitation_id: r.invitationId,
+      name: r.name, email: r.email, locale: r.locale, party_size: r.partySize, status: "confirmed", source: r.source,
+    })
     .returning(columns)
     .executeTakeFirstOrThrow()
     .catch((e: unknown) => {
@@ -130,16 +151,16 @@ export async function register(
       throw e;
     });
   // Fails without changing anything if the places do not fit; the transaction then rolls back.
-  if (!(await inventory.takePlaces(tx, occurrenceId, partySize))) throw new DomainError("full", "There are no places left");
-  await admission.issueAdmission(tx, tenantId, id, occurrenceId, partySize);
+  if (!(await inventory.takePlaces(tx, occurrenceId, r.partySize))) throw new DomainError("full", "There are no places left");
+  await admission.issueAdmission(tx, tenantId, id, occurrenceId, r.partySize);
   await catalog.detachForRegistrations(tx, occurrenceId);
   await emit(tx, tenantId, {
     type: "registration.confirmed.v1", subject: `registration/${id}`,
-    data: { registrationId: id, occurrenceId, eventId: target.event.id, status: "confirmed", partySize, source },
+    data: {
+      registrationId: id, occurrenceId, eventId: target.event.id, status: "confirmed", partySize: r.partySize, source: r.source,
+      ...(r.invitationId ? { invitationId: r.invitationId } : {}),
+    },
   });
-  if (actor.kind === "staff") {
-    await recordAudit(tx, actor.ctx, { action: "registration.created", entityType: "event", entityId: target.event.id, diff: { registrationId: id, occurrenceId, partySize } });
-  }
   return toRegistration(row);
 }
 
@@ -165,7 +186,7 @@ export async function updateRegistration(
 
   const name = patch.name !== undefined ? normalizeContact(patch.name, before.email).name : before.name;
   const partySize = patch.partySize ?? before.partySize;
-  if (partySize !== before.partySize) assertPartySize(partySize, target.event.guestAllowed, actor);
+  if (partySize !== before.partySize) assertPartySize(partySize, await guestAllowedFor(tx, before, target), actor);
   const locale = patch.locale !== undefined ? await pickLocale(tx, patch.locale) : before.locale;
   const changed = [
     ...(name !== before.name ? ["name"] : []),
@@ -194,6 +215,13 @@ export async function updateRegistration(
   return toRegistration(row);
 }
 
+/** Whether the registration may bring a guest: the invitation's allowance if it came from one, else the event's. */
+export async function guestAllowedFor(tx: Tx, reg: Pick<Registration, "invitationId">, target: catalog.RegistrationTarget): Promise<boolean> {
+  if (!reg.invitationId) return target.event.guestAllowed;
+  const r = await tx.selectFrom("registration.guest_invitation").select("guest_allowed").where("id", "=", reg.invitationId).executeTakeFirst();
+  return r?.guest_allowed ?? target.event.guestAllowed;
+}
+
 /** Cancels and gives the places back. Cancelling twice is a no-op. */
 export async function cancelRegistration(tx: Tx, tenantId: string, id: string, actor: Actor, now: Date = new Date()): Promise<Registration> {
   if (actor.kind === "staff") assertCan(actor.ctx, "registrations.write");
@@ -212,6 +240,11 @@ export async function cancelRegistration(tx: Tx, tenantId: string, id: string, a
   // Only confirmed registrations hold places (waitlisted ones arrive in milestone 5).
   if (before.status === "confirmed") await inventory.releasePlaces(tx, before.occurrenceId, before.partySize);
   await admission.voidAdmission(tx, id);
+  // An invited guest who cancels has said no; the invitation link still lets them change their mind.
+  if (before.invitationId) {
+    await tx.updateTable("registration.guest_invitation").set({ status: "declined", responded_at: now, version: sql<number>`version + 1` })
+      .where("id", "=", before.invitationId).where("status", "=", "accepted").execute();
+  }
   await emit(tx, tenantId, {
     type: "registration.cancelled.v1", subject: `registration/${id}`,
     data: { registrationId: id, occurrenceId: before.occurrenceId, eventId: before.eventId, status: "cancelled", partySize: before.partySize, by: actor.kind },
@@ -290,4 +323,54 @@ export async function loadMessage(tx: Tx, id: string): Promise<RegistrationMessa
   if (!row) return null;
   const [target, account] = await Promise.all([catalog.getRegistrationTarget(tx, row.occurrence_id), getAccount(tx)]);
   return { registration: toRegistration(row), target, account: { name: account.name, defaultLocale: account.defaultLocale } };
+}
+
+// ── Reminder before the event ─────────────────────────────────────────────────
+
+/**
+ * Pure: when to remind a registration, or null when no reminder is due: none set, sent
+ * already, cancelled, started, or registered after the reminder time (the confirmation was
+ * the reminder).
+ */
+export function reminderTime(reg: { status: RegistrationStatus; remindedAt: Date | null; createdAt: Date }, target: catalog.RegistrationTarget, now: Date): Date | null {
+  const before = target.event.reminderMinBefore;
+  if (before === null || reg.remindedAt || reg.status !== "confirmed") return null;
+  if (target.occurrence.status !== "scheduled" || target.event.status !== "published" || target.occurrence.startUtc <= now) return null;
+  const at = new Date(target.occurrence.startUtc.getTime() - before * 60_000);
+  return reg.createdAt >= at ? null : at;
+}
+
+/** When to remind each of these confirmed registrations; for queueing reminder jobs. */
+export async function reminderTimes(tx: Tx, registrationIds: readonly string[], now: Date = new Date()): Promise<{ id: string; runAt: Date }[]> {
+  if (registrationIds.length === 0) return [];
+  const rows = await tx.selectFrom("registration.registration").select(["id", "occurrence_id", "status", "reminded_at", "created_at"]).where("id", "in", registrationIds).execute();
+  const targets = new Map<string, catalog.RegistrationTarget>();
+  const out: { id: string; runAt: Date }[] = [];
+  for (const r of rows) {
+    if (r.status !== "confirmed" || r.reminded_at) continue;
+    if (!targets.has(r.occurrence_id)) targets.set(r.occurrence_id, await catalog.getRegistrationTarget(tx, r.occurrence_id));
+    const at = reminderTime({ status: r.status, remindedAt: r.reminded_at, createdAt: r.created_at }, targets.get(r.occurrence_id)!, now);
+    if (at) out.push({ id: r.id, runAt: at });
+  }
+  return out;
+}
+
+/** Confirmed, not yet reminded registrations of an event's upcoming occurrences, e.g. after the reminder setting changed. */
+export async function unremindedRegistrationIds(tx: Tx, eventId: string, now: Date = new Date()): Promise<string[]> {
+  const occ = await catalog.upcomingOccurrenceIds(tx, eventId, now);
+  if (occ.length === 0) return [];
+  const rows = await tx.selectFrom("registration.registration").select("id")
+    .where("occurrence_id", "in", occ).where("status", "=", "confirmed").where("reminded_at", "is", null).execute();
+  return rows.map((r) => r.id);
+}
+
+/** Claims the reminder before sending it; false if it was claimed already. */
+export async function markReminded(tx: Tx, id: string, now: Date = new Date()): Promise<boolean> {
+  const r = await tx.updateTable("registration.registration").set({ reminded_at: now }).where("id", "=", id).where("reminded_at", "is", null).executeTakeFirst();
+  return Number(r.numUpdatedRows) > 0;
+}
+
+/** Releases a claim when sending failed, so the retry sends. */
+export async function unmarkReminded(tx: Tx, id: string, claimedAt: Date): Promise<void> {
+  await tx.updateTable("registration.registration").set({ reminded_at: null }).where("id", "=", id).where("reminded_at", "=", claimedAt).execute();
 }

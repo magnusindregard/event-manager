@@ -24,6 +24,7 @@ import { Audit } from "./Audit.js";
 import { eventTitle, statusVariant } from "./Events.js";
 import { Occurrences } from "./Occurrences.js";
 import { Rules } from "./Rules.js";
+import { GuestList } from "./guests/GuestList.js";
 
 const TIMEZONES: string[] = (() => {
   try {
@@ -50,7 +51,10 @@ type Form = {
 type Admission = CatalogEvent["admissionMode"];
 type Settings = CatalogEvent["registration"];
 /** Number fields are kept as text so they can be empty; times are shown in hours. */
-type Reg = { accessPolicy: Settings["accessPolicy"]; listed: boolean; guestAllowed: boolean; capacity: string; overbookingPct: string; opensHours: string; closesHours: string };
+type Reg = {
+  accessPolicy: Settings["accessPolicy"]; listed: boolean; guestAllowed: boolean; capacity: string; overbookingPct: string; opensHours: string; closesHours: string;
+  reminderHours: string;
+};
 
 const hours = (min: number | null | undefined) => (min === null || min === undefined ? "" : String(min / 60));
 const minutes = (h: string) => (h.trim() === "" ? null : Math.round(Number(h) * 60));
@@ -64,6 +68,7 @@ function toReg(s: Settings | undefined): Reg {
     overbookingPct: String(s?.overbookingPct ?? 0),
     opensHours: hours(s?.opensMinBefore),
     closesHours: hours(s?.closesMinBefore ?? 0),
+    reminderHours: hours(s?.reminderMinBefore),
   };
 }
 
@@ -76,6 +81,7 @@ function regBody(r: Reg) {
     overbookingPct: Number(r.overbookingPct || 0),
     opensMinBefore: minutes(r.opensHours),
     closesMinBefore: minutes(r.closesHours) ?? 0,
+    reminderMinBefore: minutes(r.reminderHours),
   };
 }
 
@@ -209,6 +215,7 @@ export function EventEditor() {
             <TabsTrigger value="details">{t("events.tabs.details")}</TabsTrigger>
             <TabsTrigger value="occurrences">{t("events.tabs.occurrences")}</TabsTrigger>
             <TabsTrigger value="rules">{t("events.tabs.rules")}</TabsTrigger>
+            {event?.admissionMode === "registration" && <TabsTrigger value="guests">{t("events.tabs.guests")}</TabsTrigger>}
             <TabsTrigger value="audit">{t("events.tabs.audit")}</TabsTrigger>
           </TabsList>
           <TabsContent value="details" className="pt-4">
@@ -220,6 +227,11 @@ export function EventEditor() {
           <TabsContent value="rules" className="pt-4">
             <Rules event={event!} />
           </TabsContent>
+          {event?.admissionMode === "registration" && (
+            <TabsContent value="guests" className="pt-4">
+              <GuestList event={event} />
+            </TabsContent>
+          )}
           <TabsContent value="audit" className="pt-4">
             <Audit entityType="event" entityId={event!.id} embedded />
           </TabsContent>
@@ -422,6 +434,10 @@ function RegistrationFields({ reg, onChange, errField }: { reg: Reg; onChange: (
       </Field>
       <Field label={t("events.reg.closes")} htmlFor="closes">
         <Input id="closes" type="number" min={0} step="any" value={reg.closesHours} onChange={(e) => set("closesHours", e.target.value)} />
+      </Field>
+      <Field label={t("events.reg.reminder")} htmlFor="reminder" hint={t("events.reg.reminderHint")}>
+        <Input id="reminder" type="number" min={1} max={336} step="any" value={reg.reminderHours} placeholder={t("events.reg.noReminder")}
+          onChange={(e) => set("reminderHours", e.target.value)} aria-invalid={errField === "registration.reminderMinBefore"} />
       </Field>
       <div className="flex items-center gap-2">
         <Switch id="guest" checked={reg.guestAllowed} onCheckedChange={(v) => set("guestAllowed", v)} />

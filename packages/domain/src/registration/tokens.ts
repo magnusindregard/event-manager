@@ -10,10 +10,10 @@ import type { Tx } from "@event-manager/db";
 // before verification, so the caller can open that tenant's transaction and check the
 // signature with its key. Bumping the subject's token version invalidates its old links.
 
-export type TokenPurpose = "manage" | "admission";
+export type TokenPurpose = "manage" | "admission" | "invitation";
 
 const FORMAT = 1;
-const PURPOSES: Record<TokenPurpose, number> = { manage: 1, admission: 2 };
+const PURPOSES: Record<TokenPurpose, number> = { manage: 1, admission: 2, invitation: 3 };
 const BODY = 38;
 const MAC = 16;
 

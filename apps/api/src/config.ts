@@ -5,6 +5,8 @@ export interface Config {
   devAuthSecret: string | null;
   corsOrigins: string[];
   production: boolean;
+  attendeeUrl: string;
+  postmarkWebhook: { user: string; password: string } | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -22,5 +24,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     devAuthSecret,
     corsOrigins: (env.CORS_ORIGINS ?? (production ? "" : "http://localhost:5173")).split(",").filter(Boolean),
     production,
+    attendeeUrl: env.ATTENDEE_URL ?? "http://localhost:3020",
+    // POSTMARK_WEBHOOK_AUTH=user:password, the same as in the webhook URL configured in Postmark.
+    postmarkWebhook: env.POSTMARK_WEBHOOK_AUTH?.includes(":")
+      ? { user: env.POSTMARK_WEBHOOK_AUTH.slice(0, env.POSTMARK_WEBHOOK_AUTH.indexOf(":")), password: env.POSTMARK_WEBHOOK_AUTH.slice(env.POSTMARK_WEBHOOK_AUTH.indexOf(":") + 1) }
+      : null,
   };
 }

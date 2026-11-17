@@ -62,6 +62,8 @@ export interface RegistrationTarget {
     guestAllowed: boolean;
     opensMinBefore: number | null;
     closesMinBefore: number;
+    /** Reminder to confirmed attendees this many minutes before start; null: none. */
+    reminderMinBefore: number | null;
     translations: Record<string, { title: string; shortDescription: string | null; imageUrl: string | null; imageAlt: string | null }>;
   };
   location: { name: string; address: string | null; venue: string | null } | null;
@@ -75,6 +77,7 @@ export async function getRegistrationTarget(tx: Tx, occurrenceId: string): Promi
     .select([
       "o.id", "o.event_id", "o.series_id", "o.start_utc", "o.end_utc", "o.status as occ_status", "o.access_policy_override",
       "e.slug", "e.status", "e.timezone", "e.admission_mode", "e.access_policy", "e.guest_allowed", "e.registration_opens_min", "e.registration_closes_min",
+      "e.reminder_min_before",
     ])
     .where("o.id", "=", occurrenceId)
     .executeTakeFirst();
@@ -107,6 +110,7 @@ export async function getRegistrationTarget(tx: Tx, occurrenceId: string): Promi
       guestAllowed: row.guest_allowed,
       opensMinBefore: row.registration_opens_min,
       closesMinBefore: row.registration_closes_min,
+      reminderMinBefore: row.reminder_min_before,
       translations: Object.fromEntries(translations.map((t) => [t.locale, { title: t.title, shortDescription: t.short_description, imageUrl: t.image_url, imageAlt: t.image_alt }])),
     },
     location,
@@ -133,4 +137,22 @@ export async function detachForRegistrations(tx: Tx, occurrenceId: string): Prom
 export async function upcomingOccurrenceIds(tx: Tx, eventId: string, now: Date = new Date()): Promise<string[]> {
   const rows = await tx.selectFrom("catalog.occurrence").select("id").where("event_id", "=", eventId).where("start_utc", ">", now).execute();
   return rows.map((r) => r.id);
+}
+
+/**
+ * The occurrences of an event that a guest can still pick, soonest first: scheduled and not
+ * started. Used by the invitation page, where the guest chooses one when accepting.
+ */
+export async function upcomingRegistrationTargets(tx: Tx, eventId: string, now: Date, limit = 50): Promise<RegistrationTarget[]> {
+  const rows = await tx
+    .selectFrom("catalog.occurrence")
+    .select("id")
+    .where("event_id", "=", eventId)
+    .where("status", "=", "scheduled")
+    .where("start_utc", ">", now)
+    .orderBy("start_utc")
+    .orderBy("id")
+    .limit(limit)
+    .execute();
+  return Promise.all(rows.map((r) => getRegistrationTarget(tx, r.id)));
 }

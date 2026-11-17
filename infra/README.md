@@ -339,6 +339,18 @@ az keyvault secret set --vault-name <kv-em-staging-…> -n postmark-token --valu
 The deploying identity needs *Key Vault Secrets Officer* for this one command. Without `MAIL_FROM`, the
 worker logs emails instead of sending them.
 
+Delivery reports for guest invitations (bounces, spam complaints) come back through a webhook on the API.
+Pick a user name and a long random password, store them, and turn the webhook on:
+
+```bash
+az keyvault secret set --vault-name <kv-em-staging-…> -n postmark-webhook-auth --value '<user>:<password>'
+gh variable set POSTMARK_WEBHOOK --env staging --body true
+```
+
+In Postmark, add a webhook on the server's transactional stream to
+`https://<user>:<password>@<api host>/webhooks/postmark`, with the Delivery, Bounce and Spam complaint events.
+`<api host>` is the Front Door host, or the API container app's host without Front Door.
+
 ### 5. GitHub environment `staging`
 
 ```bash

@@ -18,6 +18,7 @@
   "dependencies": {
     "@date-fns/tz": "^1.4.1",
     "@event-manager/db": "workspace:*",
+    "exceljs": "^4.4.0",
     "rrule": "^2.8.1"
   },
   "devDependencies": {

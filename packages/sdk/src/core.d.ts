@@ -566,6 +566,211 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/events/{id}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The event's guest list with counts */
+        get: operations["listGuestInvitations"];
+        put?: never;
+        /** Add one guest by hand. 409 when the email is on the list */
+        post: operations["createGuestInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invitations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change a guest's name, language, guest allowance or contact id. Requires If-Match */
+        patch: operations["updateGuestInvitation"];
+        trace?: never;
+    };
+    "/v1/events/{id}/invitations/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Remove guests. Guests who have accepted are kept and returned as blocked */
+        post: operations["removeGuestInvitations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/events/{id}/invitations/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue invitation or reminder emails. Named guests get a resend; without ids, invitations go to guests not sent one yet and reminders to guests who have not answered */
+        post: operations["sendGuestInvitations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/events/{id}/invitations/mark-sent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark unsent guests as sent, for links sent from the client's own tool */
+        post: operations["markGuestInvitationsSent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invitations/{id}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The guest's personal link */
+        get: operations["getGuestInvitationLink"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invitations/{id}/rotate-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Give the guest a new personal link; the old one stops working */
+        post: operations["rotateGuestInvitationLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/events/{id}/invitations/links.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every guest's personal link as CSV (UTF-8), for sending from the client's own tool. Semicolon-separated unless delimiter=comma */
+        get: operations["exportGuestInvitationLinks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/events/{id}/guest-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload a CSV or XLSX guest list. Staged for a day; returns the headers, a sample and a suggested column mapping */
+        post: operations["uploadGuestImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/guest-imports/{id}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What importing with this mapping would do. Saves nothing */
+        post: operations["previewGuestImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/guest-imports/{id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import the valid rows: new guests are added, existing ones (same email) updated. Nobody is removed */
+        post: operations["commitGuestImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/guest-imports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Drop a staged file without importing it */
+        delete: operations["discardGuestImport"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3549,6 +3754,7 @@ export interface operations {
                                 claimWindowMin: number;
                                 /** @description No waitlist offers this many minutes before start */
                                 waitlistCutoffMin: number;
+                                reminderMinBefore: null | number;
                             };
                             externalRefs: {
                                 [key: string]: string;
@@ -3705,6 +3911,7 @@ export interface operations {
                         claimWindowMin?: number;
                         /** @description No waitlist offers this many minutes before start */
                         waitlistCutoffMin?: number;
+                        reminderMinBefore?: null | number;
                     };
                     /** @description Links to documents in other systems, e.g. { "sanity": "event-123" } */
                     externalRefs?: {
@@ -3757,6 +3964,7 @@ export interface operations {
                             claimWindowMin: number;
                             /** @description No waitlist offers this many minutes before start */
                             waitlistCutoffMin: number;
+                            reminderMinBefore: null | number;
                         };
                         externalRefs: {
                             [key: string]: string;
@@ -4009,6 +4217,7 @@ export interface operations {
                             claimWindowMin: number;
                             /** @description No waitlist offers this many minutes before start */
                             waitlistCutoffMin: number;
+                            reminderMinBefore: null | number;
                         };
                         externalRefs: {
                             [key: string]: string;
@@ -4160,6 +4369,7 @@ export interface operations {
                         claimWindowMin?: number;
                         /** @description No waitlist offers this many minutes before start */
                         waitlistCutoffMin?: number;
+                        reminderMinBefore?: null | number;
                     };
                     /** @description Links to documents in other systems, e.g. { "sanity": "event-123" } */
                     externalRefs?: {
@@ -4213,6 +4423,7 @@ export interface operations {
                             claimWindowMin: number;
                             /** @description No waitlist offers this many minutes before start */
                             waitlistCutoffMin: number;
+                            reminderMinBefore: null | number;
                         };
                         externalRefs: {
                             [key: string]: string;
@@ -4465,6 +4676,7 @@ export interface operations {
                             claimWindowMin: number;
                             /** @description No waitlist offers this many minutes before start */
                             waitlistCutoffMin: number;
+                            reminderMinBefore: null | number;
                         };
                         externalRefs: {
                             [key: string]: string;
@@ -4717,6 +4929,7 @@ export interface operations {
                             claimWindowMin: number;
                             /** @description No waitlist offers this many minutes before start */
                             waitlistCutoffMin: number;
+                            reminderMinBefore: null | number;
                         };
                         externalRefs: {
                             [key: string]: string;
@@ -4969,6 +5182,7 @@ export interface operations {
                             claimWindowMin: number;
                             /** @description No waitlist offers this many minutes before start */
                             waitlistCutoffMin: number;
+                            reminderMinBefore: null | number;
                         };
                         externalRefs: {
                             [key: string]: string;
@@ -5221,6 +5435,7 @@ export interface operations {
                             claimWindowMin: number;
                             /** @description No waitlist offers this many minutes before start */
                             waitlistCutoffMin: number;
+                            reminderMinBefore: null | number;
                         };
                         externalRefs: {
                             [key: string]: string;
@@ -11323,6 +11538,2593 @@ export interface operations {
             };
             /** @description Default Response */
             428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    listGuestInvitations: {
+        parameters: {
+            query?: {
+                status?: ("pending" | "sent" | "accepted" | "declined")[];
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            email: string;
+                            name: string | null;
+                            locale: string | null;
+                            guestAllowed: boolean | null;
+                            externalContactId: string | null;
+                            /** @description pending: not sent yet. sent: no answer yet. accepted: has a registration. declined */
+                            status: "pending" | "sent" | "accepted" | "declined";
+                            firstSentAt: string | null;
+                            lastSentAt: string | null;
+                            respondedAt: string | null;
+                            lastSend: {
+                                kind: "invitation" | "reminder";
+                                /** Format: date-time */
+                                requestedAt: string;
+                                sentAt: string | null;
+                                deliveryStatus: "queued" | "sent" | "delivered" | "bounced" | "spam_complaint" | "failed";
+                                deliveryDetail: string | null;
+                                deliveryAt: string | null;
+                            } | null;
+                            registration: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                occurrenceId: string;
+                                partySize: number;
+                            } | null;
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        counts: {
+                            total: number;
+                            pending: number;
+                            /** @description Sent, no answer yet */
+                            sent: number;
+                            accepted: number;
+                            declined: number;
+                            /** @description Last email bounced or was marked as spam */
+                            undeliverable: number;
+                            /** @description Places taken by accepted guests */
+                            places: number;
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    createGuestInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    email: string;
+                    name?: string | null;
+                    locale?: string | null;
+                    guestAllowed?: boolean | null;
+                    externalContactId?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        eventId: string;
+                        email: string;
+                        name: string | null;
+                        locale: string | null;
+                        guestAllowed: boolean | null;
+                        externalContactId: string | null;
+                        /** @description pending: not sent yet. sent: no answer yet. accepted: has a registration. declined */
+                        status: "pending" | "sent" | "accepted" | "declined";
+                        firstSentAt: string | null;
+                        lastSentAt: string | null;
+                        respondedAt: string | null;
+                        lastSend: {
+                            kind: "invitation" | "reminder";
+                            /** Format: date-time */
+                            requestedAt: string;
+                            sentAt: string | null;
+                            deliveryStatus: "queued" | "sent" | "delivered" | "bounced" | "spam_complaint" | "failed";
+                            deliveryDetail: string | null;
+                            deliveryAt: string | null;
+                        } | null;
+                        registration: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            partySize: number;
+                        } | null;
+                        version: number;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    updateGuestInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name?: string | null;
+                    locale?: string | null;
+                    guestAllowed?: boolean | null;
+                    externalContactId?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        eventId: string;
+                        email: string;
+                        name: string | null;
+                        locale: string | null;
+                        guestAllowed: boolean | null;
+                        externalContactId: string | null;
+                        /** @description pending: not sent yet. sent: no answer yet. accepted: has a registration. declined */
+                        status: "pending" | "sent" | "accepted" | "declined";
+                        firstSentAt: string | null;
+                        lastSentAt: string | null;
+                        respondedAt: string | null;
+                        lastSend: {
+                            kind: "invitation" | "reminder";
+                            /** Format: date-time */
+                            requestedAt: string;
+                            sentAt: string | null;
+                            deliveryStatus: "queued" | "sent" | "delivered" | "bounced" | "spam_complaint" | "failed";
+                            deliveryDetail: string | null;
+                            deliveryAt: string | null;
+                        } | null;
+                        registration: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            partySize: number;
+                        } | null;
+                        version: number;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    removeGuestInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        removed: string[];
+                        blocked: string[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    sendGuestInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    kind: "invitation" | "reminder";
+                    /** @description Omit to send to everyone the kind applies to: invitations to guests not sent one yet, reminders to guests who have not answered */
+                    ids?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        queued: number;
+                        skipped: number;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    markGuestInvitationsSent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ids: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        marked: number;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    getGuestInvitationLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        url: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    rotateGuestInvitationLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        url: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    exportGuestInvitationLinks: {
+        parameters: {
+            query?: {
+                delimiter?: "semicolon" | "comma";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    uploadGuestImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    fileName: string;
+                    /**
+                     * Format: byte
+                     * @description The CSV or XLSX file, base64. At most 10 MB
+                     */
+                    content: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        eventId: string;
+                        fileName: string;
+                        headers: string[];
+                        /** @description The first rows */
+                        sample: string[][];
+                        rowCount: number;
+                        /** @description Field → column index (0-based). Email is required; use name, or first and last name */
+                        mapping: {
+                            email?: number;
+                            name?: number;
+                            firstName?: number;
+                            lastName?: number;
+                            locale?: number;
+                            guestAllowed?: number;
+                            externalContactId?: number;
+                        };
+                        /** Format: date-time */
+                        expiresAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    previewGuestImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Field → column index (0-based). Email is required; use name, or first and last name */
+                    mapping: {
+                        email?: number;
+                        name?: number;
+                        firstName?: number;
+                        lastName?: number;
+                        locale?: number;
+                        guestAllowed?: number;
+                        externalContactId?: number;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        rowCount: number;
+                        added: number;
+                        updated: number;
+                        unchanged: number;
+                        /** @description Rows that will be skipped (the first 500) */
+                        errors: {
+                            /** @description Row in the file; the header is row 1 */
+                            line: number;
+                            field: "email" | "name" | "firstName" | "lastName" | "locale" | "guestAllowed" | "externalContactId";
+                            value: string;
+                            code: "missing_email" | "invalid_email" | "duplicate_email" | "invalid_locale" | "invalid_guest_allowed" | "too_long";
+                        }[];
+                        /** @description Guests on the list who are not in the file; never removed by the import */
+                        missing: {
+                            /** Format: uuid */
+                            id: string;
+                            email: string;
+                            name: string | null;
+                            /** @description pending: not sent yet. sent: no answer yet. accepted: has a registration. declined */
+                            status: "pending" | "sent" | "accepted" | "declined";
+                            /** @description False for guests who have accepted: cancel the registration first */
+                            removable: boolean;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    commitGuestImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Field → column index (0-based). Email is required; use name, or first and last name */
+                    mapping: {
+                        email?: number;
+                        name?: number;
+                        firstName?: number;
+                        lastName?: number;
+                        locale?: number;
+                        guestAllowed?: number;
+                        externalContactId?: number;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
+                        updated: number;
+                        unchanged: number;
+                        skipped: number;
+                        missing: {
+                            /** Format: uuid */
+                            id: string;
+                            email: string;
+                            name: string | null;
+                            /** @description pending: not sent yet. sent: no answer yet. accepted: has a registration. declined */
+                            status: "pending" | "sent" | "accepted" | "declined";
+                            /** @description False for guests who have accepted: cancel the registration first */
+                            removable: boolean;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    discardGuestImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

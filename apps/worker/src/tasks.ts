@@ -3,9 +3,11 @@ import { type Db, withTenant } from "@event-manager/db";
 import { outbox } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
 import { HORIZON_TASK, horizonTask } from "./horizon.js";
+import { INVITATION_EMAIL_TASK, invitationEmailTask } from "./invitation-email.js";
 import { OCCURRENCE_NOTICE_TASK, occurrenceNoticeTask } from "./occurrence-notice.js";
 import { PROVISION_TASK, type ProvisionDeps, provisionTask } from "./provision.js";
 import { REGISTRATION_EMAIL_TASK, type RegistrationEmailDeps, registrationEmailTask } from "./registration-email.js";
+import { REMINDER_TASK, reminderTask } from "./reminder.js";
 import { RESOLVE_TASK, resolveTask } from "./resolver.js";
 
 interface DispatchPayload {
@@ -44,7 +46,12 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
     [RESOLVE_TASK]: resolveTask(db),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
     ...(registrationEmail
-      ? { [REGISTRATION_EMAIL_TASK]: registrationEmailTask(db, registrationEmail), [OCCURRENCE_NOTICE_TASK]: occurrenceNoticeTask(db, registrationEmail) }
+      ? {
+          [REGISTRATION_EMAIL_TASK]: registrationEmailTask(db, registrationEmail),
+          [OCCURRENCE_NOTICE_TASK]: occurrenceNoticeTask(db, registrationEmail),
+          [INVITATION_EMAIL_TASK]: invitationEmailTask(db, registrationEmail),
+          [REMINDER_TASK]: reminderTask(db, registrationEmail),
+        }
       : {}),
   };
 }

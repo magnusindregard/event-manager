@@ -30,6 +30,8 @@ export interface RegistrationSettings {
   waitlistEnabled: boolean;
   claimWindowMin: number;
   waitlistCutoffMin: number;
+  /** Remind confirmed attendees this many minutes before each occurrence; null: no reminder. */
+  reminderMinBefore: number | null;
 }
 
 export interface CatalogEvent {
@@ -79,7 +81,7 @@ const eventColumns = [
   "id", "slug", "status", "timezone", "default_location_id", "default_duration_min", "admission_mode",
   "external_url", "external_refs", "version", "created_at", "updated_at",
   "access_policy", "listed", "capacity", "overbooking_pct", "guest_allowed", "registration_opens_min", "registration_closes_min",
-  "waitlist_enabled", "claim_window_min", "waitlist_cutoff_min",
+  "waitlist_enabled", "claim_window_min", "waitlist_cutoff_min", "reminder_min_before",
 ] as const;
 type EventRow = {
   id: string; slug: string; status: EventStatus; timezone: string; default_location_id: string | null;
@@ -87,6 +89,7 @@ type EventRow = {
   external_refs: Record<string, string>; version: number; created_at: Date; updated_at: Date;
   access_policy: AccessPolicy; listed: boolean; capacity: number | null; overbooking_pct: number; guest_allowed: boolean;
   registration_opens_min: number | null; registration_closes_min: number; waitlist_enabled: boolean; claim_window_min: number; waitlist_cutoff_min: number;
+  reminder_min_before: number | null;
 };
 
 const toSettings = (r: EventRow): RegistrationSettings => ({
@@ -100,6 +103,7 @@ const toSettings = (r: EventRow): RegistrationSettings => ({
   waitlistEnabled: r.waitlist_enabled,
   claimWindowMin: r.claim_window_min,
   waitlistCutoffMin: r.waitlist_cutoff_min,
+  reminderMinBefore: r.reminder_min_before,
 });
 
 const settingsColumns = (s: Partial<RegistrationSettings>) => ({
@@ -113,6 +117,7 @@ const settingsColumns = (s: Partial<RegistrationSettings>) => ({
   waitlist_enabled: s.waitlistEnabled,
   claim_window_min: s.claimWindowMin,
   waitlist_cutoff_min: s.waitlistCutoffMin,
+  reminder_min_before: s.reminderMinBefore,
 });
 
 const intRange = (field: string, v: number | null | undefined, min: number, max: number, nullable = false) => {
@@ -128,6 +133,7 @@ function validateSettings(s: RegistrationSettings) {
   intRange("closesMinBefore", s.closesMinBefore, 0, 525_600);
   intRange("claimWindowMin", s.claimWindowMin, 5, 20_160);
   intRange("waitlistCutoffMin", s.waitlistCutoffMin, 0, 20_160);
+  intRange("reminderMinBefore", s.reminderMinBefore, 60, 20_160, true);
   if (s.opensMinBefore !== null && s.opensMinBefore <= s.closesMinBefore) {
     throw invalid("registration.opensMinBefore", "Registration must open before it closes");
   }
@@ -143,6 +149,7 @@ function mergeSettings(before: RegistrationSettings, patch: Partial<Registration
 const DEFAULT_SETTINGS: RegistrationSettings = {
   accessPolicy: "open", listed: true, capacity: null, overbookingPct: 0, guestAllowed: false,
   opensMinBefore: null, closesMinBefore: 0, waitlistEnabled: false, claimWindowMin: 1440, waitlistCutoffMin: 120,
+  reminderMinBefore: null,
 };
 
 async function hydrate(tx: Tx, rows: EventRow[]): Promise<CatalogEvent[]> {
