@@ -25,7 +25,7 @@ const TIMEZONES: string[] = (() => {
 })();
 const LOCALE_OPTIONS = ["nb", "nn", "en", "se", "sv", "da", "de", "fr"];
 
-type Form = Pick<Account, "name" | "defaultTimezone" | "defaultLocale" | "locales" | "horizonMonths">;
+type Form = Pick<Account, "name" | "defaultTimezone" | "defaultLocale" | "locales" | "horizonMonths" | "anonymiseAfterMonths" | "sensitiveDeleteAfterDays">;
 
 export function Settings() {
   const { t, i18n } = useTranslation();
@@ -46,8 +46,8 @@ export function Settings() {
 
   useEffect(() => {
     if (query.data) {
-      const { name, defaultTimezone, defaultLocale, locales, horizonMonths } = query.data.account;
-      setForm({ name, defaultTimezone, defaultLocale, locales, horizonMonths });
+      const { name, defaultTimezone, defaultLocale, locales, horizonMonths, anonymiseAfterMonths, sensitiveDeleteAfterDays } = query.data.account;
+      setForm({ name, defaultTimezone, defaultLocale, locales, horizonMonths, anonymiseAfterMonths, sensitiveDeleteAfterDays });
     }
   }, [query.data]);
 
@@ -152,6 +152,17 @@ export function Settings() {
               disabled={!canEdit}
             />
           </Field>
+          <fieldset className="grid gap-4 rounded-lg border p-4">
+            <legend className="px-1 text-sm font-medium">{t("settings.privacy")}</legend>
+            <Field label={t("settings.anonymiseAfter")} htmlFor="anonymise" hint={t("settings.anonymiseHint")}>
+              <Input id="anonymise" type="number" min={1} max={120} className="w-32" value={form.anonymiseAfterMonths}
+                onChange={(e) => set("anonymiseAfterMonths", Number(e.target.value))} disabled={!canEdit} />
+            </Field>
+            <Field label={t("settings.sensitiveAfter")} htmlFor="sensitive" hint={t("settings.sensitiveHint")}>
+              <Input id="sensitive" type="number" min={1} max={365} className="w-32" value={form.sensitiveDeleteAfterDays}
+                onChange={(e) => set("sensitiveDeleteAfterDays", Number(e.target.value))} disabled={!canEdit} />
+            </Field>
+          </fieldset>
           {canEdit && <Button type="submit" disabled={save.isPending}>{t("settings.save")}</Button>}
         </form>
       </div>

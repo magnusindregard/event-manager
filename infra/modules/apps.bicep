@@ -34,6 +34,8 @@ param adminUrl string = ''
 param corsOrigins string = ''
 @description('Postmark delivery webhook on the API. Needs Key Vault secret "postmark-webhook-auth" holding "user:password".')
 param postmarkWebhook bool = false
+@description('Master keys for sensitive registration answers. Needs Key Vault secret "sensitive-data-keys" holding "id:base64-32-bytes" (infra/README.md). Off: forms cannot take sensitive answers.')
+param sensitiveDataKeys bool = false
 
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: 'cae-${name}'
@@ -77,7 +79,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
       // Reached through Front Door. TODO before personal data (phase 1): Front Door Premium + Private Link.
       ingress: { external: true, targetPort: 3000, transport: 'http' }
       registries: registries
-      secrets: concat(workerAsSidecar ? workerSecrets : [], webhookSecrets)
+      secrets: concat(workerAsSidecar ? workerSecrets : [], webhookSecrets, sensitiveSecrets)
     }
     template: {
       containers: concat([{
@@ -91,7 +93,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           // Guests' personal invitation links point at the hosted attendee pages.
           { name: 'ATTENDEE_URL', value: attendeeUrl }
         ], empty(corsOrigins) ? [] : [{ name: 'CORS_ORIGINS', value: corsOrigins }],
-          webhookEnabled ? [{ name: 'POSTMARK_WEBHOOK_AUTH', secretRef: 'postmark-webhook-auth' }] : [])
+          webhookEnabled ? [{ name: 'POSTMARK_WEBHOOK_AUTH', secretRef: 'postmark-webhook-auth' }] : [], sensitiveEnv)
         probes: probesFor(3000)
       }], workerAsSidecar ? [workerContainer] : [])
       // Staging scales to zero (cold start of a few seconds) to keep cost down.
@@ -113,13 +115,14 @@ resource attendee 'Microsoft.App/containerApps@2024-03-01' = {
     configuration: {
       ingress: { external: true, targetPort: 3020, transport: 'http' }
       registries: registries
+      secrets: sensitiveSecrets
     }
     template: {
       containers: [{
         name: 'attendee'
         image: '${registryServer}/event-manager/attendee:${imageTag}'
         resources: { cpu: json('0.25'), memory: '0.5Gi' }
-        env: concat(runtimeEnv, [{ name: 'PORT', value: '3020' }])
+        env: concat(runtimeEnv, [{ name: 'PORT', value: '3020' }], sensitiveEnv)
         probes: probesFor(3020)
       }]
       scale: { minReplicas: prod ? 1 : 0, maxReplicas: prod ? 4 : 1, rules: [{ name: 'http', http: { metadata: { concurrentRequests: '50' } } }] }
@@ -156,6 +159,10 @@ resource publicApi 'Microsoft.App/containerApps@2024-03-01' = {
 var mailEnabled = !empty(mailFrom) && !empty(keyVaultUri)
 var webhookEnabled = postmarkWebhook && !empty(keyVaultUri)
 var webhookSecrets = webhookEnabled ? [{ name: 'postmark-webhook-auth', keyVaultUrl: '${keyVaultUri}secrets/postmark-webhook-auth', identity: appIdentityId }] : []
+// The api reads sensitive answers for staff, the attendee app stores them; the worker never decrypts.
+var sensitiveEnabled = sensitiveDataKeys && !empty(keyVaultUri)
+var sensitiveSecrets = sensitiveEnabled ? [{ name: 'sensitive-data-keys', keyVaultUrl: '${keyVaultUri}secrets/sensitive-data-keys', identity: appIdentityId }] : []
+var sensitiveEnv = sensitiveEnabled ? [{ name: 'SENSITIVE_DATA_KEYS', secretRef: 'sensitive-data-keys' }] : []
 var workerSecrets = mailEnabled ? [{ name: 'postmark-token', keyVaultUrl: '${keyVaultUri}secrets/postmark-token', identity: appIdentityId }] : []
 var workerContainer = {
   name: 'worker'
@@ -249,6 +256,35 @@ resource horizon 'Microsoft.App/jobs@2024-03-01' = if (workerAsSidecar) {
         name: 'horizon'
         image: '${registryServer}/event-manager/worker:${imageTag}'
         command: ['node', 'dist/cli/extend-horizons.js']
+        resources: { cpu: json('0.25'), memory: '0.5Gi' }
+        env: runtimeEnv
+      }]
+    }
+  }
+}
+
+// Staging only, like the horizon job: deletes sensitive answers and anonymises registrations
+// past the accounts' retention periods (docs/registration.md, "Retention"). Idempotent.
+resource retention 'Microsoft.App/jobs@2024-03-01' = if (workerAsSidecar) {
+  name: 'caj-${name}-retention'
+  location: location
+  tags: tags
+  identity: identity
+  properties: {
+    environmentId: environment.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      triggerType: 'Schedule'
+      replicaTimeout: 1800
+      replicaRetryLimit: 1
+      scheduleTriggerConfig: { cronExpression: '0 3 * * *', parallelism: 1, replicaCompletionCount: 1 }
+      registries: registries
+    }
+    template: {
+      containers: [{
+        name: 'retention'
+        image: '${registryServer}/event-manager/worker:${imageTag}'
+        command: ['node', 'dist/cli/apply-retention.js']
         resources: { cpu: json('0.25'), memory: '0.5Gi' }
         env: runtimeEnv
       }]

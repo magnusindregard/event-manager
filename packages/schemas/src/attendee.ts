@@ -1,5 +1,6 @@
 import { Type } from "typebox";
 import { Availability } from "./public.js";
+import { Answers, AnswerValue, FormField } from "./registration.js";
 
 // Attendee API (/attendee/v1, docs/registration.md "Attendee pages"). Behind the hosted
 // pages today; versioned so client frontends can use it later. No accounts: the open
@@ -8,6 +9,14 @@ import { Availability } from "./public.js";
 const Uuid = Type.String({ format: "uuid" });
 const DateTime = Type.String({ format: "date-time" });
 const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(t: T) => Type.Union([t, Type.Null()]);
+
+export const AttendeeForm = Type.Object({
+  fields: Type.Array(FormField, { description: "Asked after name and email, in this order" }),
+  sensitiveDeleteAfterDays: Type.Integer({ description: "Sensitive answers are deleted this many days after the occurrence; for the consent text" }),
+});
+
+const AnswersInput = Type.Record(Type.String(), AnswerValue, { description: "By field id" });
+const Consent = Type.Boolean({ description: "Agreement to sensitive answers being stored; required when any is given" });
 
 export const AttendeeOccurrence = Type.Object({
   locale: Type.String({ description: "Locale of the texts: the requested one, or the account default" }),
@@ -29,6 +38,7 @@ export const AttendeeOccurrence = Type.Object({
   }),
   location: Nullable(Type.Object({ name: Type.String(), address: Nullable(Type.String()), venue: Nullable(Type.String()) })),
   availability: Availability,
+  form: AttendeeForm,
 });
 
 export const AttendeeRegistration = Type.Object({
@@ -38,6 +48,7 @@ export const AttendeeRegistration = Type.Object({
   locale: Type.String(),
   partySize: Type.Integer({ minimum: 1, maximum: 2 }),
   status: Type.Union([Type.Literal("confirmed"), Type.Literal("waitlisted"), Type.Literal("offered"), Type.Literal("cancelled")]),
+  answers: Answers,
   createdAt: DateTime,
 });
 
@@ -47,6 +58,8 @@ export const AttendeeRegistrationCreate = Type.Object(
     email: Type.String({ minLength: 3, maxLength: 254 }),
     locale: Type.Optional(Type.String({ pattern: "^[a-z]{2,3}(-[A-Z]{2})?$" })),
     partySize: Type.Optional(Type.Integer({ minimum: 1, maximum: 2, description: "2 brings a guest, where the event allows it" })),
+    answers: Type.Optional(AnswersInput),
+    consent: Type.Optional(Consent),
   },
   { additionalProperties: false },
 );
@@ -56,6 +69,8 @@ export const AttendeeRegistrationPatch = Type.Object(
     name: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
     locale: Type.Optional(Type.String({ pattern: "^[a-z]{2,3}(-[A-Z]{2})?$" })),
     partySize: Type.Optional(Type.Integer({ minimum: 1, maximum: 2 })),
+    answers: Type.Optional(Type.Record(Type.String(), AnswerValue, { description: "By field id. Replaces all answers" })),
+    consent: Type.Optional(Consent),
   },
   { additionalProperties: false, minProperties: 1 },
 );
@@ -86,6 +101,7 @@ export const AttendeeInvitationView = Type.Object({
     status: Type.Union([Type.Literal("pending"), Type.Literal("sent"), Type.Literal("accepted"), Type.Literal("declined")]),
     guestAllowed: Type.Boolean({ description: "Whether the guest may bring someone" }),
   }),
+  form: AttendeeForm,
   event: Type.Object({
     id: Uuid,
     title: Type.String(),
@@ -109,6 +125,8 @@ export const AttendeeInvitationAccept = Type.Object(
     name: Type.Optional(Type.String({ minLength: 1, maxLength: 200, description: "Required when the guest list has no name" })),
     locale: Type.Optional(Type.String({ pattern: "^[a-z]{2,3}(-[A-Z]{2})?$" })),
     partySize: Type.Optional(Type.Integer({ minimum: 1, maximum: 2 })),
+    answers: Type.Optional(AnswersInput),
+    consent: Type.Optional(Consent),
   },
   { additionalProperties: false },
 );

@@ -9,6 +9,9 @@ interface AppState {
   meLoading: boolean;
   accountId: string | null;
   roles: string[];
+  /** What the roles allow in the current account, e.g. registrations.sensitive. */
+  permissions: string[];
+  can(permission: string): boolean;
   selectAccount(id: string | null): void;
 }
 
@@ -41,7 +44,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ? me.accounts[0]!.accountId
         : null;
   setCurrentAccountId(effective);
-  const roles = me?.accounts.find((a) => a.accountId === effective)?.roles ?? [];
+  const current = me?.accounts.find((a) => a.accountId === effective);
+  const roles = current?.roles ?? [];
+  const permissions = current?.permissions ?? [];
+  const can = (p: string) => permissions.includes(p as never);
 
   const selectAccount = (id: string | null) => {
     setAccountId(id);
@@ -54,7 +60,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ api, me, meLoading: meQuery.isLoading, accountId: effective, roles, selectAccount }}>
+    <Ctx.Provider value={{ api, me, meLoading: meQuery.isLoading, accountId: effective, roles, permissions, can, selectAccount }}>
       {children}
     </Ctx.Provider>
   );

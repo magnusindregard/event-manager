@@ -351,6 +351,21 @@ In Postmark, add a webhook on the server's transactional stream to
 `https://<user>:<password>@<api host>/webhooks/postmark`, with the Delivery, Bounce and Spam complaint events.
 `<api host>` is the Front Door host, or the API container app's host without Front Door.
 
+### 4d. Master key for sensitive answers
+
+Dietary needs and other sensitive form answers are encrypted with a data key per account, which is
+stored wrapped by a master key kept in Key Vault (docs/registration.md, "Retention"). After step 6,
+create a key and turn it on:
+
+```bash
+az keyvault secret set --vault-name <kv-em-staging-…> -n sensitive-data-keys --value "k1:$(openssl rand -base64 32)"
+gh variable set SENSITIVE_ANSWERS --env staging --body true
+```
+
+Never delete or overwrite the key: answers encrypted with it cannot be read without it. To rotate,
+put the new key first and keep the old one (`k2:<new>,k1:<old>`), rewrap each account's data key
+(`registration.rewrapDataKey`), then drop the old one. Without the key, forms cannot take sensitive answers.
+
 ### 5. GitHub environment `staging`
 
 ```bash
