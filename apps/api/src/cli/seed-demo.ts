@@ -83,6 +83,18 @@ try {
     await catalog.updateOccurrence(tx, ctx, third.id, third.version, { status: "cancelled" });
 
     // A draft, visible only with the preview key.
+    // Free talks with registration on the hosted pages: 40 places, 10 % overbooking, a guest allowed.
+    const talk = await publish(await catalog.createEvent(tx, ctx, {
+      slug: "kveldsforedrag",
+      translations: {
+        nb: { title: "Kveldsforedrag", shortDescription: "Gratis foredrag om samlingen. Påmelding kreves." },
+        en: { title: "Evening talk", shortDescription: "A free talk about the collection. Registration required." },
+      },
+      defaultLocationId: gallery.id, defaultDurationMin: 60, admissionMode: "registration",
+      registration: { capacity: 40, overbookingPct: 10, guestAllowed: true, closesMinBefore: 60 },
+    }));
+    for (const d of [7, 14, 21]) await catalog.createOccurrence(tx, ctx, talk.id, { startUtc: at(d, "18:00") });
+
     await catalog.createEvent(tx, ctx, { slug: "hemmelig-forhandsvisning", translations: { nb: { title: "Hemmelig forhåndsvisning" } }, defaultLocationId: gallery.id });
 
     return {

@@ -15,11 +15,13 @@
     "@azure/monitor-opentelemetry": "^1.21.0",
     "@event-manager/db": "workspace:*",
     "@event-manager/domain": "workspace:*",
-    "graphile-worker": "~0.17.1"
+    "graphile-worker": "~0.17.1",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "^11.14.0",
     "@types/pg": "^8.23.1",
+    "@types/qrcode": "^1.5.5",
     "pg": "^8.23.1"
   }
 }

@@ -21,8 +21,23 @@ export const Admission = Type.Union(
   [
     Type.Object({ mode: Type.Literal("external"), url: Type.String({ description: "Ticket or booking link" }) }),
     Type.Object({ mode: Type.Literal("none") }),
+    Type.Object({
+      mode: Type.Literal("registration"),
+      url: Nullable(Type.String({ description: "Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links" })),
+    }),
   ],
   { description: "How to get in. More modes (registration, tickets) are added later without changing these." },
+);
+
+export const Availability = Type.Object(
+  {
+    status: Type.Union([Type.Literal("available"), Type.Literal("few_left"), Type.Literal("full"), Type.Literal("closed")], {
+      description: "closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added",
+    }),
+    opensAt: Nullable(Type.String({ format: "date-time", description: "Null: open as soon as the event is published" })),
+    closesAt: DateTime,
+  },
+  { description: "Places for registration occurrences, without exact numbers. Null for other admission modes" },
 );
 
 const eventSummaryFields = {
@@ -47,6 +62,7 @@ const occurrenceFields = {
   location: Nullable(PublicLocationRef),
   tags: Type.Array(PublicTag),
   admission: Admission,
+  availability: Nullable(Availability),
 };
 
 export const PublicOccurrence = Type.Object({ ...occurrenceFields, event: PublicEventSummary });

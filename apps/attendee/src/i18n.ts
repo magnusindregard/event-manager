@@ -1,0 +1,100 @@
+// Texts for the hosted attendee pages, in the account's locales (nb and en today). Locales
+// without their own texts fall back to English.
+
+const en = {
+  register: "Register",
+  registerFor: "Register for",
+  name: "Name",
+  email: "Email",
+  guest: "I will bring a guest",
+  submit: "Register",
+  save: "Save changes",
+  cancel: "Cancel my registration",
+  cancelConfirm: "Yes, cancel my registration",
+  cancelHelp: "Your place is given to someone else. You can register again while there are places left.",
+  available: "Places available",
+  few_left: "Few places left",
+  full: "Fully booked",
+  closed: "Registration is closed",
+  opensAt: (when: string) => `Registration opens ${when}`,
+  cancelledOccurrence: "This event is cancelled",
+  invitationOnly: "This event is by invitation only. Use the link in your invitation.",
+  confirmed: "You are registered",
+  confirmedLead: "We have sent a confirmation to your email. Show the QR code at the door.",
+  yourRegistration: "Your registration",
+  cancelledRegistration: "Your registration is cancelled",
+  saved: "Your changes are saved.",
+  partyOf: (n: number) => (n === 1 ? "1 person" : `${n} people`),
+  changeTitle: "Change your registration",
+  changeClosed: "Registration has closed, so it can no longer be changed.",
+  notFound: "Page not found",
+  invalidLink: "This link is not valid. It may have been replaced by a newer one; use the link in your latest email.",
+  emailHelp: "We send your confirmation and QR code here.",
+  qrAlt: "QR code for admission",
+  errors: {
+    full: "Sorry, there are no places left.",
+    registration_closed: "Registration is closed.",
+    already_registered: "This email address is already registered. Use the link in your confirmation email to see or change your registration.",
+    invitation_required: "This event is by invitation only.",
+    validation_failed: "Check the fields and try again.",
+    rate_limited: "Too many attempts. Wait a minute and try again.",
+    bot: "Your registration could not be sent. Try again.",
+    generic: "Something went wrong. Try again.",
+  },
+};
+
+export type Texts = typeof en;
+
+const nb: Texts = {
+  register: "Påmelding",
+  registerFor: "Meld deg på",
+  name: "Navn",
+  email: "E-post",
+  guest: "Jeg tar med en gjest",
+  submit: "Meld meg på",
+  save: "Lagre endringer",
+  cancel: "Meld meg av",
+  cancelConfirm: "Ja, meld meg av",
+  cancelHelp: "Plassen din går til noen andre. Du kan melde deg på igjen så lenge det er ledige plasser.",
+  available: "Ledige plasser",
+  few_left: "Få plasser igjen",
+  full: "Fullt",
+  closed: "Påmeldingen er stengt",
+  opensAt: (when: string) => `Påmeldingen åpner ${when}`,
+  cancelledOccurrence: "Arrangementet er avlyst",
+  invitationOnly: "Dette arrangementet krever invitasjon. Bruk lenken i invitasjonen din.",
+  confirmed: "Du er påmeldt",
+  confirmedLead: "Vi har sendt en bekreftelse til e-posten din. Vis QR-koden i døren.",
+  yourRegistration: "Din påmelding",
+  cancelledRegistration: "Påmeldingen din er avbestilt",
+  saved: "Endringene er lagret.",
+  partyOf: (n: number) => (n === 1 ? "1 person" : `${n} personer`),
+  changeTitle: "Endre påmeldingen",
+  changeClosed: "Påmeldingen er stengt, så den kan ikke lenger endres.",
+  notFound: "Fant ikke siden",
+  invalidLink: "Lenken er ikke gyldig. Den kan være erstattet av en nyere; bruk lenken i den siste e-posten din.",
+  emailHelp: "Vi sender bekreftelsen og QR-koden hit.",
+  qrAlt: "QR-kode for inngang",
+  errors: {
+    full: "Beklager, det er ingen ledige plasser.",
+    registration_closed: "Påmeldingen er stengt.",
+    already_registered: "Denne e-postadressen er allerede påmeldt. Bruk lenken i bekreftelsen for å se eller endre påmeldingen.",
+    invitation_required: "Dette arrangementet krever invitasjon.",
+    validation_failed: "Sjekk feltene og prøv igjen.",
+    rate_limited: "For mange forsøk. Vent et minutt og prøv igjen.",
+    bot: "Påmeldingen kunne ikke sendes. Prøv igjen.",
+    generic: "Noe gikk galt. Prøv igjen.",
+  },
+};
+
+const texts: Record<string, Texts> = { en, nb, nn: nb, no: nb };
+
+export const textsFor = (locale: string): Texts => texts[locale] ?? texts[locale.split("-")[0]!] ?? en;
+
+/** Date and time in the event's timezone, e.g. "Monday 1 March 2027 at 18:00". */
+export function formatWhen(locale: string, timezone: string, start: Date, end?: Date): string {
+  const lang = locale.startsWith("n") ? "nb-NO" : locale;
+  const date = new Intl.DateTimeFormat(lang, { timeZone: timezone, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(start);
+  const time = (d: Date) => new Intl.DateTimeFormat(lang, { timeZone: timezone, hour: "2-digit", minute: "2-digit" }).format(d);
+  return end ? `${date}, ${time(start)}–${time(end)}` : `${date}, ${time(start)}`;
+}

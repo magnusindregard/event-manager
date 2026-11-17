@@ -271,6 +271,48 @@ export interface HoldTable {
   created_at: GeneratedTimestamp;
 }
 
+export type RegistrationStatus = "confirmed" | "waitlisted" | "offered" | "cancelled";
+export type RegistrationSource = "invitation" | "open" | "staff";
+export type AdmissionStatus = "valid" | "void";
+
+export interface RegistrationTable {
+  id: string;
+  tenant_id: string;
+  event_id: string;
+  occurrence_id: string;
+  invitation_id: string | null;
+  name: string;
+  email: string;
+  locale: string;
+  party_size: number;
+  status: RegistrationStatus;
+  source: RegistrationSource;
+  waitlist_position: number | null;
+  token_version: Generated<number>;
+  cancelled_at: Timestamp | null;
+  cancelled_by: "attendee" | "staff" | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface TokenKeyTable {
+  tenant_id: string;
+  key: Buffer;
+  created_at: GeneratedTimestamp;
+}
+
+export interface AdmissionTable {
+  id: string;
+  tenant_id: string;
+  registration_id: string;
+  occurrence_id: string;
+  party_size: number;
+  status: Generated<AdmissionStatus>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
 /** Calendar date "YYYY-MM-DD" (Postgres date). */
 export type LocalDate = string;
 /** Wall-clock time "HH:mm:ss" (Postgres time). */
@@ -317,6 +359,9 @@ export interface DB {
   "rules.rule_effect": RuleEffectTable;
   "inventory.capacity_pool": CapacityPoolTable;
   "inventory.hold": HoldTable;
+  "registration.registration": RegistrationTable;
+  "registration.token_key": TokenKeyTable;
+  "admission.admission": AdmissionTable;
   "tenancy.account": AccountTable;
   "tenancy.user": UserTable;
   "tenancy.membership": MembershipTable;

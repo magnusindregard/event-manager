@@ -1,3 +1,4 @@
+export * from "./availability.js";
 export * from "./events.js";
 export * from "./locations.js";
 export * from "./occurrences.js";

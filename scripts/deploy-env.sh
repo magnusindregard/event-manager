@@ -26,6 +26,7 @@ STORAGE=$(val adminStorageAccount)
 FRONT_DOOR=$(val frontDoorHost)
 API_HOST=$(val apiHost)
 PUBLIC_HOST=$(val publicApiHost)
+ATTENDEE_HOST=$(val attendeeHost)
 ADMIN_ORIGIN=$(val adminOrigin)
 
 # Container Apps roll out the new image when Bicep updates the template; migrations are
@@ -47,7 +48,7 @@ done
 # Behind Front Door the admin calls /v1 on its own host; without it, the API's host (CORS allows the admin).
 echo "▸ Admin ($STORAGE)"
 if [ -n "$FRONT_DOOR" ]; then api_base=""; else api_base="https://$API_HOST"; fi
-VITE_API_BASE_URL="$api_base" VITE_AUTH_MODE=msal \
+VITE_API_BASE_URL="$api_base" VITE_AUTH_MODE=msal VITE_ATTENDEE_URL="https://$ATTENDEE_HOST" \
 VITE_ENTRA_CLIENT_ID="${ENTRA_ADMIN_CLIENT_ID:?}" VITE_ENTRA_AUTHORITY="${ENTRA_AUTHORITY:?}" VITE_ENTRA_API_SCOPE="${ENTRA_API_SCOPE:?}" \
   pnpm turbo run build --filter=@event-manager/admin... >/dev/null
 # Unknown paths serve index.html, so deep links like /events/<id> load the SPA.
@@ -69,11 +70,18 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "https://$host/v1/me")
 # The public API answers without a key only with 401 key_required.
 code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 "https://${FRONT_DOOR:-$PUBLIC_HOST}/public/v1/occurrences")
 [ "$code" = "401" ] || { echo "Expected 401 from /public/v1/occurrences without a key, got $code" >&2; exit 1; }
+# The attendee app answers its health check (it scales to zero in staging, so allow a cold start).
+for i in $(seq 1 12); do
+  curl -fsS --max-time 20 "https://$ATTENDEE_HOST/healthz" >/dev/null && break
+  [ "$i" = 12 ] && { echo "Attendee app did not answer" >&2; exit 1; }
+  sleep 5
+done
 
 echo
 echo "Admin:      $ADMIN_ORIGIN/"
 echo "Core API:   https://$host/v1"
 echo "Public API: https://${FRONT_DOOR:-$PUBLIC_HOST}/public/v1"
+echo "Attendee:   https://$ATTENDEE_HOST"
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
-  { echo "admin=$ADMIN_ORIGIN"; echo "api=https://$host"; echo "public=https://${FRONT_DOOR:-$PUBLIC_HOST}"; } >> "$GITHUB_OUTPUT"
+  { echo "admin=$ADMIN_ORIGIN"; echo "api=https://$host"; echo "public=https://${FRONT_DOOR:-$PUBLIC_HOST}"; echo "attendee=https://$ATTENDEE_HOST"; } >> "$GITHUB_OUTPUT"
 fi

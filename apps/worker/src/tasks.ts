@@ -4,6 +4,7 @@ import { outbox } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
 import { HORIZON_TASK, horizonTask } from "./horizon.js";
 import { PROVISION_TASK, type ProvisionDeps, provisionTask } from "./provision.js";
+import { REGISTRATION_EMAIL_TASK, type RegistrationEmailDeps, registrationEmailTask } from "./registration-email.js";
 import { RESOLVE_TASK, resolveTask } from "./resolver.js";
 
 interface DispatchPayload {
@@ -35,11 +36,12 @@ export function dispatchTask(db: Db, handlers: InternalHandler[]): Task {
   };
 }
 
-export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: ProvisionDeps): TaskList {
+export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: ProvisionDeps, registrationEmail?: RegistrationEmailDeps): TaskList {
   return {
     "outbox.dispatch": dispatchTask(db, handlers),
     [HORIZON_TASK]: horizonTask(db),
     [RESOLVE_TASK]: resolveTask(db),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
+    ...(registrationEmail ? { [REGISTRATION_EMAIL_TASK]: registrationEmailTask(db, registrationEmail) } : {}),
   };
 }

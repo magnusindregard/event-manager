@@ -95,6 +95,34 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
   }
 }
 
+// Hosted attendee pages and the attendee API (docs/registration.md). Its own host, so the
+// links in emails and the public API can point at it without Front Door.
+resource attendee 'Microsoft.App/containerApps@2024-03-01' = {
+  name: 'ca-${name}-attendee'
+  location: location
+  tags: tags
+  identity: identity
+  properties: {
+    environmentId: environment.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      ingress: { external: true, targetPort: 3020, transport: 'http' }
+      registries: registries
+    }
+    template: {
+      containers: [{
+        name: 'attendee'
+        image: '${registryServer}/event-manager/attendee:${imageTag}'
+        resources: { cpu: json('0.25'), memory: '0.5Gi' }
+        env: concat(runtimeEnv, [{ name: 'PORT', value: '3020' }])
+        probes: probesFor(3020)
+      }]
+      scale: { minReplicas: prod ? 1 : 0, maxReplicas: prod ? 4 : 1, rules: [{ name: 'http', http: { metadata: { concurrentRequests: '50' } } }] }
+    }
+  }
+}
+var attendeeUrl = 'https://${attendee.properties.configuration.ingress.fqdn}'
+
 resource publicApi 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'ca-${name}-public'
   location: location
@@ -112,7 +140,7 @@ resource publicApi 'Microsoft.App/containerApps@2024-03-01' = {
         name: 'public-api'
         image: '${registryServer}/event-manager/public-api:${imageTag}'
         resources: { cpu: json('0.5'), memory: '1Gi' }
-        env: concat(runtimeEnv, [{ name: 'PORT', value: '3001' }])
+        env: concat(runtimeEnv, [{ name: 'PORT', value: '3001' }, { name: 'ATTENDEE_URL', value: attendeeUrl }])
         probes: probesFor(3001)
       }]
       scale: { minReplicas: prod ? 1 : 0, maxReplicas: prod ? 10 : 2, rules: [{ name: 'http', http: { metadata: { concurrentRequests: '100' } } }] }
@@ -128,6 +156,7 @@ var workerContainer = {
   resources: { cpu: json('0.5'), memory: '1Gi' }
   env: concat(runtimeEnv, [
     { name: 'ADMIN_URL', value: adminUrl }
+    { name: 'ATTENDEE_URL', value: attendeeUrl }
   ], empty(graphClientId) ? [] : [
     { name: 'IDENTITY_DIRECTORY', value: 'graph' }
     { name: 'GRAPH_TENANT_ID', value: graphTenantId }
@@ -222,4 +251,5 @@ resource horizon 'Microsoft.App/jobs@2024-03-01' = if (workerAsSidecar) {
 
 output apiFqdn string = api.properties.configuration.ingress.fqdn
 output publicApiFqdn string = publicApi.properties.configuration.ingress.fqdn
+output attendeeFqdn string = attendee.properties.configuration.ingress.fqdn
 output migrateJobName string = migrate.name

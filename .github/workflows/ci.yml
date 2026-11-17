@@ -26,13 +26,13 @@ jobs:
       - name: OpenAPI and SDK are up to date
         run: |
           pnpm --filter @event-manager/sdk generate
-          git diff --exit-code -- packages/sdk/openapi packages/sdk/src/core.d.ts packages/sdk/src/public.d.ts \
+          git diff --exit-code -- packages/sdk/openapi packages/sdk/src/core.d.ts packages/sdk/src/public.d.ts packages/sdk/src/attendee.d.ts \
             || (echo "::error::Run 'pnpm --filter @event-manager/sdk generate' and commit the result" && exit 1)
 
       - name: No breaking API changes against main (ADR 0007)
         if: github.event_name == 'pull_request'
         run: |
-          for spec in core public; do
+          for spec in core public attendee; do
             git show origin/${{ github.base_ref }}:packages/sdk/openapi/$spec.json > /tmp/$spec.json 2>/dev/null || { echo "no base $spec spec"; continue; }
             docker run --rm -v /tmp:/base -v "$PWD/packages/sdk/openapi:/head" tufin/oasdiff:v1.11.7 \
               breaking /base/$spec.json /head/$spec.json --fail-on ERR

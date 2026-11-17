@@ -8,7 +8,7 @@ Bicep for one environment per resource group (ADR 0009, 0014). `main.bicep` crea
 | PostgreSQL Flexible Server 16 | Entra auth only, no passwords; zone-redundant HA and geo backup in prod |
 | User-assigned identities `id-em-<env>-app`, `id-em-<env>-migrator` | App runtime (member of `em_app`) and migrations (Postgres Entra admin) |
 | Container Registry, Key Vault, Log Analytics, Application Insights | |
-| Container Apps: `api`, `public`, `worker`; job `migrate` | One image per app, tagged with the git SHA |
+| Container Apps: `api`, `public`, `attendee`, `worker`; job `migrate` | One image per app, tagged with the git SHA. `attendee` serves the hosted registration pages on its own host (not behind Front Door); the worker's email links and the public API's registration links point at it (`ATTENDEE_URL`) |
 | Storage account | Admin SPA (static website) |
 | Front Door Standard + WAF | `/v1/*` → api (no cache), `/public/v1/*` → public-api (cached, key in query string), `/*` → admin |
 

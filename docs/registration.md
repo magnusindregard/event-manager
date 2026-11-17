@@ -186,6 +186,21 @@ Invitation · invitation reminder · registration confirmation (with QR code) ·
 5. **Waitlist:** positions, promotion with claim holds, offer emails, cutoff.
 6. **Pilot:** one closed event and one open, limited event run end to end by a client instead of with free tickets.
 
+### Status
+
+*Milestone 1 (capacity)* is merged. *Milestone 2 (registration core)* is built and tested locally (17 November 2026): `packages/domain/test/acceptance/registration.test.ts` covers the open talk with overbooking, the last place under concurrency, the window, changes, cancelling and public availability; `apps/attendee/test` the pages and the attendee API; `apps/worker/test/registration-email.test.ts` the emails. Decisions taken while building:
+
+- **Confirmed at once** (open question 3): no email verification step. One active registration per email per occurrence; a second attempt gets `already_registered` and is pointed to the confirmation email, so it never reveals or resends the existing link.
+- **Attendee links** are 72-character tokens: tenant, purpose (`manage` or `admission`), subject and token version, signed with HMAC-SHA256 under a **per-tenant key in the database** (`registration.token_key`, created on first use). The tenant is readable before verification, so the request opens that tenant's transaction and checks the signature there; no secret outside the tenant's own data, nothing to configure per environment. The QR code holds the admission token, which cannot be used as a manage link. Bumping `token_version` invalidates both.
+- **Open registration finds its tenant** from the occurrence id through `registration.occurrence_tenant`, a `SECURITY DEFINER` function that only answers for published or cancelled registration events.
+- **The attendee app** (`apps/attendee`, its own container app) renders the pages on the server, without client JavaScript, and serves `/attendee/v1` beside them; both call the same service layer. Basic bot protection: a honeypot field, a minimum time on the form and a per-IP rate limit; a CAPTCHA service can be added if spam appears. Manage tokens are kept out of logs and referrers.
+- **Changes** (name, guest) are possible until registration closes; **cancelling** until the occurrence starts. Staff may add people outside the window and with a guest the event does not offer, but never beyond the places.
+- **An occurrence with registrations** is detached when the first one arrives (without a version bump, so it stays visible in the public API) and cannot be deleted (409; cancel it instead).
+- **Public availability**: `few_left` from a tenth of the bookable limit (at least one place). Invite-only occurrences show `admission.url: null`. The status is cached for the usual 30 s; no purge on `capacity.changed` yet. `waitlist` arrives with milestone 5.
+- **Emails** go out from the worker, one job per outbox event, and show the registration as it is when the job runs (no confirmation for a registration cancelled in the meantime). A change of locale alone sends nothing. The QR code is an inline PNG. The account's own template waits for the account email settings.
+- **Permissions**: `registrations.read` and `registrations.write`, held by owner, editor, event manager and box office (door staff read only), so the guest-data permission (open question 1) can be narrowed in milestone 4 without touching content permissions.
+- **Not in this milestone**: emails when an occurrence with registrations is moved or cancelled, and moving registrations to another occurrence. Until then, staff should tell attendees themselves.
+
 ## Acceptance scenarios
 
 - A gala with 120 places: 150 guests imported from an XLSX export, 30 of them allowed a guest. Re-importing the file with 10 new rows adds exactly 10 invitations.

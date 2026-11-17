@@ -3,7 +3,12 @@ export type ErrorCode =
   | "version_conflict"
   | "forbidden"
   | "validation_failed"
-  | "conflict";
+  | "conflict"
+  // Registration (docs/registration.md); stable codes the attendee pages translate.
+  | "registration_closed"
+  | "full"
+  | "already_registered"
+  | "invitation_required";
 
 const statusFor: Record<ErrorCode, number> = {
   not_found: 404,
@@ -11,6 +16,10 @@ const statusFor: Record<ErrorCode, number> = {
   forbidden: 403,
   validation_failed: 422,
   conflict: 409,
+  registration_closed: 409,
+  full: 409,
+  already_registered: 409,
+  invitation_required: 403,
 };
 
 /** Domain errors carry a stable reason code that the API maps to RFC 9457 problem details. */

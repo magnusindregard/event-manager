@@ -1,4 +1,4 @@
-# One image definition for every Node app: docker build --build-arg APP=api|public-api|worker|db .
+# One image definition for every Node app: docker build --build-arg APP=api|public-api|attendee|worker|db .
 # APP=db builds the migration runner used by the Container Apps "migrate" job.
 FROM node:22-slim AS base
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH
@@ -10,6 +10,7 @@ ARG APP
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json apps/api/
 COPY apps/public-api/package.json apps/public-api/
+COPY apps/attendee/package.json apps/attendee/
 COPY apps/worker/package.json apps/worker/
 COPY apps/admin/package.json apps/admin/
 COPY packages/db/package.json packages/db/
@@ -27,5 +28,5 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build --chown=node:node /out .
 USER node
-# api/public-api/worker start dist/main.js; the db image runs migrations.
+# api/public-api/attendee/worker start dist/main.js; the db image runs migrations.
 CMD ["sh", "-c", "if [ -f dist/main.js ]; then exec node dist/main.js; else exec node dist/migrate-cli.js; fi"]

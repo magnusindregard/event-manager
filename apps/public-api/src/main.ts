@@ -11,6 +11,7 @@ const db = createDb(url);
 const app = await buildPublicApp({
   db,
   logger: { level: process.env.LOG_LEVEL ?? "info" },
+  attendeeUrl: process.env.ATTENDEE_URL || undefined,
   rateLimit: {
     capacity: Number(process.env.PUBLIC_RATE_LIMIT_BURST ?? 300),
     refillPerSecond: Number(process.env.PUBLIC_RATE_LIMIT_PER_SECOND ?? 20),
