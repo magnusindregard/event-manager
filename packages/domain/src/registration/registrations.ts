@@ -271,6 +271,13 @@ export async function occurrenceTenant(tx: Tx, occurrenceId: string): Promise<st
   return r.rows[0]?.t ?? null;
 }
 
+/** Confirmed registrations of the given occurrences: who to tell when an occurrence moves or is cancelled. */
+export async function activeRegistrationIds(tx: Tx, occurrenceIds: readonly string[]): Promise<string[]> {
+  if (occurrenceIds.length === 0) return [];
+  const rows = await tx.selectFrom("registration.registration").select("id").where("occurrence_id", "in", occurrenceIds).where("status", "=", "confirmed").execute();
+  return rows.map((r) => r.id);
+}
+
 /** Everything a registration email needs, in one read. */
 export interface RegistrationMessage {
   registration: Registration;

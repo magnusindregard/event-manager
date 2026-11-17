@@ -100,3 +100,66 @@ describe("registration emails", () => {
     expect(mailer.sent.map((m) => m.subject)).toEqual(["Avbestilt: Kveldsomvisning"]);
   });
 });
+
+describe("occurrence notices", () => {
+  async function setup() {
+    const occ = await occurrence();
+    const [kari, ola, gone] = await Promise.all(["kari", "ola", "gone"].map((n) =>
+      run((tx) => registration.register(tx, ctx.tenantId, occ.id, { name: n, email: `${n}-${occ.id.slice(-6)}@example.com`, locale: n === "ola" ? "en" : "nb" }, attendee))));
+    await run((tx) => registration.cancelRegistration(tx, ctx.tenantId, gone!.id, attendee));
+    await drain();
+    mailer.sent.length = 0;
+    return { occ, kari: kari!, ola: ola! };
+  }
+  const recipients = () => mailer.sent.map((m) => m.to.split("-")[0]).sort();
+
+  it("tells confirmed attendees once when time and place change in one edit", async () => {
+    const { occ } = await setup();
+    const room = await run((tx) => catalog.createLocation(tx, ctx, { kind: "venue", name: "Auditoriet" }));
+    const o = await run((tx) => catalog.getOccurrence(tx, occ.id));
+    await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, o.version, { startUtc: new Date(o.startUtc.getTime() + 3_600_000), locationOverrideId: room.id }));
+    await drain();
+    expect(recipients()).toEqual(["kari", "ola"]);
+    const nb = mailer.sent.find((m) => m.to.startsWith("kari"))!;
+    expect(nb.subject).toBe("Ny tid eller nytt sted: Kveldsomvisning");
+    expect(nb.text).toContain("Auditoriet");
+    expect(nb.attachments?.[0]?.contentId).toBe("qr");
+    expect(mailer.sent.find((m) => m.to.startsWith("ola"))!.subject).toBe("New time or place: Evening tour");
+  });
+
+  it("tells them when the place changes through the event's default", async () => {
+    const { occ } = await setup();
+    const hall = await run((tx) => catalog.createLocation(tx, ctx, { kind: "venue", name: "Hallen" }));
+    const ev = await run((tx) => catalog.getEvent(tx, occ.eventId));
+    await run((tx) => catalog.updateEvent(tx, ctx, ev.id, ev.version, { defaultLocationId: hall.id }));
+    await drain();
+    expect(recipients()).toEqual(["kari", "ola"]);
+    expect(mailer.sent[0]!.text).toContain("Hallen");
+  });
+
+  it("stays quiet about changes attendees do not need", async () => {
+    const { occ } = await setup();
+    const o = await run((tx) => catalog.getOccurrence(tx, occ.id));
+    await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, o.version, { capacityOverride: 50 }));
+    await drain();
+    expect(mailer.sent).toEqual([]);
+  });
+
+  it("tells them when the occurrence or the whole event is cancelled", async () => {
+    const { occ } = await setup();
+    const o = await run((tx) => catalog.getOccurrence(tx, occ.id));
+    await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, o.version, { status: "cancelled" }));
+    await drain();
+    expect(recipients()).toEqual(["kari", "ola"]);
+    expect(mailer.sent.find((m) => m.to.startsWith("kari"))!.subject).toBe("Avlyst: Kveldsomvisning");
+    expect(mailer.sent[0]!.attachments).toBeUndefined();
+
+    mailer.sent.length = 0;
+    const second = await setup();
+    const ev = await run((tx) => catalog.getEvent(tx, second.occ.eventId));
+    await run((tx) => catalog.transitionEvent(tx, ctx, ev.id, ev.version, "cancel"));
+    await drain();
+    expect(recipients()).toEqual(["kari", "ola"]);
+    expect(mailer.sent.find((m) => m.to.startsWith("ola"))!.subject).toBe("Cancelled: Evening tour");
+  });
+});

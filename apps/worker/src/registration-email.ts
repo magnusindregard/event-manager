@@ -20,6 +20,8 @@ export interface RegistrationEmailDeps {
 }
 
 export type EmailKind = "confirmed" | "changed" | "cancelled";
+/** Notices about the occurrence itself, sent to everyone registered (occurrence-notice.ts). */
+export type NoticeKind = "moved" | "occurrenceCancelled";
 const KINDS: Record<string, EmailKind> = {
   "registration.confirmed.v1": "confirmed",
   "registration.changed.v1": "changed",
@@ -65,7 +67,7 @@ function formatWhen(locale: string, timezone: string, start: Date, end: Date): s
 }
 
 export interface EmailInput {
-  kind: EmailKind;
+  kind: EmailKind | NoticeKind;
   message: registration.RegistrationMessage;
   manageUrl: string;
   /** PNG of the admission QR code, base64; null when there is none (cancelled). */
@@ -95,6 +97,18 @@ export function registrationEmail(i: EmailInput): Omit<Mail, "to"> {
       lead: nb ? `Hei ${reg.name}, påmeldingen din til ${title} er endret.` : `Hi ${reg.name}, your registration for ${title} has been changed.`,
       qr: nb ? "QR-koden gjelder fortsatt. Vis den i døren." : "Your QR code still applies. Show it at the door.",
       link: nb ? "Se, endre eller avbestill påmeldingen:" : "See, change or cancel your registration:",
+    },
+    moved: {
+      subject: nb ? `Ny tid eller nytt sted: ${title}` : `New time or place: ${title}`,
+      lead: nb ? `Hei ${reg.name}, ${title} har fått ny tid eller nytt sted. Du er fortsatt påmeldt. Her er de nye detaljene:` : `Hi ${reg.name}, ${title} has a new time or place. You are still registered. Here are the new details:`,
+      qr: nb ? "QR-koden gjelder fortsatt. Vis den i døren." : "Your QR code still applies. Show it at the door.",
+      link: nb ? "Passer det ikke lenger? Avbestill eller se påmeldingen her:" : "No longer suits you? Cancel or see your registration here:",
+    },
+    occurrenceCancelled: {
+      subject: nb ? `Avlyst: ${title}` : `Cancelled: ${title}`,
+      lead: nb ? `Hei ${reg.name}, vi må dessverre avlyse ${title}. Du trenger ikke gjøre noe.` : `Hi ${reg.name}, unfortunately ${title} has been cancelled. You do not need to do anything.`,
+      qr: "",
+      link: nb ? "Påmeldingen din:" : "Your registration:",
     },
     cancelled: {
       subject: nb ? `Avbestilt: ${title}` : `Cancelled: ${title}`,

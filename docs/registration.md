@@ -199,7 +199,8 @@ Invitation · invitation reminder · registration confirmation (with QR code) ·
 - **Public availability**: `few_left` from a tenth of the bookable limit (at least one place). Invite-only occurrences show `admission.url: null`. The status is cached for the usual 30 s; no purge on `capacity.changed` yet. `waitlist` arrives with milestone 5.
 - **Emails** go out from the worker, one job per outbox event, and show the registration as it is when the job runs (no confirmation for a registration cancelled in the meantime). A change of locale alone sends nothing. The QR code is an inline PNG. The account's own template waits for the account email settings.
 - **Permissions**: `registrations.read` and `registrations.write`, held by owner, editor, event manager and box office (door staff read only), so the guest-data permission (open question 1) can be narrowed in milestone 4 without touching content permissions.
-- **Not in this milestone**: emails when an occurrence with registrations is moved or cancelled, and moving registrations to another occurrence. Until then, staff should tell attendees themselves.
+- **Moved and cancelled occurrences**: confirmed attendees get an email with the new details, the QR code and a cancel link when the time changes (an edit or "reset to series") or the place changes, whatever caused it (override, rule or event default; the resolver emits `occurrence.relocated.v1`). They get a cancellation email when the occurrence or the whole event is cancelled; their registrations stay as they are. One job per registration with a one-minute delay, so several changes in a row send one email with the final details. Other changes (places, tags, link) send nothing.
+- **Not in this milestone**: moving registrations to another occurrence in bulk.
 
 ## Acceptance scenarios
 
