@@ -1669,13 +1669,13 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             kind: "venue" | "space";
-                            parentId: string | null;
+                            parentId: null | string;
                             name: string;
-                            address: string | null;
-                            geo: {
+                            address: null | string;
+                            geo: null | {
                                 lat: number;
                                 lng: number;
-                            } | null;
+                            };
                             archived: boolean;
                             version: number;
                             /** Format: date-time */
@@ -1792,13 +1792,13 @@ export interface operations {
             content: {
                 "application/json": {
                     kind: "venue" | "space";
-                    parentId?: string | null;
+                    parentId?: null | string;
                     name: string;
-                    address?: string | null;
-                    geo?: {
+                    address?: null | string;
+                    geo?: null | {
                         lat: number;
                         lng: number;
-                    } | null;
+                    };
                 };
             };
         };
@@ -1813,13 +1813,13 @@ export interface operations {
                         /** Format: uuid */
                         id: string;
                         kind: "venue" | "space";
-                        parentId: string | null;
+                        parentId: null | string;
                         name: string;
-                        address: string | null;
-                        geo: {
+                        address: null | string;
+                        geo: null | {
                             lat: number;
                             lng: number;
-                        } | null;
+                        };
                         archived: boolean;
                         version: number;
                         /** Format: date-time */
@@ -2034,13 +2034,13 @@ export interface operations {
                         /** Format: uuid */
                         id: string;
                         kind: "venue" | "space";
-                        parentId: string | null;
+                        parentId: null | string;
                         name: string;
-                        address: string | null;
-                        geo: {
+                        address: null | string;
+                        geo: null | {
                             lat: number;
                             lng: number;
-                        } | null;
+                        };
                         archived: boolean;
                         version: number;
                         /** Format: date-time */
@@ -2154,13 +2154,13 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    parentId?: string | null;
+                    parentId?: null | string;
                     name?: string;
-                    address?: string | null;
-                    geo?: {
+                    address?: null | string;
+                    geo?: null | {
                         lat: number;
                         lng: number;
-                    } | null;
+                    };
                     archived?: boolean;
                 };
             };
@@ -2176,13 +2176,13 @@ export interface operations {
                         /** Format: uuid */
                         id: string;
                         kind: "venue" | "space";
-                        parentId: string | null;
+                        parentId: null | string;
                         name: string;
-                        address: string | null;
-                        geo: {
+                        address: null | string;
+                        geo: null | {
                             lat: number;
                             lng: number;
-                        } | null;
+                        };
                         archived: boolean;
                         version: number;
                         /** Format: date-time */
@@ -3475,19 +3475,38 @@ export interface operations {
                             slug: string;
                             status: "draft" | "published" | "cancelled" | "archived";
                             timezone: string;
-                            defaultLocationId: string | null;
+                            defaultLocationId: null | string;
                             defaultDurationMin: number;
-                            admissionMode: "none" | "external";
-                            externalUrl: string | null;
+                            admissionMode: "none" | "external" | "registration";
+                            externalUrl: null | string;
+                            /** @description Used when admissionMode is registration */
+                            registration: {
+                                accessPolicy: "open" | "invite_only";
+                                /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                                listed: boolean;
+                                capacity: null | number;
+                                /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                                overbookingPct: number;
+                                /** @description Offer "I will bring a guest" */
+                                guestAllowed: boolean;
+                                opensMinBefore: null | number;
+                                /** @description Registration closes this many minutes before each occurrence */
+                                closesMinBefore: number;
+                                waitlistEnabled: boolean;
+                                /** @description How long a waitlist offer can be claimed */
+                                claimWindowMin: number;
+                                /** @description No waitlist offers this many minutes before start */
+                                waitlistCutoffMin: number;
+                            };
                             externalRefs: {
                                 [key: string]: string;
                             };
                             translations: {
                                 [key: string]: {
                                     title: string;
-                                    shortDescription: string | null;
-                                    imageUrl: string | null;
-                                    imageAlt: string | null;
+                                    shortDescription: null | string;
+                                    imageUrl: null | string;
+                                    imageAlt: null | string;
                                 };
                             };
                             tagIds: string[];
@@ -3497,7 +3516,7 @@ export interface operations {
                             /** Format: date-time */
                             updatedAt: string;
                             occurrenceCount: number;
-                            nextStartUtc: string | null;
+                            nextStartUtc: null | string;
                         }[];
                         nextCursor: string | null;
                     };
@@ -3613,10 +3632,28 @@ export interface operations {
                     slug?: string;
                     /** @description IANA timezone; defaults to the account's */
                     timezone?: string;
-                    defaultLocationId?: string | null;
+                    defaultLocationId?: null | string;
                     defaultDurationMin?: number;
-                    admissionMode?: "none" | "external";
-                    externalUrl?: string | null;
+                    admissionMode?: "none" | "external" | "registration";
+                    externalUrl?: null | string;
+                    registration?: {
+                        accessPolicy?: "open" | "invite_only";
+                        /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                        listed?: boolean;
+                        capacity?: null | number;
+                        /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                        overbookingPct?: number;
+                        /** @description Offer "I will bring a guest" */
+                        guestAllowed?: boolean;
+                        opensMinBefore?: null | number;
+                        /** @description Registration closes this many minutes before each occurrence */
+                        closesMinBefore?: number;
+                        waitlistEnabled?: boolean;
+                        /** @description How long a waitlist offer can be claimed */
+                        claimWindowMin?: number;
+                        /** @description No waitlist offers this many minutes before start */
+                        waitlistCutoffMin?: number;
+                    };
                     /** @description Links to documents in other systems, e.g. { "sanity": "event-123" } */
                     externalRefs?: {
                         [key: string]: string;
@@ -3625,9 +3662,9 @@ export interface operations {
                     translations: {
                         [key: string]: {
                             title: string;
-                            shortDescription?: string | null;
-                            imageUrl?: string | null;
-                            imageAlt?: string | null;
+                            shortDescription?: null | string;
+                            imageUrl?: null | string;
+                            imageAlt?: null | string;
                         };
                     };
                 };
@@ -3646,19 +3683,38 @@ export interface operations {
                         slug: string;
                         status: "draft" | "published" | "cancelled" | "archived";
                         timezone: string;
-                        defaultLocationId: string | null;
+                        defaultLocationId: null | string;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
-                        externalUrl: string | null;
+                        admissionMode: "none" | "external" | "registration";
+                        externalUrl: null | string;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: null | number;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: null | number;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
                         translations: {
                             [key: string]: {
                                 title: string;
-                                shortDescription: string | null;
-                                imageUrl: string | null;
-                                imageAlt: string | null;
+                                shortDescription: null | string;
+                                imageUrl: null | string;
+                                imageAlt: null | string;
                             };
                         };
                         tagIds: string[];
@@ -3879,19 +3935,38 @@ export interface operations {
                         slug: string;
                         status: "draft" | "published" | "cancelled" | "archived";
                         timezone: string;
-                        defaultLocationId: string | null;
+                        defaultLocationId: null | string;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
-                        externalUrl: string | null;
+                        admissionMode: "none" | "external" | "registration";
+                        externalUrl: null | string;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: null | number;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: null | number;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
                         translations: {
                             [key: string]: {
                                 title: string;
-                                shortDescription: string | null;
-                                imageUrl: string | null;
-                                imageAlt: string | null;
+                                shortDescription: null | string;
+                                imageUrl: null | string;
+                                imageAlt: null | string;
                             };
                         };
                         tagIds: string[];
@@ -4012,10 +4087,28 @@ export interface operations {
                     slug?: string;
                     /** @description IANA timezone; defaults to the account's */
                     timezone?: string;
-                    defaultLocationId?: string | null;
+                    defaultLocationId?: null | string;
                     defaultDurationMin?: number;
-                    admissionMode?: "none" | "external";
-                    externalUrl?: string | null;
+                    admissionMode?: "none" | "external" | "registration";
+                    externalUrl?: null | string;
+                    registration?: {
+                        accessPolicy?: "open" | "invite_only";
+                        /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                        listed?: boolean;
+                        capacity?: null | number;
+                        /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                        overbookingPct?: number;
+                        /** @description Offer "I will bring a guest" */
+                        guestAllowed?: boolean;
+                        opensMinBefore?: null | number;
+                        /** @description Registration closes this many minutes before each occurrence */
+                        closesMinBefore?: number;
+                        waitlistEnabled?: boolean;
+                        /** @description How long a waitlist offer can be claimed */
+                        claimWindowMin?: number;
+                        /** @description No waitlist offers this many minutes before start */
+                        waitlistCutoffMin?: number;
+                    };
                     /** @description Links to documents in other systems, e.g. { "sanity": "event-123" } */
                     externalRefs?: {
                         [key: string]: string;
@@ -4023,12 +4116,12 @@ export interface operations {
                     tagIds?: string[];
                     /** @description Per locale: replaces the translation, or null removes it */
                     translations?: {
-                        [key: string]: {
+                        [key: string]: null | {
                             title: string;
-                            shortDescription?: string | null;
-                            imageUrl?: string | null;
-                            imageAlt?: string | null;
-                        } | null;
+                            shortDescription?: null | string;
+                            imageUrl?: null | string;
+                            imageAlt?: null | string;
+                        };
                     };
                 };
             };
@@ -4046,19 +4139,38 @@ export interface operations {
                         slug: string;
                         status: "draft" | "published" | "cancelled" | "archived";
                         timezone: string;
-                        defaultLocationId: string | null;
+                        defaultLocationId: null | string;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
-                        externalUrl: string | null;
+                        admissionMode: "none" | "external" | "registration";
+                        externalUrl: null | string;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: null | number;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: null | number;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
                         translations: {
                             [key: string]: {
                                 title: string;
-                                shortDescription: string | null;
-                                imageUrl: string | null;
-                                imageAlt: string | null;
+                                shortDescription: null | string;
+                                imageUrl: null | string;
+                                imageAlt: null | string;
                             };
                         };
                         tagIds: string[];
@@ -4279,19 +4391,38 @@ export interface operations {
                         slug: string;
                         status: "draft" | "published" | "cancelled" | "archived";
                         timezone: string;
-                        defaultLocationId: string | null;
+                        defaultLocationId: null | string;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
-                        externalUrl: string | null;
+                        admissionMode: "none" | "external" | "registration";
+                        externalUrl: null | string;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: null | number;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: null | number;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
                         translations: {
                             [key: string]: {
                                 title: string;
-                                shortDescription: string | null;
-                                imageUrl: string | null;
-                                imageAlt: string | null;
+                                shortDescription: null | string;
+                                imageUrl: null | string;
+                                imageAlt: null | string;
                             };
                         };
                         tagIds: string[];
@@ -4512,19 +4643,38 @@ export interface operations {
                         slug: string;
                         status: "draft" | "published" | "cancelled" | "archived";
                         timezone: string;
-                        defaultLocationId: string | null;
+                        defaultLocationId: null | string;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
-                        externalUrl: string | null;
+                        admissionMode: "none" | "external" | "registration";
+                        externalUrl: null | string;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: null | number;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: null | number;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
                         translations: {
                             [key: string]: {
                                 title: string;
-                                shortDescription: string | null;
-                                imageUrl: string | null;
-                                imageAlt: string | null;
+                                shortDescription: null | string;
+                                imageUrl: null | string;
+                                imageAlt: null | string;
                             };
                         };
                         tagIds: string[];
@@ -4745,19 +4895,38 @@ export interface operations {
                         slug: string;
                         status: "draft" | "published" | "cancelled" | "archived";
                         timezone: string;
-                        defaultLocationId: string | null;
+                        defaultLocationId: null | string;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
-                        externalUrl: string | null;
+                        admissionMode: "none" | "external" | "registration";
+                        externalUrl: null | string;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: null | number;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: null | number;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
                         translations: {
                             [key: string]: {
                                 title: string;
-                                shortDescription: string | null;
-                                imageUrl: string | null;
-                                imageAlt: string | null;
+                                shortDescription: null | string;
+                                imageUrl: null | string;
+                                imageAlt: null | string;
                             };
                         };
                         tagIds: string[];
@@ -4978,19 +5147,38 @@ export interface operations {
                         slug: string;
                         status: "draft" | "published" | "cancelled" | "archived";
                         timezone: string;
-                        defaultLocationId: string | null;
+                        defaultLocationId: null | string;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
-                        externalUrl: string | null;
+                        admissionMode: "none" | "external" | "registration";
+                        externalUrl: null | string;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: null | number;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: null | number;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
                         translations: {
                             [key: string]: {
                                 title: string;
-                                shortDescription: string | null;
-                                imageUrl: string | null;
-                                imageAlt: string | null;
+                                shortDescription: null | string;
+                                imageUrl: null | string;
+                                imageAlt: null | string;
                             };
                         };
                         tagIds: string[];
@@ -5217,8 +5405,8 @@ export interface operations {
                             id: string;
                             /** Format: uuid */
                             eventId: string;
-                            seriesId: string | null;
-                            recurrenceIdLocal: string | null;
+                            seriesId: null | string;
+                            recurrenceIdLocal: null | string;
                             /** Format: date-time */
                             startUtc: string;
                             /** Format: date-time */
@@ -5229,27 +5417,50 @@ export interface operations {
                             /** @description Detached, and a series change has since moved or removed its slot */
                             conflict: boolean;
                             overrides: {
-                                locationId: string | null;
-                                externalUrl: string | null;
-                                tagIds: string[] | null;
+                                locationId: null | string;
+                                externalUrl: null | string;
+                                tagIds: null | string[];
+                                capacity: null | number;
                             };
                             /** @description Resolved values with their source (default, rule or override) */
                             effective: {
                                 location?: {
-                                    value: string | null;
+                                    value: null | string;
                                     source: "default" | "rule" | "override";
-                                    ruleId: string | null;
+                                    ruleId: null | string;
                                 };
                                 tags?: {
                                     value: string[];
                                     source: "default" | "rule" | "override";
-                                    ruleId: string | null;
+                                    ruleId: null | string;
                                 };
                                 externalUrl?: {
-                                    value: string | null;
+                                    value: null | string;
                                     source: "default" | "rule" | "override";
-                                    ruleId: string | null;
+                                    ruleId: null | string;
                                 };
+                                capacity?: {
+                                    value: null | number;
+                                    source: "default" | "rule" | "override";
+                                    ruleId: null | string;
+                                };
+                                overbooking?: {
+                                    value: number;
+                                    source: "default" | "rule" | "override";
+                                    ruleId: null | string;
+                                };
+                            };
+                            pool: null | {
+                                /** Format: uuid */
+                                id: string;
+                                capacity: null | number;
+                                overbookingPct: number;
+                                bookableLimit: null | number;
+                                held: number;
+                                taken: number;
+                                available: null | number;
+                                /** @description More places taken or held than the limit, e.g. after capacity was lowered */
+                                overLimit: boolean;
                             };
                             version: number;
                             /** Format: date-time */
@@ -5372,9 +5583,10 @@ export interface operations {
                     startUtc: string;
                     /** Format: date-time */
                     endUtc?: string;
-                    locationOverrideId?: string | null;
-                    externalUrlOverride?: string | null;
-                    tagsOverride?: string[] | null;
+                    locationOverrideId?: null | string;
+                    externalUrlOverride?: null | string;
+                    tagsOverride?: null | string[];
+                    capacityOverride?: null | number;
                 };
             };
         };
@@ -5390,8 +5602,8 @@ export interface operations {
                         id: string;
                         /** Format: uuid */
                         eventId: string;
-                        seriesId: string | null;
-                        recurrenceIdLocal: string | null;
+                        seriesId: null | string;
+                        recurrenceIdLocal: null | string;
                         /** Format: date-time */
                         startUtc: string;
                         /** Format: date-time */
@@ -5402,27 +5614,50 @@ export interface operations {
                         /** @description Detached, and a series change has since moved or removed its slot */
                         conflict: boolean;
                         overrides: {
-                            locationId: string | null;
-                            externalUrl: string | null;
-                            tagIds: string[] | null;
+                            locationId: null | string;
+                            externalUrl: null | string;
+                            tagIds: null | string[];
+                            capacity: null | number;
                         };
                         /** @description Resolved values with their source (default, rule or override) */
                         effective: {
                             location?: {
-                                value: string | null;
+                                value: null | string;
                                 source: "default" | "rule" | "override";
-                                ruleId: string | null;
+                                ruleId: null | string;
                             };
                             tags?: {
                                 value: string[];
                                 source: "default" | "rule" | "override";
-                                ruleId: string | null;
+                                ruleId: null | string;
                             };
                             externalUrl?: {
-                                value: string | null;
+                                value: null | string;
                                 source: "default" | "rule" | "override";
-                                ruleId: string | null;
+                                ruleId: null | string;
                             };
+                            capacity?: {
+                                value: null | number;
+                                source: "default" | "rule" | "override";
+                                ruleId: null | string;
+                            };
+                            overbooking?: {
+                                value: number;
+                                source: "default" | "rule" | "override";
+                                ruleId: null | string;
+                            };
+                        };
+                        pool: null | {
+                            /** Format: uuid */
+                            id: string;
+                            capacity: null | number;
+                            overbookingPct: number;
+                            bookableLimit: null | number;
+                            held: number;
+                            taken: number;
+                            available: null | number;
+                            /** @description More places taken or held than the limit, e.g. after capacity was lowered */
+                            overLimit: boolean;
                         };
                         version: number;
                         /** Format: date-time */
@@ -5638,8 +5873,8 @@ export interface operations {
                         id: string;
                         /** Format: uuid */
                         eventId: string;
-                        seriesId: string | null;
-                        recurrenceIdLocal: string | null;
+                        seriesId: null | string;
+                        recurrenceIdLocal: null | string;
                         /** Format: date-time */
                         startUtc: string;
                         /** Format: date-time */
@@ -5650,27 +5885,50 @@ export interface operations {
                         /** @description Detached, and a series change has since moved or removed its slot */
                         conflict: boolean;
                         overrides: {
-                            locationId: string | null;
-                            externalUrl: string | null;
-                            tagIds: string[] | null;
+                            locationId: null | string;
+                            externalUrl: null | string;
+                            tagIds: null | string[];
+                            capacity: null | number;
                         };
                         /** @description Resolved values with their source (default, rule or override) */
                         effective: {
                             location?: {
-                                value: string | null;
+                                value: null | string;
                                 source: "default" | "rule" | "override";
-                                ruleId: string | null;
+                                ruleId: null | string;
                             };
                             tags?: {
                                 value: string[];
                                 source: "default" | "rule" | "override";
-                                ruleId: string | null;
+                                ruleId: null | string;
                             };
                             externalUrl?: {
-                                value: string | null;
+                                value: null | string;
                                 source: "default" | "rule" | "override";
-                                ruleId: string | null;
+                                ruleId: null | string;
                             };
+                            capacity?: {
+                                value: null | number;
+                                source: "default" | "rule" | "override";
+                                ruleId: null | string;
+                            };
+                            overbooking?: {
+                                value: number;
+                                source: "default" | "rule" | "override";
+                                ruleId: null | string;
+                            };
+                        };
+                        pool: null | {
+                            /** Format: uuid */
+                            id: string;
+                            capacity: null | number;
+                            overbookingPct: number;
+                            bookableLimit: null | number;
+                            held: number;
+                            taken: number;
+                            available: null | number;
+                            /** @description More places taken or held than the limit, e.g. after capacity was lowered */
+                            overLimit: boolean;
                         };
                         version: number;
                         /** Format: date-time */
@@ -5993,9 +6251,10 @@ export interface operations {
                     /** Format: date-time */
                     endUtc?: string;
                     status?: "scheduled" | "cancelled";
-                    locationOverrideId?: string | null;
-                    externalUrlOverride?: string | null;
-                    tagsOverride?: string[] | null;
+                    locationOverrideId?: null | string;
+                    externalUrlOverride?: null | string;
+                    tagsOverride?: null | string[];
+                    capacityOverride?: null | number;
                     /**
                      * @description Dismiss a series conflict and keep the occurrence as it is
                      * @enum {boolean}
@@ -6016,8 +6275,8 @@ export interface operations {
                         id: string;
                         /** Format: uuid */
                         eventId: string;
-                        seriesId: string | null;
-                        recurrenceIdLocal: string | null;
+                        seriesId: null | string;
+                        recurrenceIdLocal: null | string;
                         /** Format: date-time */
                         startUtc: string;
                         /** Format: date-time */
@@ -6028,27 +6287,50 @@ export interface operations {
                         /** @description Detached, and a series change has since moved or removed its slot */
                         conflict: boolean;
                         overrides: {
-                            locationId: string | null;
-                            externalUrl: string | null;
-                            tagIds: string[] | null;
+                            locationId: null | string;
+                            externalUrl: null | string;
+                            tagIds: null | string[];
+                            capacity: null | number;
                         };
                         /** @description Resolved values with their source (default, rule or override) */
                         effective: {
                             location?: {
-                                value: string | null;
+                                value: null | string;
                                 source: "default" | "rule" | "override";
-                                ruleId: string | null;
+                                ruleId: null | string;
                             };
                             tags?: {
                                 value: string[];
                                 source: "default" | "rule" | "override";
-                                ruleId: string | null;
+                                ruleId: null | string;
                             };
                             externalUrl?: {
-                                value: string | null;
+                                value: null | string;
                                 source: "default" | "rule" | "override";
-                                ruleId: string | null;
+                                ruleId: null | string;
                             };
+                            capacity?: {
+                                value: null | number;
+                                source: "default" | "rule" | "override";
+                                ruleId: null | string;
+                            };
+                            overbooking?: {
+                                value: number;
+                                source: "default" | "rule" | "override";
+                                ruleId: null | string;
+                            };
+                        };
+                        pool: null | {
+                            /** Format: uuid */
+                            id: string;
+                            capacity: null | number;
+                            overbookingPct: number;
+                            bookableLimit: null | number;
+                            held: number;
+                            taken: number;
+                            available: null | number;
+                            /** @description More places taken or held than the limit, e.g. after capacity was lowered */
+                            overLimit: boolean;
                         };
                         version: number;
                         /** Format: date-time */
@@ -6264,8 +6546,8 @@ export interface operations {
                         id: string;
                         /** Format: uuid */
                         eventId: string;
-                        seriesId: string | null;
-                        recurrenceIdLocal: string | null;
+                        seriesId: null | string;
+                        recurrenceIdLocal: null | string;
                         /** Format: date-time */
                         startUtc: string;
                         /** Format: date-time */
@@ -6276,27 +6558,50 @@ export interface operations {
                         /** @description Detached, and a series change has since moved or removed its slot */
                         conflict: boolean;
                         overrides: {
-                            locationId: string | null;
-                            externalUrl: string | null;
-                            tagIds: string[] | null;
+                            locationId: null | string;
+                            externalUrl: null | string;
+                            tagIds: null | string[];
+                            capacity: null | number;
                         };
                         /** @description Resolved values with their source (default, rule or override) */
                         effective: {
                             location?: {
-                                value: string | null;
+                                value: null | string;
                                 source: "default" | "rule" | "override";
-                                ruleId: string | null;
+                                ruleId: null | string;
                             };
                             tags?: {
                                 value: string[];
                                 source: "default" | "rule" | "override";
-                                ruleId: string | null;
+                                ruleId: null | string;
                             };
                             externalUrl?: {
-                                value: string | null;
+                                value: null | string;
                                 source: "default" | "rule" | "override";
-                                ruleId: string | null;
+                                ruleId: null | string;
                             };
+                            capacity?: {
+                                value: null | number;
+                                source: "default" | "rule" | "override";
+                                ruleId: null | string;
+                            };
+                            overbooking?: {
+                                value: number;
+                                source: "default" | "rule" | "override";
+                                ruleId: null | string;
+                            };
+                        };
+                        pool: null | {
+                            /** Format: uuid */
+                            id: string;
+                            capacity: null | number;
+                            overbookingPct: number;
+                            bookableLimit: null | number;
+                            held: number;
+                            taken: number;
+                            available: null | number;
+                            /** @description More places taken or held than the limit, e.g. after capacity was lowered */
+                            overLimit: boolean;
                         };
                         version: number;
                         /** Format: date-time */
@@ -6510,9 +6815,10 @@ export interface operations {
                     }[];
                     /** @description Applied to every occurrence. null clears an override. */
                     set: {
-                        locationOverrideId?: string | null;
-                        externalUrlOverride?: string | null;
-                        tagsOverride?: string[] | null;
+                        locationOverrideId?: null | string;
+                        externalUrlOverride?: null | string;
+                        tagsOverride?: null | string[];
+                        capacityOverride?: null | number;
                         status?: "scheduled" | "cancelled";
                     };
                 };
@@ -6531,8 +6837,8 @@ export interface operations {
                             id: string;
                             /** Format: uuid */
                             eventId: string;
-                            seriesId: string | null;
-                            recurrenceIdLocal: string | null;
+                            seriesId: null | string;
+                            recurrenceIdLocal: null | string;
                             /** Format: date-time */
                             startUtc: string;
                             /** Format: date-time */
@@ -6543,27 +6849,50 @@ export interface operations {
                             /** @description Detached, and a series change has since moved or removed its slot */
                             conflict: boolean;
                             overrides: {
-                                locationId: string | null;
-                                externalUrl: string | null;
-                                tagIds: string[] | null;
+                                locationId: null | string;
+                                externalUrl: null | string;
+                                tagIds: null | string[];
+                                capacity: null | number;
                             };
                             /** @description Resolved values with their source (default, rule or override) */
                             effective: {
                                 location?: {
-                                    value: string | null;
+                                    value: null | string;
                                     source: "default" | "rule" | "override";
-                                    ruleId: string | null;
+                                    ruleId: null | string;
                                 };
                                 tags?: {
                                     value: string[];
                                     source: "default" | "rule" | "override";
-                                    ruleId: string | null;
+                                    ruleId: null | string;
                                 };
                                 externalUrl?: {
-                                    value: string | null;
+                                    value: null | string;
                                     source: "default" | "rule" | "override";
-                                    ruleId: string | null;
+                                    ruleId: null | string;
                                 };
+                                capacity?: {
+                                    value: null | number;
+                                    source: "default" | "rule" | "override";
+                                    ruleId: null | string;
+                                };
+                                overbooking?: {
+                                    value: number;
+                                    source: "default" | "rule" | "override";
+                                    ruleId: null | string;
+                                };
+                            };
+                            pool: null | {
+                                /** Format: uuid */
+                                id: string;
+                                capacity: null | number;
+                                overbookingPct: number;
+                                bookableLimit: null | number;
+                                held: number;
+                                taken: number;
+                                available: null | number;
+                                /** @description More places taken or held than the limit, e.g. after capacity was lowered */
+                                overLimit: boolean;
                             };
                             version: number;
                             /** Format: date-time */
@@ -6787,11 +7116,11 @@ export interface operations {
                             active: boolean;
                             /** @description On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to). */
                             conditions: {
-                                dateFrom: string | null;
-                                dateTo: string | null;
-                                weekdays: number[] | null;
-                                startTimeFrom: string | null;
-                                startTimeTo: string | null;
+                                dateFrom: null | string;
+                                dateTo: null | string;
+                                weekdays: null | number[];
+                                startTimeFrom: null | string;
+                                startTimeTo: null | string;
                             };
                             effects: ({
                                 /** @enum {string} */
@@ -6812,6 +7141,16 @@ export interface operations {
                                 type: "externalUrl";
                                 targetRef?: null;
                                 value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "capacity";
+                                targetRef?: null;
+                                value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "overbooking";
+                                targetRef?: null;
+                                value: number;
                             })[];
                             version: number;
                             /** Format: date-time */
@@ -6940,11 +7279,11 @@ export interface operations {
                     /** @default true */
                     active?: boolean;
                     conditions?: {
-                        dateFrom?: string | null;
-                        dateTo?: string | null;
-                        weekdays?: number[] | null;
-                        startTimeFrom?: string | null;
-                        startTimeTo?: string | null;
+                        dateFrom?: null | string;
+                        dateTo?: null | string;
+                        weekdays?: null | number[];
+                        startTimeFrom?: null | string;
+                        startTimeTo?: null | string;
                     };
                     effects: ({
                         /** @enum {string} */
@@ -6962,6 +7301,14 @@ export interface operations {
                         /** @enum {string} */
                         type: "externalUrl";
                         value: string;
+                    } | {
+                        /** @enum {string} */
+                        type: "capacity";
+                        value: number;
+                    } | {
+                        /** @enum {string} */
+                        type: "overbooking";
+                        value: number;
                     })[];
                 };
             };
@@ -6974,7 +7321,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        rule: {
+                        rule: null | {
                             /** Format: uuid */
                             id: string;
                             /** Format: uuid */
@@ -6985,11 +7332,11 @@ export interface operations {
                             active: boolean;
                             /** @description On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to). */
                             conditions: {
-                                dateFrom: string | null;
-                                dateTo: string | null;
-                                weekdays: number[] | null;
-                                startTimeFrom: string | null;
-                                startTimeTo: string | null;
+                                dateFrom: null | string;
+                                dateTo: null | string;
+                                weekdays: null | number[];
+                                startTimeFrom: null | string;
+                                startTimeTo: null | string;
                             };
                             effects: ({
                                 /** @enum {string} */
@@ -7010,13 +7357,23 @@ export interface operations {
                                 type: "externalUrl";
                                 targetRef?: null;
                                 value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "capacity";
+                                targetRef?: null;
+                                value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "overbooking";
+                                targetRef?: null;
+                                value: number;
                             })[];
                             version: number;
                             /** Format: date-time */
                             createdAt: string;
                             /** Format: date-time */
                             updatedAt: string;
-                        } | null;
+                        };
                         /** @description What the change does to the event's occurrences. Lists hold at most 200 items; counts are exact. */
                         preview: {
                             counts: {
@@ -7035,16 +7392,16 @@ export interface operations {
                                 /** Format: date-time */
                                 startUtc: string;
                                 fields: {
-                                    field: "location" | "tags" | "externalUrl";
+                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
-                                        ruleId: string | null;
+                                        ruleId: null | string;
                                     };
                                     to: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
-                                        ruleId: string | null;
+                                        ruleId: null | string;
                                     };
                                 }[];
                             }[];
@@ -7053,7 +7410,7 @@ export interface operations {
                                 occurrenceId: string;
                                 /** Format: date-time */
                                 startUtc: string;
-                                field: "location" | "tags" | "externalUrl";
+                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -7070,7 +7427,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        rule: {
+                        rule: null | {
                             /** Format: uuid */
                             id: string;
                             /** Format: uuid */
@@ -7081,11 +7438,11 @@ export interface operations {
                             active: boolean;
                             /** @description On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to). */
                             conditions: {
-                                dateFrom: string | null;
-                                dateTo: string | null;
-                                weekdays: number[] | null;
-                                startTimeFrom: string | null;
-                                startTimeTo: string | null;
+                                dateFrom: null | string;
+                                dateTo: null | string;
+                                weekdays: null | number[];
+                                startTimeFrom: null | string;
+                                startTimeTo: null | string;
                             };
                             effects: ({
                                 /** @enum {string} */
@@ -7106,13 +7463,23 @@ export interface operations {
                                 type: "externalUrl";
                                 targetRef?: null;
                                 value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "capacity";
+                                targetRef?: null;
+                                value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "overbooking";
+                                targetRef?: null;
+                                value: number;
                             })[];
                             version: number;
                             /** Format: date-time */
                             createdAt: string;
                             /** Format: date-time */
                             updatedAt: string;
-                        } | null;
+                        };
                         /** @description What the change does to the event's occurrences. Lists hold at most 200 items; counts are exact. */
                         preview: {
                             counts: {
@@ -7131,16 +7498,16 @@ export interface operations {
                                 /** Format: date-time */
                                 startUtc: string;
                                 fields: {
-                                    field: "location" | "tags" | "externalUrl";
+                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
-                                        ruleId: string | null;
+                                        ruleId: null | string;
                                     };
                                     to: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
-                                        ruleId: string | null;
+                                        ruleId: null | string;
                                     };
                                 }[];
                             }[];
@@ -7149,7 +7516,7 @@ export interface operations {
                                 occurrenceId: string;
                                 /** Format: date-time */
                                 startUtc: string;
-                                field: "location" | "tags" | "externalUrl";
+                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -7373,11 +7740,11 @@ export interface operations {
                         active: boolean;
                         /** @description On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to). */
                         conditions: {
-                            dateFrom: string | null;
-                            dateTo: string | null;
-                            weekdays: number[] | null;
-                            startTimeFrom: string | null;
-                            startTimeTo: string | null;
+                            dateFrom: null | string;
+                            dateTo: null | string;
+                            weekdays: null | number[];
+                            startTimeFrom: null | string;
+                            startTimeTo: null | string;
                         };
                         effects: ({
                             /** @enum {string} */
@@ -7398,6 +7765,16 @@ export interface operations {
                             type: "externalUrl";
                             targetRef?: null;
                             value: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "capacity";
+                            targetRef?: null;
+                            value: number;
+                        } | {
+                            /** @enum {string} */
+                            type: "overbooking";
+                            targetRef?: null;
+                            value: number;
                         })[];
                         version: number;
                         /** Format: date-time */
@@ -7522,7 +7899,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        rule: {
+                        rule: null | {
                             /** Format: uuid */
                             id: string;
                             /** Format: uuid */
@@ -7533,11 +7910,11 @@ export interface operations {
                             active: boolean;
                             /** @description On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to). */
                             conditions: {
-                                dateFrom: string | null;
-                                dateTo: string | null;
-                                weekdays: number[] | null;
-                                startTimeFrom: string | null;
-                                startTimeTo: string | null;
+                                dateFrom: null | string;
+                                dateTo: null | string;
+                                weekdays: null | number[];
+                                startTimeFrom: null | string;
+                                startTimeTo: null | string;
                             };
                             effects: ({
                                 /** @enum {string} */
@@ -7558,13 +7935,23 @@ export interface operations {
                                 type: "externalUrl";
                                 targetRef?: null;
                                 value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "capacity";
+                                targetRef?: null;
+                                value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "overbooking";
+                                targetRef?: null;
+                                value: number;
                             })[];
                             version: number;
                             /** Format: date-time */
                             createdAt: string;
                             /** Format: date-time */
                             updatedAt: string;
-                        } | null;
+                        };
                         /** @description What the change does to the event's occurrences. Lists hold at most 200 items; counts are exact. */
                         preview: {
                             counts: {
@@ -7583,16 +7970,16 @@ export interface operations {
                                 /** Format: date-time */
                                 startUtc: string;
                                 fields: {
-                                    field: "location" | "tags" | "externalUrl";
+                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
-                                        ruleId: string | null;
+                                        ruleId: null | string;
                                     };
                                     to: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
-                                        ruleId: string | null;
+                                        ruleId: null | string;
                                     };
                                 }[];
                             }[];
@@ -7601,7 +7988,7 @@ export interface operations {
                                 occurrenceId: string;
                                 /** Format: date-time */
                                 startUtc: string;
-                                field: "location" | "tags" | "externalUrl";
+                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -7817,11 +8204,11 @@ export interface operations {
                     active?: boolean;
                     /** @description Given conditions replace the stored ones; others are kept */
                     conditions?: {
-                        dateFrom?: string | null;
-                        dateTo?: string | null;
-                        weekdays?: number[] | null;
-                        startTimeFrom?: string | null;
-                        startTimeTo?: string | null;
+                        dateFrom?: null | string;
+                        dateTo?: null | string;
+                        weekdays?: null | number[];
+                        startTimeFrom?: null | string;
+                        startTimeTo?: null | string;
                     };
                     effects?: ({
                         /** @enum {string} */
@@ -7839,6 +8226,14 @@ export interface operations {
                         /** @enum {string} */
                         type: "externalUrl";
                         value: string;
+                    } | {
+                        /** @enum {string} */
+                        type: "capacity";
+                        value: number;
+                    } | {
+                        /** @enum {string} */
+                        type: "overbooking";
+                        value: number;
                     })[];
                 };
             };
@@ -7851,7 +8246,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        rule: {
+                        rule: null | {
                             /** Format: uuid */
                             id: string;
                             /** Format: uuid */
@@ -7862,11 +8257,11 @@ export interface operations {
                             active: boolean;
                             /** @description On the occurrence's local start in the event's timezone. Null means any. Dates are inclusive; the time window is [from, to). */
                             conditions: {
-                                dateFrom: string | null;
-                                dateTo: string | null;
-                                weekdays: number[] | null;
-                                startTimeFrom: string | null;
-                                startTimeTo: string | null;
+                                dateFrom: null | string;
+                                dateTo: null | string;
+                                weekdays: null | number[];
+                                startTimeFrom: null | string;
+                                startTimeTo: null | string;
                             };
                             effects: ({
                                 /** @enum {string} */
@@ -7887,13 +8282,23 @@ export interface operations {
                                 type: "externalUrl";
                                 targetRef?: null;
                                 value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "capacity";
+                                targetRef?: null;
+                                value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "overbooking";
+                                targetRef?: null;
+                                value: number;
                             })[];
                             version: number;
                             /** Format: date-time */
                             createdAt: string;
                             /** Format: date-time */
                             updatedAt: string;
-                        } | null;
+                        };
                         /** @description What the change does to the event's occurrences. Lists hold at most 200 items; counts are exact. */
                         preview: {
                             counts: {
@@ -7912,16 +8317,16 @@ export interface operations {
                                 /** Format: date-time */
                                 startUtc: string;
                                 fields: {
-                                    field: "location" | "tags" | "externalUrl";
+                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
-                                        ruleId: string | null;
+                                        ruleId: null | string;
                                     };
                                     to: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
-                                        ruleId: string | null;
+                                        ruleId: null | string;
                                     };
                                 }[];
                             }[];
@@ -7930,7 +8335,7 @@ export interface operations {
                                 occurrenceId: string;
                                 /** Format: date-time */
                                 startUtc: string;
-                                field: "location" | "tags" | "externalUrl";
+                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -8308,7 +8713,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        series: {
+                        series: null | {
                             /** Format: uuid */
                             id: string;
                             /** Format: uuid */
@@ -8331,7 +8736,7 @@ export interface operations {
                             createdAt: string;
                             /** Format: date-time */
                             updatedAt: string;
-                        } | null;
+                        };
                         /** @description What the change does to occurrences. Lists hold at most 200 items; counts are exact. */
                         changes: {
                             counts: {
@@ -8342,16 +8747,16 @@ export interface operations {
                                 unchanged: number;
                             };
                             created: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
                                 endUtc: string;
                             }[];
                             moved: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
@@ -8362,16 +8767,16 @@ export interface operations {
                                 fromEndUtc: string;
                             }[];
                             deleted: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
                                 endUtc: string;
                             }[];
                             conflicts: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
@@ -8389,7 +8794,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        series: {
+                        series: null | {
                             /** Format: uuid */
                             id: string;
                             /** Format: uuid */
@@ -8412,7 +8817,7 @@ export interface operations {
                             createdAt: string;
                             /** Format: date-time */
                             updatedAt: string;
-                        } | null;
+                        };
                         /** @description What the change does to occurrences. Lists hold at most 200 items; counts are exact. */
                         changes: {
                             counts: {
@@ -8423,16 +8828,16 @@ export interface operations {
                                 unchanged: number;
                             };
                             created: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
                                 endUtc: string;
                             }[];
                             moved: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
@@ -8443,16 +8848,16 @@ export interface operations {
                                 fromEndUtc: string;
                             }[];
                             deleted: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
                                 endUtc: string;
                             }[];
                             conflicts: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
@@ -8814,16 +9219,16 @@ export interface operations {
                                 unchanged: number;
                             };
                             created: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
                                 endUtc: string;
                             }[];
                             moved: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
@@ -8834,16 +9239,16 @@ export interface operations {
                                 fromEndUtc: string;
                             }[];
                             deleted: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
                                 endUtc: string;
                             }[];
                             conflicts: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
@@ -9080,7 +9485,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        series: {
+                        series: null | {
                             /** Format: uuid */
                             id: string;
                             /** Format: uuid */
@@ -9103,7 +9508,7 @@ export interface operations {
                             createdAt: string;
                             /** Format: date-time */
                             updatedAt: string;
-                        } | null;
+                        };
                         /** @description What the change does to occurrences. Lists hold at most 200 items; counts are exact. */
                         changes: {
                             counts: {
@@ -9114,16 +9519,16 @@ export interface operations {
                                 unchanged: number;
                             };
                             created: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
                                 endUtc: string;
                             }[];
                             moved: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
@@ -9134,16 +9539,16 @@ export interface operations {
                                 fromEndUtc: string;
                             }[];
                             deleted: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
                                 endUtc: string;
                             }[];
                             conflicts: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
@@ -9385,7 +9790,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        series: {
+                        series: null | {
                             /** Format: uuid */
                             id: string;
                             /** Format: uuid */
@@ -9408,7 +9813,7 @@ export interface operations {
                             createdAt: string;
                             /** Format: date-time */
                             updatedAt: string;
-                        } | null;
+                        };
                         /** @description What the change does to occurrences. Lists hold at most 200 items; counts are exact. */
                         changes: {
                             counts: {
@@ -9419,16 +9824,16 @@ export interface operations {
                                 unchanged: number;
                             };
                             created: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
                                 endUtc: string;
                             }[];
                             moved: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
@@ -9439,16 +9844,16 @@ export interface operations {
                                 fromEndUtc: string;
                             }[];
                             deleted: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
                                 endUtc: string;
                             }[];
                             conflicts: {
-                                occurrenceId: string | null;
-                                recurrenceIdLocal: string | null;
+                                occurrenceId: null | string;
+                                recurrenceIdLocal: null | string;
                                 /** Format: date-time */
                                 startUtc: string;
                                 /** Format: date-time */
@@ -9669,7 +10074,7 @@ export interface operations {
                             label: string;
                             /** Format: date-time */
                             createdAt: string;
-                            revokedAt: string | null;
+                            revokedAt: null | string;
                         }[];
                     };
                 };
@@ -9798,7 +10203,7 @@ export interface operations {
                         label: string;
                         /** Format: date-time */
                         createdAt: string;
-                        revokedAt: string | null;
+                        revokedAt: null | string;
                         /** @description The full key. Shown once; only a hash is stored. */
                         secret: string;
                     };

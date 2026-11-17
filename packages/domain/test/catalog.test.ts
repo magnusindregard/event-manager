@@ -35,6 +35,8 @@ describe("resolveFields", () => {
       location: { value: "loc-default", source: "default", ruleId: null },
       tags: { value: ["a", "b"], source: "default", ruleId: null },
       externalUrl: { value: "https://tix/e", source: "default", ruleId: null },
+      capacity: { value: null, source: "default", ruleId: null },
+      overbooking: { value: 0, source: "default", ruleId: null },
     });
   });
   it("overrides win, including an empty tag list", () => {

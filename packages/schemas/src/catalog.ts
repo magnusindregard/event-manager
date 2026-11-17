@@ -4,7 +4,8 @@ import { type Static, Type } from "typebox";
 
 const Uuid = Type.String({ format: "uuid" });
 const DateTime = Type.String({ format: "date-time" });
-const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(t: T) => Type.Union([t, Type.Null()]);
+// Null first: the API coerces types, and with the value type first Ajv would turn null into 0 or "".
+const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(t: T) => Type.Union([Type.Null(), t]);
 const HttpUrl = Type.String({ pattern: "^https?://\\S+$", maxLength: 2000 });
 const Labels = Type.Record(Type.String({ pattern: "^[a-z]{2,3}(-[A-Z]{2})?$" }), Type.String({ maxLength: 200 }), {
   description: "Display labels per locale",
@@ -61,7 +62,34 @@ export const TagPatch = Type.Object(
 );
 
 export const EventStatus = Type.Union([Type.Literal("draft"), Type.Literal("published"), Type.Literal("cancelled"), Type.Literal("archived")]);
-export const AdmissionMode = Type.Union([Type.Literal("none"), Type.Literal("external")]);
+export const AdmissionMode = Type.Union([Type.Literal("none"), Type.Literal("external"), Type.Literal("registration")]);
+export const AccessPolicy = Type.Union([Type.Literal("open"), Type.Literal("invite_only")]);
+
+const settingsFields = {
+  accessPolicy: AccessPolicy,
+  listed: Type.Boolean({ description: "Shown in public listings. Switching to invite_only sets it to false unless given" }),
+  capacity: Nullable(Type.Integer({ minimum: 0, maximum: 1000000, description: "Default places per occurrence; null is no limit. Rules and overrides can change it" })),
+  overbookingPct: Type.Integer({ minimum: 0, maximum: 100, description: "Bookable limit is floor(capacity × (1 + overbookingPct / 100))" }),
+  guestAllowed: Type.Boolean({ description: "Offer \"I will bring a guest\"" }),
+  opensMinBefore: Nullable(Type.Integer({ minimum: 0, maximum: 525600, description: "Registration opens this many minutes before each occurrence; null: when published" })),
+  closesMinBefore: Type.Integer({ minimum: 0, maximum: 525600, description: "Registration closes this many minutes before each occurrence" }),
+  waitlistEnabled: Type.Boolean(),
+  claimWindowMin: Type.Integer({ minimum: 5, maximum: 20160, description: "How long a waitlist offer can be claimed" }),
+  waitlistCutoffMin: Type.Integer({ minimum: 0, maximum: 20160, description: "No waitlist offers this many minutes before start" }),
+};
+export const RegistrationSettings = Type.Object(settingsFields, { description: "Used when admissionMode is registration" });
+const RegistrationSettingsInput = Type.Partial(Type.Object(settingsFields, { additionalProperties: false }), { additionalProperties: false });
+
+export const Pool = Type.Object({
+  id: Uuid,
+  capacity: Nullable(Type.Integer()),
+  overbookingPct: Type.Integer(),
+  bookableLimit: Nullable(Type.Integer()),
+  held: Type.Integer(),
+  taken: Type.Integer(),
+  available: Nullable(Type.Integer({ description: "Places left; null is no limit" })),
+  overLimit: Type.Boolean({ description: "More places taken or held than the limit, e.g. after capacity was lowered" }),
+}, { description: "Places for an occurrence of a registration event" });
 
 export const Translation = Type.Object({
   title: Type.String({ minLength: 1, maxLength: 300 }),
@@ -85,6 +113,7 @@ export const Event = Type.Object({
   defaultDurationMin: Type.Integer(),
   admissionMode: AdmissionMode,
   externalUrl: Nullable(Type.String()),
+  registration: RegistrationSettings,
   externalRefs: Type.Record(Type.String(), Type.String()),
   translations: Type.Record(Type.String(), TranslationOut),
   tagIds: Type.Array(Uuid),
@@ -103,6 +132,7 @@ const eventFields = {
   defaultDurationMin: Type.Optional(Type.Integer({ minimum: 1, maximum: 100000 })),
   admissionMode: Type.Optional(AdmissionMode),
   externalUrl: Type.Optional(Nullable(HttpUrl)),
+  registration: Type.Optional(RegistrationSettingsInput),
   externalRefs: Type.Optional(ExternalRefs),
   tagIds: Type.Optional(Type.Array(Uuid, { uniqueItems: true, maxItems: 100 })),
 };
@@ -140,12 +170,15 @@ export const Occurrence = Type.Object({
   status: OccurrenceStatus,
   detached: Type.Boolean({ description: "Edited by hand; the series no longer moves it" }),
   conflict: Type.Boolean({ description: "Detached, and a series change has since moved or removed its slot" }),
-  overrides: Type.Object({ locationId: Nullable(Uuid), externalUrl: Nullable(Type.String()), tagIds: Nullable(Type.Array(Uuid)) }),
+  overrides: Type.Object({ locationId: Nullable(Uuid), externalUrl: Nullable(Type.String()), tagIds: Nullable(Type.Array(Uuid)), capacity: Nullable(Type.Integer()) }),
   effective: Type.Object({
     location: Type.Optional(resolved(Nullable(Uuid))),
     tags: Type.Optional(resolved(Type.Array(Uuid))),
     externalUrl: Type.Optional(resolved(Nullable(Type.String()))),
+    capacity: Type.Optional(resolved(Nullable(Type.Integer()))),
+    overbooking: Type.Optional(resolved(Type.Integer())),
   }, { description: "Resolved values with their source (default, rule or override)" }),
+  pool: Nullable(Pool),
   version: Type.Integer(),
   updatedAt: DateTime,
 });
@@ -155,6 +188,7 @@ const overrideFields = {
   locationOverrideId: Type.Optional(Nullable(Uuid)),
   externalUrlOverride: Type.Optional(Nullable(HttpUrl)),
   tagsOverride: Type.Optional(Nullable(Type.Array(Uuid, { uniqueItems: true, maxItems: 100 }))),
+  capacityOverride: Type.Optional(Nullable(Type.Integer({ minimum: 0, maximum: 1000000 }))),
 };
 
 export const OccurrenceCreate = Type.Object(
@@ -272,13 +306,15 @@ const effectBodies = {
     "Adds tags to, and removes tags from, the event's tags",
   ],
   externalUrl: [HttpUrl, "Sets the ticket link"],
+  capacity: [Type.Integer({ minimum: 0, maximum: 1000000 }), "Sets the places per occurrence"],
+  overbooking: [Type.Integer({ minimum: 0, maximum: 100 }), "Sets the overbooking percentage"],
 } as const;
 const effectIn = <K extends keyof typeof effectBodies>(type: K) =>
   Type.Object({ type: Type.Literal(type), value: effectBodies[type][0] }, { additionalProperties: false, description: effectBodies[type][1] });
 const effectOut = <K extends keyof typeof effectBodies>(type: K) =>
   Type.Object({ type: Type.Literal(type), targetRef: Type.Optional(Type.Null()), value: effectBodies[type][0] }, { description: effectBodies[type][1] });
-export const RuleEffectInput = Type.Union([effectIn("location"), effectIn("tags"), effectIn("externalUrl")]);
-export const RuleEffect = Type.Union([effectOut("location"), effectOut("tags"), effectOut("externalUrl")]);
+export const RuleEffectInput = Type.Union([effectIn("location"), effectIn("tags"), effectIn("externalUrl"), effectIn("capacity"), effectIn("overbooking")]);
+export const RuleEffect = Type.Union([effectOut("location"), effectOut("tags"), effectOut("externalUrl"), effectOut("capacity"), effectOut("overbooking")]);
 
 export const Rule = Type.Object({
   id: Uuid,
@@ -313,7 +349,7 @@ export const RulePatch = Type.Object(
   { additionalProperties: false, minProperties: 1 },
 );
 
-const EffectiveField = Type.Union([Type.Literal("location"), Type.Literal("tags"), Type.Literal("externalUrl")]);
+const EffectiveField = Type.Union([Type.Literal("location"), Type.Literal("tags"), Type.Literal("externalUrl"), Type.Literal("capacity"), Type.Literal("overbooking")]);
 const ResolvedAny = Type.Object({ value: Type.Unknown(), source: ValueSource, ruleId: Nullable(Uuid) });
 export const RulePreview = Type.Object(
   {

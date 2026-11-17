@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,12 +39,45 @@ type Form = {
   timezone: string;
   defaultLocationId: string | null;
   defaultDurationMin: number;
-  external: boolean;
+  admission: Admission;
   externalUrl: string;
+  reg: Reg;
   tagIds: string[];
   refs: { key: string; value: string }[];
   translations: Record<string, T>;
 };
+
+type Admission = CatalogEvent["admissionMode"];
+type Settings = CatalogEvent["registration"];
+/** Number fields are kept as text so they can be empty; times are shown in hours. */
+type Reg = { accessPolicy: Settings["accessPolicy"]; listed: boolean; guestAllowed: boolean; capacity: string; overbookingPct: string; opensHours: string; closesHours: string };
+
+const hours = (min: number | null | undefined) => (min === null || min === undefined ? "" : String(min / 60));
+const minutes = (h: string) => (h.trim() === "" ? null : Math.round(Number(h) * 60));
+
+function toReg(s: Settings | undefined): Reg {
+  return {
+    accessPolicy: s?.accessPolicy ?? "open",
+    listed: s?.listed ?? true,
+    guestAllowed: s?.guestAllowed ?? false,
+    capacity: s?.capacity === null || s?.capacity === undefined ? "" : String(s.capacity),
+    overbookingPct: String(s?.overbookingPct ?? 0),
+    opensHours: hours(s?.opensMinBefore),
+    closesHours: hours(s?.closesMinBefore ?? 0),
+  };
+}
+
+function regBody(r: Reg) {
+  return {
+    accessPolicy: r.accessPolicy,
+    listed: r.listed,
+    guestAllowed: r.guestAllowed,
+    capacity: r.capacity.trim() === "" ? null : Number(r.capacity),
+    overbookingPct: Number(r.overbookingPct || 0),
+    opensMinBefore: minutes(r.opensHours),
+    closesMinBefore: minutes(r.closesHours) ?? 0,
+  };
+}
 
 const emptyT: T = { title: "", shortDescription: "", imageUrl: "", imageAlt: "" };
 
@@ -53,8 +87,9 @@ function toForm(e: CatalogEvent | null, locales: string[], timezone: string): Fo
     timezone: e?.timezone ?? timezone,
     defaultLocationId: e?.defaultLocationId ?? null,
     defaultDurationMin: e?.defaultDurationMin ?? 60,
-    external: e?.admissionMode === "external",
+    admission: e?.admissionMode ?? "none",
     externalUrl: e?.externalUrl ?? "",
+    reg: toReg(e?.registration),
     tagIds: e?.tagIds ?? [],
     refs: Object.entries(e?.externalRefs ?? {}).map(([key, value]) => ({ key, value })),
     translations: Object.fromEntries(
@@ -80,8 +115,9 @@ function toBody(f: Form, before: CatalogEvent | null) {
     timezone: f.timezone,
     defaultLocationId: f.defaultLocationId,
     defaultDurationMin: f.defaultDurationMin,
-    admissionMode: f.external ? ("external" as const) : ("none" as const),
-    externalUrl: f.externalUrl.trim() || null,
+    admissionMode: f.admission,
+    externalUrl: f.admission === "external" ? f.externalUrl.trim() || null : before?.externalUrl ?? null,
+    ...(f.admission === "registration" ? { registration: regBody(f.reg) } : {}),
     tagIds: f.tagIds,
     externalRefs: Object.fromEntries(f.refs.filter((r) => r.key.trim()).map((r) => [r.key.trim(), r.value])),
     translations,
@@ -310,15 +346,22 @@ function EventDetails({ event, etag }: { event: CatalogEvent | null; etag: strin
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Switch id="external" checked={form.external} onCheckedChange={(v) => set("external", v)} />
-          <Label htmlFor="external">{t("events.externalAdmission")}</Label>
-        </div>
-        {form.external && (
+        <Field label={t("events.admission")} htmlFor="admission">
+          <Select value={form.admission} onValueChange={(v) => set("admission", v as Admission)}>
+            <SelectTrigger id="admission" className="w-full sm:w-96">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(["none", "external", "registration"] as const).map((m) => <SelectItem key={m} value={m}>{t(`events.admissionModes.${m}`)}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </Field>
+        {form.admission === "external" && (
           <Field label={t("events.externalUrl")} htmlFor="external-url" hint={t("events.externalUrlHint")}>
             <Input id="external-url" type="url" required value={form.externalUrl} onChange={(e) => set("externalUrl", e.target.value)} />
           </Field>
         )}
+        {form.admission === "registration" && <RegistrationFields reg={form.reg} onChange={(reg) => set("reg", reg)} errField={errField} />}
       </section>
 
       <section className="space-y-2">
@@ -346,5 +389,48 @@ function EventDetails({ event, etag }: { event: CatalogEvent | null; etag: strin
         onReload={() => void qc.invalidateQueries({ queryKey: ["event", accountId, event?.id] })}
       />
     </form>
+  );
+}
+
+function RegistrationFields({ reg, onChange, errField }: { reg: Reg; onChange: (r: Reg) => void; errField: string | undefined }) {
+  const { t } = useTranslation();
+  const set = <K extends keyof Reg>(k: K, v: Reg[K]) => onChange({ ...reg, [k]: v, ...(k === "accessPolicy" && v === "invite_only" && reg.accessPolicy !== "invite_only" ? { listed: false } : {}) });
+  const limit = reg.capacity.trim() === "" ? null : Math.floor((Number(reg.capacity) * (100 + Number(reg.overbookingPct || 0))) / 100);
+  return (
+    <div className="grid gap-4 rounded-md border p-4 sm:grid-cols-2">
+      <Field label={t("events.reg.accessPolicy")} htmlFor="access-policy" className="sm:col-span-2">
+        <Select value={reg.accessPolicy} onValueChange={(v) => set("accessPolicy", v as Reg["accessPolicy"])}>
+          <SelectTrigger id="access-policy" className="w-full sm:w-72">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(["open", "invite_only"] as const).map((p) => <SelectItem key={p} value={p}>{t(`events.reg.policies.${p}`)}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label={t("events.reg.capacity")} htmlFor="capacity" hint={t("events.reg.capacityHint")}>
+        <Input id="capacity" type="number" min={0} max={1000000} value={reg.capacity} placeholder={t("events.reg.unlimited")}
+          onChange={(e) => set("capacity", e.target.value)} aria-invalid={errField === "registration.capacity"} />
+      </Field>
+      <Field label={t("events.reg.overbooking")} htmlFor="overbooking"
+        hint={limit === null ? undefined : t("events.reg.bookableLimit", { limit })}>
+        <Input id="overbooking" type="number" min={0} max={100} value={reg.overbookingPct} onChange={(e) => set("overbookingPct", e.target.value)} />
+      </Field>
+      <Field label={t("events.reg.opens")} htmlFor="opens" hint={t("events.reg.opensHint")}>
+        <Input id="opens" type="number" min={0} step="any" value={reg.opensHours} placeholder={t("events.reg.whenPublished")}
+          onChange={(e) => set("opensHours", e.target.value)} aria-invalid={errField === "registration.opensMinBefore"} />
+      </Field>
+      <Field label={t("events.reg.closes")} htmlFor="closes">
+        <Input id="closes" type="number" min={0} step="any" value={reg.closesHours} onChange={(e) => set("closesHours", e.target.value)} />
+      </Field>
+      <div className="flex items-center gap-2">
+        <Switch id="guest" checked={reg.guestAllowed} onCheckedChange={(v) => set("guestAllowed", v)} />
+        <Label htmlFor="guest">{t("events.reg.guestAllowed")}</Label>
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch id="listed" checked={reg.listed} onCheckedChange={(v) => set("listed", v)} />
+        <Label htmlFor="listed">{t("events.reg.listed")}</Label>
+      </div>
+    </div>
   );
 }

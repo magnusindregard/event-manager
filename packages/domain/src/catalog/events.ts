@@ -1,4 +1,4 @@
-import { type AdmissionMode, type EventStatus, newId, sql, type Tx } from "@event-manager/db";
+import { type AccessPolicy, type AdmissionMode, type EventStatus, newId, sql, type Tx } from "@event-manager/db";
 import { emit } from "../outbox/index.js";
 import { type ActorContext, DomainError } from "../shared/index.js";
 import { assertCan, diffFields, getAccount, isValidTimezone, recordAudit } from "../tenancy/index.js";
@@ -14,6 +14,24 @@ export interface Translation {
   imageAlt: string | null;
 }
 
+/** Registration settings (docs/registration.md); used when admissionMode is "registration". */
+export interface RegistrationSettings {
+  accessPolicy: AccessPolicy;
+  /** Shown in public listings. Defaults to false for invite-only events. */
+  listed: boolean;
+  /** Default places per occurrence; rules and occurrence overrides can change it. Null: no limit. */
+  capacity: number | null;
+  overbookingPct: number;
+  guestAllowed: boolean;
+  /** Registration opens this many minutes before each occurrence starts; null: as soon as published. */
+  opensMinBefore: number | null;
+  /** Registration closes this many minutes before each occurrence starts. */
+  closesMinBefore: number;
+  waitlistEnabled: boolean;
+  claimWindowMin: number;
+  waitlistCutoffMin: number;
+}
+
 export interface CatalogEvent {
   id: string;
   slug: string;
@@ -23,6 +41,7 @@ export interface CatalogEvent {
   defaultDurationMin: number;
   admissionMode: AdmissionMode;
   externalUrl: string | null;
+  registration: RegistrationSettings;
   externalRefs: Record<string, string>;
   translations: Record<string, Translation>;
   tagIds: string[];
@@ -43,6 +62,7 @@ export interface EventInput {
   defaultDurationMin?: number;
   admissionMode?: AdmissionMode;
   externalUrl?: string | null;
+  registration?: Partial<RegistrationSettings>;
   externalRefs?: Record<string, string>;
   translations: Record<string, Partial<Translation> & { title: string }>;
   tagIds?: string[];
@@ -58,11 +78,71 @@ export type EventAction = "publish" | "unpublish" | "cancel" | "archive";
 const eventColumns = [
   "id", "slug", "status", "timezone", "default_location_id", "default_duration_min", "admission_mode",
   "external_url", "external_refs", "version", "created_at", "updated_at",
+  "access_policy", "listed", "capacity", "overbooking_pct", "guest_allowed", "registration_opens_min", "registration_closes_min",
+  "waitlist_enabled", "claim_window_min", "waitlist_cutoff_min",
 ] as const;
 type EventRow = {
   id: string; slug: string; status: EventStatus; timezone: string; default_location_id: string | null;
   default_duration_min: number; admission_mode: AdmissionMode; external_url: string | null;
   external_refs: Record<string, string>; version: number; created_at: Date; updated_at: Date;
+  access_policy: AccessPolicy; listed: boolean; capacity: number | null; overbooking_pct: number; guest_allowed: boolean;
+  registration_opens_min: number | null; registration_closes_min: number; waitlist_enabled: boolean; claim_window_min: number; waitlist_cutoff_min: number;
+};
+
+const toSettings = (r: EventRow): RegistrationSettings => ({
+  accessPolicy: r.access_policy,
+  listed: r.listed,
+  capacity: r.capacity,
+  overbookingPct: r.overbooking_pct,
+  guestAllowed: r.guest_allowed,
+  opensMinBefore: r.registration_opens_min,
+  closesMinBefore: r.registration_closes_min,
+  waitlistEnabled: r.waitlist_enabled,
+  claimWindowMin: r.claim_window_min,
+  waitlistCutoffMin: r.waitlist_cutoff_min,
+});
+
+const settingsColumns = (s: Partial<RegistrationSettings>) => ({
+  access_policy: s.accessPolicy,
+  listed: s.listed,
+  capacity: s.capacity,
+  overbooking_pct: s.overbookingPct,
+  guest_allowed: s.guestAllowed,
+  registration_opens_min: s.opensMinBefore,
+  registration_closes_min: s.closesMinBefore,
+  waitlist_enabled: s.waitlistEnabled,
+  claim_window_min: s.claimWindowMin,
+  waitlist_cutoff_min: s.waitlistCutoffMin,
+});
+
+const intRange = (field: string, v: number | null | undefined, min: number, max: number, nullable = false) => {
+  if (v === undefined || (v === null && nullable)) return;
+  if (typeof v !== "number" || !Number.isInteger(v) || v < min || v > max) throw invalid(`registration.${field}`, `Must be a whole number, ${min}–${max}`);
+};
+
+/** Validates the merged settings. */
+function validateSettings(s: RegistrationSettings) {
+  intRange("capacity", s.capacity, 0, 1_000_000, true);
+  intRange("overbookingPct", s.overbookingPct, 0, 100);
+  intRange("opensMinBefore", s.opensMinBefore, 0, 525_600, true);
+  intRange("closesMinBefore", s.closesMinBefore, 0, 525_600);
+  intRange("claimWindowMin", s.claimWindowMin, 5, 20_160);
+  intRange("waitlistCutoffMin", s.waitlistCutoffMin, 0, 20_160);
+  if (s.opensMinBefore !== null && s.opensMinBefore <= s.closesMinBefore) {
+    throw invalid("registration.opensMinBefore", "Registration must open before it closes");
+  }
+}
+
+/** Merges a settings patch. Switching to invite-only hides the event from listings unless listed is given. */
+function mergeSettings(before: RegistrationSettings, patch: Partial<RegistrationSettings>): RegistrationSettings {
+  const out = { ...before, ...Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)) } as RegistrationSettings;
+  if (patch.accessPolicy === "invite_only" && before.accessPolicy !== "invite_only" && patch.listed === undefined) out.listed = false;
+  return out;
+}
+
+const DEFAULT_SETTINGS: RegistrationSettings = {
+  accessPolicy: "open", listed: true, capacity: null, overbookingPct: 0, guestAllowed: false,
+  opensMinBefore: null, closesMinBefore: 0, waitlistEnabled: false, claimWindowMin: 1440, waitlistCutoffMin: 120,
 };
 
 async function hydrate(tx: Tx, rows: EventRow[]): Promise<CatalogEvent[]> {
@@ -81,6 +161,7 @@ async function hydrate(tx: Tx, rows: EventRow[]): Promise<CatalogEvent[]> {
     defaultDurationMin: r.default_duration_min,
     admissionMode: r.admission_mode,
     externalUrl: r.external_url,
+    registration: toSettings(r),
     externalRefs: r.external_refs,
     translations: Object.fromEntries(
       translations
@@ -236,6 +317,8 @@ export async function createEvent(tx: Tx, ctx: ActorContext, input: EventInput):
   if (input.defaultLocationId) await assertUsableLocation(tx, input.defaultLocationId, "defaultLocationId");
   const admissionMode = input.admissionMode ?? (input.externalUrl ? "external" : "none");
   validateAdmission(admissionMode, input.externalUrl ?? null);
+  const settings = mergeSettings({ ...DEFAULT_SETTINGS, accessPolicy: "open" }, input.registration ?? {});
+  validateSettings(settings);
   validateRefs(input.externalRefs);
   if (input.tagIds) await assertUsableTags(tx, input.tagIds, "tagIds");
 
@@ -253,6 +336,7 @@ export async function createEvent(tx: Tx, ctx: ActorContext, input: EventInput):
       admission_mode: admissionMode,
       external_url: input.externalUrl ?? null,
       external_refs: JSON.stringify(input.externalRefs ?? {}),
+      ...settingsColumns(settings),
     })
     .execute()
     .catch(slugConflict);
@@ -265,7 +349,7 @@ export async function createEvent(tx: Tx, ctx: ActorContext, input: EventInput):
   return event;
 }
 
-const DEFAULT_FIELDS = ["defaultLocationId", "admissionMode", "externalUrl", "tagIds"] as const;
+const DEFAULT_FIELDS = ["defaultLocationId", "admissionMode", "externalUrl", "tagIds", "registration.capacity", "registration.overbookingPct"] as const;
 
 export async function updateEvent(tx: Tx, ctx: ActorContext, id: string, expectedVersion: number, patch: EventPatch): Promise<CatalogEvent> {
   assertCan(ctx, "content.write");
@@ -286,6 +370,8 @@ export async function updateEvent(tx: Tx, ctx: ActorContext, id: string, expecte
   const admissionMode = patch.admissionMode ?? before.admissionMode;
   const externalUrl = patch.externalUrl !== undefined ? patch.externalUrl : before.externalUrl;
   validateAdmission(admissionMode, externalUrl);
+  const settings = patch.registration ? mergeSettings(before.registration, patch.registration) : undefined;
+  if (settings) validateSettings(settings);
   validateRefs(patch.externalRefs);
   if (patch.tagIds) {
     const added = patch.tagIds.filter((t) => !before.tagIds.includes(t));
@@ -302,6 +388,7 @@ export async function updateEvent(tx: Tx, ctx: ActorContext, id: string, expecte
       admission_mode: patch.admissionMode,
       external_url: patch.externalUrl,
       ...(patch.externalRefs ? { external_refs: JSON.stringify(patch.externalRefs) } : {}),
+      ...(settings ? settingsColumns(settings) : {}),
       version: sql<number>`version + 1`,
     })
     .where("id", "=", id)
@@ -313,7 +400,13 @@ export async function updateEvent(tx: Tx, ctx: ActorContext, id: string, expecte
   if (patch.tagIds) await writeTags(tx, ctx.tenantId, id, patch.tagIds);
 
   const after = await getEvent(tx, id);
-  const diff = diffFields(before as unknown as Record<string, unknown>, patch as Record<string, unknown>);
+  const { registration: _r, ...rest } = patch;
+  const diff = diffFields(before as unknown as Record<string, unknown>, rest as Record<string, unknown>);
+  if (settings) {
+    for (const [k, v] of Object.entries(diffFields(before.registration as unknown as Record<string, unknown>, settings as unknown as Record<string, unknown>))) {
+      diff[`registration.${k}`] = v;
+    }
+  }
   // Rules match on local time, so a timezone change can change which rules apply.
   const resolution = DEFAULT_FIELDS.some((f) => f in diff) || "timezone" in diff ? await resolveEventSoon(tx, id) : undefined;
   await recordAudit(tx, ctx, { action: "event.updated", entityType: "event", entityId: id, diff });

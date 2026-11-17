@@ -44,7 +44,7 @@ export interface Resolved<T = unknown> {
 
 export type FieldValues = Record<EffectiveField, unknown>;
 export type ResolvedFields = Record<EffectiveField, Resolved>;
-export const FIELDS: readonly EffectiveField[] = ["location", "tags", "externalUrl"];
+export const FIELDS: readonly EffectiveField[] = ["location", "tags", "externalUrl", "capacity", "overbooking"];
 
 /** Two or more rules of the same priority set the same field on one occurrence. */
 export interface Tie {

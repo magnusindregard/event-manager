@@ -29,7 +29,11 @@ type Draft = {
   location: { on: boolean; id: string | null };
   tags: { on: boolean; add: string[]; remove: string[] };
   link: { on: boolean; url: string };
+  capacity: { on: boolean; value: string };
+  overbooking: { on: boolean; value: string };
 };
+
+const wholeIn = (v: string, max: number) => /^\d+$/.test(v.trim()) && Number(v) <= max;
 
 function initial(mode: RuleEditorMode): Draft {
   const effects = mode.kind === "edit" ? mode.rule.effects : [];
@@ -37,6 +41,8 @@ function initial(mode: RuleEditorMode): Draft {
   const loc = find("location");
   const tags = find("tags");
   const link = find("externalUrl");
+  const capacity = find("capacity");
+  const overbooking = find("overbooking");
   return {
     name: mode.kind === "edit" ? mode.rule.name : "",
     priority: mode.kind === "edit" ? mode.rule.priority : 0,
@@ -45,6 +51,8 @@ function initial(mode: RuleEditorMode): Draft {
     location: { on: !!loc, id: loc?.value ?? null },
     tags: { on: !!tags, add: tags?.value.add ?? [], remove: tags?.value.remove ?? [] },
     link: { on: !!link, url: link?.value ?? "" },
+    capacity: { on: !!capacity, value: capacity ? String(capacity.value) : "" },
+    overbooking: { on: !!overbooking, value: overbooking ? String(overbooking.value) : "" },
   };
 }
 
@@ -53,6 +61,8 @@ function effectsOf(d: Draft): Effect[] {
   if (d.location.on && d.location.id) out.push({ type: "location", value: d.location.id });
   if (d.tags.on && d.tags.add.length + d.tags.remove.length > 0) out.push({ type: "tags", value: { add: d.tags.add, remove: d.tags.remove } });
   if (d.link.on && /^https?:\/\/\S+$/.test(d.link.url.trim())) out.push({ type: "externalUrl", value: d.link.url.trim() });
+  if (d.capacity.on && wholeIn(d.capacity.value, 1_000_000)) out.push({ type: "capacity", value: Number(d.capacity.value) });
+  if (d.overbooking.on && wholeIn(d.overbooking.value, 100)) out.push({ type: "overbooking", value: Number(d.overbooking.value) });
   return out;
 }
 
@@ -255,6 +265,18 @@ function EditorBody({ event, rules, mode, onSaved, onConflict }: {
           {d.link.on && (
             <Input id="rule-link" type="url" aria-label={t("occurrences.link")} placeholder="https://" value={d.link.url} onChange={(e) => setD({ ...d, link: { on: true, url: e.target.value } })} />
           )}
+          {(["capacity", "overbooking"] as const).map((k) => (
+            <div key={k} className="grid gap-2">
+              <div className="flex items-center gap-2">
+                <Checkbox id={`rule-eff-${k}`} checked={d[k].on} onCheckedChange={(v) => setD({ ...d, [k]: { ...d[k], on: v === true } })} />
+                <Label htmlFor={`rule-eff-${k}`}>{t(`rules.set_${k}`)}</Label>
+              </div>
+              {d[k].on && (
+                <Input id={`rule-${k}`} type="number" min={0} max={k === "capacity" ? 1000000 : 100} aria-label={t(`rules.effect.${k}`)} className="w-40"
+                  value={d[k].value} onChange={(e) => setD({ ...d, [k]: { on: true, value: e.target.value } })} />
+              )}
+            </div>
+          ))}
         </fieldset>
 
         <section aria-live="polite" className="grid gap-2 rounded-md border p-3">

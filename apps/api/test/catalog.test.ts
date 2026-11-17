@@ -167,3 +167,32 @@ describe("/v1 catalog", () => {
     expect(await tenancy.verifyApiKey(db, created.body.secret, "publishable")).toBeNull();
   });
 });
+
+describe("/v1 registration settings and capacity", () => {
+  it("round-trips settings and shows each occurrence's pool", async () => {
+    const created = await call("POST", "/v1/events", {
+      body: { translations: { nb: { title: "Galla" } }, admissionMode: "registration", registration: { accessPolicy: "invite_only", capacity: 120, overbookingPct: 5 } },
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.registration).toMatchObject({ accessPolicy: "invite_only", listed: false, capacity: 120, overbookingPct: 5, closesMinBefore: 0 });
+
+    const bad = await call("PATCH", `/v1/events/${created.body.id}`, { body: { registration: { overbookingPct: 101 } }, headers: { "if-match": created.headers.etag as string } });
+    expect(bad.status).toBe(400);
+
+    const occ = await call("POST", `/v1/events/${created.body.id}/occurrences`, { body: { startUtc: "2027-06-01T17:00:00Z", capacityOverride: 100 } });
+    expect(occ.status).toBe(201);
+    expect(occ.body.overrides.capacity).toBe(100);
+    expect(occ.body.effective.capacity).toMatchObject({ value: 100, source: "override" });
+    expect(occ.body.pool).toMatchObject({ capacity: 100, overbookingPct: 5, bookableLimit: 105, taken: 0, available: 105, overLimit: false });
+  });
+
+  it("keeps null as no limit instead of coercing it to 0", async () => {
+    const created = await call("POST", "/v1/events", {
+      body: { translations: { nb: { title: "Uten grense" } }, admissionMode: "registration", registration: { capacity: null, opensMinBefore: null, closesMinBefore: 0 } },
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.registration).toMatchObject({ capacity: null, opensMinBefore: null });
+    const occ = await call("POST", `/v1/events/${created.body.id}/occurrences`, { body: { startUtc: "2027-06-02T17:00:00Z", capacityOverride: null } });
+    expect(occ.body.pool).toMatchObject({ capacity: null, bookableLimit: null, available: null });
+  });
+});
