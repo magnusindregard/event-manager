@@ -5468,9 +5468,14 @@ export interface operations {
                             detached: boolean;
                             /** @description Detached, and a series change has since moved or removed its slot */
                             conflict: boolean;
+                            /** @description null with *Cleared false inherits from rules and the event default */
                             overrides: {
                                 locationId: null | string;
+                                /** @description The occurrence has no location, even when a rule or the event default has one */
+                                locationCleared: boolean;
                                 externalUrl: null | string;
+                                /** @description The occurrence has no external link, even when a rule or the event default has one */
+                                externalUrlCleared: boolean;
                                 tagIds: null | string[];
                                 capacity: null | number;
                             };
@@ -5636,7 +5641,11 @@ export interface operations {
                     /** Format: date-time */
                     endUtc?: string;
                     locationOverrideId?: null | string;
+                    /** @description true: this occurrence has no location (cannot be combined with a locationOverrideId). false: inherit again */
+                    locationOverrideCleared?: boolean;
                     externalUrlOverride?: null | string;
+                    /** @description true: this occurrence has no external link (cannot be combined with an externalUrlOverride). false: inherit again */
+                    externalUrlOverrideCleared?: boolean;
                     tagsOverride?: null | string[];
                     capacityOverride?: null | number;
                 };
@@ -5665,9 +5674,14 @@ export interface operations {
                         detached: boolean;
                         /** @description Detached, and a series change has since moved or removed its slot */
                         conflict: boolean;
+                        /** @description null with *Cleared false inherits from rules and the event default */
                         overrides: {
                             locationId: null | string;
+                            /** @description The occurrence has no location, even when a rule or the event default has one */
+                            locationCleared: boolean;
                             externalUrl: null | string;
+                            /** @description The occurrence has no external link, even when a rule or the event default has one */
+                            externalUrlCleared: boolean;
                             tagIds: null | string[];
                             capacity: null | number;
                         };
@@ -5936,9 +5950,14 @@ export interface operations {
                         detached: boolean;
                         /** @description Detached, and a series change has since moved or removed its slot */
                         conflict: boolean;
+                        /** @description null with *Cleared false inherits from rules and the event default */
                         overrides: {
                             locationId: null | string;
+                            /** @description The occurrence has no location, even when a rule or the event default has one */
+                            locationCleared: boolean;
                             externalUrl: null | string;
+                            /** @description The occurrence has no external link, even when a rule or the event default has one */
+                            externalUrlCleared: boolean;
                             tagIds: null | string[];
                             capacity: null | number;
                         };
@@ -6304,7 +6323,11 @@ export interface operations {
                     endUtc?: string;
                     status?: "scheduled" | "cancelled";
                     locationOverrideId?: null | string;
+                    /** @description true: this occurrence has no location (cannot be combined with a locationOverrideId). false: inherit again */
+                    locationOverrideCleared?: boolean;
                     externalUrlOverride?: null | string;
+                    /** @description true: this occurrence has no external link (cannot be combined with an externalUrlOverride). false: inherit again */
+                    externalUrlOverrideCleared?: boolean;
                     tagsOverride?: null | string[];
                     capacityOverride?: null | number;
                     /**
@@ -6338,9 +6361,14 @@ export interface operations {
                         detached: boolean;
                         /** @description Detached, and a series change has since moved or removed its slot */
                         conflict: boolean;
+                        /** @description null with *Cleared false inherits from rules and the event default */
                         overrides: {
                             locationId: null | string;
+                            /** @description The occurrence has no location, even when a rule or the event default has one */
+                            locationCleared: boolean;
                             externalUrl: null | string;
+                            /** @description The occurrence has no external link, even when a rule or the event default has one */
+                            externalUrlCleared: boolean;
                             tagIds: null | string[];
                             capacity: null | number;
                         };
@@ -6609,9 +6637,14 @@ export interface operations {
                         detached: boolean;
                         /** @description Detached, and a series change has since moved or removed its slot */
                         conflict: boolean;
+                        /** @description null with *Cleared false inherits from rules and the event default */
                         overrides: {
                             locationId: null | string;
+                            /** @description The occurrence has no location, even when a rule or the event default has one */
+                            locationCleared: boolean;
                             externalUrl: null | string;
+                            /** @description The occurrence has no external link, even when a rule or the event default has one */
+                            externalUrlCleared: boolean;
                             tagIds: null | string[];
                             capacity: null | number;
                         };
@@ -6865,10 +6898,14 @@ export interface operations {
                         /** @description As in the occurrence's ETag */
                         version: number;
                     }[];
-                    /** @description Applied to every occurrence. null clears an override. */
+                    /** @description Applied to every occurrence. null removes an override (inherit); *Cleared true clears the value. */
                     set: {
                         locationOverrideId?: null | string;
+                        /** @description true: this occurrence has no location (cannot be combined with a locationOverrideId). false: inherit again */
+                        locationOverrideCleared?: boolean;
                         externalUrlOverride?: null | string;
+                        /** @description true: this occurrence has no external link (cannot be combined with an externalUrlOverride). false: inherit again */
+                        externalUrlOverrideCleared?: boolean;
                         tagsOverride?: null | string[];
                         capacityOverride?: null | number;
                         status?: "scheduled" | "cancelled";
@@ -6900,9 +6937,14 @@ export interface operations {
                             detached: boolean;
                             /** @description Detached, and a series change has since moved or removed its slot */
                             conflict: boolean;
+                            /** @description null with *Cleared false inherits from rules and the event default */
                             overrides: {
                                 locationId: null | string;
+                                /** @description The occurrence has no location, even when a rule or the event default has one */
+                                locationCleared: boolean;
                                 externalUrl: null | string;
+                                /** @description The occurrence has no external link, even when a rule or the event default has one */
+                                externalUrlCleared: boolean;
                                 tagIds: null | string[];
                                 capacity: null | number;
                             };

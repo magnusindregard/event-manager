@@ -98,6 +98,12 @@ describe("/v1 catalog", () => {
     const moved = await call("PATCH", `/v1/occurrences/${occ.body.id}`, { body: { locationOverrideId: spaceId }, headers: { "if-match": occ.headers.etag as string } });
     expect(moved.status).toBe(200);
     expect(moved.body.effective.location).toEqual({ value: spaceId, source: "override", ruleId: null });
+    const both = await call("PATCH", `/v1/occurrences/${occ.body.id}`, { body: { locationOverrideId: spaceId, locationOverrideCleared: true }, headers: { "if-match": moved.headers.etag as string } });
+    expect(both.status).toBe(422);
+    const cleared = await call("PATCH", `/v1/occurrences/${occ.body.id}`, { body: { locationOverrideCleared: true }, headers: { "if-match": moved.headers.etag as string } });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.overrides).toMatchObject({ locationId: null, locationCleared: true, externalUrlCleared: false });
+    expect(cleared.body.effective.location).toEqual({ value: null, source: "override", ruleId: null });
 
     const second = await call("POST", `/v1/events/${eventId}/occurrences`, { body: { startUtc: "2026-12-02T13:00:00Z", endUtc: "2026-12-02T15:00:00Z" } });
     const p1 = await call("GET", `/v1/events/${eventId}/occurrences?limit=1`);

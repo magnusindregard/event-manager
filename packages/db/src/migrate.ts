@@ -12,6 +12,7 @@ import * as m0006 from "./migrations/0006_series.js";
 import * as m0007 from "./migrations/0007_rules.js";
 import * as m0008 from "./migrations/0008_capacity.js";
 import * as m0009 from "./migrations/0009_registration.js";
+import * as m0011 from "./migrations/0011_cleared_overrides.js";
 
 const migrations: Record<string, Migration> = {
   "0001_foundation": m0001,
@@ -23,6 +24,7 @@ const migrations: Record<string, Migration> = {
   "0007_rules": m0007,
   "0008_capacity": m0008,
   "0009_registration": m0009,
+  "0011_cleared_overrides": m0011,
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

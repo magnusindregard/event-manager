@@ -21,7 +21,14 @@ export interface Occurrence {
   detached: boolean;
   /** Detached, and the series has since moved or removed its slot. */
   conflict: boolean;
-  overrides: { locationId: string | null; externalUrl: string | null; tagIds: string[] | null; capacity: number | null };
+  /**
+   * locationId / externalUrl null with the matching *Cleared false: inherit. *Cleared true:
+   * the occurrence has no location / link, even when a rule or the event default has one.
+   */
+  overrides: {
+    locationId: string | null; locationCleared: boolean; externalUrl: string | null; externalUrlCleared: boolean;
+    tagIds: string[] | null; capacity: number | null;
+  };
   effective: Partial<EffectiveValues>;
   /** Places, for occurrences of registration events. */
   pool: inventory.Pool | null;
@@ -33,8 +40,13 @@ export interface OccurrenceInput {
   startUtc: Date;
   /** Defaults to start + the event's default duration. */
   endUtc?: Date;
+  /** A location sets the override, null inherits. */
   locationOverrideId?: string | null;
+  /** true: no location for this occurrence (clear). false: inherit, if it was cleared. */
+  locationOverrideCleared?: boolean;
   externalUrlOverride?: string | null;
+  /** true: no external link for this occurrence (clear). false: inherit, if it was cleared. */
+  externalUrlOverrideCleared?: boolean;
   tagsOverride?: string[] | null;
   capacityOverride?: number | null;
 }
@@ -47,11 +59,11 @@ export type OccurrencePatch = Partial<OccurrenceInput> & {
 
 const columns = [
   "id", "event_id", "series_id", "recurrence_id_local", "conflict", "start_utc", "end_utc", "status", "detached", "location_override_id",
-  "external_url_override", "tags_override", "capacity_override", "version", "updated_at",
+  "external_url_override", "location_cleared", "external_url_cleared", "tags_override", "capacity_override", "version", "updated_at",
 ] as const;
 type Row = {
   id: string; event_id: string; series_id: string | null; recurrence_id_local: string | null; conflict: boolean; start_utc: Date; end_utc: Date; status: OccurrenceStatus;
-  detached: boolean; location_override_id: string | null; external_url_override: string | null;
+  detached: boolean; location_override_id: string | null; external_url_override: string | null; location_cleared: boolean; external_url_cleared: boolean;
   tags_override: string[] | null; capacity_override: number | null; version: number; updated_at: Date;
 };
 
@@ -68,7 +80,10 @@ async function hydrate(tx: Tx, rows: Row[]): Promise<Occurrence[]> {
     status: r.status,
     detached: r.detached,
     conflict: r.conflict,
-    overrides: { locationId: r.location_override_id, externalUrl: r.external_url_override, tagIds: r.tags_override, capacity: r.capacity_override },
+    overrides: {
+      locationId: r.location_override_id, locationCleared: r.location_cleared, externalUrl: r.external_url_override, externalUrlCleared: r.external_url_cleared,
+      tagIds: r.tags_override, capacity: r.capacity_override,
+    },
     effective: eff.get(r.id) ?? {},
     pool: pools.get(r.id) ?? null,
     version: r.version,
@@ -105,12 +120,26 @@ export async function listOccurrences(tx: Tx, f: OccurrenceFilter): Promise<Occu
 }
 
 async function validateOverrides(tx: Tx, input: Partial<OccurrenceInput>) {
+  if (input.locationOverrideCleared && input.locationOverrideId) throw invalid("locationOverrideCleared", "Set a location or clear it, not both");
+  if (input.externalUrlOverrideCleared && input.externalUrlOverride) throw invalid("externalUrlOverrideCleared", "Set a link or clear it, not both");
   if (input.locationOverrideId) await assertUsableLocation(tx, input.locationOverrideId, "locationOverrideId");
   assertUrl("externalUrlOverride", input.externalUrlOverride);
   if (input.tagsOverride) await assertUsableTags(tx, input.tagsOverride, "tagsOverride");
   const c = input.capacityOverride;
   if (c !== undefined && c !== null && (!Number.isInteger(c) || c < 0 || c > 1_000_000)) throw invalid("capacityOverride", "Must be a whole number of places, 0–1000000");
 }
+
+type OverrideState = { value: string | null; cleared: boolean };
+
+/** The override state after an input: a value sets, null inherits, cleared true clears, cleared false inherits. */
+function nextOverride(before: OverrideState, value: string | null | undefined, cleared: boolean | undefined): OverrideState {
+  if (cleared === true) return { value: null, cleared: true };
+  if (value !== undefined) return { value, cleared: false };
+  if (cleared === false) return { value: before.value, cleared: false };
+  return before;
+}
+
+const inherit: OverrideState = { value: null, cleared: false };
 
 const summary = (o: Occurrence) => ({ occurrenceId: o.id, startUtc: o.startUtc.toISOString(), endUtc: o.endUtc.toISOString() });
 
@@ -123,6 +152,8 @@ export async function createOccurrence(tx: Tx, ctx: ActorContext, eventId: strin
   const endUtc = input.endUtc ?? new Date(input.startUtc.getTime() + event.default_duration_min * 60_000);
   if (endUtc <= input.startUtc) throw invalid("endUtc", "End must be after start");
   await validateOverrides(tx, input);
+  const location = nextOverride(inherit, input.locationOverrideId, input.locationOverrideCleared);
+  const externalUrl = nextOverride(inherit, input.externalUrlOverride, input.externalUrlOverrideCleared);
 
   const id = newId();
   await tx
@@ -133,8 +164,10 @@ export async function createOccurrence(tx: Tx, ctx: ActorContext, eventId: strin
       event_id: eventId,
       start_utc: input.startUtc,
       end_utc: endUtc,
-      location_override_id: input.locationOverrideId ?? null,
-      external_url_override: input.externalUrlOverride ?? null,
+      location_override_id: location.value,
+      location_cleared: location.cleared,
+      external_url_override: externalUrl.value,
+      external_url_cleared: externalUrl.cleared,
       tags_override: input.tagsOverride ?? null,
       capacity_override: input.capacityOverride ?? null,
     })
@@ -154,8 +187,9 @@ interface Patched {
 
 const flat = (o: { startUtc: Date; endUtc: Date; status: OccurrenceStatus; overrides: Occurrence["overrides"] }) => ({
   startUtc: o.startUtc.toISOString(), endUtc: o.endUtc.toISOString(), status: o.status,
-  locationOverrideId: o.overrides.locationId, externalUrlOverride: o.overrides.externalUrl, tagsOverride: o.overrides.tagIds,
-  capacityOverride: o.overrides.capacity,
+  locationOverrideId: o.overrides.locationId, locationOverrideCleared: o.overrides.locationCleared,
+  externalUrlOverride: o.overrides.externalUrl, externalUrlOverrideCleared: o.overrides.externalUrlCleared,
+  tagsOverride: o.overrides.tagIds, capacityOverride: o.overrides.capacity,
 });
 
 /** Writes one occurrence change and its outbox event; the caller resolves and audits. */
@@ -166,11 +200,14 @@ async function patchOccurrence(tx: Tx, ctx: ActorContext, before: Occurrence, ex
   // Hand edits of time or overrides detach a series occurrence, so regeneration leaves it
   // alone. Cancelling does not: a cancelled occurrence still follows its series.
   const sameTags = (a: string[] | null, b: string[] | null) => JSON.stringify(a && [...a].sort()) === JSON.stringify(b && [...b].sort());
+  const b = before.overrides;
+  const location = nextOverride({ value: b.locationId, cleared: b.locationCleared }, patch.locationOverrideId, patch.locationOverrideCleared);
+  const externalUrl = nextOverride({ value: b.externalUrl, cleared: b.externalUrlCleared }, patch.externalUrlOverride, patch.externalUrlOverrideCleared);
   const edited =
     startUtc.getTime() !== before.startUtc.getTime() ||
     endUtc.getTime() !== before.endUtc.getTime() ||
-    (patch.locationOverrideId !== undefined && patch.locationOverrideId !== before.overrides.locationId) ||
-    (patch.externalUrlOverride !== undefined && patch.externalUrlOverride !== before.overrides.externalUrl) ||
+    location.value !== b.locationId || location.cleared !== b.locationCleared ||
+    externalUrl.value !== b.externalUrl || externalUrl.cleared !== b.externalUrlCleared ||
     (patch.tagsOverride !== undefined && !sameTags(patch.tagsOverride, before.overrides.tagIds)) ||
     (patch.capacityOverride !== undefined && patch.capacityOverride !== before.overrides.capacity);
   const detach = before.seriesId !== null && edited;
@@ -181,8 +218,10 @@ async function patchOccurrence(tx: Tx, ctx: ActorContext, before: Occurrence, ex
       start_utc: startUtc,
       end_utc: endUtc,
       status: patch.status,
-      location_override_id: patch.locationOverrideId,
-      external_url_override: patch.externalUrlOverride,
+      location_override_id: location.value,
+      location_cleared: location.cleared,
+      external_url_override: externalUrl.value,
+      external_url_cleared: externalUrl.cleared,
       tags_override: patch.tagsOverride,
       capacity_override: patch.capacityOverride,
       detached: detach ? true : undefined,
@@ -199,8 +238,10 @@ async function patchOccurrence(tx: Tx, ctx: ActorContext, before: Occurrence, ex
   const after = {
     startUtc, endUtc, status: patch.status ?? before.status,
     overrides: {
-      locationId: patch.locationOverrideId !== undefined ? patch.locationOverrideId : before.overrides.locationId,
-      externalUrl: patch.externalUrlOverride !== undefined ? patch.externalUrlOverride : before.overrides.externalUrl,
+      locationId: location.value,
+      locationCleared: location.cleared,
+      externalUrl: externalUrl.value,
+      externalUrlCleared: externalUrl.cleared,
       tagIds: patch.tagsOverride !== undefined ? patch.tagsOverride : before.overrides.tagIds,
       capacity: patch.capacityOverride !== undefined ? patch.capacityOverride : before.overrides.capacity,
     },
@@ -227,7 +268,10 @@ export async function updateOccurrence(tx: Tx, ctx: ActorContext, id: string, ex
   return getOccurrence(tx, id);
 }
 
-export type BulkOccurrencePatch = Pick<OccurrencePatch, "locationOverrideId" | "externalUrlOverride" | "tagsOverride" | "capacityOverride" | "status">;
+export type BulkOccurrencePatch = Pick<
+  OccurrencePatch,
+  "locationOverrideId" | "locationOverrideCleared" | "externalUrlOverride" | "externalUrlOverrideCleared" | "tagsOverride" | "capacityOverride" | "status"
+>;
 
 export const BULK_LIMIT = 1000;
 
@@ -311,7 +355,7 @@ export async function reattachOccurrence(tx: Tx, ctx: ActorContext, id: string, 
     .updateTable("catalog.occurrence")
     .set({
       start_utc: slot.startUtc, end_utc: slot.endUtc, location_override_id: null, external_url_override: null, tags_override: null,
-      detached: false, conflict: false, version: sql<number>`version + 1`,
+      location_cleared: false, external_url_cleared: false, detached: false, conflict: false, version: sql<number>`version + 1`,
     })
     .where("id", "=", id)
     .where("version", "=", expectedVersion)

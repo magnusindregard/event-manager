@@ -45,6 +45,14 @@ describe("resolveFields", () => {
     expect(r.tags).toMatchObject({ value: [], source: "override" });
     expect(r.externalUrl).toMatchObject({ value: "https://tix/o", source: "override" });
   });
+  it("a cleared override has no value and wins over the default", () => {
+    const r = catalog.resolveFields(event, {
+      locationOverrideId: null, externalUrlOverride: null, locationCleared: true, externalUrlCleared: true, tagsOverride: null,
+    });
+    expect(r.location).toEqual({ value: null, source: "override", ruleId: null });
+    expect(r.externalUrl).toEqual({ value: null, source: "override", ruleId: null });
+    expect(r.tags).toMatchObject({ source: "default" });
+  });
   it("no admission link unless the event is external", () => {
     expect(catalog.resolveFields({ ...event, admissionMode: "none" }, { locationOverrideId: null, externalUrlOverride: null, tagsOverride: null }).externalUrl.value).toBeNull();
   });
@@ -98,6 +106,52 @@ describe("catalog", () => {
 
     const resolved = await run(ctx, (tx) => tx.selectFrom("catalog.occurrence").select(["version", "resolved_version"]).where("event_id", "=", event.id).execute());
     for (const r of resolved) expect(r.resolved_version).toBe(r.version);
+  });
+
+  it("clears an inherited location and link per occurrence, and inherits again", async () => {
+    const venue = await run(ctx, (tx) => catalog.createLocation(tx, ctx, { kind: "venue", name: "Clear venue" }));
+    const rooftop = await run(ctx, (tx) => catalog.createLocation(tx, ctx, { kind: "space", parentId: venue.id, name: "Clear rooftop" }));
+    const event = await run(ctx, (tx) =>
+      catalog.createEvent(tx, ctx, { translations: { nb: { title: "Tømt lenke" } }, defaultLocationId: venue.id, externalUrl: "https://tickets.example/clear" }),
+    );
+    const s = await run(ctx, (tx) => catalog.createSeries(tx, ctx, event.id, { rrule: "FREQ=DAILY;COUNT=3", dtstartLocal: "2027-02-01T14:00" }, { now: new Date("2027-01-01T00:00:00Z") }));
+    // A rule that also sets a link: a cleared override must win over it too.
+    await run(ctx, (tx) => catalog.createRule(tx, ctx, event.id, { name: "Alle", priority: 1, conditions: {}, effects: [{ type: "externalUrl", value: "https://tickets.example/rule" }] }));
+    const [first, second] = await run(ctx, (tx) => catalog.listOccurrences(tx, { eventId: event.id, seriesId: s.series!.id, limit: 10 }));
+    expect(first!.effective.externalUrl).toMatchObject({ value: "https://tickets.example/rule", source: "rule" });
+
+    await expect(run(ctx, (tx) => catalog.updateOccurrence(tx, ctx, first!.id, first!.version, { externalUrlOverride: "https://x.example", externalUrlOverrideCleared: true })))
+      .rejects.toMatchObject({ code: "validation_failed" });
+    await expect(run(ctx, (tx) => catalog.updateOccurrence(tx, ctx, first!.id, first!.version, { locationOverrideId: rooftop.id, locationOverrideCleared: true })))
+      .rejects.toMatchObject({ code: "validation_failed" });
+
+    const cleared = await run(ctx, (tx) => catalog.updateOccurrence(tx, ctx, first!.id, first!.version, { externalUrlOverrideCleared: true, locationOverrideCleared: true }));
+    expect(cleared.overrides).toMatchObject({ externalUrl: null, externalUrlCleared: true, locationId: null, locationCleared: true });
+    expect(cleared.effective.externalUrl).toEqual({ value: null, source: "override", ruleId: null });
+    expect(cleared.effective.location).toEqual({ value: null, source: "override", ruleId: null });
+    expect(cleared.detached).toBe(true);
+
+    // Clearing again changes nothing.
+    const same = await run(ctx, (tx) => catalog.updateOccurrence(tx, ctx, cleared.id, cleared.version, { externalUrlOverrideCleared: true }));
+    expect(same.overrides.externalUrlCleared).toBe(true);
+
+    // Setting a value replaces the clear; null inherits; cleared false inherits too.
+    const set = await run(ctx, (tx) => catalog.updateOccurrence(tx, ctx, same.id, same.version, { locationOverrideId: rooftop.id }));
+    expect(set.overrides).toMatchObject({ locationId: rooftop.id, locationCleared: false, externalUrlCleared: true });
+    const inherited = await run(ctx, (tx) => catalog.updateOccurrence(tx, ctx, set.id, set.version, { locationOverrideId: null, externalUrlOverrideCleared: false }));
+    expect(inherited.overrides).toMatchObject({ locationId: null, locationCleared: false, externalUrl: null, externalUrlCleared: false });
+    expect(inherited.effective.location).toMatchObject({ value: venue.id, source: "default" });
+    expect(inherited.effective.externalUrl).toMatchObject({ value: "https://tickets.example/rule", source: "rule" });
+
+    // Created cleared, and bulk cleared; reattaching a series occurrence drops the clear.
+    const oneOff = await run(ctx, (tx) => catalog.createOccurrence(tx, ctx, event.id, { startUtc: new Date("2027-03-01T13:00:00Z"), externalUrlOverrideCleared: true }));
+    expect(oneOff.effective.externalUrl).toMatchObject({ value: null, source: "override" });
+    const [bulk] = await run(ctx, (tx) => catalog.bulkUpdateOccurrences(tx, ctx, event.id, [{ id: second!.id, version: second!.version }], { externalUrlOverrideCleared: true }));
+    expect(bulk!.effective.externalUrl).toMatchObject({ value: null, source: "override" });
+    expect(bulk!.detached).toBe(true);
+    const back = await run(ctx, (tx) => catalog.reattachOccurrence(tx, ctx, bulk!.id, bulk!.version));
+    expect(back.overrides.externalUrlCleared).toBe(false);
+    expect(back.effective.externalUrl).toMatchObject({ value: "https://tickets.example/rule", source: "rule" });
   });
 
   it("rejects stale versions, duplicate slugs and unknown locales", async () => {

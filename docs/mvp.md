@@ -62,9 +62,28 @@ Module schemas: `tenancy`, `catalog`, `rules`, `outbox`.
 ### Occurrence
 
 - `startUtc`, `endUtc` (`timestamptz`), `status`: scheduled or cancelled.
-- `recurrenceIdLocal`: the original slot in the series, as in iCalendar RECURRENCE-ID. Regeneration matches existing occurrences on this key, so edits and cancellations survive changes to the rule.
+- `recurrenceIdLocal`: the slot in the series that the occurrence belongs to, in the series' local wall time, as in iCalendar RECURRENCE-ID. It identifies the slot within the series' current rule; it is **not an immutable key** (see "Occurrence identity" below). Integrations should key on the occurrence `id`.
 - `detached`: set when an occurrence is edited by hand. Regeneration never moves or deletes a detached occurrence; it reports it as a conflict instead.
-- Overrides: `locationOverrideId`, `externalUrlOverride`. Null means inherit.
+- Overrides for location and external link. Each has three states:
+
+  | State | Meaning | Effective value |
+  |---|---|---|
+  | inherit | No override | Rule, then event default |
+  | set | Use this value | The given location or link |
+  | clear | This occurrence has none | No location / no link, even when a rule or the event default has one |
+
+  Clear is needed because a null override can only mean inherit: without it, staff can replace an event's ticket link for one occurrence, but cannot say "this occurrence has no ticket link". A cleared link gives `admission: { "mode": "none" }` in the public API; a cleared location gives `location: null`. Both are overrides like any other: they detach a series occurrence, rules do not apply to the field, and the admin shows the source as "override (cleared)". Tags already have this through an empty tag list. In the core API (additive, so existing clients keep working): a value in `locationOverrideId` / `externalUrlOverride` sets, `null` inherits, and `locationOverrideCleared` / `externalUrlOverrideCleared: true` clears (a value and `true` together are rejected); `false` inherits again. Occurrences report the state as `overrides.locationCleared` / `overrides.externalUrlCleared`, stored in the columns `location_cleared` / `external_url_cleared`.
+
+#### Occurrence identity
+
+Regeneration keeps each occurrence's `id`, so edits, cancellations, registrations and external references survive changes to the rule. Matching on the original local timestamp alone is not enough: when a weekly 14:00 series moves to 15:00, every slot key changes, and each occurrence would be deleted and recreated. Regeneration therefore matches in two passes:
+
+1. **Same slot:** an existing occurrence whose `recurrenceIdLocal` equals a new slot keeps it.
+2. **Same local date, by order within the day:** the remaining occurrences are matched with the remaining new slots on the same local date, first to first, second to second. The 14:00 occurrence becomes the 15:00 one, keeps its `id`, and gets the new `recurrenceIdLocal`. A matched detached occurrence also gets the new key but keeps its hand-edited time, and is reported as a conflict.
+
+Occurrences left unmatched are deleted (or, if detached, reported as conflicts); slots left unmatched become new occurrences. Excluded slots (EXDATEs) are remapped the same way, so a deleted 14:00 slot stays deleted when the series moves to 15:00. Occurrences that have already started are history and are never moved, deleted or created by regeneration.
+
+Consequences for integrations: `recurrenceIdLocal` can change when the series changes; use the occurrence `id` as the stable reference, and treat `occurrence.changed` as the signal that its time, slot or values moved.
 
 Outlook semantics for series edits:
 
