@@ -131,7 +131,11 @@ stays reserved for 90 days; a new deploy gets a new name anyway (it includes a h
 GitHub's OIDC subject now carries numeric owner and repo IDs (step 2); the Entra token was dropped from
 database connections; migrations assumed a superuser (tests now migrate as a non-superuser); and the worker
 connected without Entra auth. Twice, a dispatched Deploy run stayed "queued" without jobs; dispatching it
-again started a new run.
+again started a new run. One of those held-back runs ran an hour later anyway and rolled staging back
+to an image without the worker fix; the crash-looping worker sidecar then took the api replica out of
+service (504s, seen as CORS errors in the admin). Deploy now refuses a commit that is no longer the
+branch tip. If the admin hangs, check `az containerapp replica list -g rg-em-staging -n ca-em-staging-api`
+for a sidecar with restarts.
 
 **Not production grade, on purpose:** no edge cache (each public request hits the app), no WAF, public
 Container Apps ingress, the worker runs only while the api is awake (a few minutes after each request; the
@@ -140,7 +144,8 @@ invitees get no Entra identity automatically (create the user in the external te
 
 ## Staging runbook (end of milestone 2)
 
-The Deploy workflow is manual-only until this is done; re-add its `push` trigger afterwards.
+The Deploy workflow deploys every merge to `main` to the online test environment above, which uses the
+`staging` GitHub environment. Paid staging with Front Door replaces it there once this runbook is done.
 
 ### What staging costs
 
