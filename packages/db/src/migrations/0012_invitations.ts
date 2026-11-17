@@ -67,6 +67,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       FOREIGN KEY (tenant_id, invitation_id) REFERENCES registration.guest_invitation (tenant_id, id) ON DELETE CASCADE
     );
     CREATE INDEX invitation_send_invitation ON registration.invitation_send (invitation_id, requested_at DESC);
+    -- At most one email of each kind waiting per guest, so overlapping requests can never send two.
+    CREATE UNIQUE INDEX invitation_send_one_queued ON registration.invitation_send (invitation_id, kind) WHERE delivery_status = 'queued';
     SELECT platform.enable_tenant_rls('registration.invitation_send');
 
     -- An uploaded guest list, kept until it is imported or for a day.

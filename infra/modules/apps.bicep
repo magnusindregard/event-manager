@@ -32,6 +32,8 @@ param mailFrom string = ''
 param adminUrl string = ''
 @description('Comma-separated origins allowed to call the core API from a browser. Empty behind Front Door (same origin).')
 param corsOrigins string = ''
+@description('Postmark delivery webhook on the API. Needs Key Vault secret "postmark-webhook-auth" holding "user:password".')
+param postmarkWebhook bool = false
 
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: 'cae-${name}'
@@ -75,7 +77,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
       // Reached through Front Door. TODO before personal data (phase 1): Front Door Premium + Private Link.
       ingress: { external: true, targetPort: 3000, transport: 'http' }
       registries: registries
-      secrets: workerAsSidecar ? workerSecrets : []
+      secrets: concat(workerAsSidecar ? workerSecrets : [], webhookSecrets)
     }
     template: {
       containers: concat([{
@@ -86,7 +88,10 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'PORT', value: '3000' }
           { name: 'OIDC_ISSUER', value: oidcIssuer }
           { name: 'OIDC_AUDIENCE', value: oidcAudience }
-        ], empty(corsOrigins) ? [] : [{ name: 'CORS_ORIGINS', value: corsOrigins }])
+          // Guests' personal invitation links point at the hosted attendee pages.
+          { name: 'ATTENDEE_URL', value: attendeeUrl }
+        ], empty(corsOrigins) ? [] : [{ name: 'CORS_ORIGINS', value: corsOrigins }],
+          webhookEnabled ? [{ name: 'POSTMARK_WEBHOOK_AUTH', secretRef: 'postmark-webhook-auth' }] : [])
         probes: probesFor(3000)
       }], workerAsSidecar ? [workerContainer] : [])
       // Staging scales to zero (cold start of a few seconds) to keep cost down.
@@ -149,6 +154,8 @@ resource publicApi 'Microsoft.App/containerApps@2024-03-01' = {
 }
 
 var mailEnabled = !empty(mailFrom) && !empty(keyVaultUri)
+var webhookEnabled = postmarkWebhook && !empty(keyVaultUri)
+var webhookSecrets = webhookEnabled ? [{ name: 'postmark-webhook-auth', keyVaultUrl: '${keyVaultUri}secrets/postmark-webhook-auth', identity: appIdentityId }] : []
 var workerSecrets = mailEnabled ? [{ name: 'postmark-token', keyVaultUrl: '${keyVaultUri}secrets/postmark-token', identity: appIdentityId }] : []
 var workerContainer = {
   name: 'worker'

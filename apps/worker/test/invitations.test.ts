@@ -123,6 +123,31 @@ describe("invitation emails", () => {
   });
 });
 
+describe("when the mail service keeps failing", () => {
+  it("marks the send failed after the last attempt, so staff can send again", async () => {
+    const { event } = await gala();
+    const inv = await run((tx) => registration.createInvitation(tx, ctx, event.id, { email: "down@example.com" }));
+    await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation" }));
+    // Let the outbox queue the job, then make the next run its last attempt.
+    const failing = { send: async () => { throw new Error("Postmark → 500: down"); } };
+    const runWith = (m: typeof failing | FakeMailer) => runOnce({
+      connectionString: tdb.appUrl,
+      taskList: buildTaskList(db, defaultHandlers, { directory: new FakeDirectory(), mailer: m as FakeMailer, adminUrl: "https://admin.test/" }, { mailer: m as FakeMailer, attendeeUrl: "https://attend.test/" }),
+    });
+    await runWith(failing);
+    const send = () => run((tx) => tx.selectFrom("registration.invitation_send").select(["id", "delivery_status", "delivery_detail"]).where("invitation_id", "=", inv.id).orderBy("requested_at").execute());
+    expect((await send())[0]).toMatchObject({ delivery_status: "queued" }); // an early failure is retried
+    await admin.query(`update graphile_worker._private_jobs set attempts = max_attempts - 1, run_at = now() where key = $1`, [`invsend:${(await send())[0]!.id}`]);
+    await runWith(failing);
+    expect((await send())[0]).toMatchObject({ delivery_status: "failed", delivery_detail: "mail_error: Postmark → 500: down" });
+
+    // A new request now queues and sends a fresh email.
+    expect(await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation", ids: [inv.id] }))).toEqual({ queued: 1, skipped: 0 });
+    await drain();
+    expect(mailer.sent.map((m) => m.to)).toEqual(["down@example.com"]);
+  });
+});
+
 describe("reminder before the event", () => {
   it("is scheduled for the reminder time and sent once, with the QR code", async () => {
     const { occ } = await gala({ accessPolicy: "open", reminderMinBefore: 24 * 60 });

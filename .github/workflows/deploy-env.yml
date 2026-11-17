@@ -25,6 +25,7 @@ jobs:
       GRAPH_CLIENT_ID: ${{ vars.GRAPH_CLIENT_ID }}
       GRAPH_TENANT_DOMAIN: ${{ vars.GRAPH_TENANT_DOMAIN }}
       MAIL_FROM: ${{ vars.MAIL_FROM }}
+      POSTMARK_WEBHOOK: ${{ vars.POSTMARK_WEBHOOK || 'false' }}
       ADMIN_URL: ${{ vars.ADMIN_URL }}
       PG_ADMIN_TYPE: ${{ vars.PG_ADMIN_TYPE || 'Group' }}
     steps:

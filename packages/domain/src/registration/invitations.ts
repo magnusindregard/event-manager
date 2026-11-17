@@ -267,7 +267,9 @@ export async function requestSends(tx: Tx, ctx: ActorContext, eventId: string, r
   assertCan(ctx, "registrations.write");
   const event = await eventForInvitations(tx, eventId);
   if (event.status !== "published") throw new DomainError("conflict", "Publish the event before sending invitations", { eventId });
-  let q = tx.selectFrom("registration.guest_invitation").select(["id", "status"]).where("event_id", "=", eventId);
+  // Locks the guests (in id order, so overlapping requests never deadlock): a second request for the same
+  // guests waits here until this one commits, then sees its queued sends and skips them.
+  let q = tx.selectFrom("registration.guest_invitation").select(["id", "status"]).where("event_id", "=", eventId).orderBy("id").forUpdate();
   if (req.ids) {
     if (req.ids.length === 0) return { queued: 0, skipped: 0 };
     q = q.where("id", "in", req.ids);

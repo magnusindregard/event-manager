@@ -102,7 +102,16 @@ export function invitationEmailTask(db: Db, deps: RegistrationEmailDeps): Task {
       return;
     }
     const mail = invitationEmail(message, `${base}/i/${message.token}`);
-    const sent = await deps.mailer.send({ to: message.invitation.email, ...mail, metadata: { tenantId, sendId } });
+    let sent;
+    try {
+      sent = await deps.mailer.send({ to: message.invitation.email, ...mail, metadata: { tenantId, sendId } });
+    } catch (e) {
+      // Out of retries: mark the send failed, so the guest list shows it and staff can send again.
+      if (helpers.job.attempts >= helpers.job.max_attempts) {
+        await withTenant(db, { tenantId }, (tx) => registration.recordNotSent(tx, sendId, `mail_error: ${e instanceof Error ? e.message : String(e)}`));
+      }
+      throw e;
+    }
     await withTenant(db, { tenantId }, (tx) => registration.recordSent(tx, tenantId, sendId, sent.messageId));
     helpers.logger.info(`invitation send ${sendId}: ${message.send.kind} sent`);
   };

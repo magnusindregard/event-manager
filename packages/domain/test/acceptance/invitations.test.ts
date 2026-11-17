@@ -277,6 +277,29 @@ describe("sending", () => {
     expect(await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation", ids: [a.id, b.id] }))).toEqual({ queued: 1, skipped: 1 });
   });
 
+  it("queues one email per guest when two requests overlap", async () => {
+    const { event } = await gala();
+    const guests: registration.GuestInvitation[] = [];
+    for (let i = 0; i < 20; i++) guests.push(await invite(event.id, `race${i}@example.com`));
+    // The first request holds its transaction open while the second one starts.
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const pause = () => new Promise((r) => setTimeout(r, 300));
+    const first = run(async (tx) => {
+      const r = await registration.requestSends(tx, ctx, event.id, { kind: "invitation" });
+      await gate;
+      return r;
+    });
+    await pause();
+    const second = run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation" }));
+    await pause();
+    release();
+    expect(await first).toEqual({ queued: 20, skipped: 0 });
+    expect(await second).toEqual({ queued: 0, skipped: 20 });
+    const sends = await run((tx) => tx.selectFrom("registration.invitation_send").select("invitation_id").where("invitation_id", "in", guests.map((g) => g.id)).execute());
+    expect(sends).toHaveLength(20);
+  });
+
   it("records delivery reports for the matching send only, and never downgrades a bounce", async () => {
     const { event } = await gala();
     const a = await invite(event.id, "bounce@example.com");
