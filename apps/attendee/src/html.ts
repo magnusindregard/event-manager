@@ -51,6 +51,16 @@ input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid 
 .help { color: var(--muted); font-size: .875rem; margin-top: .25rem; }
 button { margin-top: 1.25rem; padding: .625rem 1.25rem; font: inherit; font-weight: 600; border-radius: .5rem; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); cursor: pointer; }
 button.secondary { background: transparent; color: var(--bad); border-color: var(--bad); }
+.actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.actions button { margin-top: 1.25rem; }
+fieldset { border: 0; padding: 0; margin: 1rem 0 0; }
+legend { font-weight: 500; margin-bottom: .25rem; padding: 0; }
+label.option { display: flex; gap: .75rem; align-items: flex-start; font-weight: 400; margin: .5rem 0; padding: .75rem; border: 1px solid var(--line); border-radius: .5rem; cursor: pointer; }
+label.option:has(input:disabled) { opacity: .6; cursor: not-allowed; }
+label.option input { margin-top: .25rem; width: 1.125rem; height: 1.125rem; flex: none; }
+label.option span.when { display: block; font-weight: 500; }
+label.option span.where { display: block; color: var(--muted); font-size: .875rem; }
+.readonly { padding: .625rem 0 0; }
 .notice { border-left: 4px solid var(--ok); padding: .5rem .75rem; margin: 1rem 0; background: var(--card); }
 .error { border-left-color: var(--bad); }
 .qr { background: #fff; padding: .75rem; border-radius: .5rem; width: 14rem; max-width: 100%; }

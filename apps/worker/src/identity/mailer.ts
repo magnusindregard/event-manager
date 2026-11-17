@@ -14,16 +14,23 @@ export interface Mail {
   text: string;
   html?: string;
   attachments?: MailAttachment[];
+  /** Echoed back by Postmark's delivery webhooks. */
+  metadata?: Record<string, string>;
+}
+
+export interface SentMail {
+  /** The mail service's id for the message, matched against its delivery reports. */
+  messageId: string | null;
 }
 
 export interface Mailer {
-  send(msg: Mail): Promise<void>;
+  send(msg: Mail): Promise<SentMail>;
 }
 
 export class PostmarkMailer implements Mailer {
   constructor(private readonly cfg: { token: string; from: string; stream?: string }) {}
 
-  async send(msg: Mail): Promise<void> {
+  async send(msg: Mail): Promise<SentMail> {
     const res = await fetch("https://api.postmarkapp.com/email", {
       method: "POST",
       headers: { accept: "application/json", "content-type": "application/json", "X-Postmark-Server-Token": this.cfg.token },
@@ -36,10 +43,13 @@ export class PostmarkMailer implements Mailer {
         ...(msg.attachments?.length
           ? { Attachments: msg.attachments.map((a) => ({ Name: a.name, Content: a.content, ContentType: a.contentType, ...(a.contentId ? { ContentID: `cid:${a.contentId}` } : {}) })) }
           : {}),
+        ...(msg.metadata ? { Metadata: msg.metadata } : {}),
         MessageStream: this.cfg.stream ?? "outbound",
       }),
     });
     if (!res.ok) throw new Error(`Postmark → ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const body = (await res.json().catch(() => ({}))) as { MessageID?: unknown };
+    return { messageId: typeof body.MessageID === "string" ? body.MessageID : null };
   }
 }
 
@@ -48,9 +58,10 @@ export class FakeMailer implements Mailer {
   readonly sent: Mail[] = [];
   constructor(private readonly log: (line: string) => void = () => {}) {}
 
-  async send(msg: Mail): Promise<void> {
+  async send(msg: Mail): Promise<SentMail> {
     this.sent.push(msg);
     this.log(`[fake mail] to=${msg.to} subject=${JSON.stringify(msg.subject)}`);
+    return { messageId: `fake-${this.sent.length}` };
   }
 }
 

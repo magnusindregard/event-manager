@@ -20,8 +20,8 @@ export interface RegistrationEmailDeps {
 }
 
 export type EmailKind = "confirmed" | "changed" | "cancelled";
-/** Notices about the occurrence itself, sent to everyone registered (occurrence-notice.ts). */
-export type NoticeKind = "moved" | "occurrenceCancelled";
+/** Notices about the occurrence itself, and the reminder before it (reminder.ts). */
+export type NoticeKind = "moved" | "occurrenceCancelled" | "reminder";
 const KINDS: Record<string, EmailKind> = {
   "registration.confirmed.v1": "confirmed",
   "registration.changed.v1": "changed",
@@ -57,9 +57,9 @@ const isPayload = (p: unknown): p is Payload =>
   ["confirmed", "changed", "cancelled"].includes((p as Payload).kind);
 
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ESC[c]!);
+export const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ESC[c]!);
 
-function formatWhen(locale: string, timezone: string, start: Date, end: Date): string {
+export function formatWhen(locale: string, timezone: string, start: Date, end: Date): string {
   const lang = locale.startsWith("n") ? "nb-NO" : locale;
   const date = new Intl.DateTimeFormat(lang, { timeZone: timezone, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(start);
   const time = (d: Date) => new Intl.DateTimeFormat(lang, { timeZone: timezone, hour: "2-digit", minute: "2-digit" }).format(d);
@@ -103,6 +103,12 @@ export function registrationEmail(i: EmailInput): Omit<Mail, "to"> {
       lead: nb ? `Hei ${reg.name}, ${title} har fått ny tid eller nytt sted. Du er fortsatt påmeldt. Her er de nye detaljene:` : `Hi ${reg.name}, ${title} has a new time or place. You are still registered. Here are the new details:`,
       qr: nb ? "QR-koden gjelder fortsatt. Vis den i døren." : "Your QR code still applies. Show it at the door.",
       link: nb ? "Passer det ikke lenger? Avbestill eller se påmeldingen her:" : "No longer suits you? Cancel or see your registration here:",
+    },
+    reminder: {
+      subject: nb ? `Påminnelse: ${title}` : `Reminder: ${title}`,
+      lead: nb ? `Hei ${reg.name}, dette er en påminnelse om at du er påmeldt ${title}.` : `Hi ${reg.name}, this is a reminder that you are registered for ${title}.`,
+      qr: nb ? "Vis QR-koden i døren." : "Show the QR code at the door.",
+      link: nb ? "Kan du ikke komme likevel? Avbestill her, så får noen andre plassen:" : "Can't make it after all? Cancel here so someone else can have your place:",
     },
     occurrenceCancelled: {
       subject: nb ? `Avlyst: ${title}` : `Cancelled: ${title}`,

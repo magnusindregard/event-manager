@@ -180,7 +180,9 @@ export async function listPublicOccurrences(
     .orderBy("o.id")
     .limit(f.limit);
   if (f.to) q = q.where("o.start_utc", "<", f.to);
+  // Unlisted events (closed events) stay out of listings, but asking for the event by id or slug finds them.
   if (f.event) q = UUID_RE.test(f.event) ? q.where("e.id", "=", f.event) : q.where("e.slug", "=", f.event);
+  else q = q.where("e.listed", "=", true);
   if (f.status === "cancelled") q = q.where((eb) => eb.or([eb("o.status", "=", "cancelled"), eb("e.status", "=", "cancelled")]));
   if (f.status === "scheduled") q = q.where("o.status", "=", "scheduled").where("e.status", "<>", "cancelled");
   if (f.after) {
@@ -285,6 +287,7 @@ export async function listPublicEvents(tx: Tx, opts: PublicReadOptions, f: Publi
     .selectFrom("catalog.event as e")
     .select(["e.id", "e.slug", "e.status", "e.timezone", "e.external_refs", "e.default_location_id"])
     .where("e.status", "in", c.statuses)
+    .where("e.listed", "=", true)
     .orderBy("e.id")
     .limit(f.limit);
   if (f.after) q = q.where("e.id", ">", f.after);

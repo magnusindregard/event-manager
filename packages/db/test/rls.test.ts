@@ -9,7 +9,7 @@ import { startTestDatabase, type TestDatabase } from "../src/testing.js";
 
 type Ids = {
   tenantA: string; tenantB: string; user: string; event: string;
-  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string;
+  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string;
 };
 type Fixture = (c: pg.ClientBase, tenantId: string, ids: Ids) => Promise<void>;
 
@@ -71,9 +71,20 @@ const fixtures: Record<string, Fixture> = {
   "admission.admission": (c, t, ids) =>
     c.query(`insert into admission.admission (id, tenant_id, registration_id, occurrence_id, party_size) values ($1, $2, $3, $4, 1)`,
       [randomUUID(), t, ids.registration, ids.occurrence]).then(() => {}),
+  "registration.guest_invitation": (c, t, ids) =>
+    c.query(`insert into registration.guest_invitation (id, tenant_id, event_id, email) values ($1, $2, $3, $4)`,
+      [ids.guestInvitation, t, ids.catalogEvent, `guest-${ids.guestInvitation}@example.com`]).then(() => {}),
+  "registration.invitation_send": (c, t, ids) =>
+    c.query(`insert into registration.invitation_send (id, tenant_id, invitation_id, kind) values ($1, $2, $3, 'invitation')`,
+      [randomUUID(), t, ids.guestInvitation]).then(() => {}),
+  "registration.guest_import": (c, t, ids) =>
+    c.query(`insert into registration.guest_import (id, tenant_id, event_id, file_name, headers, rows) values ($1, $2, $3, 'g.csv', '{E-post}', '[["a@example.com"]]')`,
+      [randomUUID(), t, ids.catalogEvent]).then(() => {}),
+  "registration.import_mapping": (c, t) =>
+    c.query(`insert into registration.import_mapping (tenant_id, mapping) values ($1, '{"email":"E-post"}')`, [t]).then(() => {}),
 };
 
-const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID() });
+const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID() });
 
 let db: TestDatabase;
 let admin: pg.Client;

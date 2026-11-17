@@ -18,6 +18,8 @@ const app = await buildApp({
   db,
   verifier: anyVerifier(verifiers),
   corsOrigins: config.corsOrigins,
+  attendeeUrl: config.attendeeUrl,
+  postmarkWebhook: config.postmarkWebhook,
   logger: { level: process.env.LOG_LEVEL ?? "info" },
 });
 

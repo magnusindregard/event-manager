@@ -181,6 +181,7 @@ export interface EventTable {
   waitlist_enabled: Generated<boolean>;
   claim_window_min: Generated<number>;
   waitlist_cutoff_min: Generated<number>;
+  reminder_min_before: number | null;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -293,8 +294,64 @@ export interface RegistrationTable {
   token_version: Generated<number>;
   cancelled_at: Timestamp | null;
   cancelled_by: "attendee" | "staff" | null;
+  reminded_at: Timestamp | null;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export type InvitationStatus = "pending" | "sent" | "accepted" | "declined";
+export type SendKind = "invitation" | "reminder";
+export type DeliveryStatus = "queued" | "sent" | "delivered" | "bounced" | "spam_complaint" | "failed";
+
+export interface GuestInvitationTable {
+  id: string;
+  tenant_id: string;
+  event_id: string;
+  email: string;
+  name: string | null;
+  locale: string | null;
+  guest_allowed: boolean | null;
+  external_contact_id: string | null;
+  status: Generated<InvitationStatus>;
+  token_version: Generated<number>;
+  first_sent_at: Timestamp | null;
+  last_sent_at: Timestamp | null;
+  responded_at: Timestamp | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface InvitationSendTable {
+  id: string;
+  tenant_id: string;
+  invitation_id: string;
+  kind: SendKind;
+  requested_by: string | null;
+  requested_at: GeneratedTimestamp;
+  sent_at: Timestamp | null;
+  message_id: string | null;
+  delivery_status: Generated<DeliveryStatus>;
+  delivery_detail: string | null;
+  delivery_at: Timestamp | null;
+}
+
+export interface GuestImportTable {
+  id: string;
+  tenant_id: string;
+  event_id: string;
+  created_by: string | null;
+  file_name: string;
+  headers: string[];
+  rows: ColumnType<string[][], string, string>;
+  created_at: GeneratedTimestamp;
+  expires_at: GeneratedTimestamp;
+}
+
+export interface ImportMappingTable {
+  tenant_id: string;
+  mapping: ColumnType<Record<string, string>, string, string>;
   updated_at: GeneratedTimestamp;
 }
 
@@ -363,6 +420,10 @@ export interface DB {
   "inventory.hold": HoldTable;
   "registration.registration": RegistrationTable;
   "registration.token_key": TokenKeyTable;
+  "registration.guest_invitation": GuestInvitationTable;
+  "registration.invitation_send": InvitationSendTable;
+  "registration.guest_import": GuestImportTable;
+  "registration.import_mapping": ImportMappingTable;
   "admission.admission": AdmissionTable;
   "tenancy.account": AccountTable;
   "tenancy.user": UserTable;
