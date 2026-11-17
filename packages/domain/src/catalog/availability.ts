@@ -128,3 +128,9 @@ export const targetAvailability = (t: RegistrationTarget, now: Date): Availabili
 export async function detachForRegistrations(tx: Tx, occurrenceId: string): Promise<void> {
   await tx.updateTable("catalog.occurrence").set({ detached: true }).where("id", "=", occurrenceId).where("series_id", "is not", null).where("detached", "=", false).execute();
 }
+
+/** Ids of an event's occurrences that have not started, e.g. to notify attendees when the event is cancelled. */
+export async function upcomingOccurrenceIds(tx: Tx, eventId: string, now: Date = new Date()): Promise<string[]> {
+  const rows = await tx.selectFrom("catalog.occurrence").select("id").where("event_id", "=", eventId).where("start_utc", ">", now).execute();
+  return rows.map((r) => r.id);
+}
