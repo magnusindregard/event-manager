@@ -39,6 +39,8 @@ type Draft = {
   externalUrlOverride: string;
   overrideTags: boolean;
   tagsOverride: string[];
+  /** Empty: follow the event and its rules. */
+  capacityOverride: string;
 };
 
 function nextHour(): string {
@@ -71,6 +73,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
   const [ruleEditor, setRuleEditor] = useState<RuleEditorMode | null>(null);
   const rules = useEventRules(event.id).data ?? [];
   const ruleName = (id: string | null | undefined) => rules.find((r) => r.id === id)?.name;
+  const registration = event.admissionMode === "registration";
   const ruleRefresh = useRuleRefresh(event.id);
 
   const key = ["occurrences", accountId, event.id];
@@ -129,6 +132,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         locationOverrideId: d.locationOverrideId,
         externalUrlOverride: d.externalUrlOverride.trim() || null,
         tagsOverride: d.overrideTags ? d.tagsOverride : null,
+        ...(registration ? { capacityOverride: d.capacityOverride.trim() === "" ? null : Number(d.capacityOverride) } : {}),
       };
       if (d.occ) {
         return unwrap(await api.PATCH("/v1/occurrences/{id}", {
@@ -208,11 +212,29 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
       externalUrlOverride: o?.overrides.externalUrl ?? "",
       overrideTags: o?.overrides.tagIds != null,
       tagsOverride: o?.overrides.tagIds ?? event.tagIds,
+      capacityOverride: o?.overrides.capacity == null ? "" : String(o.overrides.capacity),
     });
   };
 
   const allChosen = visible.length > 0 && chosen.length === visible.length;
-  const columns: ColumnDef<Occurrence>[] = [
+  const placesColumn: ColumnDef<Occurrence> = {
+    id: "places",
+    header: t("occurrences.places"),
+    cell: ({ row }) => {
+      const p = row.original.pool;
+      const e = row.original.effective.capacity;
+      if (!p) return "—";
+      return (
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="tabular-nums">{p.bookableLimit === null ? t("occurrences.placesUnlimited", { taken: p.taken }) : t("occurrences.placesOf", { taken: p.taken + p.held, limit: p.bookableLimit })}</span>
+          {p.overbookingPct > 0 && p.capacity !== null && <span className="text-muted-foreground">({t("occurrences.capacityPlus", { capacity: p.capacity, pct: p.overbookingPct })})</span>}
+          {p.overLimit && <Badge variant="destructive">{t("occurrences.overLimit")}</Badge>}
+          {e?.source !== "default" && <SourceChip source={e?.source} rule={ruleName(e?.ruleId)} />}
+        </div>
+      );
+    },
+  };
+  const baseColumns: ColumnDef<Occurrence>[] = [
     {
       id: "select",
       header: () => (
@@ -293,6 +315,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         );
       },
     },
+    ...(registration ? [placesColumn] : []),
     {
       id: "status",
       header: t("events.status"),
@@ -414,7 +437,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         </div>
       )}
       {view === "list" ? (
-        <DataTable columns={columns} data={visible} loading={query.isLoading} empty={isFiltering(filter) ? t("filter.none") : t("occurrences.empty")} getRowId={(r) => r.id} />
+        <DataTable columns={baseColumns.filter((c) => !(registration && c.id === "link"))} data={visible} loading={query.isLoading} empty={isFiltering(filter) ? t("filter.none") : t("occurrences.empty")} getRowId={(r) => r.id} />
       ) : (
         <OccurrenceCalendar occurrences={visible} timezone={event.timezone} title={eventTitleShort(event, i18n.language)} onSelect={(o) => !archived && open(o)} />
       )}
@@ -475,9 +498,18 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
                     noneLabel={t("occurrences.inherit", { value: path(event.defaultLocationId) || "—" })}
                   />
                 </Field>
-                <Field label={t("occurrences.link")} htmlFor="occ-url" hint={t("occurrences.inherit", { value: event.externalUrl ?? "—" })}>
-                  <Input id="occ-url" type="url" value={draft.externalUrlOverride} onChange={(e) => setDraft({ ...draft, externalUrlOverride: e.target.value })} />
-                </Field>
+                {!registration && (
+                  <Field label={t("occurrences.link")} htmlFor="occ-url" hint={t("occurrences.inherit", { value: event.externalUrl ?? "—" })}>
+                    <Input id="occ-url" type="url" value={draft.externalUrlOverride} onChange={(e) => setDraft({ ...draft, externalUrlOverride: e.target.value })} />
+                  </Field>
+                )}
+                {registration && (
+                  <Field label={t("occurrences.capacityOverride")} htmlFor="occ-capacity"
+                    hint={t("occurrences.inherit", { value: event.registration.capacity ?? t("events.reg.unlimited") })}>
+                    <Input id="occ-capacity" type="number" min={0} max={1000000} className="w-40" value={draft.capacityOverride}
+                      onChange={(e) => setDraft({ ...draft, capacityOverride: e.target.value })} />
+                  </Field>
+                )}
                 <div className="flex items-center gap-2">
                   <Checkbox id="occ-tags-override" checked={draft.overrideTags} onCheckedChange={(v) => setDraft({ ...draft, overrideTags: v === true })} />
                   <Label htmlFor="occ-tags-override">{t("occurrences.overrideTags")}</Label>

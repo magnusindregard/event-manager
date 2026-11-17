@@ -4,7 +4,8 @@ import { type Static, Type } from "typebox";
 
 const Uuid = Type.String({ format: "uuid" });
 const DateTime = Type.String({ format: "date-time" });
-const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(t: T) => Type.Union([t, Type.Null()]);
+// Null first: the API coerces types, and with the value type first Ajv would turn null into 0 or "".
+const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(t: T) => Type.Union([Type.Null(), t]);
 const HttpUrl = Type.String({ pattern: "^https?://\\S+$", maxLength: 2000 });
 const Labels = Type.Record(Type.String({ pattern: "^[a-z]{2,3}(-[A-Z]{2})?$" }), Type.String({ maxLength: 200 }), {
   description: "Display labels per locale",

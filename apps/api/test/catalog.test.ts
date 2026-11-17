@@ -185,4 +185,14 @@ describe("/v1 registration settings and capacity", () => {
     expect(occ.body.effective.capacity).toMatchObject({ value: 100, source: "override" });
     expect(occ.body.pool).toMatchObject({ capacity: 100, overbookingPct: 5, bookableLimit: 105, taken: 0, available: 105, overLimit: false });
   });
+
+  it("keeps null as no limit instead of coercing it to 0", async () => {
+    const created = await call("POST", "/v1/events", {
+      body: { translations: { nb: { title: "Uten grense" } }, admissionMode: "registration", registration: { capacity: null, opensMinBefore: null, closesMinBefore: 0 } },
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.registration).toMatchObject({ capacity: null, opensMinBefore: null });
+    const occ = await call("POST", `/v1/events/${created.body.id}/occurrences`, { body: { startUtc: "2027-06-02T17:00:00Z", capacityOverride: null } });
+    expect(occ.body.pool).toMatchObject({ capacity: null, bookableLimit: null, available: null });
+  });
 });

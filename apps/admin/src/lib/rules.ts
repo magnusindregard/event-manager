@@ -68,6 +68,8 @@ export function describeEffects(effects: StoredEffect[], t: TFunction, names: { 
     .map((e) => {
       if (e.type === "location") return `${t("rules.effect.location")}: ${names.location(e.value)}`;
       if (e.type === "externalUrl") return `${t("rules.effect.externalUrl")}: ${e.value.replace(/^https?:\/\//, "")}`;
+      if (e.type === "capacity") return `${t("rules.effect.capacity")}: ${e.value}`;
+      if (e.type === "overbooking") return `${t("rules.effect.overbooking")}: ${e.value} %`;
       const add = (e.value.add ?? []).map((x) => `+ ${names.tag(x)}`);
       const remove = (e.value.remove ?? []).map((x) => `− ${names.tag(x)}`);
       return `${t("rules.effect.tags")}: ${[...add, ...remove].join(", ")}`;

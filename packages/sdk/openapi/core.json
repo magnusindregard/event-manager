@@ -3288,11 +3288,11 @@
                           "parentId": {
                             "anyOf": [
                               {
-                                "type": "string",
-                                "format": "uuid"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string",
+                                "format": "uuid"
                               }
                             ]
                           },
@@ -3302,15 +3302,18 @@
                           "address": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "geo": {
                             "anyOf": [
+                              {
+                                "type": "null"
+                              },
                               {
                                 "type": "object",
                                 "required": [
@@ -3329,9 +3332,6 @@
                                     "maximum": 180
                                   }
                                 }
-                              },
-                              {
-                                "type": "null"
                               }
                             ]
                           },
@@ -3614,11 +3614,11 @@
                   "parentId": {
                     "anyOf": [
                       {
-                        "type": "string",
-                        "format": "uuid"
+                        "type": "null"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "format": "uuid"
                       }
                     ]
                   },
@@ -3630,16 +3630,19 @@
                   "address": {
                     "anyOf": [
                       {
-                        "type": "string",
-                        "maxLength": 500
+                        "type": "null"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "maxLength": 500
                       }
                     ]
                   },
                   "geo": {
                     "anyOf": [
+                      {
+                        "type": "null"
+                      },
                       {
                         "type": "object",
                         "required": [
@@ -3658,9 +3661,6 @@
                             "maximum": 180
                           }
                         }
-                      },
-                      {
-                        "type": "null"
                       }
                     ]
                   }
@@ -3731,11 +3731,11 @@
                     "parentId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
@@ -3745,15 +3745,18 @@
                     "address": {
                       "anyOf": [
                         {
-                          "type": "string"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string"
                         }
                       ]
                     },
                     "geo": {
                       "anyOf": [
+                        {
+                          "type": "null"
+                        },
                         {
                           "type": "object",
                           "required": [
@@ -3772,9 +3775,6 @@
                               "maximum": 180
                             }
                           }
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -4309,11 +4309,11 @@
                     "parentId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
@@ -4323,15 +4323,18 @@
                     "address": {
                       "anyOf": [
                         {
-                          "type": "string"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string"
                         }
                       ]
                     },
                     "geo": {
                       "anyOf": [
+                        {
+                          "type": "null"
+                        },
                         {
                           "type": "object",
                           "required": [
@@ -4350,9 +4353,6 @@
                               "maximum": 180
                             }
                           }
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -4613,11 +4613,11 @@
                   "parentId": {
                     "anyOf": [
                       {
-                        "type": "string",
-                        "format": "uuid"
+                        "type": "null"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "format": "uuid"
                       }
                     ]
                   },
@@ -4629,16 +4629,19 @@
                   "address": {
                     "anyOf": [
                       {
-                        "type": "string",
-                        "maxLength": 500
+                        "type": "null"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "maxLength": 500
                       }
                     ]
                   },
                   "geo": {
                     "anyOf": [
+                      {
+                        "type": "null"
+                      },
                       {
                         "type": "object",
                         "required": [
@@ -4657,9 +4660,6 @@
                             "maximum": 180
                           }
                         }
-                      },
-                      {
-                        "type": "null"
                       }
                     ]
                   },
@@ -4732,11 +4732,11 @@
                     "parentId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
@@ -4746,15 +4746,18 @@
                     "address": {
                       "anyOf": [
                         {
-                          "type": "string"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string"
                         }
                       ]
                     },
                     "geo": {
                       "anyOf": [
+                        {
+                          "type": "null"
+                        },
                         {
                           "type": "object",
                           "required": [
@@ -4773,9 +4776,6 @@
                               "maximum": 180
                             }
                           }
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -8013,11 +8013,11 @@
                           "defaultLocationId": {
                             "anyOf": [
                               {
-                                "type": "string",
-                                "format": "uuid"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string",
+                                "format": "uuid"
                               }
                             ]
                           },
@@ -8049,10 +8049,10 @@
                           "externalUrl": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
@@ -8094,13 +8094,13 @@
                               "capacity": {
                                 "anyOf": [
                                   {
+                                    "type": "null"
+                                  },
+                                  {
                                     "type": "integer",
                                     "minimum": 0,
                                     "maximum": 1000000,
                                     "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
-                                  },
-                                  {
-                                    "type": "null"
                                   }
                                 ]
                               },
@@ -8117,13 +8117,13 @@
                               "opensMinBefore": {
                                 "anyOf": [
                                   {
+                                    "type": "null"
+                                  },
+                                  {
                                     "type": "integer",
                                     "minimum": 0,
                                     "maximum": 525600,
                                     "description": "Registration opens this many minutes before each occurrence; null: when published"
-                                  },
-                                  {
-                                    "type": "null"
                                   }
                                 ]
                               },
@@ -8174,30 +8174,30 @@
                                 "shortDescription": {
                                   "anyOf": [
                                     {
-                                      "type": "string"
+                                      "type": "null"
                                     },
                                     {
-                                      "type": "null"
+                                      "type": "string"
                                     }
                                   ]
                                 },
                                 "imageUrl": {
                                   "anyOf": [
                                     {
-                                      "type": "string"
+                                      "type": "null"
                                     },
                                     {
-                                      "type": "null"
+                                      "type": "string"
                                     }
                                   ]
                                 },
                                 "imageAlt": {
                                   "anyOf": [
                                     {
-                                      "type": "string"
+                                      "type": "null"
                                     },
                                     {
-                                      "type": "null"
+                                      "type": "string"
                                     }
                                   ]
                                 }
@@ -8228,11 +8228,11 @@
                           "nextStartUtc": {
                             "anyOf": [
                               {
-                                "type": "string",
-                                "format": "date-time"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string",
+                                "format": "date-time"
                               }
                             ]
                           }
@@ -8509,11 +8509,11 @@
                   "defaultLocationId": {
                     "anyOf": [
                       {
-                        "type": "string",
-                        "format": "uuid"
+                        "type": "null"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "format": "uuid"
                       }
                     ]
                   },
@@ -8547,12 +8547,12 @@
                   "externalUrl": {
                     "anyOf": [
                       {
+                        "type": "null"
+                      },
+                      {
                         "type": "string",
                         "pattern": "^https?://\\S+$",
                         "maxLength": 2000
-                      },
-                      {
-                        "type": "null"
                       }
                     ]
                   },
@@ -8582,13 +8582,13 @@
                       "capacity": {
                         "anyOf": [
                           {
+                            "type": "null"
+                          },
+                          {
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 1000000,
                             "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
@@ -8605,13 +8605,13 @@
                       "opensMinBefore": {
                         "anyOf": [
                           {
+                            "type": "null"
+                          },
+                          {
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 525600,
                             "description": "Registration opens this many minutes before each occurrence; null: when published"
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
@@ -8673,34 +8673,34 @@
                         "shortDescription": {
                           "anyOf": [
                             {
-                              "type": "string",
-                              "maxLength": 2000
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "string",
+                              "maxLength": 2000
                             }
                           ]
                         },
                         "imageUrl": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "string",
                               "pattern": "^https?://\\S+$",
                               "maxLength": 2000
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
                         "imageAlt": {
                           "anyOf": [
                             {
-                              "type": "string",
-                              "maxLength": 500
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "string",
+                              "maxLength": 500
                             }
                           ]
                         }
@@ -8798,11 +8798,11 @@
                     "defaultLocationId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
@@ -8834,10 +8834,10 @@
                     "externalUrl": {
                       "anyOf": [
                         {
-                          "type": "string"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string"
                         }
                       ]
                     },
@@ -8879,13 +8879,13 @@
                         "capacity": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 1000000,
                               "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -8902,13 +8902,13 @@
                         "opensMinBefore": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 525600,
                               "description": "Registration opens this many minutes before each occurrence; null: when published"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -8959,30 +8959,30 @@
                           "shortDescription": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageUrl": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageAlt": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           }
@@ -9552,11 +9552,11 @@
                     "defaultLocationId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
@@ -9588,10 +9588,10 @@
                     "externalUrl": {
                       "anyOf": [
                         {
-                          "type": "string"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string"
                         }
                       ]
                     },
@@ -9633,13 +9633,13 @@
                         "capacity": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 1000000,
                               "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -9656,13 +9656,13 @@
                         "opensMinBefore": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 525600,
                               "description": "Registration opens this many minutes before each occurrence; null: when published"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -9713,30 +9713,30 @@
                           "shortDescription": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageUrl": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageAlt": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           }
@@ -10018,11 +10018,11 @@
                   "defaultLocationId": {
                     "anyOf": [
                       {
-                        "type": "string",
-                        "format": "uuid"
+                        "type": "null"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "format": "uuid"
                       }
                     ]
                   },
@@ -10056,12 +10056,12 @@
                   "externalUrl": {
                     "anyOf": [
                       {
+                        "type": "null"
+                      },
+                      {
                         "type": "string",
                         "pattern": "^https?://\\S+$",
                         "maxLength": 2000
-                      },
-                      {
-                        "type": "null"
                       }
                     ]
                   },
@@ -10091,13 +10091,13 @@
                       "capacity": {
                         "anyOf": [
                           {
+                            "type": "null"
+                          },
+                          {
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 1000000,
                             "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
@@ -10114,13 +10114,13 @@
                       "opensMinBefore": {
                         "anyOf": [
                           {
+                            "type": "null"
+                          },
+                          {
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 525600,
                             "description": "Registration opens this many minutes before each occurrence; null: when published"
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
@@ -10171,6 +10171,9 @@
                     "additionalProperties": {
                       "anyOf": [
                         {
+                          "type": "null"
+                        },
+                        {
                           "type": "object",
                           "required": [
                             "title"
@@ -10184,41 +10187,38 @@
                             "shortDescription": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "maxLength": 2000
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "maxLength": 2000
                                 }
                               ]
                             },
                             "imageUrl": {
                               "anyOf": [
                                 {
+                                  "type": "null"
+                                },
+                                {
                                   "type": "string",
                                   "pattern": "^https?://\\S+$",
                                   "maxLength": 2000
-                                },
-                                {
-                                  "type": "null"
                                 }
                               ]
                             },
                             "imageAlt": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "maxLength": 500
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "maxLength": 500
                                 }
                               ]
                             }
                           }
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     }
@@ -10313,11 +10313,11 @@
                     "defaultLocationId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
@@ -10349,10 +10349,10 @@
                     "externalUrl": {
                       "anyOf": [
                         {
-                          "type": "string"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string"
                         }
                       ]
                     },
@@ -10394,13 +10394,13 @@
                         "capacity": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 1000000,
                               "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -10417,13 +10417,13 @@
                         "opensMinBefore": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 525600,
                               "description": "Registration opens this many minutes before each occurrence; null: when published"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -10474,30 +10474,30 @@
                           "shortDescription": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageUrl": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageAlt": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           }
@@ -11068,11 +11068,11 @@
                     "defaultLocationId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
@@ -11104,10 +11104,10 @@
                     "externalUrl": {
                       "anyOf": [
                         {
-                          "type": "string"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string"
                         }
                       ]
                     },
@@ -11149,13 +11149,13 @@
                         "capacity": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 1000000,
                               "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -11172,13 +11172,13 @@
                         "opensMinBefore": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 525600,
                               "description": "Registration opens this many minutes before each occurrence; null: when published"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -11229,30 +11229,30 @@
                           "shortDescription": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageUrl": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageAlt": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           }
@@ -11823,11 +11823,11 @@
                     "defaultLocationId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
@@ -11859,10 +11859,10 @@
                     "externalUrl": {
                       "anyOf": [
                         {
-                          "type": "string"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string"
                         }
                       ]
                     },
@@ -11904,13 +11904,13 @@
                         "capacity": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 1000000,
                               "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -11927,13 +11927,13 @@
                         "opensMinBefore": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 525600,
                               "description": "Registration opens this many minutes before each occurrence; null: when published"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -11984,30 +11984,30 @@
                           "shortDescription": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageUrl": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageAlt": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           }
@@ -12578,11 +12578,11 @@
                     "defaultLocationId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
@@ -12614,10 +12614,10 @@
                     "externalUrl": {
                       "anyOf": [
                         {
-                          "type": "string"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string"
                         }
                       ]
                     },
@@ -12659,13 +12659,13 @@
                         "capacity": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 1000000,
                               "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -12682,13 +12682,13 @@
                         "opensMinBefore": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 525600,
                               "description": "Registration opens this many minutes before each occurrence; null: when published"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -12739,30 +12739,30 @@
                           "shortDescription": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageUrl": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageAlt": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           }
@@ -13333,11 +13333,11 @@
                     "defaultLocationId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
@@ -13369,10 +13369,10 @@
                     "externalUrl": {
                       "anyOf": [
                         {
-                          "type": "string"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string"
                         }
                       ]
                     },
@@ -13414,13 +13414,13 @@
                         "capacity": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 1000000,
                               "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -13437,13 +13437,13 @@
                         "opensMinBefore": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 525600,
                               "description": "Registration opens this many minutes before each occurrence; null: when published"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -13494,30 +13494,30 @@
                           "shortDescription": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageUrl": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           },
                           "imageAlt": {
                             "anyOf": [
                               {
-                                "type": "string"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string"
                               }
                             ]
                           }
@@ -14112,22 +14112,22 @@
                           "seriesId": {
                             "anyOf": [
                               {
-                                "type": "string",
-                                "format": "uuid"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string",
+                                "format": "uuid"
                               }
                             ]
                           },
                           "recurrenceIdLocal": {
                             "anyOf": [
                               {
-                                "type": "string",
-                                "description": "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string",
+                                "description": "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)"
                               }
                             ]
                           },
@@ -14175,45 +14175,45 @@
                               "locationId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "externalUrl": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
                               "tagIds": {
                                 "anyOf": [
                                   {
+                                    "type": "null"
+                                  },
+                                  {
                                     "type": "array",
                                     "items": {
                                       "type": "string",
                                       "format": "uuid"
                                     }
-                                  },
-                                  {
-                                    "type": "null"
                                   }
                                 ]
                               },
                               "capacity": {
                                 "anyOf": [
                                   {
-                                    "type": "integer"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "integer"
                                   }
                                 ]
                               }
@@ -14233,11 +14233,11 @@
                                   "value": {
                                     "anyOf": [
                                       {
-                                        "type": "string",
-                                        "format": "uuid"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string",
+                                        "format": "uuid"
                                       }
                                     ]
                                   },
@@ -14266,11 +14266,11 @@
                                   "ruleId": {
                                     "anyOf": [
                                       {
-                                        "type": "string",
-                                        "format": "uuid"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string",
+                                        "format": "uuid"
                                       }
                                     ]
                                   }
@@ -14316,11 +14316,11 @@
                                   "ruleId": {
                                     "anyOf": [
                                       {
-                                        "type": "string",
-                                        "format": "uuid"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string",
+                                        "format": "uuid"
                                       }
                                     ]
                                   }
@@ -14337,10 +14337,10 @@
                                   "value": {
                                     "anyOf": [
                                       {
-                                        "type": "string"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string"
                                       }
                                     ]
                                   },
@@ -14369,11 +14369,11 @@
                                   "ruleId": {
                                     "anyOf": [
                                       {
-                                        "type": "string",
-                                        "format": "uuid"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string",
+                                        "format": "uuid"
                                       }
                                     ]
                                   }
@@ -14390,10 +14390,10 @@
                                   "value": {
                                     "anyOf": [
                                       {
-                                        "type": "integer"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "integer"
                                       }
                                     ]
                                   },
@@ -14422,11 +14422,11 @@
                                   "ruleId": {
                                     "anyOf": [
                                       {
-                                        "type": "string",
-                                        "format": "uuid"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string",
+                                        "format": "uuid"
                                       }
                                     ]
                                   }
@@ -14468,11 +14468,11 @@
                                   "ruleId": {
                                     "anyOf": [
                                       {
-                                        "type": "string",
-                                        "format": "uuid"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string",
+                                        "format": "uuid"
                                       }
                                     ]
                                   }
@@ -14483,6 +14483,9 @@
                           },
                           "pool": {
                             "anyOf": [
+                              {
+                                "type": "null"
+                              },
                               {
                                 "type": "object",
                                 "required": [
@@ -14503,10 +14506,10 @@
                                   "capacity": {
                                     "anyOf": [
                                       {
-                                        "type": "integer"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "integer"
                                       }
                                     ]
                                   },
@@ -14516,10 +14519,10 @@
                                   "bookableLimit": {
                                     "anyOf": [
                                       {
-                                        "type": "integer"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "integer"
                                       }
                                     ]
                                   },
@@ -14532,11 +14535,11 @@
                                   "available": {
                                     "anyOf": [
                                       {
-                                        "type": "integer",
-                                        "description": "Places left; null is no limit"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "integer",
+                                        "description": "Places left; null is no limit"
                                       }
                                     ]
                                   },
@@ -14546,9 +14549,6 @@
                                   }
                                 },
                                 "description": "Places for an occurrence of a registration event"
-                              },
-                              {
-                                "type": "null"
                               }
                             ]
                           },
@@ -14830,28 +14830,31 @@
                   "locationOverrideId": {
                     "anyOf": [
                       {
-                        "type": "string",
-                        "format": "uuid"
+                        "type": "null"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "format": "uuid"
                       }
                     ]
                   },
                   "externalUrlOverride": {
                     "anyOf": [
                       {
+                        "type": "null"
+                      },
+                      {
                         "type": "string",
                         "pattern": "^https?://\\S+$",
                         "maxLength": 2000
-                      },
-                      {
-                        "type": "null"
                       }
                     ]
                   },
                   "tagsOverride": {
                     "anyOf": [
+                      {
+                        "type": "null"
+                      },
                       {
                         "type": "array",
                         "items": {
@@ -14860,21 +14863,18 @@
                         },
                         "uniqueItems": true,
                         "maxItems": 100
-                      },
-                      {
-                        "type": "null"
                       }
                     ]
                   },
                   "capacityOverride": {
                     "anyOf": [
                       {
+                        "type": "null"
+                      },
+                      {
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 1000000
-                      },
-                      {
-                        "type": "null"
                       }
                     ]
                   }
@@ -14947,22 +14947,22 @@
                     "seriesId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
                     "recurrenceIdLocal": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "description": "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "description": "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)"
                         }
                       ]
                     },
@@ -15010,45 +15010,45 @@
                         "locationId": {
                           "anyOf": [
                             {
-                              "type": "string",
-                              "format": "uuid"
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "string",
+                              "format": "uuid"
                             }
                           ]
                         },
                         "externalUrl": {
                           "anyOf": [
                             {
-                              "type": "string"
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "string"
                             }
                           ]
                         },
                         "tagIds": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "array",
                               "items": {
                                 "type": "string",
                                 "format": "uuid"
                               }
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
                         "capacity": {
                           "anyOf": [
                             {
-                              "type": "integer"
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "integer"
                             }
                           ]
                         }
@@ -15068,11 +15068,11 @@
                             "value": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             },
@@ -15101,11 +15101,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -15151,11 +15151,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -15172,10 +15172,10 @@
                             "value": {
                               "anyOf": [
                                 {
-                                  "type": "string"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string"
                                 }
                               ]
                             },
@@ -15204,11 +15204,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -15225,10 +15225,10 @@
                             "value": {
                               "anyOf": [
                                 {
-                                  "type": "integer"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer"
                                 }
                               ]
                             },
@@ -15257,11 +15257,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -15303,11 +15303,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -15318,6 +15318,9 @@
                     },
                     "pool": {
                       "anyOf": [
+                        {
+                          "type": "null"
+                        },
                         {
                           "type": "object",
                           "required": [
@@ -15338,10 +15341,10 @@
                             "capacity": {
                               "anyOf": [
                                 {
-                                  "type": "integer"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer"
                                 }
                               ]
                             },
@@ -15351,10 +15354,10 @@
                             "bookableLimit": {
                               "anyOf": [
                                 {
-                                  "type": "integer"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer"
                                 }
                               ]
                             },
@@ -15367,11 +15370,11 @@
                             "available": {
                               "anyOf": [
                                 {
-                                  "type": "integer",
-                                  "description": "Places left; null is no limit"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer",
+                                  "description": "Places left; null is no limit"
                                 }
                               ]
                             },
@@ -15381,9 +15384,6 @@
                             }
                           },
                           "description": "Places for an occurrence of a registration event"
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -15908,22 +15908,22 @@
                     "seriesId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
                     "recurrenceIdLocal": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "description": "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "description": "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)"
                         }
                       ]
                     },
@@ -15971,45 +15971,45 @@
                         "locationId": {
                           "anyOf": [
                             {
-                              "type": "string",
-                              "format": "uuid"
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "string",
+                              "format": "uuid"
                             }
                           ]
                         },
                         "externalUrl": {
                           "anyOf": [
                             {
-                              "type": "string"
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "string"
                             }
                           ]
                         },
                         "tagIds": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "array",
                               "items": {
                                 "type": "string",
                                 "format": "uuid"
                               }
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
                         "capacity": {
                           "anyOf": [
                             {
-                              "type": "integer"
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "integer"
                             }
                           ]
                         }
@@ -16029,11 +16029,11 @@
                             "value": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             },
@@ -16062,11 +16062,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -16112,11 +16112,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -16133,10 +16133,10 @@
                             "value": {
                               "anyOf": [
                                 {
-                                  "type": "string"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string"
                                 }
                               ]
                             },
@@ -16165,11 +16165,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -16186,10 +16186,10 @@
                             "value": {
                               "anyOf": [
                                 {
-                                  "type": "integer"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer"
                                 }
                               ]
                             },
@@ -16218,11 +16218,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -16264,11 +16264,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -16279,6 +16279,9 @@
                     },
                     "pool": {
                       "anyOf": [
+                        {
+                          "type": "null"
+                        },
                         {
                           "type": "object",
                           "required": [
@@ -16299,10 +16302,10 @@
                             "capacity": {
                               "anyOf": [
                                 {
-                                  "type": "integer"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer"
                                 }
                               ]
                             },
@@ -16312,10 +16315,10 @@
                             "bookableLimit": {
                               "anyOf": [
                                 {
-                                  "type": "integer"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer"
                                 }
                               ]
                             },
@@ -16328,11 +16331,11 @@
                             "available": {
                               "anyOf": [
                                 {
-                                  "type": "integer",
-                                  "description": "Places left; null is no limit"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer",
+                                  "description": "Places left; null is no limit"
                                 }
                               ]
                             },
@@ -16342,9 +16345,6 @@
                             }
                           },
                           "description": "Places for an occurrence of a registration event"
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -16626,28 +16626,31 @@
                   "locationOverrideId": {
                     "anyOf": [
                       {
-                        "type": "string",
-                        "format": "uuid"
+                        "type": "null"
                       },
                       {
-                        "type": "null"
+                        "type": "string",
+                        "format": "uuid"
                       }
                     ]
                   },
                   "externalUrlOverride": {
                     "anyOf": [
                       {
+                        "type": "null"
+                      },
+                      {
                         "type": "string",
                         "pattern": "^https?://\\S+$",
                         "maxLength": 2000
-                      },
-                      {
-                        "type": "null"
                       }
                     ]
                   },
                   "tagsOverride": {
                     "anyOf": [
+                      {
+                        "type": "null"
+                      },
                       {
                         "type": "array",
                         "items": {
@@ -16656,21 +16659,18 @@
                         },
                         "uniqueItems": true,
                         "maxItems": 100
-                      },
-                      {
-                        "type": "null"
                       }
                     ]
                   },
                   "capacityOverride": {
                     "anyOf": [
                       {
+                        "type": "null"
+                      },
+                      {
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 1000000
-                      },
-                      {
-                        "type": "null"
                       }
                     ]
                   },
@@ -16740,22 +16740,22 @@
                     "seriesId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
                     "recurrenceIdLocal": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "description": "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "description": "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)"
                         }
                       ]
                     },
@@ -16803,45 +16803,45 @@
                         "locationId": {
                           "anyOf": [
                             {
-                              "type": "string",
-                              "format": "uuid"
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "string",
+                              "format": "uuid"
                             }
                           ]
                         },
                         "externalUrl": {
                           "anyOf": [
                             {
-                              "type": "string"
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "string"
                             }
                           ]
                         },
                         "tagIds": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "array",
                               "items": {
                                 "type": "string",
                                 "format": "uuid"
                               }
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
                         "capacity": {
                           "anyOf": [
                             {
-                              "type": "integer"
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "integer"
                             }
                           ]
                         }
@@ -16861,11 +16861,11 @@
                             "value": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             },
@@ -16894,11 +16894,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -16944,11 +16944,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -16965,10 +16965,10 @@
                             "value": {
                               "anyOf": [
                                 {
-                                  "type": "string"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string"
                                 }
                               ]
                             },
@@ -16997,11 +16997,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -17018,10 +17018,10 @@
                             "value": {
                               "anyOf": [
                                 {
-                                  "type": "integer"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer"
                                 }
                               ]
                             },
@@ -17050,11 +17050,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -17096,11 +17096,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -17111,6 +17111,9 @@
                     },
                     "pool": {
                       "anyOf": [
+                        {
+                          "type": "null"
+                        },
                         {
                           "type": "object",
                           "required": [
@@ -17131,10 +17134,10 @@
                             "capacity": {
                               "anyOf": [
                                 {
-                                  "type": "integer"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer"
                                 }
                               ]
                             },
@@ -17144,10 +17147,10 @@
                             "bookableLimit": {
                               "anyOf": [
                                 {
-                                  "type": "integer"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer"
                                 }
                               ]
                             },
@@ -17160,11 +17163,11 @@
                             "available": {
                               "anyOf": [
                                 {
-                                  "type": "integer",
-                                  "description": "Places left; null is no limit"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer",
+                                  "description": "Places left; null is no limit"
                                 }
                               ]
                             },
@@ -17174,9 +17177,6 @@
                             }
                           },
                           "description": "Places for an occurrence of a registration event"
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -18179,22 +18179,22 @@
                     "seriesId": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "uuid"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "uuid"
                         }
                       ]
                     },
                     "recurrenceIdLocal": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "description": "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "description": "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)"
                         }
                       ]
                     },
@@ -18242,45 +18242,45 @@
                         "locationId": {
                           "anyOf": [
                             {
-                              "type": "string",
-                              "format": "uuid"
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "string",
+                              "format": "uuid"
                             }
                           ]
                         },
                         "externalUrl": {
                           "anyOf": [
                             {
-                              "type": "string"
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "string"
                             }
                           ]
                         },
                         "tagIds": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "array",
                               "items": {
                                 "type": "string",
                                 "format": "uuid"
                               }
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
                         "capacity": {
                           "anyOf": [
                             {
-                              "type": "integer"
+                              "type": "null"
                             },
                             {
-                              "type": "null"
+                              "type": "integer"
                             }
                           ]
                         }
@@ -18300,11 +18300,11 @@
                             "value": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             },
@@ -18333,11 +18333,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -18383,11 +18383,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -18404,10 +18404,10 @@
                             "value": {
                               "anyOf": [
                                 {
-                                  "type": "string"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string"
                                 }
                               ]
                             },
@@ -18436,11 +18436,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -18457,10 +18457,10 @@
                             "value": {
                               "anyOf": [
                                 {
-                                  "type": "integer"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer"
                                 }
                               ]
                             },
@@ -18489,11 +18489,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -18535,11 +18535,11 @@
                             "ruleId": {
                               "anyOf": [
                                 {
-                                  "type": "string",
-                                  "format": "uuid"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "string",
+                                  "format": "uuid"
                                 }
                               ]
                             }
@@ -18550,6 +18550,9 @@
                     },
                     "pool": {
                       "anyOf": [
+                        {
+                          "type": "null"
+                        },
                         {
                           "type": "object",
                           "required": [
@@ -18570,10 +18573,10 @@
                             "capacity": {
                               "anyOf": [
                                 {
-                                  "type": "integer"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer"
                                 }
                               ]
                             },
@@ -18583,10 +18586,10 @@
                             "bookableLimit": {
                               "anyOf": [
                                 {
-                                  "type": "integer"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer"
                                 }
                               ]
                             },
@@ -18599,11 +18602,11 @@
                             "available": {
                               "anyOf": [
                                 {
-                                  "type": "integer",
-                                  "description": "Places left; null is no limit"
+                                  "type": "null"
                                 },
                                 {
-                                  "type": "null"
+                                  "type": "integer",
+                                  "description": "Places left; null is no limit"
                                 }
                               ]
                             },
@@ -18613,9 +18616,6 @@
                             }
                           },
                           "description": "Places for an occurrence of a registration event"
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -19129,28 +19129,31 @@
                       "locationOverrideId": {
                         "anyOf": [
                           {
-                            "type": "string",
-                            "format": "uuid"
+                            "type": "null"
                           },
                           {
-                            "type": "null"
+                            "type": "string",
+                            "format": "uuid"
                           }
                         ]
                       },
                       "externalUrlOverride": {
                         "anyOf": [
                           {
+                            "type": "null"
+                          },
+                          {
                             "type": "string",
                             "pattern": "^https?://\\S+$",
                             "maxLength": 2000
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
                       "tagsOverride": {
                         "anyOf": [
+                          {
+                            "type": "null"
+                          },
                           {
                             "type": "array",
                             "items": {
@@ -19159,21 +19162,18 @@
                             },
                             "uniqueItems": true,
                             "maxItems": 100
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
                       "capacityOverride": {
                         "anyOf": [
                           {
+                            "type": "null"
+                          },
+                          {
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 1000000
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
@@ -19264,22 +19264,22 @@
                           "seriesId": {
                             "anyOf": [
                               {
-                                "type": "string",
-                                "format": "uuid"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string",
+                                "format": "uuid"
                               }
                             ]
                           },
                           "recurrenceIdLocal": {
                             "anyOf": [
                               {
-                                "type": "string",
-                                "description": "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string",
+                                "description": "The occurrence's slot in its series, as local time (iCalendar RECURRENCE-ID)"
                               }
                             ]
                           },
@@ -19327,45 +19327,45 @@
                               "locationId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "externalUrl": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
                               "tagIds": {
                                 "anyOf": [
                                   {
+                                    "type": "null"
+                                  },
+                                  {
                                     "type": "array",
                                     "items": {
                                       "type": "string",
                                       "format": "uuid"
                                     }
-                                  },
-                                  {
-                                    "type": "null"
                                   }
                                 ]
                               },
                               "capacity": {
                                 "anyOf": [
                                   {
-                                    "type": "integer"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "integer"
                                   }
                                 ]
                               }
@@ -19385,11 +19385,11 @@
                                   "value": {
                                     "anyOf": [
                                       {
-                                        "type": "string",
-                                        "format": "uuid"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string",
+                                        "format": "uuid"
                                       }
                                     ]
                                   },
@@ -19418,11 +19418,11 @@
                                   "ruleId": {
                                     "anyOf": [
                                       {
-                                        "type": "string",
-                                        "format": "uuid"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string",
+                                        "format": "uuid"
                                       }
                                     ]
                                   }
@@ -19468,11 +19468,11 @@
                                   "ruleId": {
                                     "anyOf": [
                                       {
-                                        "type": "string",
-                                        "format": "uuid"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string",
+                                        "format": "uuid"
                                       }
                                     ]
                                   }
@@ -19489,10 +19489,10 @@
                                   "value": {
                                     "anyOf": [
                                       {
-                                        "type": "string"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string"
                                       }
                                     ]
                                   },
@@ -19521,11 +19521,11 @@
                                   "ruleId": {
                                     "anyOf": [
                                       {
-                                        "type": "string",
-                                        "format": "uuid"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string",
+                                        "format": "uuid"
                                       }
                                     ]
                                   }
@@ -19542,10 +19542,10 @@
                                   "value": {
                                     "anyOf": [
                                       {
-                                        "type": "integer"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "integer"
                                       }
                                     ]
                                   },
@@ -19574,11 +19574,11 @@
                                   "ruleId": {
                                     "anyOf": [
                                       {
-                                        "type": "string",
-                                        "format": "uuid"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string",
+                                        "format": "uuid"
                                       }
                                     ]
                                   }
@@ -19620,11 +19620,11 @@
                                   "ruleId": {
                                     "anyOf": [
                                       {
-                                        "type": "string",
-                                        "format": "uuid"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "string",
+                                        "format": "uuid"
                                       }
                                     ]
                                   }
@@ -19635,6 +19635,9 @@
                           },
                           "pool": {
                             "anyOf": [
+                              {
+                                "type": "null"
+                              },
                               {
                                 "type": "object",
                                 "required": [
@@ -19655,10 +19658,10 @@
                                   "capacity": {
                                     "anyOf": [
                                       {
-                                        "type": "integer"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "integer"
                                       }
                                     ]
                                   },
@@ -19668,10 +19671,10 @@
                                   "bookableLimit": {
                                     "anyOf": [
                                       {
-                                        "type": "integer"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "integer"
                                       }
                                     ]
                                   },
@@ -19684,11 +19687,11 @@
                                   "available": {
                                     "anyOf": [
                                       {
-                                        "type": "integer",
-                                        "description": "Places left; null is no limit"
+                                        "type": "null"
                                       },
                                       {
-                                        "type": "null"
+                                        "type": "integer",
+                                        "description": "Places left; null is no limit"
                                       }
                                     ]
                                   },
@@ -19698,9 +19701,6 @@
                                   }
                                 },
                                 "description": "Places for an occurrence of a registration event"
-                              },
-                              {
-                                "type": "null"
                               }
                             ]
                           },
@@ -20253,35 +20253,38 @@
                               "dateFrom": {
                                 "anyOf": [
                                   {
+                                    "type": "null"
+                                  },
+                                  {
                                     "type": "string",
                                     "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                                     "description": "Local date in the event's timezone",
                                     "examples": [
                                       "2027-06-01"
                                     ]
-                                  },
-                                  {
-                                    "type": "null"
                                   }
                                 ]
                               },
                               "dateTo": {
                                 "anyOf": [
                                   {
+                                    "type": "null"
+                                  },
+                                  {
                                     "type": "string",
                                     "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                                     "description": "Local date in the event's timezone",
                                     "examples": [
                                       "2027-06-01"
                                     ]
-                                  },
-                                  {
-                                    "type": "null"
                                   }
                                 ]
                               },
                               "weekdays": {
                                 "anyOf": [
+                                  {
+                                    "type": "null"
+                                  },
                                   {
                                     "type": "array",
                                     "items": {
@@ -20293,14 +20296,14 @@
                                     "minItems": 1,
                                     "maxItems": 7,
                                     "description": "ISO weekdays, 1 = Monday"
-                                  },
-                                  {
-                                    "type": "null"
                                   }
                                 ]
                               },
                               "startTimeFrom": {
                                 "anyOf": [
+                                  {
+                                    "type": "null"
+                                  },
                                   {
                                     "type": "string",
                                     "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -20308,14 +20311,14 @@
                                     "examples": [
                                       "18:00"
                                     ]
-                                  },
-                                  {
-                                    "type": "null"
                                   }
                                 ]
                               },
                               "startTimeTo": {
                                 "anyOf": [
+                                  {
+                                    "type": "null"
+                                  },
                                   {
                                     "type": "string",
                                     "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -20323,9 +20326,6 @@
                                     "examples": [
                                       "18:00"
                                     ]
-                                  },
-                                  {
-                                    "type": "null"
                                   }
                                 ]
                               }
@@ -20760,35 +20760,38 @@
                       "dateFrom": {
                         "anyOf": [
                           {
+                            "type": "null"
+                          },
+                          {
                             "type": "string",
                             "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                             "description": "Local date in the event's timezone",
                             "examples": [
                               "2027-06-01"
                             ]
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
                       "dateTo": {
                         "anyOf": [
                           {
+                            "type": "null"
+                          },
+                          {
                             "type": "string",
                             "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                             "description": "Local date in the event's timezone",
                             "examples": [
                               "2027-06-01"
                             ]
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
                       "weekdays": {
                         "anyOf": [
+                          {
+                            "type": "null"
+                          },
                           {
                             "type": "array",
                             "items": {
@@ -20800,14 +20803,14 @@
                             "minItems": 1,
                             "maxItems": 7,
                             "description": "ISO weekdays, 1 = Monday"
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
                       "startTimeFrom": {
                         "anyOf": [
+                          {
+                            "type": "null"
+                          },
                           {
                             "type": "string",
                             "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -20815,14 +20818,14 @@
                             "examples": [
                               "18:00"
                             ]
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
                       "startTimeTo": {
                         "anyOf": [
+                          {
+                            "type": "null"
+                          },
                           {
                             "type": "string",
                             "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -20830,9 +20833,6 @@
                             "examples": [
                               "18:00"
                             ]
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       }
@@ -21036,6 +21036,9 @@
                     "rule": {
                       "anyOf": [
                         {
+                          "type": "null"
+                        },
+                        {
                           "type": "object",
                           "required": [
                             "id",
@@ -21081,35 +21084,38 @@
                                 "dateFrom": {
                                   "anyOf": [
                                     {
+                                      "type": "null"
+                                    },
+                                    {
                                       "type": "string",
                                       "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                                       "description": "Local date in the event's timezone",
                                       "examples": [
                                         "2027-06-01"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "dateTo": {
                                   "anyOf": [
                                     {
+                                      "type": "null"
+                                    },
+                                    {
                                       "type": "string",
                                       "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                                       "description": "Local date in the event's timezone",
                                       "examples": [
                                         "2027-06-01"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "weekdays": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "array",
                                       "items": {
@@ -21121,14 +21127,14 @@
                                       "minItems": 1,
                                       "maxItems": 7,
                                       "description": "ISO weekdays, 1 = Monday"
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "startTimeFrom": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "string",
                                       "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -21136,14 +21142,14 @@
                                       "examples": [
                                         "18:00"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "startTimeTo": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "string",
                                       "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -21151,9 +21157,6 @@
                                       "examples": [
                                         "18:00"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 }
@@ -21317,9 +21320,6 @@
                               "format": "date-time"
                             }
                           }
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -21454,11 +21454,11 @@
                                         "ruleId": {
                                           "anyOf": [
                                             {
-                                              "type": "string",
-                                              "format": "uuid"
+                                              "type": "null"
                                             },
                                             {
-                                              "type": "null"
+                                              "type": "string",
+                                              "format": "uuid"
                                             }
                                           ]
                                         }
@@ -21498,11 +21498,11 @@
                                         "ruleId": {
                                           "anyOf": [
                                             {
-                                              "type": "string",
-                                              "format": "uuid"
+                                              "type": "null"
                                             },
                                             {
-                                              "type": "null"
+                                              "type": "string",
+                                              "format": "uuid"
                                             }
                                           ]
                                         }
@@ -21625,6 +21625,9 @@
                     "rule": {
                       "anyOf": [
                         {
+                          "type": "null"
+                        },
+                        {
                           "type": "object",
                           "required": [
                             "id",
@@ -21670,35 +21673,38 @@
                                 "dateFrom": {
                                   "anyOf": [
                                     {
+                                      "type": "null"
+                                    },
+                                    {
                                       "type": "string",
                                       "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                                       "description": "Local date in the event's timezone",
                                       "examples": [
                                         "2027-06-01"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "dateTo": {
                                   "anyOf": [
                                     {
+                                      "type": "null"
+                                    },
+                                    {
                                       "type": "string",
                                       "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                                       "description": "Local date in the event's timezone",
                                       "examples": [
                                         "2027-06-01"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "weekdays": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "array",
                                       "items": {
@@ -21710,14 +21716,14 @@
                                       "minItems": 1,
                                       "maxItems": 7,
                                       "description": "ISO weekdays, 1 = Monday"
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "startTimeFrom": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "string",
                                       "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -21725,14 +21731,14 @@
                                       "examples": [
                                         "18:00"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "startTimeTo": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "string",
                                       "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -21740,9 +21746,6 @@
                                       "examples": [
                                         "18:00"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 }
@@ -21906,9 +21909,6 @@
                               "format": "date-time"
                             }
                           }
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -22043,11 +22043,11 @@
                                         "ruleId": {
                                           "anyOf": [
                                             {
-                                              "type": "string",
-                                              "format": "uuid"
+                                              "type": "null"
                                             },
                                             {
-                                              "type": "null"
+                                              "type": "string",
+                                              "format": "uuid"
                                             }
                                           ]
                                         }
@@ -22087,11 +22087,11 @@
                                         "ruleId": {
                                           "anyOf": [
                                             {
-                                              "type": "string",
-                                              "format": "uuid"
+                                              "type": "null"
                                             },
                                             {
-                                              "type": "null"
+                                              "type": "string",
+                                              "format": "uuid"
                                             }
                                           ]
                                         }
@@ -22724,35 +22724,38 @@
                         "dateFrom": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "string",
                               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                               "description": "Local date in the event's timezone",
                               "examples": [
                                 "2027-06-01"
                               ]
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
                         "dateTo": {
                           "anyOf": [
                             {
+                              "type": "null"
+                            },
+                            {
                               "type": "string",
                               "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                               "description": "Local date in the event's timezone",
                               "examples": [
                                 "2027-06-01"
                               ]
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
                         "weekdays": {
                           "anyOf": [
+                            {
+                              "type": "null"
+                            },
                             {
                               "type": "array",
                               "items": {
@@ -22764,14 +22767,14 @@
                               "minItems": 1,
                               "maxItems": 7,
                               "description": "ISO weekdays, 1 = Monday"
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
                         "startTimeFrom": {
                           "anyOf": [
+                            {
+                              "type": "null"
+                            },
                             {
                               "type": "string",
                               "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -22779,14 +22782,14 @@
                               "examples": [
                                 "18:00"
                               ]
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
                         "startTimeTo": {
                           "anyOf": [
+                            {
+                              "type": "null"
+                            },
                             {
                               "type": "string",
                               "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -22794,9 +22797,6 @@
                               "examples": [
                                 "18:00"
                               ]
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         }
@@ -23222,35 +23222,38 @@
                       "dateFrom": {
                         "anyOf": [
                           {
+                            "type": "null"
+                          },
+                          {
                             "type": "string",
                             "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                             "description": "Local date in the event's timezone",
                             "examples": [
                               "2027-06-01"
                             ]
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
                       "dateTo": {
                         "anyOf": [
                           {
+                            "type": "null"
+                          },
+                          {
                             "type": "string",
                             "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                             "description": "Local date in the event's timezone",
                             "examples": [
                               "2027-06-01"
                             ]
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
                       "weekdays": {
                         "anyOf": [
+                          {
+                            "type": "null"
+                          },
                           {
                             "type": "array",
                             "items": {
@@ -23262,14 +23265,14 @@
                             "minItems": 1,
                             "maxItems": 7,
                             "description": "ISO weekdays, 1 = Monday"
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
                       "startTimeFrom": {
                         "anyOf": [
+                          {
+                            "type": "null"
+                          },
                           {
                             "type": "string",
                             "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -23277,14 +23280,14 @@
                             "examples": [
                               "18:00"
                             ]
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       },
                       "startTimeTo": {
                         "anyOf": [
+                          {
+                            "type": "null"
+                          },
                           {
                             "type": "string",
                             "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -23292,9 +23295,6 @@
                             "examples": [
                               "18:00"
                             ]
-                          },
-                          {
-                            "type": "null"
                           }
                         ]
                       }
@@ -23489,6 +23489,9 @@
                     "rule": {
                       "anyOf": [
                         {
+                          "type": "null"
+                        },
+                        {
                           "type": "object",
                           "required": [
                             "id",
@@ -23534,35 +23537,38 @@
                                 "dateFrom": {
                                   "anyOf": [
                                     {
+                                      "type": "null"
+                                    },
+                                    {
                                       "type": "string",
                                       "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                                       "description": "Local date in the event's timezone",
                                       "examples": [
                                         "2027-06-01"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "dateTo": {
                                   "anyOf": [
                                     {
+                                      "type": "null"
+                                    },
+                                    {
                                       "type": "string",
                                       "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                                       "description": "Local date in the event's timezone",
                                       "examples": [
                                         "2027-06-01"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "weekdays": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "array",
                                       "items": {
@@ -23574,14 +23580,14 @@
                                       "minItems": 1,
                                       "maxItems": 7,
                                       "description": "ISO weekdays, 1 = Monday"
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "startTimeFrom": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "string",
                                       "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -23589,14 +23595,14 @@
                                       "examples": [
                                         "18:00"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "startTimeTo": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "string",
                                       "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -23604,9 +23610,6 @@
                                       "examples": [
                                         "18:00"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 }
@@ -23770,9 +23773,6 @@
                               "format": "date-time"
                             }
                           }
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -23907,11 +23907,11 @@
                                         "ruleId": {
                                           "anyOf": [
                                             {
-                                              "type": "string",
-                                              "format": "uuid"
+                                              "type": "null"
                                             },
                                             {
-                                              "type": "null"
+                                              "type": "string",
+                                              "format": "uuid"
                                             }
                                           ]
                                         }
@@ -23951,11 +23951,11 @@
                                         "ruleId": {
                                           "anyOf": [
                                             {
-                                              "type": "string",
-                                              "format": "uuid"
+                                              "type": "null"
                                             },
                                             {
-                                              "type": "null"
+                                              "type": "string",
+                                              "format": "uuid"
                                             }
                                           ]
                                         }
@@ -24562,6 +24562,9 @@
                     "rule": {
                       "anyOf": [
                         {
+                          "type": "null"
+                        },
+                        {
                           "type": "object",
                           "required": [
                             "id",
@@ -24607,35 +24610,38 @@
                                 "dateFrom": {
                                   "anyOf": [
                                     {
+                                      "type": "null"
+                                    },
+                                    {
                                       "type": "string",
                                       "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                                       "description": "Local date in the event's timezone",
                                       "examples": [
                                         "2027-06-01"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "dateTo": {
                                   "anyOf": [
                                     {
+                                      "type": "null"
+                                    },
+                                    {
                                       "type": "string",
                                       "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                                       "description": "Local date in the event's timezone",
                                       "examples": [
                                         "2027-06-01"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "weekdays": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "array",
                                       "items": {
@@ -24647,14 +24653,14 @@
                                       "minItems": 1,
                                       "maxItems": 7,
                                       "description": "ISO weekdays, 1 = Monday"
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "startTimeFrom": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "string",
                                       "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -24662,14 +24668,14 @@
                                       "examples": [
                                         "18:00"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 },
                                 "startTimeTo": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "string",
                                       "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
@@ -24677,9 +24683,6 @@
                                       "examples": [
                                         "18:00"
                                       ]
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 }
@@ -24843,9 +24846,6 @@
                               "format": "date-time"
                             }
                           }
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -24980,11 +24980,11 @@
                                         "ruleId": {
                                           "anyOf": [
                                             {
-                                              "type": "string",
-                                              "format": "uuid"
+                                              "type": "null"
                                             },
                                             {
-                                              "type": "null"
+                                              "type": "string",
+                                              "format": "uuid"
                                             }
                                           ]
                                         }
@@ -25024,11 +25024,11 @@
                                         "ruleId": {
                                           "anyOf": [
                                             {
-                                              "type": "string",
-                                              "format": "uuid"
+                                              "type": "null"
                                             },
                                             {
-                                              "type": "null"
+                                              "type": "string",
+                                              "format": "uuid"
                                             }
                                           ]
                                         }
@@ -26025,6 +26025,9 @@
                     "series": {
                       "anyOf": [
                         {
+                          "type": "null"
+                        },
+                        {
                           "type": "object",
                           "required": [
                             "id",
@@ -26089,9 +26092,6 @@
                               "format": "date-time"
                             }
                           }
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -26146,21 +26146,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -26191,21 +26191,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -26242,21 +26242,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -26286,21 +26286,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -26354,6 +26354,9 @@
                     "series": {
                       "anyOf": [
                         {
+                          "type": "null"
+                        },
+                        {
                           "type": "object",
                           "required": [
                             "id",
@@ -26418,9 +26421,6 @@
                               "format": "date-time"
                             }
                           }
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -26475,21 +26475,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -26520,21 +26520,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -26571,21 +26571,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -26615,21 +26615,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -27533,6 +27533,9 @@
                     "series": {
                       "anyOf": [
                         {
+                          "type": "null"
+                        },
+                        {
                           "type": "object",
                           "required": [
                             "id",
@@ -27597,9 +27600,6 @@
                               "format": "date-time"
                             }
                           }
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -27654,21 +27654,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -27699,21 +27699,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -27750,21 +27750,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -27794,21 +27794,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -28383,21 +28383,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -28428,21 +28428,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -28479,21 +28479,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -28523,21 +28523,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -29128,6 +29128,9 @@
                     "series": {
                       "anyOf": [
                         {
+                          "type": "null"
+                        },
+                        {
                           "type": "object",
                           "required": [
                             "id",
@@ -29192,9 +29195,6 @@
                               "format": "date-time"
                             }
                           }
-                        },
-                        {
-                          "type": "null"
                         }
                       ]
                     },
@@ -29249,21 +29249,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -29294,21 +29294,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -29345,21 +29345,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -29389,21 +29389,21 @@
                               "occurrenceId": {
                                 "anyOf": [
                                   {
-                                    "type": "string",
-                                    "format": "uuid"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string",
+                                    "format": "uuid"
                                   }
                                 ]
                               },
                               "recurrenceIdLocal": {
                                 "anyOf": [
                                   {
-                                    "type": "string"
+                                    "type": "null"
                                   },
                                   {
-                                    "type": "null"
+                                    "type": "string"
                                   }
                                 ]
                               },
@@ -29963,11 +29963,11 @@
                           "revokedAt": {
                             "anyOf": [
                               {
-                                "type": "string",
-                                "format": "date-time"
+                                "type": "null"
                               },
                               {
-                                "type": "null"
+                                "type": "string",
+                                "format": "date-time"
                               }
                             ]
                           }
@@ -30304,11 +30304,11 @@
                     "revokedAt": {
                       "anyOf": [
                         {
-                          "type": "string",
-                          "format": "date-time"
+                          "type": "null"
                         },
                         {
-                          "type": "null"
+                          "type": "string",
+                          "format": "date-time"
                         }
                       ]
                     },
