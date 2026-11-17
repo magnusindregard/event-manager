@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, CalendarDays, CircleAlert, List, Pencil, Plus, Repeat, RotateCcw, SquarePen, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
+import { Ban, CalendarDays, CircleAlert, List, Pencil, Plus, Repeat, RotateCcw, SquarePen, Trash2, TriangleAlert, Undo2, Users, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type CatalogEvent, etagOf, isConflict, type Occurrence, type Series, unwrap } from "../api.js";
+import { ApiProblem, type CatalogEvent, etagOf, isConflict, type Occurrence, type Series, unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
 import { describeRule } from "../lib/recurrence.js";
 import { locationPath, useEventRules, useLocations, useTagLabels, useVocabularies } from "../queries.js";
@@ -30,6 +30,7 @@ import { EMPTY_FILTER, filterOccurrences, isFiltering, OccurrenceFilter, type Oc
 import { RuleEditor, type RuleEditorMode } from "./schedule/RuleEditor.js";
 import { OccurrenceCalendar } from "./schedule/OccurrenceCalendar.js";
 import { type EditorMode, RecurrenceEditor } from "./schedule/RecurrenceEditor.js";
+import { Registrations } from "./schedule/Registrations.js";
 
 type Draft = {
   occ: Occurrence | null;
@@ -63,6 +64,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
   const tagLabels = useTagLabels(useVocabularies().data);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [toDelete, setToDelete] = useState<Occurrence | null>(null);
+  const [registrationsOf, setRegistrationsOf] = useState<Occurrence | null>(null);
   const [conflict, setConflict] = useState(false);
   const [editor, setEditor] = useState<EditorMode | null>(null);
   const [seriesToDelete, setSeriesToDelete] = useState<Series | null>(null);
@@ -171,7 +173,12 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
       setToDelete(null);
       refresh();
     },
-    onError,
+    onError: (e: Error) => {
+      if (e instanceof ApiProblem && e.code === "conflict") {
+        setToDelete(null);
+        toast.error(t("registrations.deleteBlocked"));
+      } else onError(e);
+    },
   });
 
   const settle = useMutation({
@@ -329,6 +336,11 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         const label = fmt(o.startUtc);
         return (
           <div className="flex justify-end">
+            {registration && o.pool && (
+              <Button variant="ghost" size="icon" aria-label={t("registrations.openFor", { when: label })} onClick={() => setRegistrationsOf(o)}>
+                <Users />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" aria-label={`${t("common.edit")} ${label}`} disabled={archived} onClick={() => open(o)}>
               <Pencil />
             </Button>
@@ -442,6 +454,12 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         <OccurrenceCalendar occurrences={visible} timezone={event.timezone} title={eventTitleShort(event, i18n.language)} onSelect={(o) => !archived && open(o)} />
       )}
 
+      <Registrations
+        event={event}
+        occurrence={registrationsOf && (query.data?.find((o) => o.id === registrationsOf.id) ?? registrationsOf)}
+        label={registrationsOf ? fmt(registrationsOf.startUtc) : ""}
+        onClose={() => setRegistrationsOf(null)}
+      />
       <Sheet open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
         <SheetContent className="sm:max-w-md">
           {draft && (

@@ -21,6 +21,8 @@ export interface PublicAppDeps {
   logger?: FastifyServerOptions["logger"];
   rateLimit?: { capacity: number; refillPerSecond: number };
   corsOrigins?: string[] | "*";
+  /** Base URL of the hosted attendee pages; registration admissions link there. */
+  attendeeUrl?: string;
 }
 
 declare module "fastify" {
@@ -169,8 +171,8 @@ export async function buildPublicApp(deps: PublicAppDeps) {
     return payload;
   });
 
-  const read = <T>(req: FastifyRequest, fn: (tx: Tx, opts: { preview: boolean }) => Promise<T>) =>
-    withTenant(deps.db, { tenantId: req.publicAccess!.tenantId }, (tx) => fn(tx, { preview: req.publicAccess!.preview }));
+  const read = <T>(req: FastifyRequest, fn: (tx: Tx, opts: { preview: boolean; attendeeUrl?: string }) => Promise<T>) =>
+    withTenant(deps.db, { tenantId: req.publicAccess!.tenantId }, (tx) => fn(tx, { preview: req.publicAccess!.preview, attendeeUrl: deps.attendeeUrl }));
 
   await app.register(
     async (plain) => {

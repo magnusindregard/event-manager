@@ -9,7 +9,7 @@ import { startTestDatabase, type TestDatabase } from "../src/testing.js";
 
 type Ids = {
   tenantA: string; tenantB: string; user: string; event: string;
-  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string;
+  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string;
 };
 type Fixture = (c: pg.ClientBase, tenantId: string, ids: Ids) => Promise<void>;
 
@@ -63,9 +63,17 @@ const fixtures: Record<string, Fixture> = {
   "inventory.hold": (c, t, ids) =>
     c.query(`insert into inventory.hold (id, tenant_id, pool_id, quantity, expires_at) values ($1, $2, $3, 1, now() + interval '1 day')`,
       [randomUUID(), t, ids.pool]).then(() => {}),
+  "registration.registration": (c, t, ids) =>
+    c.query(`insert into registration.registration (id, tenant_id, event_id, occurrence_id, name, email, locale, party_size, status, source)
+              values ($1, $2, $3, $4, 'Kari', 'kari@example.com', 'nb', 1, 'confirmed', 'open')`, [ids.registration, t, ids.catalogEvent, ids.occurrence]).then(() => {}),
+  "registration.token_key": (c, t) =>
+    c.query(`insert into registration.token_key (tenant_id, key) values ($1, decode(repeat('ab', 32), 'hex'))`, [t]).then(() => {}),
+  "admission.admission": (c, t, ids) =>
+    c.query(`insert into admission.admission (id, tenant_id, registration_id, occurrence_id, party_size) values ($1, $2, $3, $4, 1)`,
+      [randomUUID(), t, ids.registration, ids.occurrence]).then(() => {}),
 };
 
-const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID() });
+const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID() });
 
 let db: TestDatabase;
 let admin: pg.Client;

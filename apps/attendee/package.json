@@ -1,0 +1,32 @@
+{
+  "name": "@event-manager/attendee",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx watch --conditions=@event-manager/source --env-file-if-exists=../../.env src/main.ts",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "openapi": "tsx --conditions=@event-manager/source src/cli/emit-openapi.ts ../../packages/sdk/openapi/attendee.json"
+  },
+  "dependencies": {
+    "@azure/monitor-opentelemetry": "^1.21.0",
+    "@event-manager/db": "workspace:*",
+    "@event-manager/domain": "workspace:*",
+    "@event-manager/schemas": "workspace:*",
+    "@fastify/formbody": "^8.0.2",
+    "@fastify/swagger": "^9.9.3",
+    "@fastify/type-provider-typebox": "^6.3.0",
+    "fastify": "^5.12.8",
+    "qrcode": "^1.5.4",
+    "typebox": "^1.4.7"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "^11.14.0",
+    "@types/pg": "^8.23.1",
+    "@types/qrcode": "^1.5.5",
+    "pg": "^8.23.1"
+  }
+}

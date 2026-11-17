@@ -1,5 +1,7 @@
-import { type EventStatus, type OccurrenceStatus, sql, type Tx } from "@event-manager/db";
+import { type AccessPolicy, type AdmissionMode, type EventStatus, type OccurrenceStatus, sql, type Tx } from "@event-manager/db";
+import * as inventory from "../inventory/index.js";
 import { getAccount } from "../tenancy/index.js";
+import { availabilityOf, type AvailabilityStatus } from "./availability.js";
 import { loadEffectiveValues } from "./resolve.js";
 
 // Read model for the public API (/public/v1). Only published and cancelled events are
@@ -10,6 +12,9 @@ export interface PublicReadOptions {
   /** Preview tokens also see drafts. */
   preview: boolean;
   locale?: string;
+  /** Base URL of the hosted attendee pages; registration links point there. */
+  attendeeUrl?: string;
+  now?: Date;
 }
 
 export interface PublicLocationRef {
@@ -39,7 +44,17 @@ export interface PublicEventSummary {
   externalRefs: Record<string, string>;
 }
 
-export type Admission = { mode: "external"; url: string } | { mode: "none" };
+export type Admission =
+  | { mode: "external"; url: string }
+  | { mode: "none" }
+  /** url: the hosted registration page; null for invite-only occurrences (guests use their personal links). */
+  | { mode: "registration"; url: string | null };
+
+export interface PublicAvailability {
+  status: AvailabilityStatus;
+  opensAt: string | null;
+  closesAt: string;
+}
 
 export interface PublicOccurrence {
   id: string;
@@ -51,10 +66,14 @@ export interface PublicOccurrence {
   location: PublicLocationRef | null;
   tags: PublicTag[];
   admission: Admission;
+  /** Registration occurrences only; null otherwise. */
+  availability: PublicAvailability | null;
   event: PublicEventSummary;
 }
 
 interface Ctx {
+  attendeeUrl: string | null;
+  now: Date;
   locale: string;
   defaultLocale: string;
   statuses: EventStatus[];
@@ -63,7 +82,7 @@ interface Ctx {
 async function context(tx: Tx, opts: PublicReadOptions): Promise<Ctx> {
   const account = await getAccount(tx);
   const locale = opts.locale && account.locales.includes(opts.locale) ? opts.locale : account.defaultLocale;
-  return { locale, defaultLocale: account.defaultLocale, statuses: opts.preview ? ["published", "cancelled", "draft"] : ["published", "cancelled"] };
+  return { attendeeUrl: opts.attendeeUrl?.replace(/\/+$/, "") ?? null, now: opts.now ?? new Date(), locale, defaultLocale: account.defaultLocale, statuses: opts.preview ? ["published", "cancelled", "draft"] : ["published", "cancelled"] };
 }
 
 type EventRow = { id: string; slug: string; status: EventStatus; timezone: string; external_refs: Record<string, string> };
@@ -150,7 +169,10 @@ export async function listPublicOccurrences(
   let q = tx
     .selectFrom("catalog.occurrence as o")
     .innerJoin("catalog.event as e", "e.id", "o.event_id")
-    .select(["o.id", "o.start_utc", "o.end_utc", "o.status as occ_status", "e.id as event_id", "e.slug", "e.status", "e.timezone", "e.external_refs"])
+    .select([
+      "o.id", "o.start_utc", "o.end_utc", "o.status as occ_status", "o.access_policy_override", "e.id as event_id", "e.slug", "e.status", "e.timezone", "e.external_refs",
+      "e.admission_mode", "e.access_policy", "e.registration_opens_min", "e.registration_closes_min",
+    ])
     .where("e.status", "in", c.statuses)
     .where(sql<boolean>`o.resolved_version = o.version`)
     .where("o.end_utc", ">", f.from)
@@ -199,6 +221,8 @@ export async function listPublicOccurrences(
 type OccRow = {
   id: string; start_utc: Date; end_utc: Date; occ_status: OccurrenceStatus; event_id: string;
   slug: string; status: EventStatus; timezone: string; external_refs: Record<string, string>;
+  access_policy_override: AccessPolicy | null; admission_mode: AdmissionMode; access_policy: AccessPolicy;
+  registration_opens_min: number | null; registration_closes_min: number;
 };
 
 async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<PublicOccurrence[]> {
@@ -209,23 +233,38 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
     if (typeof e.location?.value === "string") locIds.push(e.location.value);
     if (Array.isArray(e.tags?.value)) tagIds.push(...e.tags.value);
   }
-  const [events, locs, tags] = await Promise.all([
+  const registrationIds = rows.filter((r) => r.admission_mode === "registration").map((r) => r.id);
+  const [events, locs, tags, pools] = await Promise.all([
     eventSummaries(tx, c, rows.map((r) => ({ id: r.event_id, slug: r.slug, status: r.status, timezone: r.timezone, external_refs: r.external_refs }))),
     locationRefs(tx, locIds),
     tagRefs(tx, c, tagIds),
+    registrationIds.length ? inventory.listPools(tx, registrationIds) : Promise.resolve(new Map<string, inventory.Pool>()),
   ]);
   return rows.map((r) => {
     const e = eff.get(r.id) ?? {};
     const url = e.externalUrl?.value ?? null;
+    const status: OccurrenceStatus = r.status === "cancelled" ? "cancelled" : r.occ_status;
+    let admission: Admission = url ? { mode: "external", url } : { mode: "none" };
+    let availability: PublicAvailability | null = null;
+    if (r.admission_mode === "registration") {
+      const open = (r.access_policy_override ?? r.access_policy) === "open";
+      admission = { mode: "registration", url: open && c.attendeeUrl ? `${c.attendeeUrl}/r/${r.id}` : null };
+      const a = availabilityOf({
+        now: c.now, startUtc: r.start_utc, eventStatus: r.status, occurrenceStatus: status,
+        opensMinBefore: r.registration_opens_min, closesMinBefore: r.registration_closes_min, pool: pools.get(r.id) ?? null,
+      });
+      availability = { status: a.status, opensAt: a.opensAt?.toISOString() ?? null, closesAt: a.closesAt.toISOString() };
+    }
     return {
       id: r.id,
       startUtc: r.start_utc.toISOString(),
       endUtc: r.end_utc.toISOString(),
       timezone: r.timezone,
-      status: r.status === "cancelled" ? "cancelled" : r.occ_status,
+      status,
       location: typeof e.location?.value === "string" ? (locs.get(e.location.value) ?? null) : null,
       tags: (e.tags?.value ?? []).map((id) => tags.get(id)).filter((t): t is PublicTag => !!t),
-      admission: url ? { mode: "external", url } : { mode: "none" },
+      admission,
+      availability,
       event: events.get(r.event_id)!,
     };
   });

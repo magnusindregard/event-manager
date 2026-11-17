@@ -1,0 +1,286 @@
+import { newId, type RegistrationSource, type RegistrationStatus, sql, type Tx } from "@event-manager/db";
+import * as admission from "../admission/index.js";
+import * as catalog from "../catalog/index.js";
+import * as inventory from "../inventory/index.js";
+import { emit } from "../outbox/index.js";
+import { type ActorContext, DomainError } from "../shared/index.js";
+import { assertCan, getAccount, recordAudit } from "../tenancy/index.js";
+import { issueToken, peekToken, verifyToken } from "./tokens.js";
+
+// Registrations (docs/registration.md, milestone 2): open registration from the hosted
+// pages, and staff adding people by hand. A registration is confirmed at once and takes its
+// party size from the occurrence's pool with the conditional update (ADR 0003), so the last
+// place goes to exactly one person. Waitlist (milestone 5) and invitations (milestone 3)
+// build on the same rows.
+
+export interface Registration {
+  id: string;
+  eventId: string;
+  occurrenceId: string;
+  name: string;
+  email: string;
+  locale: string;
+  partySize: number;
+  status: RegistrationStatus;
+  source: RegistrationSource;
+  cancelledAt: Date | null;
+  cancelledBy: "attendee" | "staff" | null;
+  tokenVersion: number;
+  version: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Who acts: the attendee through a link or the open page, or staff in the admin. */
+export type Actor = { kind: "attendee" } | { kind: "staff"; ctx: ActorContext };
+
+export interface RegistrationInput {
+  name: string;
+  email: string;
+  /** One of the account's locales; falls back to the account default. */
+  locale?: string;
+  /** 1, or 2 with a guest. */
+  partySize?: number;
+}
+
+export interface RegistrationPatch {
+  name?: string;
+  partySize?: number;
+  locale?: string;
+}
+
+const columns = [
+  "id", "event_id", "occurrence_id", "name", "email", "locale", "party_size", "status", "source", "cancelled_at", "cancelled_by",
+  "token_version", "version", "created_at", "updated_at",
+] as const;
+type Row = {
+  id: string; event_id: string; occurrence_id: string; name: string; email: string; locale: string; party_size: number;
+  status: RegistrationStatus; source: RegistrationSource; cancelled_at: Date | null; cancelled_by: "attendee" | "staff" | null;
+  token_version: number; version: number; created_at: Date; updated_at: Date;
+};
+
+const toRegistration = (r: Row): Registration => ({
+  id: r.id, eventId: r.event_id, occurrenceId: r.occurrence_id, name: r.name, email: r.email, locale: r.locale, partySize: r.party_size,
+  status: r.status, source: r.source, cancelledAt: r.cancelled_at, cancelledBy: r.cancelled_by, tokenVersion: r.token_version,
+  version: r.version, createdAt: r.created_at, updatedAt: r.updated_at,
+});
+
+const invalid = (field: string, message: string) => new DomainError("validation_failed", message, { field });
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Pure: trims and checks a name and email. */
+export function normalizeContact(name: string, email: string): { name: string; email: string } {
+  const n = (name ?? "").replace(/\s+/g, " ").trim();
+  if (n.length < 1 || n.length > 200) throw invalid("name", "Enter a name (at most 200 characters)");
+  const e = (email ?? "").trim().toLowerCase();
+  if (e.length > 254 || !EMAIL_RE.test(e)) throw invalid("email", "Enter a valid email address");
+  return { name: n, email: e };
+}
+
+function assertPartySize(partySize: number, guestAllowed: boolean, actor: Actor) {
+  if (partySize !== 1 && partySize !== 2) throw invalid("partySize", "Party size is 1, or 2 with a guest");
+  // Staff may add a guest even where the event does not offer one.
+  if (partySize === 2 && !guestAllowed && actor.kind === "attendee") throw invalid("partySize", "This event does not take guests");
+}
+
+async function pickLocale(tx: Tx, locale: string | undefined): Promise<string> {
+  const account = await getAccount(tx);
+  return locale && account.locales.includes(locale) ? locale : account.defaultLocale;
+}
+
+const pgCode = (e: unknown) => (typeof e === "object" && e !== null && "code" in e ? String((e as { code: unknown }).code) : undefined);
+
+/**
+ * Whether the attendee may still change or cancel. Changes follow the registration window;
+ * cancelling is possible until the occurrence starts.
+ */
+export function attendeeRights(reg: Pick<Registration, "status">, target: catalog.RegistrationTarget, now: Date): { change: boolean; cancel: boolean } {
+  const active = reg.status !== "cancelled" && target.occurrence.status === "scheduled" && target.event.status === "published";
+  const { closesAt } = catalog.registrationWindow(target.occurrence.startUtc, target.event.opensMinBefore, target.event.closesMinBefore);
+  return { change: active && now < closesAt, cancel: active && now < target.occurrence.startUtc };
+}
+
+/** Registers for an occurrence. Throws full, registration_closed, already_registered or invitation_required. */
+export async function register(
+  tx: Tx, tenantId: string, occurrenceId: string, input: RegistrationInput, actor: Actor, now: Date = new Date(),
+): Promise<Registration> {
+  if (actor.kind === "staff") assertCan(actor.ctx, "registrations.write");
+  const target = await catalog.getRegistrationTarget(tx, occurrenceId);
+  if (target.event.admissionMode !== "registration" || !target.pool) throw new DomainError("conflict", "This occurrence does not take registrations", { occurrenceId });
+  if (actor.kind === "attendee") {
+    if (target.event.accessPolicy !== "open") throw new DomainError("invitation_required", "Registration is by invitation only");
+    if (catalog.targetAvailability(target, now).status === "closed") throw new DomainError("registration_closed", "Registration is closed");
+  } else if (target.occurrence.status === "cancelled" || target.event.status === "cancelled" || target.event.status === "archived") {
+    throw new DomainError("registration_closed", "The occurrence is cancelled");
+  }
+  const { name, email } = normalizeContact(input.name, input.email);
+  const partySize = input.partySize ?? 1;
+  assertPartySize(partySize, target.event.guestAllowed, actor);
+  const locale = await pickLocale(tx, input.locale);
+
+  const id = newId();
+  const source: RegistrationSource = actor.kind === "staff" ? "staff" : "open";
+  const row = await tx
+    .insertInto("registration.registration")
+    .values({ id, tenant_id: tenantId, event_id: target.event.id, occurrence_id: occurrenceId, name, email, locale, party_size: partySize, status: "confirmed", source })
+    .returning(columns)
+    .executeTakeFirstOrThrow()
+    .catch((e: unknown) => {
+      if (pgCode(e) === "23505") throw new DomainError("already_registered", "This email address is already registered for this occurrence");
+      throw e;
+    });
+  // Fails without changing anything if the places do not fit; the transaction then rolls back.
+  if (!(await inventory.takePlaces(tx, occurrenceId, partySize))) throw new DomainError("full", "There are no places left");
+  await admission.issueAdmission(tx, tenantId, id, occurrenceId, partySize);
+  await catalog.detachForRegistrations(tx, occurrenceId);
+  await emit(tx, tenantId, {
+    type: "registration.confirmed.v1", subject: `registration/${id}`,
+    data: { registrationId: id, occurrenceId, eventId: target.event.id, status: "confirmed", partySize, source },
+  });
+  if (actor.kind === "staff") {
+    await recordAudit(tx, actor.ctx, { action: "registration.created", entityType: "event", entityId: target.event.id, diff: { registrationId: id, occurrenceId, partySize } });
+  }
+  return toRegistration(row);
+}
+
+async function locked(tx: Tx, id: string): Promise<Registration> {
+  const row = await tx.selectFrom("registration.registration").select(columns).where("id", "=", id).forUpdate().executeTakeFirst();
+  if (!row) throw new DomainError("not_found", "Registration not found");
+  return toRegistration(row);
+}
+
+/** Changes name, locale or party size. Adding the guest needs a free place. */
+export async function updateRegistration(
+  tx: Tx, tenantId: string, id: string, patch: RegistrationPatch, actor: Actor, opts: { expectedVersion?: number; now?: Date } = {},
+): Promise<Registration> {
+  if (actor.kind === "staff") assertCan(actor.ctx, "registrations.write");
+  const now = opts.now ?? new Date();
+  const before = await locked(tx, id);
+  if (opts.expectedVersion !== undefined && opts.expectedVersion !== before.version) {
+    throw new DomainError("version_conflict", "Registration was changed by someone else", { currentVersion: before.version });
+  }
+  if (before.status === "cancelled") throw new DomainError("conflict", "The registration is cancelled");
+  const target = await catalog.getRegistrationTarget(tx, before.occurrenceId);
+  if (actor.kind === "attendee" && !attendeeRights(before, target, now).change) throw new DomainError("registration_closed", "Registration can no longer be changed");
+
+  const name = patch.name !== undefined ? normalizeContact(patch.name, before.email).name : before.name;
+  const partySize = patch.partySize ?? before.partySize;
+  if (partySize !== before.partySize) assertPartySize(partySize, target.event.guestAllowed, actor);
+  const locale = patch.locale !== undefined ? await pickLocale(tx, patch.locale) : before.locale;
+  const changed = [
+    ...(name !== before.name ? ["name"] : []),
+    ...(partySize !== before.partySize ? ["partySize"] : []),
+    ...(locale !== before.locale ? ["locale"] : []),
+  ];
+  if (changed.length === 0) return before;
+
+  const delta = partySize - before.partySize;
+  if (delta > 0 && !(await inventory.takePlaces(tx, before.occurrenceId, delta))) throw new DomainError("full", "There is no place left for a guest");
+  if (delta < 0) await inventory.releasePlaces(tx, before.occurrenceId, -delta);
+  const row = await tx
+    .updateTable("registration.registration")
+    .set({ name, party_size: partySize, locale, version: sql<number>`version + 1` })
+    .where("id", "=", id)
+    .returning(columns)
+    .executeTakeFirstOrThrow();
+  if (delta !== 0) await admission.setAdmissionPartySize(tx, id, partySize);
+  await emit(tx, tenantId, {
+    type: "registration.changed.v1", subject: `registration/${id}`,
+    data: { registrationId: id, occurrenceId: before.occurrenceId, eventId: before.eventId, status: row.status, partySize, changed },
+  });
+  if (actor.kind === "staff") {
+    await recordAudit(tx, actor.ctx, { action: "registration.updated", entityType: "event", entityId: before.eventId, diff: { registrationId: id, changed, partySize } });
+  }
+  return toRegistration(row);
+}
+
+/** Cancels and gives the places back. Cancelling twice is a no-op. */
+export async function cancelRegistration(tx: Tx, tenantId: string, id: string, actor: Actor, now: Date = new Date()): Promise<Registration> {
+  if (actor.kind === "staff") assertCan(actor.ctx, "registrations.write");
+  const before = await locked(tx, id);
+  if (before.status === "cancelled") return before;
+  if (actor.kind === "attendee") {
+    const target = await catalog.getRegistrationTarget(tx, before.occurrenceId);
+    if (!attendeeRights(before, target, now).cancel) throw new DomainError("registration_closed", "The registration can no longer be cancelled");
+  }
+  const row = await tx
+    .updateTable("registration.registration")
+    .set({ status: "cancelled", cancelled_at: now, cancelled_by: actor.kind, version: sql<number>`version + 1` })
+    .where("id", "=", id)
+    .returning(columns)
+    .executeTakeFirstOrThrow();
+  // Only confirmed registrations hold places (waitlisted ones arrive in milestone 5).
+  if (before.status === "confirmed") await inventory.releasePlaces(tx, before.occurrenceId, before.partySize);
+  await admission.voidAdmission(tx, id);
+  await emit(tx, tenantId, {
+    type: "registration.cancelled.v1", subject: `registration/${id}`,
+    data: { registrationId: id, occurrenceId: before.occurrenceId, eventId: before.eventId, status: "cancelled", partySize: before.partySize, by: actor.kind },
+  });
+  if (actor.kind === "staff") {
+    await recordAudit(tx, actor.ctx, { action: "registration.cancelled", entityType: "event", entityId: before.eventId, diff: { registrationId: id, occurrenceId: before.occurrenceId } });
+  }
+  return toRegistration(row);
+}
+
+export async function getRegistration(tx: Tx, id: string): Promise<Registration> {
+  const row = await tx.selectFrom("registration.registration").select(columns).where("id", "=", id).executeTakeFirst();
+  if (!row) throw new DomainError("not_found", "Registration not found");
+  return toRegistration(row);
+}
+
+export interface RegistrationFilter {
+  status?: RegistrationStatus[];
+}
+
+/** Staff: the registrations of one occurrence, oldest first. */
+export async function listRegistrations(tx: Tx, ctx: ActorContext, occurrenceId: string, f: RegistrationFilter = {}): Promise<Registration[]> {
+  assertCan(ctx, "registrations.read");
+  let q = tx.selectFrom("registration.registration").select(columns).where("occurrence_id", "=", occurrenceId).orderBy("created_at").orderBy("id");
+  if (f.status?.length) q = q.where("status", "in", f.status);
+  return (await q.execute()).map(toRegistration);
+}
+
+// ── Attendee links ─────────────────────────────────────────────────────────────
+
+/** The tenant a token claims; open its transaction, then call registrationByToken. */
+export const tokenTenant = (token: string): string | null => peekToken(token)?.tenantId ?? null;
+
+export const manageToken = (tx: Tx, tenantId: string, reg: Pick<Registration, "id" | "tokenVersion">) => issueToken(tx, tenantId, "manage", reg.id, reg.tokenVersion);
+
+/** The admission QR code's token; null while the registration has no valid admission. */
+export async function admissionToken(tx: Tx, tenantId: string, reg: Pick<Registration, "id" | "tokenVersion">): Promise<string | null> {
+  const a = await admission.admissionFor(tx, reg.id);
+  return a && a.status === "valid" ? issueToken(tx, tenantId, "admission", a.id, reg.tokenVersion) : null;
+}
+
+/** The registration a manage link points to, or null for a forged, rotated or foreign token. */
+export async function registrationByToken(tx: Tx, token: string): Promise<Registration | null> {
+  const claims = await verifyToken(tx, token, "manage");
+  if (!claims) return null;
+  const row = await tx.selectFrom("registration.registration").select(columns).where("id", "=", claims.subjectId).executeTakeFirst();
+  return row && row.token_version === claims.tokenVersion ? toRegistration(row) : null;
+}
+
+/**
+ * Finds the tenant of an occurrence for the open registration page, which only knows the
+ * occurrence id. Runs without a tenant (SECURITY DEFINER lookup); null unless the occurrence
+ * belongs to a published or cancelled registration event.
+ */
+export async function occurrenceTenant(tx: Tx, occurrenceId: string): Promise<string | null> {
+  const r = await sql<{ t: string | null }>`select registration.occurrence_tenant(${occurrenceId}::uuid) as t`.execute(tx);
+  return r.rows[0]?.t ?? null;
+}
+
+/** Everything a registration email needs, in one read. */
+export interface RegistrationMessage {
+  registration: Registration;
+  target: catalog.RegistrationTarget;
+  account: { name: string; defaultLocale: string };
+}
+
+export async function loadMessage(tx: Tx, id: string): Promise<RegistrationMessage | null> {
+  const row = await tx.selectFrom("registration.registration").select(columns).where("id", "=", id).executeTakeFirst();
+  if (!row) return null;
+  const [target, account] = await Promise.all([catalog.getRegistrationTarget(tx, row.occurrence_id), getAccount(tx)]);
+  return { registration: toRegistration(row), target, account: { name: account.name, defaultLocale: account.defaultLocale } };
+}

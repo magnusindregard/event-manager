@@ -165,6 +165,7 @@
                           "location",
                           "tags",
                           "admission",
+                          "availability",
                           "event"
                         ],
                         "properties": {
@@ -324,9 +325,98 @@
                                     ]
                                   }
                                 }
+                              },
+                              {
+                                "type": "object",
+                                "required": [
+                                  "mode",
+                                  "url"
+                                ],
+                                "properties": {
+                                  "mode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "registration"
+                                    ]
+                                  },
+                                  "url": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "description": "Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                }
                               }
                             ],
                             "description": "How to get in. More modes (registration, tickets) are added later without changing these."
+                          },
+                          "availability": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": [
+                                  "status",
+                                  "opensAt",
+                                  "closesAt"
+                                ],
+                                "properties": {
+                                  "status": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "available"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "few_left"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "full"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "closed"
+                                        ]
+                                      }
+                                    ],
+                                    "description": "closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added"
+                                  },
+                                  "opensAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "description": "Null: open as soon as the event is published"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "closesAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  }
+                                },
+                                "description": "Places for registration occurrences, without exact numbers. Null for other admission modes"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
                           "event": {
                             "type": "object",
@@ -1246,7 +1336,8 @@
                               "status",
                               "location",
                               "tags",
-                              "admission"
+                              "admission",
+                              "availability"
                             ],
                             "properties": {
                               "id": {
@@ -1405,9 +1496,98 @@
                                         ]
                                       }
                                     }
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "mode",
+                                      "url"
+                                    ],
+                                    "properties": {
+                                      "mode": {
+                                        "type": "string",
+                                        "enum": [
+                                          "registration"
+                                        ]
+                                      },
+                                      "url": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "description": "Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      }
+                                    }
                                   }
                                 ],
                                 "description": "How to get in. More modes (registration, tickets) are added later without changing these."
+                              },
+                              "availability": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "status",
+                                      "opensAt",
+                                      "closesAt"
+                                    ],
+                                    "properties": {
+                                      "status": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "available"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "few_left"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "full"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "closed"
+                                            ]
+                                          }
+                                        ],
+                                        "description": "closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added"
+                                      },
+                                      "opensAt": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "format": "date-time",
+                                            "description": "Null: open as soon as the event is published"
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ]
+                                      },
+                                      "closesAt": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                      }
+                                    },
+                                    "description": "Places for registration occurrences, without exact numbers. Null for other admission modes"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             }
                           }

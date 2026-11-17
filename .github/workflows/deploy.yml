@@ -30,7 +30,7 @@ jobs:
     environment: staging
     strategy:
       matrix:
-        app: [api, public-api, worker, db]
+        app: [api, public-api, attendee, worker, db]
     steps:
       - uses: actions/checkout@v4
       - uses: azure/login@v2
@@ -86,7 +86,7 @@ jobs:
       # The prod deploy identity needs AcrPull on the staging registry.
       - name: Copy images from staging registry
         run: |
-          for app in api public-api worker db; do
+          for app in api public-api attendee worker db; do
             az acr import --name "${{ vars.ACR_NAME }}" --force \
               --source "${{ vars.STAGING_ACR_NAME }}.azurecr.io/event-manager/$app:${{ inputs.image_tag }}" \
               --image "event-manager/$app:${{ inputs.image_tag }}"

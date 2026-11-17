@@ -151,7 +151,18 @@ export interface operations {
                             } | {
                                 /** @enum {string} */
                                 mode: "none";
+                            } | {
+                                /** @enum {string} */
+                                mode: "registration";
+                                url: string | null;
                             };
+                            availability: {
+                                /** @description closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added */
+                                status: "available" | "few_left" | "full" | "closed";
+                                opensAt: string | null;
+                                /** Format: date-time */
+                                closesAt: string;
+                            } | null;
                             event: {
                                 /** Format: uuid */
                                 id: string;
@@ -462,7 +473,18 @@ export interface operations {
                                 } | {
                                     /** @enum {string} */
                                     mode: "none";
+                                } | {
+                                    /** @enum {string} */
+                                    mode: "registration";
+                                    url: string | null;
                                 };
+                                availability: {
+                                    /** @description closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added */
+                                    status: "available" | "few_left" | "full" | "closed";
+                                    opensAt: string | null;
+                                    /** Format: date-time */
+                                    closesAt: string;
+                                } | null;
                             }[];
                         };
                     };

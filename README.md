@@ -4,7 +4,7 @@ Event management, registration (RSVP) and ticketing platform: events and recurri
 
 - Roadmap: epics in [issues](https://github.com/magnusindregard/event-manager/issues?q=label%3Aepic)
 - MVP scope: [docs/mvp.md](docs/mvp.md)
-- Next: guest invitations and RSVP (draft): [docs/registration.md](docs/registration.md)
+- Registration (guest invitations and RSVP), in progress: [docs/registration.md](docs/registration.md)
 - Backlog (unscheduled features): [docs/backlog.md](docs/backlog.md)
 - Architecture decisions: [docs/adr](docs/adr/README.md)
 - Implementation plan: [docs/implementation-plan.md](docs/implementation-plan.md)
@@ -20,7 +20,7 @@ cp .env.example .env
 pnpm db:up            # Postgres 16 with local roles (docker compose)
 pnpm db:migrate
 pnpm create-account --slug demo --name "Demo Museum" --owner-email you@example.com
-pnpm dev              # api :3000, public-api :3001, worker, admin :5173 (sign in with the email above)
+pnpm dev              # api :3000, public-api :3001, attendee :3020, worker, admin :5173 (sign in with the email above)
 ```
 
 Locally the admin signs dev tokens (`VITE_AUTH_MODE=dev`); in Azure it uses Entra External ID.
@@ -35,7 +35,7 @@ curl "http://localhost:3001/public/v1/occurrences?key=pk_…&locale=en"
 
 | Public endpoint | |
 |---|---|
-| `GET /public/v1/occurrences` | Occurrences in start order with event, effective location, tags and `admission` link. Filters: `from`, `to`, `event`, `location`, `tag`, `status`, `locale`, `cursor` |
+| `GET /public/v1/occurrences` | Occurrences in start order with event, effective location, tags, `admission` (external link, or the hosted registration page) and `availability` for registration events. Filters: `from`, `to`, `event`, `location`, `tag`, `status`, `locale`, `cursor` |
 | `GET /public/v1/events` | Published and cancelled events |
 | `GET /public/v1/events/{idOrSlug}` | One event with its occurrences in a window |
 | `GET /public/v1/locations` | Venues with their spaces |
@@ -55,10 +55,11 @@ The publishable key goes in `?key=` (the edge cache keys on the query string); a
 ```
 apps/api          core API (/v1), Fastify
 apps/public-api   /public/v1, read-only, edge-cached
-apps/worker       graphile-worker: outbox dispatch, invitation provisioning, rule resolution, series horizon
+apps/attendee     hosted attendee pages (/r, /m) and the attendee API (/attendee/v1)
+apps/worker       graphile-worker: outbox dispatch, invitation provisioning, rule resolution, series horizon, registration emails
 apps/admin        React + shadcn/ui admin
 packages/db       Kysely, migrations, roles and RLS, withTenant
-packages/domain   modules: tenancy, catalog, rules, outbox
+packages/domain   modules: tenancy, catalog, rules, inventory, registration, admission, outbox
 packages/schemas  TypeBox schemas → OpenAPI
 packages/sdk      generated TypeScript client
 infra/            Bicep

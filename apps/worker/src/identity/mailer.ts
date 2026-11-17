@@ -1,16 +1,43 @@
 /** Transactional email (ADR 0010: Postmark). */
+export interface MailAttachment {
+  name: string;
+  contentType: string;
+  /** Base64. */
+  content: string;
+  /** Set to show the attachment inline: <img src="cid:{contentId}">. */
+  contentId?: string;
+}
+
+export interface Mail {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  attachments?: MailAttachment[];
+}
+
 export interface Mailer {
-  send(msg: { to: string; subject: string; text: string }): Promise<void>;
+  send(msg: Mail): Promise<void>;
 }
 
 export class PostmarkMailer implements Mailer {
   constructor(private readonly cfg: { token: string; from: string; stream?: string }) {}
 
-  async send(msg: { to: string; subject: string; text: string }): Promise<void> {
+  async send(msg: Mail): Promise<void> {
     const res = await fetch("https://api.postmarkapp.com/email", {
       method: "POST",
       headers: { accept: "application/json", "content-type": "application/json", "X-Postmark-Server-Token": this.cfg.token },
-      body: JSON.stringify({ From: this.cfg.from, To: msg.to, Subject: msg.subject, TextBody: msg.text, MessageStream: this.cfg.stream ?? "outbound" }),
+      body: JSON.stringify({
+        From: this.cfg.from,
+        To: msg.to,
+        Subject: msg.subject,
+        TextBody: msg.text,
+        ...(msg.html ? { HtmlBody: msg.html } : {}),
+        ...(msg.attachments?.length
+          ? { Attachments: msg.attachments.map((a) => ({ Name: a.name, Content: a.content, ContentType: a.contentType, ...(a.contentId ? { ContentID: `cid:${a.contentId}` } : {}) })) }
+          : {}),
+        MessageStream: this.cfg.stream ?? "outbound",
+      }),
     });
     if (!res.ok) throw new Error(`Postmark → ${res.status}: ${(await res.text()).slice(0, 300)}`);
   }
@@ -18,10 +45,10 @@ export class PostmarkMailer implements Mailer {
 
 /** Collects messages instead of sending them; logs a line so local runs show what would go out. */
 export class FakeMailer implements Mailer {
-  readonly sent: { to: string; subject: string; text: string }[] = [];
+  readonly sent: Mail[] = [];
   constructor(private readonly log: (line: string) => void = () => {}) {}
 
-  async send(msg: { to: string; subject: string; text: string }): Promise<void> {
+  async send(msg: Mail): Promise<void> {
     this.sent.push(msg);
     this.log(`[fake mail] to=${msg.to} subject=${JSON.stringify(msg.subject)}`);
   }

@@ -182,6 +182,88 @@
         "dev"
       ],
       "port": 3002
+    },
+    {
+      "name": "attendee",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@event-manager/attendee",
+        "dev"
+      ],
+      "port": 3020
+    },
+    {
+      "name": "attendee-r2",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3020",
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_r2",
+        "pnpm",
+        "--filter",
+        "@event-manager/attendee",
+        "dev"
+      ],
+      "port": 3020
+    },
+    {
+      "name": "api-r2",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3030",
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_r2",
+        "CORS_ORIGINS=http://localhost:5185",
+        "pnpm",
+        "--filter",
+        "@event-manager/api",
+        "dev"
+      ],
+      "port": 3030
+    },
+    {
+      "name": "public-api-r2",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3031",
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_r2",
+        "ATTENDEE_URL=http://localhost:3020",
+        "pnpm",
+        "--filter",
+        "@event-manager/public-api",
+        "dev"
+      ],
+      "port": 3031
+    },
+    {
+      "name": "worker-r2",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_r2",
+        "ATTENDEE_URL=http://localhost:3020",
+        "pnpm",
+        "--filter",
+        "@event-manager/worker",
+        "dev"
+      ],
+      "port": 3997
+    },
+    {
+      "name": "admin-r2",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_AUTH_MODE=dev",
+        "VITE_API_BASE_URL=http://localhost:3030",
+        "VITE_ATTENDEE_URL=http://localhost:3020",
+        "pnpm",
+        "--filter",
+        "@event-manager/admin",
+        "exec",
+        "vite",
+        "--port",
+        "5185",
+        "--strictPort"
+      ],
+      "port": 5185
     }
   ]
 }

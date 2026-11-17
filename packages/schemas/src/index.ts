@@ -125,3 +125,5 @@ export const AuditEntry = Type.Object(
 
 export * from "./catalog.js";
 export * from "./public.js";
+export * from "./attendee.js";
+export * from "./registration.js";

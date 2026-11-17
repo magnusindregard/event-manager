@@ -62,3 +62,19 @@ export function createPublicClient(opts: PublicClientOptions) {
 }
 
 export type PublicClient = ReturnType<typeof createPublicClient>;
+
+import type { paths as attendeePaths, components as attendeeComponents } from "./attendee.js";
+export type { attendeePaths, attendeeComponents };
+export type AttendeeSchemas = attendeeComponents["schemas"];
+
+/** Typed client for the attendee API (/attendee/v1). Pass the manage token for /registration. */
+export function createAttendeeClient(opts: { baseUrl: string; manageToken?: string }) {
+  const client = createClient<attendeePaths>({ baseUrl: opts.baseUrl });
+  if (opts.manageToken) {
+    const token = opts.manageToken;
+    client.use({ onRequest({ request }) { request.headers.set("authorization", `Bearer ${token}`); return request; } });
+  }
+  return client;
+}
+
+export type AttendeeClient = ReturnType<typeof createAttendeeClient>;

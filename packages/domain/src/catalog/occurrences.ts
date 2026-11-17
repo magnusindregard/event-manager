@@ -5,7 +5,7 @@ import { assertCan, diffFields, recordAudit } from "../tenancy/index.js";
 import { assertUsableLocation } from "./locations.js";
 import * as inventory from "../inventory/index.js";
 import { type EffectiveValues, loadEffectiveValues, resolveEventOccurrences } from "./resolve.js";
-import { assertUrl, invalid, notFound, versionConflict } from "./shared.js";
+import { assertUrl, invalid, notFound, pgCode, versionConflict } from "./shared.js";
 import { isSlot, slotAt } from "./recurrence.js";
 import { assertUsableTags } from "./tags.js";
 
@@ -275,7 +275,11 @@ export async function bulkUpdateOccurrences(
 export async function deleteOccurrence(tx: Tx, ctx: ActorContext, id: string, expectedVersion: number): Promise<void> {
   assertCan(ctx, "content.write");
   const before = await getOccurrence(tx, id);
-  const res = await tx.deleteFrom("catalog.occurrence").where("id", "=", id).where("version", "=", expectedVersion).executeTakeFirst();
+  // Registrations reference the occurrence without cascade (foreign key violation 23503).
+  const res = await tx.deleteFrom("catalog.occurrence").where("id", "=", id).where("version", "=", expectedVersion).executeTakeFirst().catch((e: unknown) => {
+    if (pgCode(e) === "23503") throw new DomainError("conflict", "The occurrence has registrations; cancel it instead", { occurrenceId: id });
+    throw e;
+  });
   if (!res.numDeletedRows) throw versionConflict("Occurrence", before.version);
   if (before.seriesId && before.recurrenceIdLocal) {
     await tx

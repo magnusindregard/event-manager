@@ -1,6 +1,7 @@
 import { FakeDirectory, GraphDirectory, type IdentityDirectory } from "./identity/directory.js";
 import { FakeMailer, type Mailer, PostmarkMailer } from "./identity/mailer.js";
 import type { ProvisionDeps } from "./provision.js";
+import type { RegistrationEmailDeps } from "./registration-email.js";
 
 /**
  * Picks real or fake integrations from the environment. Fakes are the default, so a local
@@ -8,8 +9,9 @@ import type { ProvisionDeps } from "./provision.js";
  *   IDENTITY_DIRECTORY=graph  GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_TENANT_DOMAIN, [GRAPH_CLIENT_SECRET]
  *   MAILER=postmark           POSTMARK_TOKEN, MAIL_FROM
  *   ADMIN_URL                 where invitees sign in
+ *   ATTENDEE_URL              base of the hosted attendee pages (links in registration emails)
  */
-export function provisionDepsFromEnv(env: NodeJS.ProcessEnv, log: (line: string) => void): ProvisionDeps {
+export function provisionDepsFromEnv(env: NodeJS.ProcessEnv, log: (line: string) => void, mailer: Mailer = mailerFromEnv(env, log)): ProvisionDeps {
   let directory: IdentityDirectory;
   if (env.IDENTITY_DIRECTORY === "graph") {
     const { GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_TENANT_DOMAIN } = env;
@@ -26,12 +28,19 @@ export function provisionDepsFromEnv(env: NodeJS.ProcessEnv, log: (line: string)
     log("identity directory: fake (set IDENTITY_DIRECTORY=graph to provision Entra identities)");
   }
 
-  let mailer: Mailer;
+  return { directory, mailer, adminUrl: env.ADMIN_URL ?? "http://localhost:5173/" };
+}
+
+/** MAILER=postmark with POSTMARK_TOKEN and MAIL_FROM sends for real; otherwise a fake that logs. */
+export function mailerFromEnv(env: NodeJS.ProcessEnv, log: (line: string) => void): Mailer {
   if (env.MAILER === "postmark") {
     if (!env.POSTMARK_TOKEN || !env.MAIL_FROM) throw new Error("POSTMARK_TOKEN and MAIL_FROM are required");
-    mailer = new PostmarkMailer({ token: env.POSTMARK_TOKEN, from: env.MAIL_FROM });
-  } else {
-    mailer = new FakeMailer(log);
+    return new PostmarkMailer({ token: env.POSTMARK_TOKEN, from: env.MAIL_FROM });
   }
-  return { directory, mailer, adminUrl: env.ADMIN_URL ?? "http://localhost:5173/" };
+  return new FakeMailer(log);
+}
+
+/** ATTENDEE_URL: base of the hosted attendee pages, for the links in registration emails. */
+export function registrationEmailDepsFromEnv(env: NodeJS.ProcessEnv, mailer: Mailer): RegistrationEmailDeps {
+  return { mailer, attendeeUrl: env.ATTENDEE_URL ?? "http://localhost:3020" };
 }

@@ -191,5 +191,6 @@ output adminOrigin string = deployApps && deployFrontDoor ? 'https://${edge!.out
 output frontDoorHost string = deployApps && deployFrontDoor ? edge!.outputs.endpointHost : ''
 output apiHost string = deployApps ? apps!.outputs.apiFqdn : ''
 output publicApiHost string = deployApps ? apps!.outputs.publicApiFqdn : ''
+output attendeeHost string = deployApps ? apps!.outputs.attendeeFqdn : ''
 output migrateJobName string = deployApps ? apps!.outputs.migrateJobName : ''
 output appInsightsConnectionString string = appInsights.properties.ConnectionString
