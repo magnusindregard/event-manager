@@ -14,7 +14,7 @@ const TAG_3 = "0190a000-0000-7000-8000-000000000003";
 const rule = (id: string, over: Partial<rules.RuleDef> = {}): rules.RuleDef => ({
   id, name: id, priority: 0, active: true, conditions: any, effects: [{ type: "location", targetRef: null, value: LOC_A }], ...over,
 });
-const defaults: rules.FieldValues = { location: LOC_B, tags: [TAG_1], externalUrl: "https://tickets.test/default" };
+const defaults: rules.FieldValues = { location: LOC_B, tags: [TAG_1], externalUrl: "https://tickets.test/default", capacity: null, overbooking: 0 };
 
 describe("matching", () => {
   it("checks dates inclusively, weekdays and the start-time window", () => {

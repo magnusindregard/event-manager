@@ -3477,8 +3477,27 @@ export interface operations {
                             timezone: string;
                             defaultLocationId: string | null;
                             defaultDurationMin: number;
-                            admissionMode: "none" | "external";
+                            admissionMode: "none" | "external" | "registration";
                             externalUrl: string | null;
+                            /** @description Used when admissionMode is registration */
+                            registration: {
+                                accessPolicy: "open" | "invite_only";
+                                /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                                listed: boolean;
+                                capacity: number | null;
+                                /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                                overbookingPct: number;
+                                /** @description Offer "I will bring a guest" */
+                                guestAllowed: boolean;
+                                opensMinBefore: number | null;
+                                /** @description Registration closes this many minutes before each occurrence */
+                                closesMinBefore: number;
+                                waitlistEnabled: boolean;
+                                /** @description How long a waitlist offer can be claimed */
+                                claimWindowMin: number;
+                                /** @description No waitlist offers this many minutes before start */
+                                waitlistCutoffMin: number;
+                            };
                             externalRefs: {
                                 [key: string]: string;
                             };
@@ -3615,8 +3634,26 @@ export interface operations {
                     timezone?: string;
                     defaultLocationId?: string | null;
                     defaultDurationMin?: number;
-                    admissionMode?: "none" | "external";
+                    admissionMode?: "none" | "external" | "registration";
                     externalUrl?: string | null;
+                    registration?: {
+                        accessPolicy?: "open" | "invite_only";
+                        /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                        listed?: boolean;
+                        capacity?: number | null;
+                        /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                        overbookingPct?: number;
+                        /** @description Offer "I will bring a guest" */
+                        guestAllowed?: boolean;
+                        opensMinBefore?: number | null;
+                        /** @description Registration closes this many minutes before each occurrence */
+                        closesMinBefore?: number;
+                        waitlistEnabled?: boolean;
+                        /** @description How long a waitlist offer can be claimed */
+                        claimWindowMin?: number;
+                        /** @description No waitlist offers this many minutes before start */
+                        waitlistCutoffMin?: number;
+                    };
                     /** @description Links to documents in other systems, e.g. { "sanity": "event-123" } */
                     externalRefs?: {
                         [key: string]: string;
@@ -3648,8 +3685,27 @@ export interface operations {
                         timezone: string;
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
+                        admissionMode: "none" | "external" | "registration";
                         externalUrl: string | null;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: number | null;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: number | null;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
@@ -3881,8 +3937,27 @@ export interface operations {
                         timezone: string;
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
+                        admissionMode: "none" | "external" | "registration";
                         externalUrl: string | null;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: number | null;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: number | null;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
@@ -4014,8 +4089,26 @@ export interface operations {
                     timezone?: string;
                     defaultLocationId?: string | null;
                     defaultDurationMin?: number;
-                    admissionMode?: "none" | "external";
+                    admissionMode?: "none" | "external" | "registration";
                     externalUrl?: string | null;
+                    registration?: {
+                        accessPolicy?: "open" | "invite_only";
+                        /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                        listed?: boolean;
+                        capacity?: number | null;
+                        /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                        overbookingPct?: number;
+                        /** @description Offer "I will bring a guest" */
+                        guestAllowed?: boolean;
+                        opensMinBefore?: number | null;
+                        /** @description Registration closes this many minutes before each occurrence */
+                        closesMinBefore?: number;
+                        waitlistEnabled?: boolean;
+                        /** @description How long a waitlist offer can be claimed */
+                        claimWindowMin?: number;
+                        /** @description No waitlist offers this many minutes before start */
+                        waitlistCutoffMin?: number;
+                    };
                     /** @description Links to documents in other systems, e.g. { "sanity": "event-123" } */
                     externalRefs?: {
                         [key: string]: string;
@@ -4048,8 +4141,27 @@ export interface operations {
                         timezone: string;
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
+                        admissionMode: "none" | "external" | "registration";
                         externalUrl: string | null;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: number | null;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: number | null;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
@@ -4281,8 +4393,27 @@ export interface operations {
                         timezone: string;
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
+                        admissionMode: "none" | "external" | "registration";
                         externalUrl: string | null;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: number | null;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: number | null;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
@@ -4514,8 +4645,27 @@ export interface operations {
                         timezone: string;
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
+                        admissionMode: "none" | "external" | "registration";
                         externalUrl: string | null;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: number | null;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: number | null;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
@@ -4747,8 +4897,27 @@ export interface operations {
                         timezone: string;
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
+                        admissionMode: "none" | "external" | "registration";
                         externalUrl: string | null;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: number | null;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: number | null;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
@@ -4980,8 +5149,27 @@ export interface operations {
                         timezone: string;
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external";
+                        admissionMode: "none" | "external" | "registration";
                         externalUrl: string | null;
+                        /** @description Used when admissionMode is registration */
+                        registration: {
+                            accessPolicy: "open" | "invite_only";
+                            /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
+                            listed: boolean;
+                            capacity: number | null;
+                            /** @description Bookable limit is floor(capacity × (1 + overbookingPct / 100)) */
+                            overbookingPct: number;
+                            /** @description Offer "I will bring a guest" */
+                            guestAllowed: boolean;
+                            opensMinBefore: number | null;
+                            /** @description Registration closes this many minutes before each occurrence */
+                            closesMinBefore: number;
+                            waitlistEnabled: boolean;
+                            /** @description How long a waitlist offer can be claimed */
+                            claimWindowMin: number;
+                            /** @description No waitlist offers this many minutes before start */
+                            waitlistCutoffMin: number;
+                        };
                         externalRefs: {
                             [key: string]: string;
                         };
@@ -5232,6 +5420,7 @@ export interface operations {
                                 locationId: string | null;
                                 externalUrl: string | null;
                                 tagIds: string[] | null;
+                                capacity: number | null;
                             };
                             /** @description Resolved values with their source (default, rule or override) */
                             effective: {
@@ -5250,7 +5439,29 @@ export interface operations {
                                     source: "default" | "rule" | "override";
                                     ruleId: string | null;
                                 };
+                                capacity?: {
+                                    value: number | null;
+                                    source: "default" | "rule" | "override";
+                                    ruleId: string | null;
+                                };
+                                overbooking?: {
+                                    value: number;
+                                    source: "default" | "rule" | "override";
+                                    ruleId: string | null;
+                                };
                             };
+                            pool: {
+                                /** Format: uuid */
+                                id: string;
+                                capacity: number | null;
+                                overbookingPct: number;
+                                bookableLimit: number | null;
+                                held: number;
+                                taken: number;
+                                available: number | null;
+                                /** @description More places taken or held than the limit, e.g. after capacity was lowered */
+                                overLimit: boolean;
+                            } | null;
                             version: number;
                             /** Format: date-time */
                             updatedAt: string;
@@ -5375,6 +5586,7 @@ export interface operations {
                     locationOverrideId?: string | null;
                     externalUrlOverride?: string | null;
                     tagsOverride?: string[] | null;
+                    capacityOverride?: number | null;
                 };
             };
         };
@@ -5405,6 +5617,7 @@ export interface operations {
                             locationId: string | null;
                             externalUrl: string | null;
                             tagIds: string[] | null;
+                            capacity: number | null;
                         };
                         /** @description Resolved values with their source (default, rule or override) */
                         effective: {
@@ -5423,7 +5636,29 @@ export interface operations {
                                 source: "default" | "rule" | "override";
                                 ruleId: string | null;
                             };
+                            capacity?: {
+                                value: number | null;
+                                source: "default" | "rule" | "override";
+                                ruleId: string | null;
+                            };
+                            overbooking?: {
+                                value: number;
+                                source: "default" | "rule" | "override";
+                                ruleId: string | null;
+                            };
                         };
+                        pool: {
+                            /** Format: uuid */
+                            id: string;
+                            capacity: number | null;
+                            overbookingPct: number;
+                            bookableLimit: number | null;
+                            held: number;
+                            taken: number;
+                            available: number | null;
+                            /** @description More places taken or held than the limit, e.g. after capacity was lowered */
+                            overLimit: boolean;
+                        } | null;
                         version: number;
                         /** Format: date-time */
                         updatedAt: string;
@@ -5653,6 +5888,7 @@ export interface operations {
                             locationId: string | null;
                             externalUrl: string | null;
                             tagIds: string[] | null;
+                            capacity: number | null;
                         };
                         /** @description Resolved values with their source (default, rule or override) */
                         effective: {
@@ -5671,7 +5907,29 @@ export interface operations {
                                 source: "default" | "rule" | "override";
                                 ruleId: string | null;
                             };
+                            capacity?: {
+                                value: number | null;
+                                source: "default" | "rule" | "override";
+                                ruleId: string | null;
+                            };
+                            overbooking?: {
+                                value: number;
+                                source: "default" | "rule" | "override";
+                                ruleId: string | null;
+                            };
                         };
+                        pool: {
+                            /** Format: uuid */
+                            id: string;
+                            capacity: number | null;
+                            overbookingPct: number;
+                            bookableLimit: number | null;
+                            held: number;
+                            taken: number;
+                            available: number | null;
+                            /** @description More places taken or held than the limit, e.g. after capacity was lowered */
+                            overLimit: boolean;
+                        } | null;
                         version: number;
                         /** Format: date-time */
                         updatedAt: string;
@@ -5996,6 +6254,7 @@ export interface operations {
                     locationOverrideId?: string | null;
                     externalUrlOverride?: string | null;
                     tagsOverride?: string[] | null;
+                    capacityOverride?: number | null;
                     /**
                      * @description Dismiss a series conflict and keep the occurrence as it is
                      * @enum {boolean}
@@ -6031,6 +6290,7 @@ export interface operations {
                             locationId: string | null;
                             externalUrl: string | null;
                             tagIds: string[] | null;
+                            capacity: number | null;
                         };
                         /** @description Resolved values with their source (default, rule or override) */
                         effective: {
@@ -6049,7 +6309,29 @@ export interface operations {
                                 source: "default" | "rule" | "override";
                                 ruleId: string | null;
                             };
+                            capacity?: {
+                                value: number | null;
+                                source: "default" | "rule" | "override";
+                                ruleId: string | null;
+                            };
+                            overbooking?: {
+                                value: number;
+                                source: "default" | "rule" | "override";
+                                ruleId: string | null;
+                            };
                         };
+                        pool: {
+                            /** Format: uuid */
+                            id: string;
+                            capacity: number | null;
+                            overbookingPct: number;
+                            bookableLimit: number | null;
+                            held: number;
+                            taken: number;
+                            available: number | null;
+                            /** @description More places taken or held than the limit, e.g. after capacity was lowered */
+                            overLimit: boolean;
+                        } | null;
                         version: number;
                         /** Format: date-time */
                         updatedAt: string;
@@ -6279,6 +6561,7 @@ export interface operations {
                             locationId: string | null;
                             externalUrl: string | null;
                             tagIds: string[] | null;
+                            capacity: number | null;
                         };
                         /** @description Resolved values with their source (default, rule or override) */
                         effective: {
@@ -6297,7 +6580,29 @@ export interface operations {
                                 source: "default" | "rule" | "override";
                                 ruleId: string | null;
                             };
+                            capacity?: {
+                                value: number | null;
+                                source: "default" | "rule" | "override";
+                                ruleId: string | null;
+                            };
+                            overbooking?: {
+                                value: number;
+                                source: "default" | "rule" | "override";
+                                ruleId: string | null;
+                            };
                         };
+                        pool: {
+                            /** Format: uuid */
+                            id: string;
+                            capacity: number | null;
+                            overbookingPct: number;
+                            bookableLimit: number | null;
+                            held: number;
+                            taken: number;
+                            available: number | null;
+                            /** @description More places taken or held than the limit, e.g. after capacity was lowered */
+                            overLimit: boolean;
+                        } | null;
                         version: number;
                         /** Format: date-time */
                         updatedAt: string;
@@ -6513,6 +6818,7 @@ export interface operations {
                         locationOverrideId?: string | null;
                         externalUrlOverride?: string | null;
                         tagsOverride?: string[] | null;
+                        capacityOverride?: number | null;
                         status?: "scheduled" | "cancelled";
                     };
                 };
@@ -6546,6 +6852,7 @@ export interface operations {
                                 locationId: string | null;
                                 externalUrl: string | null;
                                 tagIds: string[] | null;
+                                capacity: number | null;
                             };
                             /** @description Resolved values with their source (default, rule or override) */
                             effective: {
@@ -6564,7 +6871,29 @@ export interface operations {
                                     source: "default" | "rule" | "override";
                                     ruleId: string | null;
                                 };
+                                capacity?: {
+                                    value: number | null;
+                                    source: "default" | "rule" | "override";
+                                    ruleId: string | null;
+                                };
+                                overbooking?: {
+                                    value: number;
+                                    source: "default" | "rule" | "override";
+                                    ruleId: string | null;
+                                };
                             };
+                            pool: {
+                                /** Format: uuid */
+                                id: string;
+                                capacity: number | null;
+                                overbookingPct: number;
+                                bookableLimit: number | null;
+                                held: number;
+                                taken: number;
+                                available: number | null;
+                                /** @description More places taken or held than the limit, e.g. after capacity was lowered */
+                                overLimit: boolean;
+                            } | null;
                             version: number;
                             /** Format: date-time */
                             updatedAt: string;
@@ -6812,6 +7141,16 @@ export interface operations {
                                 type: "externalUrl";
                                 targetRef?: null;
                                 value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "capacity";
+                                targetRef?: null;
+                                value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "overbooking";
+                                targetRef?: null;
+                                value: number;
                             })[];
                             version: number;
                             /** Format: date-time */
@@ -6962,6 +7301,14 @@ export interface operations {
                         /** @enum {string} */
                         type: "externalUrl";
                         value: string;
+                    } | {
+                        /** @enum {string} */
+                        type: "capacity";
+                        value: number;
+                    } | {
+                        /** @enum {string} */
+                        type: "overbooking";
+                        value: number;
                     })[];
                 };
             };
@@ -7010,6 +7357,16 @@ export interface operations {
                                 type: "externalUrl";
                                 targetRef?: null;
                                 value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "capacity";
+                                targetRef?: null;
+                                value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "overbooking";
+                                targetRef?: null;
+                                value: number;
                             })[];
                             version: number;
                             /** Format: date-time */
@@ -7035,7 +7392,7 @@ export interface operations {
                                 /** Format: date-time */
                                 startUtc: string;
                                 fields: {
-                                    field: "location" | "tags" | "externalUrl";
+                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -7053,7 +7410,7 @@ export interface operations {
                                 occurrenceId: string;
                                 /** Format: date-time */
                                 startUtc: string;
-                                field: "location" | "tags" | "externalUrl";
+                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -7106,6 +7463,16 @@ export interface operations {
                                 type: "externalUrl";
                                 targetRef?: null;
                                 value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "capacity";
+                                targetRef?: null;
+                                value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "overbooking";
+                                targetRef?: null;
+                                value: number;
                             })[];
                             version: number;
                             /** Format: date-time */
@@ -7131,7 +7498,7 @@ export interface operations {
                                 /** Format: date-time */
                                 startUtc: string;
                                 fields: {
-                                    field: "location" | "tags" | "externalUrl";
+                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -7149,7 +7516,7 @@ export interface operations {
                                 occurrenceId: string;
                                 /** Format: date-time */
                                 startUtc: string;
-                                field: "location" | "tags" | "externalUrl";
+                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -7398,6 +7765,16 @@ export interface operations {
                             type: "externalUrl";
                             targetRef?: null;
                             value: string;
+                        } | {
+                            /** @enum {string} */
+                            type: "capacity";
+                            targetRef?: null;
+                            value: number;
+                        } | {
+                            /** @enum {string} */
+                            type: "overbooking";
+                            targetRef?: null;
+                            value: number;
                         })[];
                         version: number;
                         /** Format: date-time */
@@ -7558,6 +7935,16 @@ export interface operations {
                                 type: "externalUrl";
                                 targetRef?: null;
                                 value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "capacity";
+                                targetRef?: null;
+                                value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "overbooking";
+                                targetRef?: null;
+                                value: number;
                             })[];
                             version: number;
                             /** Format: date-time */
@@ -7583,7 +7970,7 @@ export interface operations {
                                 /** Format: date-time */
                                 startUtc: string;
                                 fields: {
-                                    field: "location" | "tags" | "externalUrl";
+                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -7601,7 +7988,7 @@ export interface operations {
                                 occurrenceId: string;
                                 /** Format: date-time */
                                 startUtc: string;
-                                field: "location" | "tags" | "externalUrl";
+                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -7839,6 +8226,14 @@ export interface operations {
                         /** @enum {string} */
                         type: "externalUrl";
                         value: string;
+                    } | {
+                        /** @enum {string} */
+                        type: "capacity";
+                        value: number;
+                    } | {
+                        /** @enum {string} */
+                        type: "overbooking";
+                        value: number;
                     })[];
                 };
             };
@@ -7887,6 +8282,16 @@ export interface operations {
                                 type: "externalUrl";
                                 targetRef?: null;
                                 value: string;
+                            } | {
+                                /** @enum {string} */
+                                type: "capacity";
+                                targetRef?: null;
+                                value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "overbooking";
+                                targetRef?: null;
+                                value: number;
                             })[];
                             version: number;
                             /** Format: date-time */
@@ -7912,7 +8317,7 @@ export interface operations {
                                 /** Format: date-time */
                                 startUtc: string;
                                 fields: {
-                                    field: "location" | "tags" | "externalUrl";
+                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -7930,7 +8335,7 @@ export interface operations {
                                 occurrenceId: string;
                                 /** Format: date-time */
                                 startUtc: string;
-                                field: "location" | "tags" | "externalUrl";
+                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];

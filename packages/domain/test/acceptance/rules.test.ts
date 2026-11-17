@@ -78,6 +78,8 @@ describe("acceptance: rooftop late opening", () => {
           location: { value: rooftop.id, source: "rule", ruleId },
           tags: { value: [late.id], source: "rule", ruleId },
           externalUrl: { value: "https://tickets.test/omvisning", source: "default", ruleId: null },
+          capacity: { value: null, source: "default", ruleId: null },
+          overbooking: { value: 0, source: "default", ruleId: null },
         });
       } else {
         expect(o.effective, local(o)).toMatchObject({ location: { value: floor.id, source: "default" }, tags: { value: [], source: "default" } });

@@ -90,7 +90,24 @@ const externalUrl: EffectType<string> = {
   apply: (v) => v,
 };
 
-const registry = new Map<string, EffectType>([location, tags, externalUrl].map((t) => [t.type, t as EffectType]));
+const intIn = (type: string, field: EffectiveField, min: number, max: number, message: string): EffectType<number> => ({
+  type,
+  field,
+  targeted: false,
+  validate(value, path) {
+    if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) throw invalid(path, message);
+    return value;
+  },
+  refs: () => ({}),
+  apply: (v) => v,
+});
+
+/** Places per occurrence (docs/registration.md). */
+const capacity = intIn("capacity", "capacity", 0, 1_000_000, "Must be a whole number of places, 0–1000000");
+/** Overbooking in percent of capacity. */
+const overbooking = intIn("overbooking", "overbooking", 0, 100, "Must be a whole percentage, 0–100");
+
+const registry = new Map<string, EffectType>([location, tags, externalUrl, capacity, overbooking].map((t) => [t.type, t as EffectType]));
 
 export const EFFECT_TYPES: readonly string[] = [...registry.keys()];
 

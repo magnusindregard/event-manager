@@ -139,10 +139,11 @@ export interface IdempotencyKeyTable {
 
 export type LocationKind = "venue" | "space";
 export type EventStatus = "draft" | "published" | "cancelled" | "archived";
-export type AdmissionMode = "none" | "external";
+export type AdmissionMode = "none" | "external" | "registration";
+export type AccessPolicy = "open" | "invite_only";
 export type OccurrenceStatus = "scheduled" | "cancelled";
 export type ValueSource = "default" | "rule" | "override";
-export type EffectiveField = "location" | "tags" | "externalUrl";
+export type EffectiveField = "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
 
 export interface LocationTable {
   id: string;
@@ -170,6 +171,16 @@ export interface EventTable {
   admission_mode: Generated<AdmissionMode>;
   external_url: string | null;
   external_refs: ColumnType<Record<string, string>, string | undefined, string>;
+  access_policy: Generated<AccessPolicy>;
+  listed: Generated<boolean>;
+  capacity: number | null;
+  overbooking_pct: Generated<number>;
+  guest_allowed: Generated<boolean>;
+  registration_opens_min: number | null;
+  registration_closes_min: Generated<number>;
+  waitlist_enabled: Generated<boolean>;
+  claim_window_min: Generated<number>;
+  waitlist_cutoff_min: Generated<number>;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -204,6 +215,8 @@ export interface OccurrenceTable {
   location_override_id: string | null;
   external_url_override: string | null;
   tags_override: string[] | null;
+  capacity_override: number | null;
+  access_policy_override: AccessPolicy | null;
   resolved_version: number | null;
   conflict: Generated<boolean>;
   version: Generated<number>;
@@ -234,6 +247,28 @@ export interface EffectiveValueTable {
   value: Json;
   source: ValueSource;
   rule_id: string | null;
+}
+
+export interface CapacityPoolTable {
+  id: string;
+  tenant_id: string;
+  occurrence_id: string;
+  capacity: number | null;
+  overbooking_pct: Generated<number>;
+  bookable_limit: ColumnType<number | null, never, never>;
+  held: Generated<number>;
+  taken: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface HoldTable {
+  id: string;
+  tenant_id: string;
+  pool_id: string;
+  quantity: number;
+  expires_at: Timestamp;
+  created_at: GeneratedTimestamp;
 }
 
 /** Calendar date "YYYY-MM-DD" (Postgres date). */
@@ -280,6 +315,8 @@ export interface DB {
   "rules.effective_value": EffectiveValueTable;
   "rules.rule": RuleTable;
   "rules.rule_effect": RuleEffectTable;
+  "inventory.capacity_pool": CapacityPoolTable;
+  "inventory.hold": HoldTable;
   "tenancy.account": AccountTable;
   "tenancy.user": UserTable;
   "tenancy.membership": MembershipTable;

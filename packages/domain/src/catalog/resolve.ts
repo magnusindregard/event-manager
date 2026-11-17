@@ -1,4 +1,5 @@
 import { type AdmissionMode, sql, type Tx } from "@event-manager/db";
+import * as inventory from "../inventory/index.js";
 import * as rules from "../rules/index.js";
 import { utcToLocal } from "./recurrence.js";
 
@@ -12,12 +13,16 @@ export interface EventDefaults {
   admissionMode: AdmissionMode;
   externalUrl: string | null;
   tagIds: string[];
+  /** Places per occurrence; null is no limit. */
+  capacity?: number | null;
+  overbookingPct?: number;
 }
 
 export interface OccurrenceOverrides {
   locationOverrideId: string | null;
   externalUrlOverride: string | null;
   tagsOverride: string[] | null;
+  capacityOverride?: number | null;
 }
 
 export type Resolved<T> = rules.Resolved<T>;
@@ -26,6 +31,8 @@ export interface EffectiveValues {
   location: Resolved<string | null>;
   tags: Resolved<string[]>;
   externalUrl: Resolved<string | null>;
+  capacity: Resolved<number | null>;
+  overbooking: Resolved<number>;
 }
 
 export function defaultValues(event: EventDefaults): rules.FieldValues {
@@ -33,6 +40,8 @@ export function defaultValues(event: EventDefaults): rules.FieldValues {
     location: event.defaultLocationId,
     tags: [...event.tagIds].sort(),
     externalUrl: event.admissionMode === "external" ? event.externalUrl : null,
+    capacity: event.capacity ?? null,
+    overbooking: event.overbookingPct ?? 0,
   };
 }
 
@@ -42,6 +51,7 @@ export function overrideValues(occ: OccurrenceOverrides): Partial<rules.FieldVal
   if (occ.tagsOverride !== null) out.tags = [...occ.tagsOverride].sort();
   // An override link applies even when the event has no admission link of its own.
   if (occ.externalUrlOverride !== null) out.externalUrl = occ.externalUrlOverride;
+  if (occ.capacityOverride !== null && occ.capacityOverride !== undefined) out.capacity = occ.capacityOverride;
   return out;
 }
 
@@ -55,6 +65,8 @@ export function resolveFields(
 
 export interface ResolutionContext {
   timezone: string;
+  /** Registration events keep a capacity pool per occurrence in step with its effective capacity. */
+  registration: boolean;
   defaults: rules.FieldValues;
   rules: rules.Rule[];
 }
@@ -63,23 +75,30 @@ export interface ResolutionContext {
 export async function resolutionContext(tx: Tx, eventId: string): Promise<ResolutionContext> {
   const event = await tx
     .selectFrom("catalog.event")
-    .select(["timezone", "default_location_id", "admission_mode", "external_url"])
+    .select(["timezone", "default_location_id", "admission_mode", "external_url", "capacity", "overbooking_pct"])
     .where("id", "=", eventId)
     .executeTakeFirstOrThrow();
   const tags = await tx.selectFrom("catalog.event_tag").select("tag_id").where("event_id", "=", eventId).execute();
   return {
     timezone: event.timezone,
+    registration: event.admission_mode === "registration",
     defaults: defaultValues({
       defaultLocationId: event.default_location_id,
       admissionMode: event.admission_mode,
       externalUrl: event.external_url,
       tagIds: tags.map((t) => t.tag_id),
+      capacity: event.capacity,
+      overbookingPct: event.overbooking_pct,
     }),
     rules: await rules.listRules(tx, eventId),
   };
 }
 
-const occColumns = ["id", "tenant_id", "start_utc", "location_override_id", "external_url_override", "tags_override"] as const;
+const occColumns = ["id", "tenant_id", "start_utc", "location_override_id", "external_url_override", "tags_override", "capacity_override"] as const;
+type OccRow = { location_override_id: string | null; external_url_override: string | null; tags_override: string[] | null; capacity_override: number | null };
+const occOverrides = (o: OccRow) => overrideValues({
+  locationOverrideId: o.location_override_id, externalUrlOverride: o.external_url_override, tagsOverride: o.tags_override, capacityOverride: o.capacity_override,
+});
 
 /** An event's occurrences as the rule preview sees them. */
 export async function previewOccurrences(tx: Tx, eventId: string, timezone: string): Promise<rules.PreviewOccurrence[]> {
@@ -88,7 +107,7 @@ export async function previewOccurrences(tx: Tx, eventId: string, timezone: stri
     id: o.id,
     startUtc: o.start_utc,
     startLocal: utcToLocal(o.start_utc, timezone),
-    overrides: overrideValues({ locationOverrideId: o.location_override_id, externalUrlOverride: o.external_url_override, tagsOverride: o.tags_override }),
+    overrides: occOverrides(o),
   }));
 }
 
@@ -116,13 +135,19 @@ export async function resolveEventOccurrences(tx: Tx, eventId: string, ids?: rea
       values: rules.resolve(
         {
           defaults: c.defaults,
-          overrides: overrideValues({ locationOverrideId: o.location_override_id, externalUrlOverride: o.external_url_override, tagsOverride: o.tags_override }),
+          overrides: occOverrides(o),
           startLocal: utcToLocal(o.start_utc, c.timezone),
         },
         ordered,
       ).values,
     }));
     await rules.writeEffectiveValues(tx, rows);
+    if (c.registration) {
+      await inventory.syncPools(tx, rows.map((r) => ({
+        tenantId: r.tenantId, occurrenceId: r.occurrenceId,
+        capacity: r.values.capacity.value as number | null, overbookingPct: r.values.overbooking.value as number,
+      })));
+    }
     for (let i = 0; i < occs.length; i += CHUNK) {
       await tx
         .updateTable("catalog.occurrence")

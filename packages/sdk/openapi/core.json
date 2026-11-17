@@ -7961,6 +7961,7 @@
                           "defaultDurationMin",
                           "admissionMode",
                           "externalUrl",
+                          "registration",
                           "externalRefs",
                           "translations",
                           "tagIds",
@@ -8036,6 +8037,12 @@
                                 "enum": [
                                   "external"
                                 ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "registration"
+                                ]
                               }
                             ]
                           },
@@ -8048,6 +8055,101 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "registration": {
+                            "type": "object",
+                            "required": [
+                              "accessPolicy",
+                              "listed",
+                              "capacity",
+                              "overbookingPct",
+                              "guestAllowed",
+                              "opensMinBefore",
+                              "closesMinBefore",
+                              "waitlistEnabled",
+                              "claimWindowMin",
+                              "waitlistCutoffMin"
+                            ],
+                            "properties": {
+                              "accessPolicy": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "open"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "invite_only"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "listed": {
+                                "type": "boolean",
+                                "description": "Shown in public listings. Switching to invite_only sets it to false unless given"
+                              },
+                              "capacity": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000,
+                                    "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "overbookingPct": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100,
+                                "description": "Bookable limit is floor(capacity × (1 + overbookingPct / 100))"
+                              },
+                              "guestAllowed": {
+                                "type": "boolean",
+                                "description": "Offer \"I will bring a guest\""
+                              },
+                              "opensMinBefore": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 525600,
+                                    "description": "Registration opens this many minutes before each occurrence; null: when published"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "closesMinBefore": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 525600,
+                                "description": "Registration closes this many minutes before each occurrence"
+                              },
+                              "waitlistEnabled": {
+                                "type": "boolean"
+                              },
+                              "claimWindowMin": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 20160,
+                                "description": "How long a waitlist offer can be claimed"
+                              },
+                              "waitlistCutoffMin": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 20160,
+                                "description": "No waitlist offers this many minutes before start"
+                              }
+                            },
+                            "description": "Used when admissionMode is registration"
                           },
                           "externalRefs": {
                             "type": "object",
@@ -8433,6 +8535,12 @@
                         "enum": [
                           "external"
                         ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "registration"
+                        ]
                       }
                     ]
                   },
@@ -8447,6 +8555,89 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "registration": {
+                    "type": "object",
+                    "properties": {
+                      "accessPolicy": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "open"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "invite_only"
+                            ]
+                          }
+                        ]
+                      },
+                      "listed": {
+                        "type": "boolean",
+                        "description": "Shown in public listings. Switching to invite_only sets it to false unless given"
+                      },
+                      "capacity": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000,
+                            "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "overbookingPct": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "Bookable limit is floor(capacity × (1 + overbookingPct / 100))"
+                      },
+                      "guestAllowed": {
+                        "type": "boolean",
+                        "description": "Offer \"I will bring a guest\""
+                      },
+                      "opensMinBefore": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 525600,
+                            "description": "Registration opens this many minutes before each occurrence; null: when published"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "closesMinBefore": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 525600,
+                        "description": "Registration closes this many minutes before each occurrence"
+                      },
+                      "waitlistEnabled": {
+                        "type": "boolean"
+                      },
+                      "claimWindowMin": {
+                        "type": "integer",
+                        "minimum": 5,
+                        "maximum": 20160,
+                        "description": "How long a waitlist offer can be claimed"
+                      },
+                      "waitlistCutoffMin": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 20160,
+                        "description": "No waitlist offers this many minutes before start"
+                      }
+                    },
+                    "additionalProperties": false
                   },
                   "externalRefs": {
                     "type": "object",
@@ -8557,6 +8748,7 @@
                     "defaultDurationMin",
                     "admissionMode",
                     "externalUrl",
+                    "registration",
                     "externalRefs",
                     "translations",
                     "tagIds",
@@ -8630,6 +8822,12 @@
                           "enum": [
                             "external"
                           ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "registration"
+                          ]
                         }
                       ]
                     },
@@ -8642,6 +8840,101 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "registration": {
+                      "type": "object",
+                      "required": [
+                        "accessPolicy",
+                        "listed",
+                        "capacity",
+                        "overbookingPct",
+                        "guestAllowed",
+                        "opensMinBefore",
+                        "closesMinBefore",
+                        "waitlistEnabled",
+                        "claimWindowMin",
+                        "waitlistCutoffMin"
+                      ],
+                      "properties": {
+                        "accessPolicy": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "open"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "invite_only"
+                              ]
+                            }
+                          ]
+                        },
+                        "listed": {
+                          "type": "boolean",
+                          "description": "Shown in public listings. Switching to invite_only sets it to false unless given"
+                        },
+                        "capacity": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000,
+                              "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "overbookingPct": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "Bookable limit is floor(capacity × (1 + overbookingPct / 100))"
+                        },
+                        "guestAllowed": {
+                          "type": "boolean",
+                          "description": "Offer \"I will bring a guest\""
+                        },
+                        "opensMinBefore": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 525600,
+                              "description": "Registration opens this many minutes before each occurrence; null: when published"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "closesMinBefore": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 525600,
+                          "description": "Registration closes this many minutes before each occurrence"
+                        },
+                        "waitlistEnabled": {
+                          "type": "boolean"
+                        },
+                        "claimWindowMin": {
+                          "type": "integer",
+                          "minimum": 5,
+                          "maximum": 20160,
+                          "description": "How long a waitlist offer can be claimed"
+                        },
+                        "waitlistCutoffMin": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20160,
+                          "description": "No waitlist offers this many minutes before start"
+                        }
+                      },
+                      "description": "Used when admissionMode is registration"
                     },
                     "externalRefs": {
                       "type": "object",
@@ -9209,6 +9502,7 @@
                     "defaultDurationMin",
                     "admissionMode",
                     "externalUrl",
+                    "registration",
                     "externalRefs",
                     "translations",
                     "tagIds",
@@ -9282,6 +9576,12 @@
                           "enum": [
                             "external"
                           ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "registration"
+                          ]
                         }
                       ]
                     },
@@ -9294,6 +9594,101 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "registration": {
+                      "type": "object",
+                      "required": [
+                        "accessPolicy",
+                        "listed",
+                        "capacity",
+                        "overbookingPct",
+                        "guestAllowed",
+                        "opensMinBefore",
+                        "closesMinBefore",
+                        "waitlistEnabled",
+                        "claimWindowMin",
+                        "waitlistCutoffMin"
+                      ],
+                      "properties": {
+                        "accessPolicy": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "open"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "invite_only"
+                              ]
+                            }
+                          ]
+                        },
+                        "listed": {
+                          "type": "boolean",
+                          "description": "Shown in public listings. Switching to invite_only sets it to false unless given"
+                        },
+                        "capacity": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000,
+                              "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "overbookingPct": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "Bookable limit is floor(capacity × (1 + overbookingPct / 100))"
+                        },
+                        "guestAllowed": {
+                          "type": "boolean",
+                          "description": "Offer \"I will bring a guest\""
+                        },
+                        "opensMinBefore": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 525600,
+                              "description": "Registration opens this many minutes before each occurrence; null: when published"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "closesMinBefore": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 525600,
+                          "description": "Registration closes this many minutes before each occurrence"
+                        },
+                        "waitlistEnabled": {
+                          "type": "boolean"
+                        },
+                        "claimWindowMin": {
+                          "type": "integer",
+                          "minimum": 5,
+                          "maximum": 20160,
+                          "description": "How long a waitlist offer can be claimed"
+                        },
+                        "waitlistCutoffMin": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20160,
+                          "description": "No waitlist offers this many minutes before start"
+                        }
+                      },
+                      "description": "Used when admissionMode is registration"
                     },
                     "externalRefs": {
                       "type": "object",
@@ -9649,6 +10044,12 @@
                         "enum": [
                           "external"
                         ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "registration"
+                        ]
                       }
                     ]
                   },
@@ -9663,6 +10064,89 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "registration": {
+                    "type": "object",
+                    "properties": {
+                      "accessPolicy": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "open"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "invite_only"
+                            ]
+                          }
+                        ]
+                      },
+                      "listed": {
+                        "type": "boolean",
+                        "description": "Shown in public listings. Switching to invite_only sets it to false unless given"
+                      },
+                      "capacity": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000,
+                            "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "overbookingPct": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "Bookable limit is floor(capacity × (1 + overbookingPct / 100))"
+                      },
+                      "guestAllowed": {
+                        "type": "boolean",
+                        "description": "Offer \"I will bring a guest\""
+                      },
+                      "opensMinBefore": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 525600,
+                            "description": "Registration opens this many minutes before each occurrence; null: when published"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "closesMinBefore": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 525600,
+                        "description": "Registration closes this many minutes before each occurrence"
+                      },
+                      "waitlistEnabled": {
+                        "type": "boolean"
+                      },
+                      "claimWindowMin": {
+                        "type": "integer",
+                        "minimum": 5,
+                        "maximum": 20160,
+                        "description": "How long a waitlist offer can be claimed"
+                      },
+                      "waitlistCutoffMin": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 20160,
+                        "description": "No waitlist offers this many minutes before start"
+                      }
+                    },
+                    "additionalProperties": false
                   },
                   "externalRefs": {
                     "type": "object",
@@ -9779,6 +10263,7 @@
                     "defaultDurationMin",
                     "admissionMode",
                     "externalUrl",
+                    "registration",
                     "externalRefs",
                     "translations",
                     "tagIds",
@@ -9852,6 +10337,12 @@
                           "enum": [
                             "external"
                           ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "registration"
+                          ]
                         }
                       ]
                     },
@@ -9864,6 +10355,101 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "registration": {
+                      "type": "object",
+                      "required": [
+                        "accessPolicy",
+                        "listed",
+                        "capacity",
+                        "overbookingPct",
+                        "guestAllowed",
+                        "opensMinBefore",
+                        "closesMinBefore",
+                        "waitlistEnabled",
+                        "claimWindowMin",
+                        "waitlistCutoffMin"
+                      ],
+                      "properties": {
+                        "accessPolicy": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "open"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "invite_only"
+                              ]
+                            }
+                          ]
+                        },
+                        "listed": {
+                          "type": "boolean",
+                          "description": "Shown in public listings. Switching to invite_only sets it to false unless given"
+                        },
+                        "capacity": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000,
+                              "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "overbookingPct": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "Bookable limit is floor(capacity × (1 + overbookingPct / 100))"
+                        },
+                        "guestAllowed": {
+                          "type": "boolean",
+                          "description": "Offer \"I will bring a guest\""
+                        },
+                        "opensMinBefore": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 525600,
+                              "description": "Registration opens this many minutes before each occurrence; null: when published"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "closesMinBefore": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 525600,
+                          "description": "Registration closes this many minutes before each occurrence"
+                        },
+                        "waitlistEnabled": {
+                          "type": "boolean"
+                        },
+                        "claimWindowMin": {
+                          "type": "integer",
+                          "minimum": 5,
+                          "maximum": 20160,
+                          "description": "How long a waitlist offer can be claimed"
+                        },
+                        "waitlistCutoffMin": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20160,
+                          "description": "No waitlist offers this many minutes before start"
+                        }
+                      },
+                      "description": "Used when admissionMode is registration"
                     },
                     "externalRefs": {
                       "type": "object",
@@ -10432,6 +11018,7 @@
                     "defaultDurationMin",
                     "admissionMode",
                     "externalUrl",
+                    "registration",
                     "externalRefs",
                     "translations",
                     "tagIds",
@@ -10505,6 +11092,12 @@
                           "enum": [
                             "external"
                           ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "registration"
+                          ]
                         }
                       ]
                     },
@@ -10517,6 +11110,101 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "registration": {
+                      "type": "object",
+                      "required": [
+                        "accessPolicy",
+                        "listed",
+                        "capacity",
+                        "overbookingPct",
+                        "guestAllowed",
+                        "opensMinBefore",
+                        "closesMinBefore",
+                        "waitlistEnabled",
+                        "claimWindowMin",
+                        "waitlistCutoffMin"
+                      ],
+                      "properties": {
+                        "accessPolicy": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "open"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "invite_only"
+                              ]
+                            }
+                          ]
+                        },
+                        "listed": {
+                          "type": "boolean",
+                          "description": "Shown in public listings. Switching to invite_only sets it to false unless given"
+                        },
+                        "capacity": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000,
+                              "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "overbookingPct": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "Bookable limit is floor(capacity × (1 + overbookingPct / 100))"
+                        },
+                        "guestAllowed": {
+                          "type": "boolean",
+                          "description": "Offer \"I will bring a guest\""
+                        },
+                        "opensMinBefore": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 525600,
+                              "description": "Registration opens this many minutes before each occurrence; null: when published"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "closesMinBefore": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 525600,
+                          "description": "Registration closes this many minutes before each occurrence"
+                        },
+                        "waitlistEnabled": {
+                          "type": "boolean"
+                        },
+                        "claimWindowMin": {
+                          "type": "integer",
+                          "minimum": 5,
+                          "maximum": 20160,
+                          "description": "How long a waitlist offer can be claimed"
+                        },
+                        "waitlistCutoffMin": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20160,
+                          "description": "No waitlist offers this many minutes before start"
+                        }
+                      },
+                      "description": "Used when admissionMode is registration"
                     },
                     "externalRefs": {
                       "type": "object",
@@ -11085,6 +11773,7 @@
                     "defaultDurationMin",
                     "admissionMode",
                     "externalUrl",
+                    "registration",
                     "externalRefs",
                     "translations",
                     "tagIds",
@@ -11158,6 +11847,12 @@
                           "enum": [
                             "external"
                           ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "registration"
+                          ]
                         }
                       ]
                     },
@@ -11170,6 +11865,101 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "registration": {
+                      "type": "object",
+                      "required": [
+                        "accessPolicy",
+                        "listed",
+                        "capacity",
+                        "overbookingPct",
+                        "guestAllowed",
+                        "opensMinBefore",
+                        "closesMinBefore",
+                        "waitlistEnabled",
+                        "claimWindowMin",
+                        "waitlistCutoffMin"
+                      ],
+                      "properties": {
+                        "accessPolicy": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "open"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "invite_only"
+                              ]
+                            }
+                          ]
+                        },
+                        "listed": {
+                          "type": "boolean",
+                          "description": "Shown in public listings. Switching to invite_only sets it to false unless given"
+                        },
+                        "capacity": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000,
+                              "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "overbookingPct": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "Bookable limit is floor(capacity × (1 + overbookingPct / 100))"
+                        },
+                        "guestAllowed": {
+                          "type": "boolean",
+                          "description": "Offer \"I will bring a guest\""
+                        },
+                        "opensMinBefore": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 525600,
+                              "description": "Registration opens this many minutes before each occurrence; null: when published"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "closesMinBefore": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 525600,
+                          "description": "Registration closes this many minutes before each occurrence"
+                        },
+                        "waitlistEnabled": {
+                          "type": "boolean"
+                        },
+                        "claimWindowMin": {
+                          "type": "integer",
+                          "minimum": 5,
+                          "maximum": 20160,
+                          "description": "How long a waitlist offer can be claimed"
+                        },
+                        "waitlistCutoffMin": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20160,
+                          "description": "No waitlist offers this many minutes before start"
+                        }
+                      },
+                      "description": "Used when admissionMode is registration"
                     },
                     "externalRefs": {
                       "type": "object",
@@ -11738,6 +12528,7 @@
                     "defaultDurationMin",
                     "admissionMode",
                     "externalUrl",
+                    "registration",
                     "externalRefs",
                     "translations",
                     "tagIds",
@@ -11811,6 +12602,12 @@
                           "enum": [
                             "external"
                           ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "registration"
+                          ]
                         }
                       ]
                     },
@@ -11823,6 +12620,101 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "registration": {
+                      "type": "object",
+                      "required": [
+                        "accessPolicy",
+                        "listed",
+                        "capacity",
+                        "overbookingPct",
+                        "guestAllowed",
+                        "opensMinBefore",
+                        "closesMinBefore",
+                        "waitlistEnabled",
+                        "claimWindowMin",
+                        "waitlistCutoffMin"
+                      ],
+                      "properties": {
+                        "accessPolicy": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "open"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "invite_only"
+                              ]
+                            }
+                          ]
+                        },
+                        "listed": {
+                          "type": "boolean",
+                          "description": "Shown in public listings. Switching to invite_only sets it to false unless given"
+                        },
+                        "capacity": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000,
+                              "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "overbookingPct": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "Bookable limit is floor(capacity × (1 + overbookingPct / 100))"
+                        },
+                        "guestAllowed": {
+                          "type": "boolean",
+                          "description": "Offer \"I will bring a guest\""
+                        },
+                        "opensMinBefore": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 525600,
+                              "description": "Registration opens this many minutes before each occurrence; null: when published"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "closesMinBefore": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 525600,
+                          "description": "Registration closes this many minutes before each occurrence"
+                        },
+                        "waitlistEnabled": {
+                          "type": "boolean"
+                        },
+                        "claimWindowMin": {
+                          "type": "integer",
+                          "minimum": 5,
+                          "maximum": 20160,
+                          "description": "How long a waitlist offer can be claimed"
+                        },
+                        "waitlistCutoffMin": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20160,
+                          "description": "No waitlist offers this many minutes before start"
+                        }
+                      },
+                      "description": "Used when admissionMode is registration"
                     },
                     "externalRefs": {
                       "type": "object",
@@ -12391,6 +13283,7 @@
                     "defaultDurationMin",
                     "admissionMode",
                     "externalUrl",
+                    "registration",
                     "externalRefs",
                     "translations",
                     "tagIds",
@@ -12464,6 +13357,12 @@
                           "enum": [
                             "external"
                           ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "registration"
+                          ]
                         }
                       ]
                     },
@@ -12476,6 +13375,101 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "registration": {
+                      "type": "object",
+                      "required": [
+                        "accessPolicy",
+                        "listed",
+                        "capacity",
+                        "overbookingPct",
+                        "guestAllowed",
+                        "opensMinBefore",
+                        "closesMinBefore",
+                        "waitlistEnabled",
+                        "claimWindowMin",
+                        "waitlistCutoffMin"
+                      ],
+                      "properties": {
+                        "accessPolicy": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "open"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "invite_only"
+                              ]
+                            }
+                          ]
+                        },
+                        "listed": {
+                          "type": "boolean",
+                          "description": "Shown in public listings. Switching to invite_only sets it to false unless given"
+                        },
+                        "capacity": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000,
+                              "description": "Default places per occurrence; null is no limit. Rules and overrides can change it"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "overbookingPct": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100,
+                          "description": "Bookable limit is floor(capacity × (1 + overbookingPct / 100))"
+                        },
+                        "guestAllowed": {
+                          "type": "boolean",
+                          "description": "Offer \"I will bring a guest\""
+                        },
+                        "opensMinBefore": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 525600,
+                              "description": "Registration opens this many minutes before each occurrence; null: when published"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "closesMinBefore": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 525600,
+                          "description": "Registration closes this many minutes before each occurrence"
+                        },
+                        "waitlistEnabled": {
+                          "type": "boolean"
+                        },
+                        "claimWindowMin": {
+                          "type": "integer",
+                          "minimum": 5,
+                          "maximum": 20160,
+                          "description": "How long a waitlist offer can be claimed"
+                        },
+                        "waitlistCutoffMin": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 20160,
+                          "description": "No waitlist offers this many minutes before start"
+                        }
+                      },
+                      "description": "Used when admissionMode is registration"
                     },
                     "externalRefs": {
                       "type": "object",
@@ -13102,6 +14096,7 @@
                           "conflict",
                           "overrides",
                           "effective",
+                          "pool",
                           "version",
                           "updatedAt"
                         ],
@@ -13173,7 +14168,8 @@
                             "required": [
                               "locationId",
                               "externalUrl",
-                              "tagIds"
+                              "tagIds",
+                              "capacity"
                             ],
                             "properties": {
                               "locationId": {
@@ -13205,6 +14201,16 @@
                                       "type": "string",
                                       "format": "uuid"
                                     }
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "capacity": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer"
                                   },
                                   {
                                     "type": "null"
@@ -13372,9 +14378,179 @@
                                     ]
                                   }
                                 }
+                              },
+                              "capacity": {
+                                "type": "object",
+                                "required": [
+                                  "value",
+                                  "source",
+                                  "ruleId"
+                                ],
+                                "properties": {
+                                  "value": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "source": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "default"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "rule"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "override"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "ruleId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "overbooking": {
+                                "type": "object",
+                                "required": [
+                                  "value",
+                                  "source",
+                                  "ruleId"
+                                ],
+                                "properties": {
+                                  "value": {
+                                    "type": "integer"
+                                  },
+                                  "source": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "default"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "rule"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "override"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "ruleId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                }
                               }
                             },
                             "description": "Resolved values with their source (default, rule or override)"
+                          },
+                          "pool": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "capacity",
+                                  "overbookingPct",
+                                  "bookableLimit",
+                                  "held",
+                                  "taken",
+                                  "available",
+                                  "overLimit"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "capacity": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "overbookingPct": {
+                                    "type": "integer"
+                                  },
+                                  "bookableLimit": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "held": {
+                                    "type": "integer"
+                                  },
+                                  "taken": {
+                                    "type": "integer"
+                                  },
+                                  "available": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "description": "Places left; null is no limit"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "overLimit": {
+                                    "type": "boolean",
+                                    "description": "More places taken or held than the limit, e.g. after capacity was lowered"
+                                  }
+                                },
+                                "description": "Places for an occurrence of a registration event"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
                           "version": {
                             "type": "integer"
@@ -13689,6 +14865,18 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "capacityOverride": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -13743,6 +14931,7 @@
                     "conflict",
                     "overrides",
                     "effective",
+                    "pool",
                     "version",
                     "updatedAt"
                   ],
@@ -13814,7 +15003,8 @@
                       "required": [
                         "locationId",
                         "externalUrl",
-                        "tagIds"
+                        "tagIds",
+                        "capacity"
                       ],
                       "properties": {
                         "locationId": {
@@ -13846,6 +15036,16 @@
                                 "type": "string",
                                 "format": "uuid"
                               }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "capacity": {
+                          "anyOf": [
+                            {
+                              "type": "integer"
                             },
                             {
                               "type": "null"
@@ -14013,9 +15213,179 @@
                               ]
                             }
                           }
+                        },
+                        "capacity": {
+                          "type": "object",
+                          "required": [
+                            "value",
+                            "source",
+                            "ruleId"
+                          ],
+                          "properties": {
+                            "value": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "default"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "rule"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "override"
+                                  ]
+                                }
+                              ]
+                            },
+                            "ruleId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "overbooking": {
+                          "type": "object",
+                          "required": [
+                            "value",
+                            "source",
+                            "ruleId"
+                          ],
+                          "properties": {
+                            "value": {
+                              "type": "integer"
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "default"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "rule"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "override"
+                                  ]
+                                }
+                              ]
+                            },
+                            "ruleId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
                         }
                       },
                       "description": "Resolved values with their source (default, rule or override)"
+                    },
+                    "pool": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "capacity",
+                            "overbookingPct",
+                            "bookableLimit",
+                            "held",
+                            "taken",
+                            "available",
+                            "overLimit"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "capacity": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "overbookingPct": {
+                              "type": "integer"
+                            },
+                            "bookableLimit": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "held": {
+                              "type": "integer"
+                            },
+                            "taken": {
+                              "type": "integer"
+                            },
+                            "available": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "description": "Places left; null is no limit"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "overLimit": {
+                              "type": "boolean",
+                              "description": "More places taken or held than the limit, e.g. after capacity was lowered"
+                            }
+                          },
+                          "description": "Places for an occurrence of a registration event"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "version": {
                       "type": "integer"
@@ -14522,6 +15892,7 @@
                     "conflict",
                     "overrides",
                     "effective",
+                    "pool",
                     "version",
                     "updatedAt"
                   ],
@@ -14593,7 +15964,8 @@
                       "required": [
                         "locationId",
                         "externalUrl",
-                        "tagIds"
+                        "tagIds",
+                        "capacity"
                       ],
                       "properties": {
                         "locationId": {
@@ -14625,6 +15997,16 @@
                                 "type": "string",
                                 "format": "uuid"
                               }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "capacity": {
+                          "anyOf": [
+                            {
+                              "type": "integer"
                             },
                             {
                               "type": "null"
@@ -14792,9 +16174,179 @@
                               ]
                             }
                           }
+                        },
+                        "capacity": {
+                          "type": "object",
+                          "required": [
+                            "value",
+                            "source",
+                            "ruleId"
+                          ],
+                          "properties": {
+                            "value": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "default"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "rule"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "override"
+                                  ]
+                                }
+                              ]
+                            },
+                            "ruleId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "overbooking": {
+                          "type": "object",
+                          "required": [
+                            "value",
+                            "source",
+                            "ruleId"
+                          ],
+                          "properties": {
+                            "value": {
+                              "type": "integer"
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "default"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "rule"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "override"
+                                  ]
+                                }
+                              ]
+                            },
+                            "ruleId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
                         }
                       },
                       "description": "Resolved values with their source (default, rule or override)"
+                    },
+                    "pool": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "capacity",
+                            "overbookingPct",
+                            "bookableLimit",
+                            "held",
+                            "taken",
+                            "available",
+                            "overLimit"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "capacity": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "overbookingPct": {
+                              "type": "integer"
+                            },
+                            "bookableLimit": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "held": {
+                              "type": "integer"
+                            },
+                            "taken": {
+                              "type": "integer"
+                            },
+                            "available": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "description": "Places left; null is no limit"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "overLimit": {
+                              "type": "boolean",
+                              "description": "More places taken or held than the limit, e.g. after capacity was lowered"
+                            }
+                          },
+                          "description": "Places for an occurrence of a registration event"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "version": {
                       "type": "integer"
@@ -15110,6 +16662,18 @@
                       }
                     ]
                   },
+                  "capacityOverride": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "conflict": {
                     "type": "boolean",
                     "description": "Dismiss a series conflict and keep the occurrence as it is",
@@ -15160,6 +16724,7 @@
                     "conflict",
                     "overrides",
                     "effective",
+                    "pool",
                     "version",
                     "updatedAt"
                   ],
@@ -15231,7 +16796,8 @@
                       "required": [
                         "locationId",
                         "externalUrl",
-                        "tagIds"
+                        "tagIds",
+                        "capacity"
                       ],
                       "properties": {
                         "locationId": {
@@ -15263,6 +16829,16 @@
                                 "type": "string",
                                 "format": "uuid"
                               }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "capacity": {
+                          "anyOf": [
+                            {
+                              "type": "integer"
                             },
                             {
                               "type": "null"
@@ -15430,9 +17006,179 @@
                               ]
                             }
                           }
+                        },
+                        "capacity": {
+                          "type": "object",
+                          "required": [
+                            "value",
+                            "source",
+                            "ruleId"
+                          ],
+                          "properties": {
+                            "value": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "default"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "rule"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "override"
+                                  ]
+                                }
+                              ]
+                            },
+                            "ruleId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "overbooking": {
+                          "type": "object",
+                          "required": [
+                            "value",
+                            "source",
+                            "ruleId"
+                          ],
+                          "properties": {
+                            "value": {
+                              "type": "integer"
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "default"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "rule"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "override"
+                                  ]
+                                }
+                              ]
+                            },
+                            "ruleId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
                         }
                       },
                       "description": "Resolved values with their source (default, rule or override)"
+                    },
+                    "pool": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "capacity",
+                            "overbookingPct",
+                            "bookableLimit",
+                            "held",
+                            "taken",
+                            "available",
+                            "overLimit"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "capacity": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "overbookingPct": {
+                              "type": "integer"
+                            },
+                            "bookableLimit": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "held": {
+                              "type": "integer"
+                            },
+                            "taken": {
+                              "type": "integer"
+                            },
+                            "available": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "description": "Places left; null is no limit"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "overLimit": {
+                              "type": "boolean",
+                              "description": "More places taken or held than the limit, e.g. after capacity was lowered"
+                            }
+                          },
+                          "description": "Places for an occurrence of a registration event"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "version": {
                       "type": "integer"
@@ -16417,6 +18163,7 @@
                     "conflict",
                     "overrides",
                     "effective",
+                    "pool",
                     "version",
                     "updatedAt"
                   ],
@@ -16488,7 +18235,8 @@
                       "required": [
                         "locationId",
                         "externalUrl",
-                        "tagIds"
+                        "tagIds",
+                        "capacity"
                       ],
                       "properties": {
                         "locationId": {
@@ -16520,6 +18268,16 @@
                                 "type": "string",
                                 "format": "uuid"
                               }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "capacity": {
+                          "anyOf": [
+                            {
+                              "type": "integer"
                             },
                             {
                               "type": "null"
@@ -16687,9 +18445,179 @@
                               ]
                             }
                           }
+                        },
+                        "capacity": {
+                          "type": "object",
+                          "required": [
+                            "value",
+                            "source",
+                            "ruleId"
+                          ],
+                          "properties": {
+                            "value": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "default"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "rule"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "override"
+                                  ]
+                                }
+                              ]
+                            },
+                            "ruleId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "overbooking": {
+                          "type": "object",
+                          "required": [
+                            "value",
+                            "source",
+                            "ruleId"
+                          ],
+                          "properties": {
+                            "value": {
+                              "type": "integer"
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "default"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "rule"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "override"
+                                  ]
+                                }
+                              ]
+                            },
+                            "ruleId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
                         }
                       },
                       "description": "Resolved values with their source (default, rule or override)"
+                    },
+                    "pool": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "capacity",
+                            "overbookingPct",
+                            "bookableLimit",
+                            "held",
+                            "taken",
+                            "available",
+                            "overLimit"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "capacity": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "overbookingPct": {
+                              "type": "integer"
+                            },
+                            "bookableLimit": {
+                              "anyOf": [
+                                {
+                                  "type": "integer"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "held": {
+                              "type": "integer"
+                            },
+                            "taken": {
+                              "type": "integer"
+                            },
+                            "available": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "description": "Places left; null is no limit"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "overLimit": {
+                              "type": "boolean",
+                              "description": "More places taken or held than the limit, e.g. after capacity was lowered"
+                            }
+                          },
+                          "description": "Places for an occurrence of a registration event"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "version": {
                       "type": "integer"
@@ -17237,6 +19165,18 @@
                           }
                         ]
                       },
+                      "capacityOverride": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "status": {
                         "anyOf": [
                           {
@@ -17308,6 +19248,7 @@
                           "conflict",
                           "overrides",
                           "effective",
+                          "pool",
                           "version",
                           "updatedAt"
                         ],
@@ -17379,7 +19320,8 @@
                             "required": [
                               "locationId",
                               "externalUrl",
-                              "tagIds"
+                              "tagIds",
+                              "capacity"
                             ],
                             "properties": {
                               "locationId": {
@@ -17411,6 +19353,16 @@
                                       "type": "string",
                                       "format": "uuid"
                                     }
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "capacity": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer"
                                   },
                                   {
                                     "type": "null"
@@ -17578,9 +19530,179 @@
                                     ]
                                   }
                                 }
+                              },
+                              "capacity": {
+                                "type": "object",
+                                "required": [
+                                  "value",
+                                  "source",
+                                  "ruleId"
+                                ],
+                                "properties": {
+                                  "value": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "source": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "default"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "rule"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "override"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "ruleId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              "overbooking": {
+                                "type": "object",
+                                "required": [
+                                  "value",
+                                  "source",
+                                  "ruleId"
+                                ],
+                                "properties": {
+                                  "value": {
+                                    "type": "integer"
+                                  },
+                                  "source": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "default"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "rule"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "override"
+                                        ]
+                                      }
+                                    ]
+                                  },
+                                  "ruleId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                }
                               }
                             },
                             "description": "Resolved values with their source (default, rule or override)"
+                          },
+                          "pool": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "capacity",
+                                  "overbookingPct",
+                                  "bookableLimit",
+                                  "held",
+                                  "taken",
+                                  "available",
+                                  "overLimit"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "capacity": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "overbookingPct": {
+                                    "type": "integer"
+                                  },
+                                  "bookableLimit": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "held": {
+                                    "type": "integer"
+                                  },
+                                  "taken": {
+                                    "type": "integer"
+                                  },
+                                  "available": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "description": "Places left; null is no limit"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "overLimit": {
+                                    "type": "boolean",
+                                    "description": "More places taken or held than the limit, e.g. after capacity was lowered"
+                                  }
+                                },
+                                "description": "Places for an occurrence of a registration event"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           },
                           "version": {
                             "type": "integer"
@@ -18303,6 +20425,54 @@
                                     }
                                   },
                                   "description": "Sets the ticket link"
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "type": "string",
+                                      "enum": [
+                                        "capacity"
+                                      ]
+                                    },
+                                    "targetRef": {
+                                      "type": "null"
+                                    },
+                                    "value": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 1000000
+                                    }
+                                  },
+                                  "description": "Sets the places per occurrence"
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "value"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "type": "string",
+                                      "enum": [
+                                        "overbooking"
+                                      ]
+                                    },
+                                    "targetRef": {
+                                      "type": "null"
+                                    },
+                                    "value": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 100
+                                    }
+                                  },
+                                  "description": "Sets the overbooking percentage"
                                 }
                               ]
                             }
@@ -18756,6 +20926,50 @@
                           },
                           "additionalProperties": false,
                           "description": "Sets the ticket link"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "value"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "capacity"
+                              ]
+                            },
+                            "value": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000
+                            }
+                          },
+                          "additionalProperties": false,
+                          "description": "Sets the places per occurrence"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "value"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "overbooking"
+                              ]
+                            },
+                            "value": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            }
+                          },
+                          "additionalProperties": false,
+                          "description": "Sets the overbooking percentage"
                         }
                       ]
                     },
@@ -19039,6 +21253,54 @@
                                       }
                                     },
                                     "description": "Sets the ticket link"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "type",
+                                      "value"
+                                    ],
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "capacity"
+                                        ]
+                                      },
+                                      "targetRef": {
+                                        "type": "null"
+                                      },
+                                      "value": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 1000000
+                                      }
+                                    },
+                                    "description": "Sets the places per occurrence"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "type",
+                                      "value"
+                                    ],
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "overbooking"
+                                        ]
+                                      },
+                                      "targetRef": {
+                                        "type": "null"
+                                      },
+                                      "value": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      }
+                                    },
+                                    "description": "Sets the overbooking percentage"
                                   }
                                 ]
                               }
@@ -19142,6 +21404,18 @@
                                           "type": "string",
                                           "enum": [
                                             "externalUrl"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "capacity"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "overbooking"
                                           ]
                                         }
                                       ]
@@ -19277,6 +21551,18 @@
                                     "type": "string",
                                     "enum": [
                                       "externalUrl"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "capacity"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "overbooking"
                                     ]
                                   }
                                 ]
@@ -19556,6 +21842,54 @@
                                       }
                                     },
                                     "description": "Sets the ticket link"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "type",
+                                      "value"
+                                    ],
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "capacity"
+                                        ]
+                                      },
+                                      "targetRef": {
+                                        "type": "null"
+                                      },
+                                      "value": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 1000000
+                                      }
+                                    },
+                                    "description": "Sets the places per occurrence"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "type",
+                                      "value"
+                                    ],
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "overbooking"
+                                        ]
+                                      },
+                                      "targetRef": {
+                                        "type": "null"
+                                      },
+                                      "value": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      }
+                                    },
+                                    "description": "Sets the overbooking percentage"
                                   }
                                 ]
                               }
@@ -19659,6 +21993,18 @@
                                           "type": "string",
                                           "enum": [
                                             "externalUrl"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "capacity"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "overbooking"
                                           ]
                                         }
                                       ]
@@ -19794,6 +22140,18 @@
                                     "type": "string",
                                     "enum": [
                                       "externalUrl"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "capacity"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "overbooking"
                                     ]
                                   }
                                 ]
@@ -20538,6 +22896,54 @@
                               }
                             },
                             "description": "Sets the ticket link"
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "type",
+                              "value"
+                            ],
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "capacity"
+                                ]
+                              },
+                              "targetRef": {
+                                "type": "null"
+                              },
+                              "value": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000000
+                              }
+                            },
+                            "description": "Sets the places per occurrence"
+                          },
+                          {
+                            "type": "object",
+                            "required": [
+                              "type",
+                              "value"
+                            ],
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "overbooking"
+                                ]
+                              },
+                              "targetRef": {
+                                "type": "null"
+                              },
+                              "value": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100
+                              }
+                            },
+                            "description": "Sets the overbooking percentage"
                           }
                         ]
                       }
@@ -20983,6 +23389,50 @@
                           },
                           "additionalProperties": false,
                           "description": "Sets the ticket link"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "value"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "capacity"
+                              ]
+                            },
+                            "value": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000
+                            }
+                          },
+                          "additionalProperties": false,
+                          "description": "Sets the places per occurrence"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "type",
+                            "value"
+                          ],
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "enum": [
+                                "overbooking"
+                              ]
+                            },
+                            "value": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            }
+                          },
+                          "additionalProperties": false,
+                          "description": "Sets the overbooking percentage"
                         }
                       ]
                     },
@@ -21256,6 +23706,54 @@
                                       }
                                     },
                                     "description": "Sets the ticket link"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "type",
+                                      "value"
+                                    ],
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "capacity"
+                                        ]
+                                      },
+                                      "targetRef": {
+                                        "type": "null"
+                                      },
+                                      "value": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 1000000
+                                      }
+                                    },
+                                    "description": "Sets the places per occurrence"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "type",
+                                      "value"
+                                    ],
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "overbooking"
+                                        ]
+                                      },
+                                      "targetRef": {
+                                        "type": "null"
+                                      },
+                                      "value": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      }
+                                    },
+                                    "description": "Sets the overbooking percentage"
                                   }
                                 ]
                               }
@@ -21359,6 +23857,18 @@
                                           "type": "string",
                                           "enum": [
                                             "externalUrl"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "capacity"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "overbooking"
                                           ]
                                         }
                                       ]
@@ -21494,6 +24004,18 @@
                                     "type": "string",
                                     "enum": [
                                       "externalUrl"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "capacity"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "overbooking"
                                     ]
                                   }
                                 ]
@@ -22257,6 +24779,54 @@
                                       }
                                     },
                                     "description": "Sets the ticket link"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "type",
+                                      "value"
+                                    ],
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "capacity"
+                                        ]
+                                      },
+                                      "targetRef": {
+                                        "type": "null"
+                                      },
+                                      "value": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 1000000
+                                      }
+                                    },
+                                    "description": "Sets the places per occurrence"
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "type",
+                                      "value"
+                                    ],
+                                    "properties": {
+                                      "type": {
+                                        "type": "string",
+                                        "enum": [
+                                          "overbooking"
+                                        ]
+                                      },
+                                      "targetRef": {
+                                        "type": "null"
+                                      },
+                                      "value": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 100
+                                      }
+                                    },
+                                    "description": "Sets the overbooking percentage"
                                   }
                                 ]
                               }
@@ -22360,6 +24930,18 @@
                                           "type": "string",
                                           "enum": [
                                             "externalUrl"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "capacity"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "overbooking"
                                           ]
                                         }
                                       ]
@@ -22495,6 +25077,18 @@
                                     "type": "string",
                                     "enum": [
                                       "externalUrl"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "capacity"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "overbooking"
                                     ]
                                   }
                                 ]
