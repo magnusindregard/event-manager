@@ -14,9 +14,11 @@ import { type CatalogEvent, isConflict, type Occurrence, unwrap } from "../../ap
 import { useApp } from "../../AppContext.js";
 
 type Change<T> = { on: boolean; value: T };
-type Draft = { location: Change<string | null>; link: Change<string>; tags: Change<string[] | null> };
+/** cleared: no value at all on these occurrences, whatever the event and its rules say. */
+type Clearable<T> = Change<T> & { cleared: boolean };
+type Draft = { location: Clearable<string | null>; link: Clearable<string>; tags: Change<string[] | null> };
 
-const empty: Draft = { location: { on: false, value: null }, link: { on: false, value: "" }, tags: { on: false, value: null } };
+const empty: Draft = { location: { on: false, value: null, cleared: false }, link: { on: false, value: "", cleared: false }, tags: { on: false, value: null } };
 
 /**
  * "Override these" for selected occurrences: each ticked field is set on all of them, or
@@ -33,14 +35,14 @@ export function BulkOverride({ event, occurrences, open, onClose, onSaved, onCon
   const { t } = useTranslation();
   const { api } = useApp();
   const [d, setD] = useState<Draft>(empty);
-  const linkValid = !d.link.on || d.link.value.trim() === "" || /^https?:\/\/\S+$/.test(d.link.value.trim());
+  const linkValid = !d.link.on || d.link.cleared || d.link.value.trim() === "" || /^https?:\/\/\S+$/.test(d.link.value.trim());
   const any = d.location.on || d.link.on || d.tags.on;
 
   const save = useMutation({
     mutationFn: async () => {
       const set = {
-        ...(d.location.on ? { locationOverrideId: d.location.value } : {}),
-        ...(d.link.on ? { externalUrlOverride: d.link.value.trim() || null } : {}),
+        ...(d.location.on ? { locationOverrideId: d.location.cleared ? null : d.location.value, locationOverrideCleared: d.location.cleared } : {}),
+        ...(d.link.on ? { externalUrlOverride: d.link.cleared ? null : d.link.value.trim() || null, externalUrlOverrideCleared: d.link.cleared } : {}),
         ...(d.tags.on ? { tagsOverride: d.tags.value } : {}),
       };
       return unwrap(await api.POST("/v1/events/{id}/occurrences/bulk-update", {
@@ -77,7 +79,14 @@ export function BulkOverride({ event, occurrences, open, onClose, onSaved, onCon
                 <Label htmlFor="bulk-location-on">{t("bulk.changeLocation")}</Label>
               </div>
               {d.location.on && (
-                <LocationSelect id="bulk-location" value={d.location.value} onChange={(value) => setD({ ...d, location: { on: true, value } })} noneLabel={t("bulk.inherit")} />
+                <>
+                  <LocationSelect id="bulk-location" value={d.location.cleared ? null : d.location.value} disabled={d.location.cleared}
+                    onChange={(value) => setD({ ...d, location: { ...d.location, value } })} noneLabel={t("bulk.inherit")} />
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="bulk-location-cleared" checked={d.location.cleared} onCheckedChange={(v) => setD({ ...d, location: { ...d.location, cleared: v === true } })} />
+                    <Label htmlFor="bulk-location-cleared" className="font-normal">{t("bulk.noLocation")}</Label>
+                  </div>
+                </>
               )}
             </div>
             <div className="grid gap-2">
@@ -87,8 +96,13 @@ export function BulkOverride({ event, occurrences, open, onClose, onSaved, onCon
               </div>
               {d.link.on && (
                 <>
-                  <Input id="bulk-link" type="url" aria-label={t("occurrences.link")} placeholder="https://" value={d.link.value} onChange={(e) => setD({ ...d, link: { on: true, value: e.target.value } })} />
+                  <Input id="bulk-link" type="url" aria-label={t("occurrences.link")} placeholder="https://" value={d.link.cleared ? "" : d.link.value} disabled={d.link.cleared}
+                    onChange={(e) => setD({ ...d, link: { ...d.link, value: e.target.value } })} />
                   <p className="text-xs text-muted-foreground">{t("bulk.emptyInherits")}</p>
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="bulk-link-cleared" checked={d.link.cleared} onCheckedChange={(v) => setD({ ...d, link: { ...d.link, cleared: v === true } })} />
+                    <Label htmlFor="bulk-link-cleared" className="font-normal">{t("bulk.noLink")}</Label>
+                  </div>
                 </>
               )}
             </div>

@@ -14167,7 +14167,9 @@
                             "type": "object",
                             "required": [
                               "locationId",
+                              "locationCleared",
                               "externalUrl",
+                              "externalUrlCleared",
                               "tagIds",
                               "capacity"
                             ],
@@ -14183,6 +14185,10 @@
                                   }
                                 ]
                               },
+                              "locationCleared": {
+                                "type": "boolean",
+                                "description": "The occurrence has no location, even when a rule or the event default has one"
+                              },
                               "externalUrl": {
                                 "anyOf": [
                                   {
@@ -14192,6 +14198,10 @@
                                     "type": "string"
                                   }
                                 ]
+                              },
+                              "externalUrlCleared": {
+                                "type": "boolean",
+                                "description": "The occurrence has no external link, even when a rule or the event default has one"
                               },
                               "tagIds": {
                                 "anyOf": [
@@ -14217,7 +14227,8 @@
                                   }
                                 ]
                               }
-                            }
+                            },
+                            "description": "null with *Cleared false inherits from rules and the event default"
                           },
                           "effective": {
                             "type": "object",
@@ -14838,6 +14849,10 @@
                       }
                     ]
                   },
+                  "locationOverrideCleared": {
+                    "type": "boolean",
+                    "description": "true: this occurrence has no location (cannot be combined with a locationOverrideId). false: inherit again"
+                  },
                   "externalUrlOverride": {
                     "anyOf": [
                       {
@@ -14849,6 +14864,10 @@
                         "maxLength": 2000
                       }
                     ]
+                  },
+                  "externalUrlOverrideCleared": {
+                    "type": "boolean",
+                    "description": "true: this occurrence has no external link (cannot be combined with an externalUrlOverride). false: inherit again"
                   },
                   "tagsOverride": {
                     "anyOf": [
@@ -15002,7 +15021,9 @@
                       "type": "object",
                       "required": [
                         "locationId",
+                        "locationCleared",
                         "externalUrl",
+                        "externalUrlCleared",
                         "tagIds",
                         "capacity"
                       ],
@@ -15018,6 +15039,10 @@
                             }
                           ]
                         },
+                        "locationCleared": {
+                          "type": "boolean",
+                          "description": "The occurrence has no location, even when a rule or the event default has one"
+                        },
                         "externalUrl": {
                           "anyOf": [
                             {
@@ -15027,6 +15052,10 @@
                               "type": "string"
                             }
                           ]
+                        },
+                        "externalUrlCleared": {
+                          "type": "boolean",
+                          "description": "The occurrence has no external link, even when a rule or the event default has one"
                         },
                         "tagIds": {
                           "anyOf": [
@@ -15052,7 +15081,8 @@
                             }
                           ]
                         }
-                      }
+                      },
+                      "description": "null with *Cleared false inherits from rules and the event default"
                     },
                     "effective": {
                       "type": "object",
@@ -15963,7 +15993,9 @@
                       "type": "object",
                       "required": [
                         "locationId",
+                        "locationCleared",
                         "externalUrl",
+                        "externalUrlCleared",
                         "tagIds",
                         "capacity"
                       ],
@@ -15979,6 +16011,10 @@
                             }
                           ]
                         },
+                        "locationCleared": {
+                          "type": "boolean",
+                          "description": "The occurrence has no location, even when a rule or the event default has one"
+                        },
                         "externalUrl": {
                           "anyOf": [
                             {
@@ -15988,6 +16024,10 @@
                               "type": "string"
                             }
                           ]
+                        },
+                        "externalUrlCleared": {
+                          "type": "boolean",
+                          "description": "The occurrence has no external link, even when a rule or the event default has one"
                         },
                         "tagIds": {
                           "anyOf": [
@@ -16013,7 +16053,8 @@
                             }
                           ]
                         }
-                      }
+                      },
+                      "description": "null with *Cleared false inherits from rules and the event default"
                     },
                     "effective": {
                       "type": "object",
@@ -16634,6 +16675,10 @@
                       }
                     ]
                   },
+                  "locationOverrideCleared": {
+                    "type": "boolean",
+                    "description": "true: this occurrence has no location (cannot be combined with a locationOverrideId). false: inherit again"
+                  },
                   "externalUrlOverride": {
                     "anyOf": [
                       {
@@ -16645,6 +16690,10 @@
                         "maxLength": 2000
                       }
                     ]
+                  },
+                  "externalUrlOverrideCleared": {
+                    "type": "boolean",
+                    "description": "true: this occurrence has no external link (cannot be combined with an externalUrlOverride). false: inherit again"
                   },
                   "tagsOverride": {
                     "anyOf": [
@@ -16795,7 +16844,9 @@
                       "type": "object",
                       "required": [
                         "locationId",
+                        "locationCleared",
                         "externalUrl",
+                        "externalUrlCleared",
                         "tagIds",
                         "capacity"
                       ],
@@ -16811,6 +16862,10 @@
                             }
                           ]
                         },
+                        "locationCleared": {
+                          "type": "boolean",
+                          "description": "The occurrence has no location, even when a rule or the event default has one"
+                        },
                         "externalUrl": {
                           "anyOf": [
                             {
@@ -16820,6 +16875,10 @@
                               "type": "string"
                             }
                           ]
+                        },
+                        "externalUrlCleared": {
+                          "type": "boolean",
+                          "description": "The occurrence has no external link, even when a rule or the event default has one"
                         },
                         "tagIds": {
                           "anyOf": [
@@ -16845,7 +16904,8 @@
                             }
                           ]
                         }
-                      }
+                      },
+                      "description": "null with *Cleared false inherits from rules and the event default"
                     },
                     "effective": {
                       "type": "object",
@@ -18234,7 +18294,9 @@
                       "type": "object",
                       "required": [
                         "locationId",
+                        "locationCleared",
                         "externalUrl",
+                        "externalUrlCleared",
                         "tagIds",
                         "capacity"
                       ],
@@ -18250,6 +18312,10 @@
                             }
                           ]
                         },
+                        "locationCleared": {
+                          "type": "boolean",
+                          "description": "The occurrence has no location, even when a rule or the event default has one"
+                        },
                         "externalUrl": {
                           "anyOf": [
                             {
@@ -18259,6 +18325,10 @@
                               "type": "string"
                             }
                           ]
+                        },
+                        "externalUrlCleared": {
+                          "type": "boolean",
+                          "description": "The occurrence has no external link, even when a rule or the event default has one"
                         },
                         "tagIds": {
                           "anyOf": [
@@ -18284,7 +18354,8 @@
                             }
                           ]
                         }
-                      }
+                      },
+                      "description": "null with *Cleared false inherits from rules and the event default"
                     },
                     "effective": {
                       "type": "object",
@@ -19137,6 +19208,10 @@
                           }
                         ]
                       },
+                      "locationOverrideCleared": {
+                        "type": "boolean",
+                        "description": "true: this occurrence has no location (cannot be combined with a locationOverrideId). false: inherit again"
+                      },
                       "externalUrlOverride": {
                         "anyOf": [
                           {
@@ -19148,6 +19223,10 @@
                             "maxLength": 2000
                           }
                         ]
+                      },
+                      "externalUrlOverrideCleared": {
+                        "type": "boolean",
+                        "description": "true: this occurrence has no external link (cannot be combined with an externalUrlOverride). false: inherit again"
                       },
                       "tagsOverride": {
                         "anyOf": [
@@ -19196,7 +19275,7 @@
                     },
                     "additionalProperties": false,
                     "minProperties": 1,
-                    "description": "Applied to every occurrence. null clears an override."
+                    "description": "Applied to every occurrence. null removes an override (inherit); *Cleared true clears the value."
                   }
                 },
                 "additionalProperties": false
@@ -19319,7 +19398,9 @@
                             "type": "object",
                             "required": [
                               "locationId",
+                              "locationCleared",
                               "externalUrl",
+                              "externalUrlCleared",
                               "tagIds",
                               "capacity"
                             ],
@@ -19335,6 +19416,10 @@
                                   }
                                 ]
                               },
+                              "locationCleared": {
+                                "type": "boolean",
+                                "description": "The occurrence has no location, even when a rule or the event default has one"
+                              },
                               "externalUrl": {
                                 "anyOf": [
                                   {
@@ -19344,6 +19429,10 @@
                                     "type": "string"
                                   }
                                 ]
+                              },
+                              "externalUrlCleared": {
+                                "type": "boolean",
+                                "description": "The occurrence has no external link, even when a rule or the event default has one"
                               },
                               "tagIds": {
                                 "anyOf": [
@@ -19369,7 +19458,8 @@
                                   }
                                 ]
                               }
-                            }
+                            },
+                            "description": "null with *Cleared false inherits from rules and the event default"
                           },
                           "effective": {
                             "type": "object",

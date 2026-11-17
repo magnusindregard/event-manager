@@ -37,7 +37,10 @@ type Draft = {
   startUtc: string;
   endUtc: string;
   locationOverrideId: string | null;
+  /** No location for this occurrence, whatever the event and its rules say. */
+  locationCleared: boolean;
   externalUrlOverride: string;
+  externalUrlCleared: boolean;
   overrideTags: boolean;
   tagsOverride: string[];
   /** Empty: follow the event and its rules. */
@@ -131,8 +134,10 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
   const save = useMutation({
     mutationFn: async (d: Draft) => {
       const overrides = {
-        locationOverrideId: d.locationOverrideId,
-        externalUrlOverride: d.externalUrlOverride.trim() || null,
+        locationOverrideId: d.locationCleared ? null : d.locationOverrideId,
+        locationOverrideCleared: d.locationCleared,
+        externalUrlOverride: d.externalUrlCleared ? null : d.externalUrlOverride.trim() || null,
+        externalUrlOverrideCleared: d.externalUrlCleared,
         tagsOverride: d.overrideTags ? d.tagsOverride : null,
         ...(registration ? { capacityOverride: d.capacityOverride.trim() === "" ? null : Number(d.capacityOverride) } : {}),
       };
@@ -216,7 +221,9 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
       startUtc: start,
       endUtc: o?.endUtc ?? new Date(new Date(start).getTime() + event.defaultDurationMin * 60_000).toISOString(),
       locationOverrideId: o?.overrides.locationId ?? null,
+      locationCleared: o?.overrides.locationCleared ?? false,
       externalUrlOverride: o?.overrides.externalUrl ?? "",
+      externalUrlCleared: o?.overrides.externalUrlCleared ?? false,
       overrideTags: o?.overrides.tagIds != null,
       tagsOverride: o?.overrides.tagIds ?? event.tagIds,
       capacityOverride: o?.overrides.capacity == null ? "" : String(o.overrides.capacity),
@@ -291,7 +298,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         return (
           <div className="flex flex-wrap items-center gap-1.5">
             <span>{e?.value ? path(e.value) : "—"}</span>
-            <SourceChip source={e?.source} rule={ruleName(e?.ruleId)} />
+            <SourceChip source={e?.source} rule={ruleName(e?.ruleId)} cleared={e?.value == null} />
           </div>
         );
       },
@@ -304,7 +311,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         return (
           <div className="flex max-w-48 flex-wrap items-center gap-1.5">
             <span className="block max-w-full truncate text-xs" title={e?.value ?? undefined}>{e?.value?.replace(/^https?:\/\//, "") ?? "—"}</span>
-            <SourceChip source={e?.source} rule={ruleName(e?.ruleId)} />
+            <SourceChip source={e?.source} rule={ruleName(e?.ruleId)} cleared={e?.value == null} />
           </div>
         );
       },
@@ -511,15 +518,27 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
                 <Field label={t("occurrences.location")} htmlFor="occ-location">
                   <LocationSelect
                     id="occ-location"
-                    value={draft.locationOverrideId}
+                    value={draft.locationCleared ? null : draft.locationOverrideId}
                     onChange={(v) => setDraft({ ...draft, locationOverrideId: v })}
                     noneLabel={t("occurrences.inherit", { value: path(event.defaultLocationId) || "—" })}
+                    disabled={draft.locationCleared}
                   />
+                  <div className="flex items-center gap-2">
+                    <Checkbox id="occ-location-cleared" checked={draft.locationCleared} onCheckedChange={(v) => setDraft({ ...draft, locationCleared: v === true })} />
+                    <Label htmlFor="occ-location-cleared" className="font-normal">{t("occurrences.noLocation")}</Label>
+                  </div>
                 </Field>
                 {!registration && (
-                  <Field label={t("occurrences.link")} htmlFor="occ-url" hint={t("occurrences.inherit", { value: event.externalUrl ?? "—" })}>
-                    <Input id="occ-url" type="url" value={draft.externalUrlOverride} onChange={(e) => setDraft({ ...draft, externalUrlOverride: e.target.value })} />
-                  </Field>
+                  <div className="grid gap-2">
+                    <Field label={t("occurrences.link")} htmlFor="occ-url" hint={t("occurrences.inherit", { value: event.externalUrl ?? "—" })}>
+                      <Input id="occ-url" type="url" value={draft.externalUrlCleared ? "" : draft.externalUrlOverride} disabled={draft.externalUrlCleared}
+                        onChange={(e) => setDraft({ ...draft, externalUrlOverride: e.target.value })} />
+                    </Field>
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="occ-url-cleared" checked={draft.externalUrlCleared} onCheckedChange={(v) => setDraft({ ...draft, externalUrlCleared: v === true })} />
+                      <Label htmlFor="occ-url-cleared" className="font-normal">{t("occurrences.noLink")}</Label>
+                    </div>
+                  </div>
                 )}
                 {registration && (
                   <Field label={t("occurrences.capacityOverride")} htmlFor="occ-capacity"

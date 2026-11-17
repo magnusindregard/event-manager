@@ -68,11 +68,12 @@ const resources = {
       occurrences: {
         places: "Plasser", placesOf: "{{taken}} av {{limit}}", placesUnlimited: "{{taken}} påmeldt", capacityPlus: "{{capacity}} + {{pct}} %",
         overLimit: "Over grensen", capacityOverride: "Plasser",
-        source: { default: "standard", rule: "regel", ruleNamed: "regel: {{name}}", override: "overstyrt" },
+        source: { default: "standard", rule: "regel", ruleNamed: "regel: {{name}}", override: "overstyrt", cleared: "overstyrt: ingen" },
         when: "Tid", location: "Sted", link: "Billettlenke", cancelled: "Avlyst", reinstate: "Gjeninnsett", cancel: "Avlys",
         timesIn: "Tider i {{tz}}", add: "Ny forekomst", edit: "Rediger forekomst", empty: "Ingen forekomster ennå",
         start: "Start", end: "Slutt", overrides: "Overstyringer", overridesHint: "Tomt felt arver fra arrangementet.",
         inherit: "Arv: {{value}}", overrideTags: "Egne tagger for denne forekomsten",
+        noLocation: "Uten sted for denne forekomsten", noLink: "Uten billettlenke for denne forekomsten",
         deleteTitle: "Slette forekomsten?", deleteBody: "Den forsvinner fra nettsider og kalendere. Vil du heller vise den som avlyst, velg Avlys.",
       },
       series: {
@@ -166,6 +167,7 @@ const resources = {
         title_one: "Overstyr {{count}} forekomst", title_other: "Overstyr {{count}} forekomster",
         hint: "Kryss av feltene som skal endres. Andre felt beholdes som de er.",
         changeLocation: "Sted", inherit: "Arv (ingen overstyring)", changeLink: "Billettlenke", emptyInherits: "Tomt felt fjerner overstyringen.",
+        noLocation: "Uten sted", noLink: "Uten billettlenke",
         changeTags: "Tagger", tagsInherit: "Arv tagger i stedet", tagsInheritOn: "Taggene arves fra arrangementet og regler.",
         detachHint: "Forekomster i en gjentakelse løsnes fra serien når de overstyres, som ved enkeltendringer.",
         apply_one: "Endre {{count}} forekomst", apply_other: "Endre {{count}} forekomster",
@@ -255,11 +257,12 @@ const resources = {
       occurrences: {
         places: "Places", placesOf: "{{taken}} of {{limit}}", placesUnlimited: "{{taken}} registered", capacityPlus: "{{capacity}} + {{pct}} %",
         overLimit: "Over the limit", capacityOverride: "Places",
-        source: { default: "default", rule: "rule", ruleNamed: "rule: {{name}}", override: "override" },
+        source: { default: "default", rule: "rule", ruleNamed: "rule: {{name}}", override: "override", cleared: "override: none" },
         when: "When", location: "Location", link: "Ticket link", cancelled: "Cancelled", reinstate: "Reinstate", cancel: "Cancel",
         timesIn: "Times in {{tz}}", add: "Add occurrence", edit: "Edit occurrence", empty: "No occurrences yet",
         start: "Start", end: "End", overrides: "Overrides", overridesHint: "Leave a field empty to inherit from the event.",
         inherit: "Inherit: {{value}}", overrideTags: "Own tags for this occurrence",
+        noLocation: "No location for this occurrence", noLink: "No ticket link for this occurrence",
         deleteTitle: "Delete this occurrence?", deleteBody: "It disappears from websites and calendars. To show it as cancelled instead, choose Cancel.",
       },
       series: {
@@ -353,6 +356,7 @@ const resources = {
         title_one: "Override {{count}} occurrence", title_other: "Override {{count}} occurrences",
         hint: "Tick the fields to change. Other fields stay as they are.",
         changeLocation: "Location", inherit: "Inherit (no override)", changeLink: "Ticket link", emptyInherits: "Leave empty to remove the override.",
+        noLocation: "No location", noLink: "No ticket link",
         changeTags: "Tags", tagsInherit: "Inherit tags instead", tagsInheritOn: "Tags are inherited from the event and rules.",
         detachHint: "Occurrences in a recurrence are detached from the series when overridden, as with single edits.",
         apply_one: "Change {{count}} occurrence", apply_other: "Change {{count}} occurrences",

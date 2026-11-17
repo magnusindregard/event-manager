@@ -65,7 +65,8 @@ beforeAll(async () => {
       locationOverrideId: rooftop.id,
       externalUrlOverride: "https://tix.example/evening",
     })).id;
-    ids.late = (await catalog.createOccurrence(tx, a, ev.id, { startUtc: inDays(45) })).id;
+    // The event has a ticket link; this occurrence explicitly has none.
+    ids.late = (await catalog.createOccurrence(tx, a, ev.id, { startUtc: inDays(45), externalUrlOverrideCleared: true })).id;
     ids.past = (await catalog.createOccurrence(tx, a, ev.id, { startUtc: inDays(-3) })).id;
     const o3 = await catalog.createOccurrence(tx, a, ev.id, { startUtc: inDays(12) });
     await catalog.updateOccurrence(tx, a, o3.id, o3.version, { status: "cancelled" });
@@ -186,6 +187,9 @@ describe("/public/v1", () => {
     const ev = await get(`/public/v1/events/${ids.event}?key=${keyA}&locale=en`);
     expect(ev.body.event).toMatchObject({ slug: "guided-tour", title: "Guided tour", tags: [{ key: "tour", label: "Tour" }] });
     expect(ev.body.event.occurrences.map((o: { id: string }) => o.id)).toEqual([ids.o1, ids.o2, ids.cancelled, ids.late]);
+    const occs = ev.body.event.occurrences as { id: string; admission: unknown; location: unknown }[];
+    expect(occs.find((o) => o.id === ids.late)).toMatchObject({ admission: { mode: "none" }, location: { name: "MUNCH" } });
+    expect(occs.find((o) => o.id === ids.o1)).toMatchObject({ admission: { mode: "external", url: "https://tix.example/tour" } });
   });
 
   it("serves rule-resolved locations, tags and ticket links", async () => {

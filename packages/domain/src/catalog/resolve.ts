@@ -22,6 +22,9 @@ export interface EventDefaults {
 export interface OccurrenceOverrides {
   locationOverrideId: string | null;
   externalUrlOverride: string | null;
+  /** Cleared: the occurrence has no location / link, whatever rules and defaults say. */
+  locationCleared?: boolean;
+  externalUrlCleared?: boolean;
   tagsOverride: string[] | null;
   capacityOverride?: number | null;
 }
@@ -48,10 +51,13 @@ export function defaultValues(event: EventDefaults): rules.FieldValues {
 
 export function overrideValues(occ: OccurrenceOverrides): Partial<rules.FieldValues> {
   const out: Partial<rules.FieldValues> = {};
-  if (occ.locationOverrideId !== null) out.location = occ.locationOverrideId;
+  // A cleared override is an override with no value: it wins over rules and the default.
+  if (occ.locationCleared) out.location = null;
+  else if (occ.locationOverrideId !== null) out.location = occ.locationOverrideId;
   if (occ.tagsOverride !== null) out.tags = [...occ.tagsOverride].sort();
   // An override link applies even when the event has no admission link of its own.
-  if (occ.externalUrlOverride !== null) out.externalUrl = occ.externalUrlOverride;
+  if (occ.externalUrlCleared) out.externalUrl = null;
+  else if (occ.externalUrlOverride !== null) out.externalUrl = occ.externalUrlOverride;
   if (occ.capacityOverride !== null && occ.capacityOverride !== undefined) out.capacity = occ.capacityOverride;
   return out;
 }
@@ -95,10 +101,16 @@ export async function resolutionContext(tx: Tx, eventId: string): Promise<Resolu
   };
 }
 
-const occColumns = ["id", "tenant_id", "start_utc", "location_override_id", "external_url_override", "tags_override", "capacity_override"] as const;
-type OccRow = { location_override_id: string | null; external_url_override: string | null; tags_override: string[] | null; capacity_override: number | null };
+const occColumns = [
+  "id", "tenant_id", "start_utc", "location_override_id", "external_url_override", "location_cleared", "external_url_cleared", "tags_override", "capacity_override",
+] as const;
+type OccRow = {
+  location_override_id: string | null; external_url_override: string | null; location_cleared: boolean; external_url_cleared: boolean;
+  tags_override: string[] | null; capacity_override: number | null;
+};
 const occOverrides = (o: OccRow) => overrideValues({
-  locationOverrideId: o.location_override_id, externalUrlOverride: o.external_url_override, tagsOverride: o.tags_override, capacityOverride: o.capacity_override,
+  locationOverrideId: o.location_override_id, externalUrlOverride: o.external_url_override, locationCleared: o.location_cleared,
+  externalUrlCleared: o.external_url_cleared, tagsOverride: o.tags_override, capacityOverride: o.capacity_override,
 });
 
 /** An event's occurrences as the rule preview sees them. */

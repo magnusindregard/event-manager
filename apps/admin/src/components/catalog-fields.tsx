@@ -64,7 +64,8 @@ export function TagPicker({ id, value, onChange, disabled }: { id: string; value
 }
 
 /** "default / rule: X / override" chip next to a resolved value. */
-export function SourceChip({ source, rule }: { source: "default" | "rule" | "override" | undefined; rule?: string | undefined }) {
+/** cleared: an override with no value (the occurrence has no location / link). */
+export function SourceChip({ source, rule, cleared }: { source: "default" | "rule" | "override" | undefined; rule?: string | undefined; cleared?: boolean }) {
   const { t } = useTranslation();
   if (!source) return null;
   return (
@@ -73,7 +74,7 @@ export function SourceChip({ source, rule }: { source: "default" | "rule" | "ove
       className={cn("max-w-48 truncate font-normal", source === "default" && "text-muted-foreground", source === "rule" && "border-sky-500 text-sky-700 dark:text-sky-400")}
       title={source === "rule" && rule ? rule : undefined}
     >
-      {source === "rule" ? t("occurrences.source.ruleNamed", { name: rule ?? "…" }) : t(`occurrences.source.${source}`)}
+      {source === "rule" ? t("occurrences.source.ruleNamed", { name: rule ?? "…" }) : source === "override" && cleared ? t("occurrences.source.cleared") : t(`occurrences.source.${source}`)}
     </Badge>
   );
 }

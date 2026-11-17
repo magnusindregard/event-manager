@@ -170,7 +170,14 @@ export const Occurrence = Type.Object({
   status: OccurrenceStatus,
   detached: Type.Boolean({ description: "Edited by hand; the series no longer moves it" }),
   conflict: Type.Boolean({ description: "Detached, and a series change has since moved or removed its slot" }),
-  overrides: Type.Object({ locationId: Nullable(Uuid), externalUrl: Nullable(Type.String()), tagIds: Nullable(Type.Array(Uuid)), capacity: Nullable(Type.Integer()) }),
+  overrides: Type.Object({
+    locationId: Nullable(Uuid),
+    locationCleared: Type.Boolean({ description: "The occurrence has no location, even when a rule or the event default has one" }),
+    externalUrl: Nullable(Type.String()),
+    externalUrlCleared: Type.Boolean({ description: "The occurrence has no external link, even when a rule or the event default has one" }),
+    tagIds: Nullable(Type.Array(Uuid)),
+    capacity: Nullable(Type.Integer()),
+  }, { description: "null with *Cleared false inherits from rules and the event default" }),
   effective: Type.Object({
     location: Type.Optional(resolved(Nullable(Uuid))),
     tags: Type.Optional(resolved(Type.Array(Uuid))),
@@ -186,7 +193,9 @@ export type Occurrence = Static<typeof Occurrence>;
 
 const overrideFields = {
   locationOverrideId: Type.Optional(Nullable(Uuid)),
+  locationOverrideCleared: Type.Optional(Type.Boolean({ description: "true: this occurrence has no location (cannot be combined with a locationOverrideId). false: inherit again" })),
   externalUrlOverride: Type.Optional(Nullable(HttpUrl)),
+  externalUrlOverrideCleared: Type.Optional(Type.Boolean({ description: "true: this occurrence has no external link (cannot be combined with an externalUrlOverride). false: inherit again" })),
   tagsOverride: Type.Optional(Nullable(Type.Array(Uuid, { uniqueItems: true, maxItems: 100 }))),
   capacityOverride: Type.Optional(Nullable(Type.Integer({ minimum: 0, maximum: 1000000 }))),
 };
@@ -381,7 +390,7 @@ export const OccurrenceBulkUpdate = Type.Object(
     items: Type.Array(Type.Object({ id: Uuid, version: Type.Integer({ description: "As in the occurrence's ETag" }) }, { additionalProperties: false }), { minItems: 1, maxItems: 1000 }),
     set: Type.Object(
       { ...overrideFields, status: Type.Optional(OccurrenceStatus) },
-      { additionalProperties: false, minProperties: 1, description: "Applied to every occurrence. null clears an override." },
+      { additionalProperties: false, minProperties: 1, description: "Applied to every occurrence. null removes an override (inherit); *Cleared true clears the value." },
     ),
   },
   { additionalProperties: false },

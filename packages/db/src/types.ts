@@ -214,6 +214,8 @@ export interface OccurrenceTable {
   detached: Generated<boolean>;
   location_override_id: string | null;
   external_url_override: string | null;
+  location_cleared: Generated<boolean>;
+  external_url_cleared: Generated<boolean>;
   tags_override: string[] | null;
   capacity_override: number | null;
   access_policy_override: AccessPolicy | null;
