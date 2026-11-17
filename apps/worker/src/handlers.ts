@@ -1,5 +1,6 @@
 import type { Tx } from "@event-manager/db";
 import type { outbox } from "@event-manager/domain";
+import { queueOccurrenceNotices } from "./occurrence-notice.js";
 import { enqueueProvisioning } from "./provision.js";
 import { queueRegistrationEmail } from "./registration-email.js";
 import { queueResolution } from "./resolver.js";
@@ -31,4 +32,4 @@ export const auditTrailHandler: InternalHandler = {
   },
 };
 
-export const defaultHandlers: InternalHandler[] = [auditTrailHandler, enqueueProvisioning, queueResolution, queueRegistrationEmail];
+export const defaultHandlers: InternalHandler[] = [auditTrailHandler, enqueueProvisioning, queueResolution, queueRegistrationEmail, queueOccurrenceNotices];

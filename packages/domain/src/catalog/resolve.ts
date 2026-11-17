@@ -1,5 +1,6 @@
 import { type AdmissionMode, sql, type Tx } from "@event-manager/db";
 import * as inventory from "../inventory/index.js";
+import { emit } from "../outbox/index.js";
 import * as rules from "../rules/index.js";
 import { utcToLocal } from "./recurrence.js";
 
@@ -141,7 +142,24 @@ export async function resolveEventOccurrences(tx: Tx, eventId: string, ids?: rea
         ordered,
       ).values,
     }));
+    // Attendees are told when an upcoming registration occurrence changes place, whether by an
+    // override, a rule or the event's default (occurrence.relocated.v1 → worker notices).
+    const relocated: { occurrenceId: string; tenantId: string; from: unknown; to: unknown }[] = [];
+    if (c.registration) {
+      const now = new Date();
+      const upcoming = occs.filter((o) => o.start_utc > now).map((o) => o.id);
+      const before = upcoming.length ? await loadEffectiveValues(tx, upcoming) : new Map<string, Partial<EffectiveValues>>();
+      for (const r of rows) {
+        const prev = before.get(r.occurrenceId)?.location;
+        if (prev && JSON.stringify(prev.value) !== JSON.stringify(r.values.location.value)) {
+          relocated.push({ occurrenceId: r.occurrenceId, tenantId: r.tenantId, from: prev.value, to: r.values.location.value });
+        }
+      }
+    }
     await rules.writeEffectiveValues(tx, rows);
+    for (const m of relocated) {
+      await emit(tx, m.tenantId, { type: "occurrence.relocated.v1", subject: `occurrence/${m.occurrenceId}`, data: { id: m.occurrenceId, eventId, from: m.from, to: m.to } });
+    }
     if (c.registration) {
       await inventory.syncPools(tx, rows.map((r) => ({
         tenantId: r.tenantId, occurrenceId: r.occurrenceId,
