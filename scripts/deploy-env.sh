@@ -22,6 +22,19 @@ TAG=${2:?usage: deploy-env.sh <staging|prod> <image tag>}
 RG=${RESOURCE_GROUP:?RESOURCE_GROUP is required}
 cd "$(dirname "$0")/.."
 
+# In GitHub Actions, azure/login signs az in with the job's OIDC token, which is valid for five
+# minutes. az uses it again whenever it needs a token for a new resource (storage, for the admin
+# upload), which comes long after that on a full deploy. So sign in again with a fresh OIDC token
+# before each phase. By hand (no ACTIONS_ID_TOKEN_REQUEST_URL), your own az login is used as is.
+refresh_login() {
+  [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] && [ -n "${AZURE_CLIENT_ID:-}" ] || return 0
+  local token
+  token=$(curl -fsS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:?}" \
+    "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r .value)
+  az login --service-principal -u "$AZURE_CLIENT_ID" -t "${AZURE_TENANT_ID:?}" --federated-token "$token" -o none
+  az account set -s "${AZURE_SUBSCRIPTION_ID:?}"
+}
+
 # The image tag the apps run now (empty on a fresh environment).
 api_app=$(az containerapp list -g "$RG" --query "[?ends_with(name, '-api')].name | [0]" -o tsv)
 current=""
@@ -65,6 +78,7 @@ out=$(bicep prepare "${current:-$TAG}")
 val() { echo "$out" | jq -r ".$1.value"; }
 MIGRATE_JOB=$(val migrateJobName)
 
+refresh_login
 echo "▸ Migrations ($MIGRATE_JOB)"
 exec_name=$(az containerapp job start -g "$RG" -n "$MIGRATE_JOB" --query name -o tsv)
 status=""
@@ -80,6 +94,7 @@ for _ in $(seq 1 90); do
 done
 [ "$status" = "Succeeded" ] || { echo "Migration timed out; the apps still run ${current:-nothing}" >&2; exit 1; }
 
+refresh_login
 echo "▸ Bicep: apps → $TAG"
 out=$(bicep apps "$TAG")
 STORAGE=$(val adminStorageAccount)
@@ -90,6 +105,7 @@ ATTENDEE_HOST=$(val attendeeHost)
 ADMIN_ORIGIN=$(val adminOrigin)
 
 # Behind Front Door the admin calls /v1 on its own host; without it, the API's host (CORS allows the admin).
+refresh_login
 echo "▸ Admin ($STORAGE)"
 if [ -n "$FRONT_DOOR" ]; then api_base=""; else api_base="https://$API_HOST"; fi
 VITE_API_BASE_URL="$api_base" VITE_AUTH_MODE=msal VITE_ATTENDEE_URL="https://$ATTENDEE_HOST" \

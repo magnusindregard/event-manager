@@ -59,4 +59,8 @@ jobs:
           ENTRA_AUTHORITY: ${{ vars.ENTRA_AUTHORITY }}
           ENTRA_API_SCOPE: ${{ vars.ENTRA_API_SCOPE }}
           ALLOW_REPLACE: ${{ inputs.replace-newer }}
+          # deploy-env.sh signs in again with a fresh OIDC token before each phase.
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
         run: scripts/deploy-env.sh ${{ inputs.environment }} ${{ inputs.image-tag }}
