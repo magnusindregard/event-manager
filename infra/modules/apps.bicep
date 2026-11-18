@@ -3,6 +3,8 @@ param location string
 param tags object
 param prod bool
 param imageTag string
+@description('Image tag of the migrate job. The deploy runs it with the new tag before the apps move to it.')
+param migrateImageTag string = imageTag
 param registryServer string
 param subnetId string
 param logAnalyticsCustomerId string
@@ -202,7 +204,8 @@ resource worker 'Microsoft.App/containerApps@2024-03-01' = if (!workerAsSidecar)
   }
 }
 
-// Started by the deploy workflow before new revisions roll out.
+// Started by scripts/deploy-env.sh with the new image while the apps still run the old one;
+// the apps move to the new image only after it succeeds.
 resource migrate 'Microsoft.App/jobs@2024-03-01' = {
   name: 'caj-${name}-migrate'
   location: location
@@ -221,7 +224,7 @@ resource migrate 'Microsoft.App/jobs@2024-03-01' = {
     template: {
       containers: [{
         name: 'migrate'
-        image: '${registryServer}/event-manager/db:${imageTag}'
+        image: '${registryServer}/event-manager/db:${migrateImageTag}'
         resources: { cpu: json('0.25'), memory: '0.5Gi' }
         env: [
           { name: 'MIGRATOR_DATABASE_URL', value: 'postgres://${migratorIdentityName}@${postgresHost}:5432/${databaseName}' }

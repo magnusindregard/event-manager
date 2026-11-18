@@ -82,12 +82,21 @@ What exists (set up 16 November 2026 in the personal subscription "Azure subscri
 | Public API | `https://ca-em-staging-public.delightfulsmoke-3e1e18a3.norwayeast.azurecontainerapps.io/public/v1` |
 | Demo account | slug `demo`, seeded 16 November; create API keys in the admin (*Settings → API keys*) |
 
-**Deploy** a branch or `main` (builds images on GitHub's runners, then runs `scripts/deploy-env.sh`):
+**Deploy.** Every push to `main` deploys once CI has passed for that commit (CI calls the Deploy workflow
+after its checks). To deploy a branch as a preview, or redeploy `main`, run Deploy by hand (builds images on
+GitHub's runners, then runs `scripts/deploy-env.sh`):
 
 ```bash
 gh workflow run deploy.yml --ref <branch> -R magnusindregard/event-manager
 gh run watch -R magnusindregard/event-manager
 ```
+
+Deploys to one environment run one at a time, whatever branch started them, and never silently roll it
+back: a commit that would replace a newer `main` commit, or another branch's preview, stops before changing
+anything. `main` replaces a branch preview. To replace one on purpose, tick *replace newer*
+(`-f replace_newer=true`; by hand `ALLOW_REPLACE=true`). Each deploy first updates the infrastructure and
+the migrate job with the new image while the apps keep running the old one, runs the migrations, and only
+then moves the apps to the new image; a failed migration leaves them on the old one.
 
 By hand, from a signed-in `az` (images built in the registry with ACR Tasks; free trials may not allow them):
 
@@ -134,7 +143,7 @@ connected without Entra auth. Twice, a dispatched Deploy run stayed "queued" wit
 again started a new run. One of those held-back runs ran an hour later anyway and rolled staging back
 to an image without the worker fix; the crash-looping worker sidecar then took the api replica out of
 service (504s, seen as CORS errors in the admin). Deploy now refuses a commit that is no longer the
-branch tip. If the admin hangs, check `az containerapp replica list -g rg-em-staging -n ca-em-staging-api`
+branch tip (since replaced by the freshness check above). If the admin hangs, check `az containerapp replica list -g rg-em-staging -n ca-em-staging-api`
 for a sidecar with restarts.
 
 **Not production grade, on purpose:** no edge cache (each public request hits the app), no WAF, public
@@ -144,7 +153,7 @@ invitees get no Entra identity automatically (create the user in the external te
 
 ## Staging runbook (end of milestone 2)
 
-The Deploy workflow deploys every merge to `main` to the online test environment above, which uses the
+CI deploys every merge to `main` that passes its checks to the online test environment above, which uses the
 `staging` GitHub environment. Paid staging with Front Door replaces it there once this runbook is done.
 
 ### What staging costs
@@ -392,8 +401,8 @@ gh variable set ACR_NAME --env staging --body "<registry name without .azurecr.i
 
 ### 7. First full deploy
 
-Run the *Deploy* workflow (Actions → *Deploy* → *Run workflow*; then re-add its `push` trigger so merges deploy). It builds images, deploys Bicep with the apps, runs the
-`migrate` job (which also registers the app identity in Postgres), uploads the admin and smoke-tests
+Run the *Deploy* workflow (Actions → *Deploy* → *Run workflow*; then re-add the `deploy-staging` job in CI so merges deploy). It builds images, deploys Bicep, runs the
+`migrate` job (which also registers the app identity in Postgres), deploys the apps, uploads the admin and smoke-tests
 `/v1/me` → 401 through Front Door. Then add `https://<front door host>/` as a redirect URI on **em-admin-staging**.
 
 ### 8. First account
