@@ -16,12 +16,22 @@ import { type AttendeeRegistration as AttendeeRegistrationResult, AttendeeServic
 // and the attendee API they share their logic with. No accounts and no cookies; open
 // registration takes an occurrence id, everything else a signed manage token.
 
+export const DEFAULT_TRUSTED_PROXIES = "loopback, linklocal, uniquelocal";
+
 export interface AttendeeAppDeps {
   db: Db;
   logger?: FastifyServerOptions["logger"];
   /** Per-IP limit on posts (registering, changing, cancelling). */
   rateLimit?: { capacity: number; refillPerSecond: number };
   clock?: () => Date;
+  /**
+   * Which proxies' X-Forwarded-For entries to trust (proxy-addr names or CIDRs, comma-separated).
+   * Default: private addresses, which is where Azure Container Apps ingress reaches the app from.
+   * The client address is the first untrusted entry from the right, the one the ingress appended,
+   * so anything a caller writes further left cannot pick its own rate-limit bucket. Add a proxy's
+   * ranges here if one with public addresses (e.g. Front Door) is put in front.
+   */
+  trustedProxies?: string;
 }
 
 const TYPE_BASE = "https://docs.event-manager.dev/problems/";
@@ -55,7 +65,8 @@ const detailsDto = (d: Details) => ({
 export async function buildAttendeeApp(deps: AttendeeAppDeps) {
   const app = Fastify({
     logger: deps.logger ?? false,
-    trustProxy: true,
+    // Not true: that trusts every address in X-Forwarded-For, including ones the caller sends.
+    trustProxy: deps.trustedProxies ?? DEFAULT_TRUSTED_PROXIES,
     ajv: { customOptions: { removeAdditional: false, coerceTypes: "array", useDefaults: true } },
   }).withTypeProvider<TypeBoxTypeProvider>();
   const svc = new AttendeeService(deps.db, deps.clock);

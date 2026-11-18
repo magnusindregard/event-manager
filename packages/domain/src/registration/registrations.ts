@@ -107,13 +107,16 @@ export async function pickLocale(tx: Tx, locale: string | undefined): Promise<st
 const pgCode = (e: unknown) => (typeof e === "object" && e !== null && "code" in e ? String((e as { code: unknown }).code) : undefined);
 
 /**
- * Whether the attendee may still change or cancel. Changes follow the registration window;
- * cancelling is possible until the occurrence starts.
+ * Whether the attendee may still change or cancel. Changes follow the registration window and
+ * need a scheduled occurrence of a published event. Cancelling is possible until the occurrence
+ * starts, also when staff cancelled the occurrence or event: registrations are kept then, and the
+ * attendee must still be able to withdraw (and free the places if it is restored).
  */
 export function attendeeRights(reg: Pick<Registration, "status">, target: catalog.RegistrationTarget, now: Date): { change: boolean; cancel: boolean } {
-  const active = reg.status !== "cancelled" && target.occurrence.status === "scheduled" && target.event.status === "published";
+  const held = reg.status !== "cancelled";
+  const active = held && target.occurrence.status === "scheduled" && target.event.status === "published";
   const { closesAt } = catalog.registrationWindow(target.occurrence.startUtc, target.event.opensMinBefore, target.event.closesMinBefore);
-  return { change: active && now < closesAt, cancel: active && now < target.occurrence.startUtc };
+  return { change: active && now < closesAt, cancel: held && target.event.status !== "archived" && now < target.occurrence.startUtc };
 }
 
 /** Registers for an occurrence. Throws full, registration_closed, already_registered or invitation_required. */
