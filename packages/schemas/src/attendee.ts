@@ -1,4 +1,5 @@
 import { Type } from "typebox";
+import { Nullable } from "./nullable.js";
 import { Availability } from "./public.js";
 
 // Attendee API (/attendee/v1, docs/registration.md "Attendee pages"). Behind the hosted
@@ -7,7 +8,6 @@ import { Availability } from "./public.js";
 
 const Uuid = Type.String({ format: "uuid" });
 const DateTime = Type.String({ format: "date-time" });
-const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(t: T) => Type.Union([t, Type.Null()]);
 
 export const AttendeeOccurrence = Type.Object({
   locale: Type.String({ description: "Locale of the texts: the requested one, or the account default" }),

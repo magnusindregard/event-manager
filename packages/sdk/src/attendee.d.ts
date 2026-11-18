@@ -374,23 +374,27 @@ export interface operations {
                             id: string;
                             title: string;
                             shortDescription: string | null;
-                            image: {
+                            image: null | {
                                 url: string;
                                 alt: string | null;
-                            } | null;
+                            };
                             accessPolicy: "open" | "invite_only";
                             /** @description Whether "I will bring a guest" is offered */
                             guestAllowed: boolean;
                         };
-                        location: {
+                        location: null | {
                             name: string;
                             address: string | null;
                             venue: string | null;
-                        } | null;
+                        };
                         /** @description Places for registration occurrences, without exact numbers. Null for other admission modes */
                         availability: {
                             /** @description closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added */
                             status: "available" | "few_left" | "full" | "closed";
+                            /**
+                             * Format: date-time
+                             * @description Null: open as soon as the event is published
+                             */
                             opensAt: string | null;
                             /** Format: date-time */
                             closesAt: string;
@@ -750,23 +754,27 @@ export interface operations {
                                 id: string;
                                 title: string;
                                 shortDescription: string | null;
-                                image: {
+                                image: null | {
                                     url: string;
                                     alt: string | null;
-                                } | null;
+                                };
                                 accessPolicy: "open" | "invite_only";
                                 /** @description Whether "I will bring a guest" is offered */
                                 guestAllowed: boolean;
                             };
-                            location: {
+                            location: null | {
                                 name: string;
                                 address: string | null;
                                 venue: string | null;
-                            } | null;
+                            };
                             /** @description Places for registration occurrences, without exact numbers. Null for other admission modes */
                             availability: {
                                 /** @description closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added */
                                 status: "available" | "few_left" | "full" | "closed";
+                                /**
+                                 * Format: date-time
+                                 * @description Null: open as soon as the event is published
+                                 */
                                 opensAt: string | null;
                                 /** Format: date-time */
                                 closesAt: string;
@@ -778,6 +786,7 @@ export interface operations {
                             /** @description Can be cancelled until the occurrence starts */
                             cancel: boolean;
                         };
+                        /** @description The QR code's content; null when cancelled */
                         admissionToken: string | null;
                     };
                 };
@@ -1304,10 +1313,10 @@ export interface operations {
                             id: string;
                             title: string;
                             shortDescription: string | null;
-                            image: {
+                            image: null | {
                                 url: string;
                                 alt: string | null;
-                            } | null;
+                            };
                         };
                         /** @description Times still to come; accept with one whose availability is available or few_left */
                         occurrences: {
@@ -1318,20 +1327,25 @@ export interface operations {
                             /** Format: date-time */
                             endUtc: string;
                             timezone: string;
-                            location: {
+                            location: null | {
                                 name: string;
                                 address: string | null;
                                 venue: string | null;
-                            } | null;
+                            };
                             /** @description Places for registration occurrences, without exact numbers. Null for other admission modes */
                             availability: {
                                 /** @description closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added */
                                 status: "available" | "few_left" | "full" | "closed";
+                                /**
+                                 * Format: date-time
+                                 * @description Null: open as soon as the event is published
+                                 */
                                 opensAt: string | null;
                                 /** Format: date-time */
                                 closesAt: string;
                             };
                         }[];
+                        /** @description Set when the guest has accepted: the bearer token for /registration */
                         manageToken: string | null;
                     };
                 };

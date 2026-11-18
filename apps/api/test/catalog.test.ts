@@ -201,4 +201,37 @@ describe("/v1 registration settings and capacity", () => {
     const occ = await call("POST", `/v1/events/${created.body.id}/occurrences`, { body: { startUtc: "2027-06-02T17:00:00Z", capacityOverride: null } });
     expect(occ.body.pool).toMatchObject({ capacity: null, bookableLimit: null, available: null });
   });
+
+  it("keeps 0 as zero places instead of coercing it to null (#46)", async () => {
+    const created = await call("POST", "/v1/events", {
+      body: { translations: { nb: { title: "Fullt" } }, admissionMode: "registration", registration: { capacity: 0 } },
+    });
+    expect(created.status).toBe(201);
+    expect(created.body.registration.capacity).toBe(0);
+    const inherits = await call("POST", `/v1/events/${created.body.id}/occurrences`, { body: { startUtc: "2027-06-03T17:00:00Z" } });
+    expect(inherits.body.pool).toMatchObject({ capacity: 0, bookableLimit: 0, available: 0 });
+
+    // Patch the event: positive, then 0 again, then null (no limit).
+    let etag = created.headers.etag as string;
+    for (const capacity of [40, 0, null]) {
+      const r = await call("PATCH", `/v1/events/${created.body.id}`, { body: { registration: { capacity } }, headers: { "if-match": etag } });
+      expect(r.status).toBe(200);
+      expect(r.body.registration.capacity).toBe(capacity);
+      etag = r.headers.etag as string;
+    }
+    await call("PATCH", `/v1/events/${created.body.id}`, { body: { registration: { capacity: 40 } }, headers: { "if-match": etag } });
+
+    // A zero override wins over the positive default; null inherits it again.
+    const occ = await call("POST", `/v1/events/${created.body.id}/occurrences`, { body: { startUtc: "2027-06-04T17:00:00Z", capacityOverride: 0 } });
+    expect(occ.body.overrides.capacity).toBe(0);
+    expect(occ.body.pool).toMatchObject({ capacity: 0, bookableLimit: 0, available: 0 });
+    let v = occ.headers.etag as string;
+    for (const [capacityOverride, poolCapacity] of [[5, 5], [0, 0], [null, 40]] as const) {
+      const r = await call("PATCH", `/v1/occurrences/${occ.body.id}`, { body: { capacityOverride }, headers: { "if-match": v } });
+      expect(r.status).toBe(200);
+      expect(r.body.overrides.capacity).toBe(capacityOverride);
+      expect(r.body.pool.capacity).toBe(poolCapacity);
+      v = r.headers.etag as string;
+    }
+  });
 });

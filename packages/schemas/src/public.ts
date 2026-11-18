@@ -1,11 +1,11 @@
 import { Type } from "typebox";
+import { Nullable } from "./nullable.js";
 
 // Public read API (/public/v1) response shapes. Additive changes only: new fields and new
 // admission modes may appear; existing fields keep their meaning (ADR 0007).
 
 const Uuid = Type.String({ format: "uuid" });
 const DateTime = Type.String({ format: "date-time" });
-const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(t: T) => Type.Union([t, Type.Null()]);
 const Geo = Type.Object({ lat: Type.Number(), lng: Type.Number() });
 
 export const PublicTag = Type.Object({ id: Uuid, key: Type.String(), vocabulary: Type.String(), label: Type.String() });
