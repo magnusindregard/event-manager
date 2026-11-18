@@ -22,7 +22,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiProblem, type CatalogEvent, etagOf, isConflict, type Occurrence, type Series, unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
-import { describeRule } from "../lib/recurrence.js";
+import { describeRule, slotsBefore } from "../lib/recurrence.js";
 import { locationPath, useEventRules, useLocations, useTagLabels, useVocabularies } from "../queries.js";
 import { useRuleRefresh } from "./Rules.js";
 import { BulkOverride } from "./schedule/BulkOverride.js";
@@ -503,7 +503,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
                     busy={settle.isPending}
                     onFollowing={(series, at) => {
                       setDraft(null);
-                      setEditor({ kind: "split", series, at });
+                      setEditor({ kind: "split", series, at, slotsBefore: slotsBefore(series, query.data ?? [], at) });
                     }}
                     onAll={(series) => {
                       setDraft(null);

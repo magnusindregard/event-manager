@@ -13,13 +13,16 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Textarea } from "@/components/ui/textarea";
 import { type CatalogEvent, etagOf, isConflict, type Series, type SeriesChangeResult, unwrap } from "../../api.js";
 import { useApp } from "../../AppContext.js";
-import { buildRule, type Freq, parseRule, type RuleForm, splitLocal, WEEKDAYS, weekdayNames, weekdayOf } from "../../lib/recurrence.js";
+import {
+  buildRule, followingRule, type Freq, parseRule, type RuleForm, splitLocal, splitRrule, WEEKDAYS, weekdayNames, weekdayOf,
+} from "../../lib/recurrence.js";
 
 /** Create a series, edit the entire series, or edit this and following (split at a slot). */
 export type EditorMode =
   | { kind: "create" }
   | { kind: "edit"; series: Series }
-  | { kind: "split"; series: Series; at: string };
+  /** slotsBefore: slots of the series before `at` (lib/recurrence slotsBefore), used up by a COUNT. */
+  | { kind: "split"; series: Series; at: string; slotsBefore: number };
 
 type Draft = { rule: RuleForm; date: string; time: string; durationMin: number };
 
@@ -34,7 +37,8 @@ function initial(mode: EditorMode, event: CatalogEvent): Draft {
     };
   }
   const { date, time } = splitLocal(mode.kind === "split" ? mode.at : mode.series.dtstartLocal);
-  return { rule: parseRule(mode.series.rrule), date, time, durationMin: mode.series.durationMin };
+  const rule = mode.kind === "split" ? followingRule(mode.series.rrule, mode.slotsBefore) : parseRule(mode.series.rrule);
+  return { rule, date, time, durationMin: mode.series.durationMin };
 }
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -65,7 +69,8 @@ export function RecurrenceEditor({ event, mode, onClose, onSaved, onConflict }: 
 function EditorBody({ event, mode, onSaved, onConflict }: { event: CatalogEvent; mode: EditorMode; onSaved(): void; onConflict(): void }) {
   const { t, i18n } = useTranslation();
   const { api, accountId } = useApp();
-  const [d, setD] = useState<Draft>(() => initial(mode, event));
+  const [start] = useState<Draft>(() => initial(mode, event));
+  const [d, setD] = useState<Draft>(start);
   const names = weekdayNames(i18n.language);
   const timezone = mode.kind === "create" ? event.timezone : mode.series.timezone;
   const setRule = (patch: Partial<RuleForm>) => setD({ ...d, rule: { ...d.rule, ...patch } });
@@ -90,7 +95,12 @@ function EditorBody({ event, mode, onSaved, onConflict }: { event: CatalogEvent;
     if (mode.kind === "edit") {
       return unwrap(await api.PATCH("/v1/series/{id}", { params: { path: { id: mode.series.id }, query: { dryRun } }, body, headers }));
     }
-    return unwrap(await api.POST("/v1/series/{id}/split", { params: { path: { id: mode.series.id }, query: { dryRun } }, body: { ...body, at: mode.at }, headers }));
+    // Unchanged rule: leave it out, so the new series keeps the remaining COUNT (or UNTIL) the server works out.
+    const { rrule: _, ...rest } = body;
+    const rrule = splitRrule(d.rule, start.rule);
+    return unwrap(await api.POST("/v1/series/{id}/split", {
+      params: { path: { id: mode.series.id }, query: { dryRun } }, body: { ...rest, ...(rrule ? { rrule } : {}), at: mode.at }, headers,
+    }));
   };
 
   const debounced = useDebounced(body, 400);
