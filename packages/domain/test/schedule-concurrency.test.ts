@@ -179,3 +179,48 @@ describe("horizon extension (#39)", () => {
     expect(Math.min(a, b)).toBe(0);
   });
 });
+
+describe("rule saves and resolution (#41, #42)", () => {
+  async function setup(withOccurrence = true) {
+    const e = await event("Rules");
+    const [low, high] = await Promise.all(["Low", "High"].map((name) => run((tx) => catalog.createLocation(tx, ctx, { kind: "venue", name }))));
+    const occ = withOccurrence ? await run((tx) => catalog.createOccurrence(tx, ctx, e.id, { startUtc: new Date("2027-05-01T10:00:00Z") })) : null;
+    return { e, low: low!, high: high!, occ };
+  }
+  const locationRule = (eventId: string, locationId: string, priority: number) =>
+    (tx: Tx) => catalog.createRule(tx, ctx, eventId, { name: `p${priority}`, priority, effects: [{ type: "location", targetRef: null, value: locationId }] });
+  const effectiveLocation = async (eventId: string) => (await occurrences(eventId))[0]!.effective.location;
+
+  it("a lower-priority rule saved after a higher one does not overwrite its result", async () => {
+    const { e, low, high } = await setup();
+    const higher = held(locationRule(e.id, high.id, 10));
+    await higher.done;
+    const lower = run(locationRule(e.id, low.id, 0));
+    await pause();
+    await higher.commit();
+    expect((await lower).resolution).toBe("none"); // the waiting save previews against the higher rule: nothing changes
+    expect(await effectiveLocation(e.id)).toMatchObject({ value: high.id, source: "rule" });
+  });
+
+  it("an occurrence created while a rule is saved gets the rule", async () => {
+    const { e, low } = await setup(false);
+    const rule = held(locationRule(e.id, low.id, 0));
+    expect((await rule.done).resolution).toBe("none"); // no occurrences yet
+    const created = run((tx) => catalog.createOccurrence(tx, ctx, e.id, { startUtc: new Date("2027-05-01T10:00:00Z") }));
+    await pause();
+    await rule.commit();
+    await created;
+    expect(await effectiveLocation(e.id)).toMatchObject({ value: low.id, source: "rule" });
+  });
+
+  it("a rule saved while an occurrence is created resolves that occurrence", async () => {
+    const { e, low } = await setup(false);
+    const created = held((tx) => catalog.createOccurrence(tx, ctx, e.id, { startUtc: new Date("2027-05-01T10:00:00Z") }));
+    await created.done;
+    const rule = run(locationRule(e.id, low.id, 0));
+    await pause();
+    await created.commit();
+    expect((await rule).resolution).toBe("done");
+    expect(await effectiveLocation(e.id)).toMatchObject({ value: low.id, source: "rule" });
+  });
+});

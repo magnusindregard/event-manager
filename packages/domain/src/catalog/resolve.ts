@@ -80,10 +80,14 @@ export interface ResolutionContext {
 
 /** What every occurrence of an event resolves against: its defaults, timezone and rules. */
 export async function resolutionContext(tx: Tx, eventId: string): Promise<ResolutionContext> {
+  // FOR SHARE: configuration changes (rule saves, event defaults) lock the event row for update,
+  // so the rules and defaults read here stay current until this transaction commits, and a
+  // resolver that started earlier cannot publish values from an older configuration (#41).
   const event = await tx
     .selectFrom("catalog.event")
     .select(["timezone", "default_location_id", "admission_mode", "external_url", "capacity", "overbooking_pct"])
     .where("id", "=", eventId)
+    .forShare()
     .executeTakeFirstOrThrow();
   const tags = await tx.selectFrom("catalog.event_tag").select("tag_id").where("event_id", "=", eventId).execute();
   return {

@@ -39,8 +39,13 @@ export interface RuleChangeOptions {
 export const listRules = (tx: Tx, eventId: string): Promise<Rule[]> => rules.listRules(tx, eventId);
 export const getRule = (tx: Tx, id: string): Promise<Rule> => rules.getRule(tx, id);
 
+/**
+ * Locks the event row for the whole rule change: resolvers (resolutionContext) and schedule
+ * changes (lockScheduleEvent) take it FOR SHARE, so the preview sees every occurrence and rule
+ * the save will apply to, and "resolution: none" stays true once saved (#41, #42).
+ */
 async function writableEvent(tx: Tx, eventId: string) {
-  const event = await tx.selectFrom("catalog.event").select(["id", "status"]).where("id", "=", eventId).executeTakeFirst();
+  const event = await tx.selectFrom("catalog.event").select(["id", "status"]).where("id", "=", eventId).forUpdate().executeTakeFirst();
   if (!event) throw notFound("Event");
   if (event.status === "archived") throw new DomainError("conflict", "The event is archived");
 }
