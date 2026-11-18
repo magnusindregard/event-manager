@@ -196,6 +196,31 @@ describe("answers", () => {
     expect(fields.map((f) => [f.id, f.retired])).toEqual([["diet", false], ["org", false], ["photo", false], ["menu", true]]);
     expect((await run((tx) => registration.doorList(tx, ctx, occ.id, { answers: true }))).entries.find((e) => e.registrationId === reg.id)!.answers.menu).toBe("Fisk");
   });
+
+  it("keeps answers to a removed choice option readable", async () => {
+    const { event, occ, form } = await gala();
+    const { reg } = await acceptWith(event.id, occ.id, "opt@example.com", { answers: { org: "X", menu: "fish" } });
+    const fields = form.fields.map((f) => (f.id === "menu" ? { ...f, options: f.options.filter((o) => o.id !== "fish") } : f));
+    await run((tx) => registration.saveForm(tx, ctx, event.id, form.version, fields));
+    const menu = (await run((tx) => registration.answerFields(tx, event.id))).find((f) => f.id === "menu")!;
+    expect(menu).toMatchObject({ retired: false, options: [{ id: "veg" }, { id: "fish" }] });
+    expect((await run((tx) => registration.doorList(tx, ctx, occ.id, { answers: true }))).entries.find((e) => e.registrationId === reg.id)!.answers.menu).toBe("Fisk");
+  });
+
+  it("refuses to change whether a field is sensitive once it has answers", async () => {
+    const { event, occ, form } = await gala();
+    const flip = (id: string, sensitive: boolean) => form.fields.map((f) => (f.id === id ? { ...f, sensitive } : f));
+    // Unanswered: a plain text field may become sensitive, and back.
+    const v2 = await run((tx) => registration.saveForm(tx, ctx, event.id, form.version, flip("org", true)));
+    expect(v2.fields.find((f) => f.id === "org")!.sensitive).toBe(true);
+    const v3 = await run((tx) => registration.saveForm(tx, ctx, event.id, v2.version, flip("org", false)));
+
+    await acceptWith(event.id, occ.id, "cls@example.com", { answers: { org: "NTNU" } });
+    expect(await code(run((tx) => registration.saveForm(tx, ctx, event.id, v3.version, flip("org", true))))).toBe("validation_failed:fields.1.sensitive");
+    // Other edits to the field are still fine.
+    const relabel = form.fields.map((f) => (f.id === "org" ? { ...f, label: { nb: "Arbeidsgiver" } } : f));
+    expect((await run((tx) => registration.saveForm(tx, ctx, event.id, v3.version, relabel))).version).toBe(v3.version + 1);
+  });
 });
 
 describe("encryption and tenants", () => {

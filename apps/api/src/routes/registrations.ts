@@ -100,7 +100,11 @@ export const registrationRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
     async (req, reply) => {
       const r = await inTenant(app, req, (tx, ctx) =>
-        idempotent(tx, req, ctx.tenantId, 201, async () => one(tx, ctx, await registration.register(tx, ctx.tenantId, req.params.id, req.body, { kind: "staff", ctx }))));
+        idempotent(tx, req, ctx.tenantId, 201, async () => one(tx, ctx, await registration.register(tx, ctx.tenantId, req.params.id, req.body, { kind: "staff", ctx })), {
+          // Only the id is cached: the response holds personal data and decrypted answers.
+          store: (body) => ({ id: (body as { id: string }).id }),
+          replay: async (stored) => one(tx, ctx, await registration.getRegistration(tx, (stored as { id: string }).id)),
+        }));
       setEtag(reply, (r.body as { version: number }).version);
       return reply.status(r.status).send(r.body as never);
     },

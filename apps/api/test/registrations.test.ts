@@ -1,6 +1,6 @@
 import { SignJWT } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createDb, type Db } from "@event-manager/db";
+import { createDb, type Db, withTenant } from "@event-manager/db";
 import { startTestDatabase, type TestDatabase } from "@event-manager/db/testing";
 import { tenancy } from "@event-manager/domain";
 import { buildApp } from "../src/app.js";
@@ -144,6 +144,20 @@ describe("/v1 forms, answers and the door list", () => {
     expect(res.headers["content-type"]).toBe("text/csv; charset=utf-8");
     const lines = res.body.replace(/^\uFEFF/, "").trim().split("\r\n");
     expect(lines).toEqual(["name;email;party_size;source;Matbehov;Organisasjon", '"Per; Hansen";per@example.com;2;staff;Gluten;\'=SUM(A1)']);
+  });
+
+  it("keeps personal data and decrypted answers out of the idempotency cache", async () => {
+    const body = { name: "Ida Idem", email: "ida@example.com", answers: { diet: "Skalldyr", org: "SINTEF" }, consent: true };
+    const headers = { "idempotency-key": "reg-sensitive-1" };
+    const first = await call("POST", `/v1/occurrences/${occurrenceId}/registrations`, { body, headers });
+    expect(first.status).toBe(201);
+    const stored = await withTenant(db, { tenantId: A, userId: null, clientId: null, roles: ["owner"] }, (tx) =>
+      tx.selectFrom("tenancy.idempotency_key").select("response").where("key", "=", "reg-sensitive-1").executeTakeFirstOrThrow());
+    expect(stored.response).toEqual({ id: first.body.id });
+
+    // The replay is rebuilt from the registration, as the caller may see it now.
+    const replay = await call("POST", `/v1/occurrences/${occurrenceId}/registrations`, { body, headers });
+    expect(replay).toMatchObject({ status: 201, body: { id: first.body.id, name: "Ida Idem", answers: { diet: "Skalldyr", org: "SINTEF" } } });
   });
 });
 

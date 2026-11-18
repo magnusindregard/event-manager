@@ -154,6 +154,7 @@ export async function saveForm(tx: Tx, ctx: ActorContext, eventId: string, expec
   const account = await getAccount(tx);
   const fields = normalizeForm(input, account.locales, account.defaultLocale);
   if (sameFields(fields, before.fields)) return before;
+  await assertClassificationKept(tx, eventId, fields);
   const version = before.version + 1;
   await tx.insertInto("registration.form_version")
     .values({ tenant_id: ctx.tenantId, event_id: eventId, version, fields: JSON.stringify(fields), created_by: ctx.userId })
@@ -168,18 +169,48 @@ export async function saveForm(tx: Tx, ctx: ActorContext, eventId: string, expec
 }
 
 /**
+ * A field's answers live in registration.answer or, when sensitive, encrypted in
+ * registration.sensitive_answer, with the matching retention. Changing whether a field is
+ * sensitive would leave earlier answers in the wrong place, readable by staff without
+ * registrations.sensitive or kept past the sensitive retention, so it is refused once the
+ * field has answers. A new field (new id) can be added instead.
+ */
+async function assertClassificationKept(tx: Tx, eventId: string, fields: readonly FormField[]): Promise<void> {
+  const known = new Map((await answerFields(tx, eventId)).map((f) => [f.id, f]));
+  const changed = fields.map((f, i) => ({ f, i })).filter(({ f }) => known.has(f.id) && known.get(f.id)!.sensitive !== f.sensitive);
+  if (changed.length === 0) return;
+  const ids = changed.map(({ f }) => f.id);
+  const answered = (table: "registration.answer" | "registration.sensitive_answer") =>
+    tx.selectFrom(table).innerJoin("registration.registration as r", "r.id", `${table}.registration_id`)
+      .select(`${table}.field_id as fieldId`).distinct()
+      .where("r.event_id", "=", eventId).where(`${table}.field_id`, "in", ids).execute();
+  const [a, b] = await Promise.all([answered("registration.answer"), answered("registration.sensitive_answer")]);
+  const has = new Set([...a, ...b].map((r) => r.fieldId));
+  const hit = changed.find(({ f }) => has.has(f.id));
+  if (hit) {
+    throw invalid(`fields.${hit.i}.sensitive`, "This field already has answers, so whether it is sensitive cannot change. Add a new field instead");
+  }
+}
+
+/**
  * The fields to show answers under: the current form, then fields from older versions that
- * were removed since (retired: true), so answers given to them stay readable.
+ * were removed since (retired: true), so answers given to them stay readable. For the same
+ * reason a choice keeps options that later versions removed, after its current ones.
  */
 export async function answerFields(tx: Tx, eventId: string): Promise<(FormField & { retired: boolean })[]> {
   const rows = await tx.selectFrom("registration.form_version").select(["version", "fields"]).where("event_id", "=", eventId).orderBy("version", "desc").execute();
   const out: (FormField & { retired: boolean })[] = [];
-  const seen = new Set<string>();
+  const byId = new Map<string, FormField & { retired: boolean }>();
   rows.forEach((r, i) => {
     for (const f of toFields(r.fields)) {
-      if (seen.has(f.id)) continue;
-      seen.add(f.id);
-      out.push({ ...f, retired: i > 0 });
+      const newer = byId.get(f.id);
+      if (!newer) {
+        const field = { ...f, options: [...f.options], retired: i > 0 };
+        byId.set(f.id, field);
+        out.push(field);
+        continue;
+      }
+      for (const o of f.options) if (!newer.options.some((n) => n.id === o.id)) newer.options.push(o);
     }
   });
   return out;
