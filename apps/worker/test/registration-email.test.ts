@@ -162,4 +162,93 @@ describe("occurrence notices", () => {
     expect(recipients()).toEqual(["kari", "ola"]);
     expect(mailer.sent.find((m) => m.to.startsWith("ola"))!.subject).toBe("Cancelled: Evening tour");
   });
+
+  it("tells them when a cancelled occurrence is restored (#54)", async () => {
+    const { occ } = await setup();
+    let o = await run((tx) => catalog.getOccurrence(tx, occ.id));
+    o = await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, o.version, { status: "cancelled" }));
+    await drain();
+    mailer.sent.length = 0;
+    await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, o.version, { status: "scheduled" }));
+    await drain();
+    expect(recipients()).toEqual(["kari", "ola"]);
+    const nb = mailer.sent.find((m) => m.to.startsWith("kari"))!;
+    expect(nb.subject).toBe("Blir likevel ikke avlyst: Kveldsomvisning");
+    expect(nb.attachments?.[0]?.contentId).toBe("qr");
+    expect(mailer.sent.find((m) => m.to.startsWith("ola"))!.subject).toBe("Going ahead after all: Evening tour");
+  });
+
+  it("tells them when a cancelled event is published again, but not on other publishes (#54)", async () => {
+    const { occ } = await setup();
+    let ev = await run((tx) => catalog.getEvent(tx, occ.eventId));
+    ev = await run((tx) => catalog.transitionEvent(tx, ctx, ev.id, ev.version, "cancel"));
+    await drain();
+    mailer.sent.length = 0;
+    ev = await run((tx) => catalog.transitionEvent(tx, ctx, ev.id, ev.version, "publish"));
+    await drain();
+    expect(recipients()).toEqual(["kari", "ola"]);
+    expect(mailer.sent[0]!.subject).toMatch(/Blir likevel ikke avlyst|Going ahead after all/);
+
+    mailer.sent.length = 0;
+    ev = await run((tx) => catalog.transitionEvent(tx, ctx, ev.id, ev.version, "unpublish"));
+    await run((tx) => catalog.transitionEvent(tx, ctx, ev.id, ev.version, "publish"));
+    await drain();
+    expect(mailer.sent).toEqual([]);
+  });
+
+  it("sends nothing when a cancellation is withdrawn before its notice went out (#54)", async () => {
+    const { occ } = await setup();
+    let o = await run((tx) => catalog.getOccurrence(tx, occ.id));
+    o = await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, o.version, { status: "cancelled" }));
+    await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, o.version, { status: "scheduled" }));
+    await drain();
+    expect(mailer.sent).toEqual([]);
+  });
+
+  it("still tells them of an event cancellation dispatched after the start (#55)", async () => {
+    const { occ } = await setup();
+    const ev = await run((tx) => catalog.getEvent(tx, occ.eventId));
+    await run((tx) => catalog.transitionEvent(tx, ctx, ev.id, ev.version, "cancel"));
+    // The dispatch is delayed until the occurrence has started, but not ended.
+    await admin.query(`update catalog.occurrence set start_utc = now() - interval '10 minutes', end_utc = now() + interval '1 hour' where id = $1`, [occ.id]);
+    await drain();
+    expect(recipients()).toEqual(["kari", "ola"]);
+    expect(mailer.sent.find((m) => m.to.startsWith("ola"))!.subject).toBe("Cancelled: Evening tour");
+  });
+
+  it("tells them when the address of their venue changes, also through a space (#56)", async () => {
+    const { occ } = await setup();
+    const o = await run((tx) => catalog.getOccurrence(tx, occ.id));
+    const venueId = o.effective.location!.value as string;
+    const venue = await run((tx) => catalog.getLocation(tx, venueId));
+    await run((tx) => catalog.updateLocation(tx, ctx, venueId, venue.version, { address: "Bjørvika 1" }));
+    await drain();
+    expect(recipients()).toEqual(["kari", "ola"]);
+    expect(mailer.sent[0]!.text).toContain("Bjørvika 1");
+
+    // A space without its own address shows the venue's.
+    mailer.sent.length = 0;
+    const space = await run((tx) => catalog.createLocation(tx, ctx, { kind: "space", parentId: venueId, name: "Sal 2" }));
+    const o2 = await run((tx) => catalog.getOccurrence(tx, occ.id));
+    await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, o2.version, { locationOverrideId: space.id }));
+    await drain();
+    mailer.sent.length = 0;
+    const v2 = await run((tx) => catalog.getLocation(tx, venueId));
+    await run((tx) => catalog.updateLocation(tx, ctx, venueId, v2.version, { address: "Bjørvika 2" }));
+    await drain();
+    expect(recipients()).toEqual(["kari", "ola"]);
+    expect(mailer.sent[0]!.text).toContain("Sal 2");
+    expect(mailer.sent[0]!.text).toContain("Bjørvika 2");
+  });
+
+  it("stays quiet about other locations and fields attendees do not see (#56)", async () => {
+    const { occ } = await setup();
+    const other = await run((tx) => catalog.createLocation(tx, ctx, { kind: "venue", name: "Annet sted", address: "Gate 1" }));
+    await run((tx) => catalog.updateLocation(tx, ctx, other.id, other.version, { address: "Gate 2" }));
+    const o = await run((tx) => catalog.getOccurrence(tx, occ.id));
+    const venue = await run((tx) => catalog.getLocation(tx, o.effective.location!.value as string));
+    await run((tx) => catalog.updateLocation(tx, ctx, venue.id, venue.version, { geo: { lat: 59.9, lng: 10.75 } }));
+    await drain();
+    expect(mailer.sent).toEqual([]);
+  });
 });
