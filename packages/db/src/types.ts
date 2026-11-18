@@ -21,6 +21,8 @@ export interface AccountTable {
   default_locale: Generated<string>;
   locales: Generated<string[]>;
   horizon_months: Generated<number>;
+  anonymise_after_months: Generated<number>;
+  sensitive_delete_after_days: Generated<number>;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -284,8 +286,9 @@ export interface RegistrationTable {
   event_id: string;
   occurrence_id: string;
   invitation_id: string | null;
-  name: string;
-  email: string;
+  /** Null once anonymised. */
+  name: string | null;
+  email: string | null;
   locale: string;
   party_size: number;
   status: RegistrationStatus;
@@ -295,6 +298,9 @@ export interface RegistrationTable {
   cancelled_at: Timestamp | null;
   cancelled_by: "attendee" | "staff" | null;
   reminded_at: Timestamp | null;
+  form_version: number | null;
+  sensitive_consent_at: Timestamp | null;
+  anonymised_at: Timestamp | null;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -352,6 +358,38 @@ export interface GuestImportTable {
 export interface ImportMappingTable {
   tenant_id: string;
   mapping: ColumnType<Record<string, string>, string, string>;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface FormVersionTable {
+  tenant_id: string;
+  event_id: string;
+  version: number;
+  fields: ColumnType<unknown[], string, never>;
+  created_by: string | null;
+  created_at: GeneratedTimestamp;
+}
+
+export interface AnswerTable {
+  tenant_id: string;
+  registration_id: string;
+  field_id: string;
+  value: Json;
+}
+
+export interface SensitiveAnswerTable {
+  tenant_id: string;
+  registration_id: string;
+  field_id: string;
+  ciphertext: Buffer;
+  created_at: GeneratedTimestamp;
+}
+
+export interface DataKeyTable {
+  tenant_id: string;
+  wrapped: Buffer;
+  master_key_id: string;
+  created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
 }
 
@@ -424,6 +462,10 @@ export interface DB {
   "registration.invitation_send": InvitationSendTable;
   "registration.guest_import": GuestImportTable;
   "registration.import_mapping": ImportMappingTable;
+  "registration.form_version": FormVersionTable;
+  "registration.answer": AnswerTable;
+  "registration.sensitive_answer": SensitiveAnswerTable;
+  "registration.data_key": DataKeyTable;
   "admission.admission": AdmissionTable;
   "tenancy.account": AccountTable;
   "tenancy.user": UserTable;

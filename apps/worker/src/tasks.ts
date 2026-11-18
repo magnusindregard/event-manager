@@ -8,6 +8,7 @@ import { OCCURRENCE_NOTICE_TASK, occurrenceNoticeTask } from "./occurrence-notic
 import { PROVISION_TASK, type ProvisionDeps, provisionTask } from "./provision.js";
 import { REGISTRATION_EMAIL_TASK, type RegistrationEmailDeps, registrationEmailTask } from "./registration-email.js";
 import { REMINDER_TASK, reminderTask } from "./reminder.js";
+import { RETENTION_TASK, retentionTask } from "./retention.js";
 import { RESOLVE_TASK, resolveTask } from "./resolver.js";
 
 interface DispatchPayload {
@@ -44,6 +45,7 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
     "outbox.dispatch": dispatchTask(db, handlers),
     [HORIZON_TASK]: horizonTask(db),
     [RESOLVE_TASK]: resolveTask(db),
+    [RETENTION_TASK]: retentionTask(db),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
     ...(registrationEmail
       ? {

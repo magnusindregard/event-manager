@@ -12,17 +12,21 @@ export interface Account {
   defaultLocale: string;
   locales: string[];
   horizonMonths: number;
+  /** Registrations are anonymised this many months after their occurrence (docs/registration.md, "Retention"). */
+  anonymiseAfterMonths: number;
+  /** Sensitive answers are deleted this many days after their occurrence. */
+  sensitiveDeleteAfterDays: number;
   version: number;
   updatedAt: Date;
 }
 
-export type AccountSettingsPatch = Partial<Pick<Account, "name" | "defaultTimezone" | "defaultLocale" | "locales" | "horizonMonths">>;
+export type AccountSettingsPatch = Partial<Pick<Account, "name" | "defaultTimezone" | "defaultLocale" | "locales" | "horizonMonths" | "anonymiseAfterMonths" | "sensitiveDeleteAfterDays">>;
 
-const columns = ["id", "slug", "name", "default_timezone", "default_locale", "locales", "horizon_months", "version", "updated_at"] as const;
+const columns = ["id", "slug", "name", "default_timezone", "default_locale", "locales", "horizon_months", "anonymise_after_months", "sensitive_delete_after_days", "version", "updated_at"] as const;
 
 type Row = {
   id: string; slug: string; name: string; default_timezone: string; default_locale: string;
-  locales: string[]; horizon_months: number; version: number; updated_at: Date;
+  locales: string[]; horizon_months: number; anonymise_after_months: number; sensitive_delete_after_days: number; version: number; updated_at: Date;
 };
 
 const toAccount = (r: Row): Account => ({
@@ -33,6 +37,8 @@ const toAccount = (r: Row): Account => ({
   defaultLocale: r.default_locale,
   locales: r.locales,
   horizonMonths: r.horizon_months,
+  anonymiseAfterMonths: r.anonymise_after_months,
+  sensitiveDeleteAfterDays: r.sensitive_delete_after_days,
   version: r.version,
   updatedAt: r.updated_at,
 });
@@ -67,6 +73,15 @@ export async function updateAccountSettings(
   if (patch.defaultTimezone !== undefined && !isValidTimezone(patch.defaultTimezone)) {
     throw new DomainError("validation_failed", "Unknown IANA timezone", { field: "defaultTimezone" });
   }
+  const whole = (field: string, v: number | undefined, min: number, max: number) => {
+    if (v !== undefined && (!Number.isInteger(v) || v < min || v > max)) throw new DomainError("validation_failed", `Must be a whole number, ${min}–${max}`, { field });
+  };
+  whole("anonymiseAfterMonths", patch.anonymiseAfterMonths, 1, 120);
+  // At most 12 months (docs/registration.md), and never longer than the registration itself is kept.
+  whole("sensitiveDeleteAfterDays", patch.sensitiveDeleteAfterDays, 1, 365);
+  if ((patch.sensitiveDeleteAfterDays ?? before.sensitiveDeleteAfterDays) > (patch.anonymiseAfterMonths ?? before.anonymiseAfterMonths) * 31) {
+    throw new DomainError("validation_failed", "Sensitive answers cannot be kept longer than the registrations", { field: "sensitiveDeleteAfterDays" });
+  }
   if (locales.length === 0 || !locales.includes(defaultLocale)) {
     throw new DomainError("validation_failed", "defaultLocale must be one of locales", { field: "defaultLocale" });
   }
@@ -79,6 +94,8 @@ export async function updateAccountSettings(
       default_locale: patch.defaultLocale,
       locales: patch.locales,
       horizon_months: patch.horizonMonths,
+      anonymise_after_months: patch.anonymiseAfterMonths,
+      sensitive_delete_after_days: patch.sensitiveDeleteAfterDays,
       version: sql<number>`version + 1`,
     })
     .where("id", "=", ctx.tenantId)

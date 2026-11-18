@@ -54,7 +54,12 @@ export type RuleCreate = paths["/v1/events/{id}/rules"]["post"]["requestBody"] e
 export type TagVocabulary = Json<"/v1/tag-vocabularies", "get">["items"][number];
 export type Tag = TagVocabulary["tags"][number];
 export type ApiKey = Json<"/v1/api-keys", "get">["items"][number];
-export type Registration = Json<"/v1/occurrences/{id}/registrations", "get">["items"][number];
+export type RegistrationList = Json<"/v1/occurrences/{id}/registrations", "get">;
+export type Registration = RegistrationList["items"][number];
+export type AnswerField = RegistrationList["fields"][number];
+export type RegistrationForm = Json<"/v1/events/{id}/form", "get">;
+export type FormField = RegistrationForm["fields"][number];
+export type DoorList = Json<"/v1/occurrences/{id}/door-list", "get">;
 
 /** ETag for a resource version, as sent in If-Match. */
 export const etagOf = (version: number) => `"${version}"`;

@@ -60,7 +60,7 @@ function nextHour(): string {
  */
 export function Occurrences({ event }: { event: CatalogEvent }) {
   const { t, i18n } = useTranslation();
-  const { api, accountId } = useApp();
+  const { api, accountId, can } = useApp();
   const qc = useQueryClient();
   const locations = useLocations(true);
   const path = locationPath(locations.data);
@@ -357,7 +357,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         const label = fmt(o.startUtc);
         return (
           <div className="flex justify-end">
-            {registration && o.pool && (
+            {registration && o.pool && can("registrations.read") && (
               <Button variant="ghost" size="icon" aria-label={t("registrations.openFor", { when: label })} onClick={() => setRegistrationsOf(o)}>
                 <Users />
               </Button>

@@ -1,11 +1,14 @@
 name: Deploy
-# Every merge to main → build images → deploy staging (the online test environment).
-# Run by hand without inputs to redeploy main. Only the branch tip deploys (still-latest).
+# Staging (the online test environment): CI calls this after its checks pass for a push to main,
+# so only a commit that passed CI deploys automatically, and the images, checkout and CI result
+# share one SHA. Run by hand to deploy a branch (a preview on staging) or redeploy main.
+# Deploys to an environment run one at a time and never silently roll it back: replacing a newer
+# main commit, or another branch's preview, is refused unless "replace newer" is ticked. Main
+# replaces a branch preview (scripts/deploy-env.sh).
 # Prod: run with "promote to prod" and the image tag (git SHA) staging already runs.
 # Images are copied from the staging registry, so prod runs exactly what staging tested.
 on:
-  push:
-    branches: [main]
+  workflow_call:
   workflow_dispatch:
     inputs:
       promote_to_prod:
@@ -16,8 +19,10 @@ on:
         description: Git SHA to promote (required when promoting)
         type: string
         default: ""
-
-concurrency: deploy-${{ github.ref }}
+      replace_newer:
+        description: Deploy even if it replaces a newer main commit or another branch's preview
+        type: boolean
+        default: false
 
 permissions:
   id-token: write   # OIDC federation to Azure (ADR 0014), no stored secrets
@@ -49,25 +54,10 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
 
-  # A run that GitHub held back (queued for an hour on 2026-11-16) must not roll staging back
-  # to an older commit once newer ones have deployed. Deploy only the branch tip.
-  still-latest:
-    needs: images
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check that this commit is still the branch tip
-        env: { GH_TOKEN: "${{ github.token }}" }
-        run: |
-          tip=$(gh api "repos/${{ github.repository }}/commits/${{ github.ref_name }}" -q .sha)
-          if [ "$tip" != "${{ github.sha }}" ]; then
-            echo "::error::${{ github.sha }} is no longer the tip of ${{ github.ref_name }} ($tip); not deploying an older commit"
-            exit 1
-          fi
-
   staging:
-    needs: still-latest
+    needs: images
     uses: ./.github/workflows/deploy-env.yml
-    with: { environment: staging, image-tag: "${{ github.sha }}" }
+    with: { environment: staging, image-tag: "${{ github.sha }}", replace-newer: "${{ inputs.replace_newer == true }}" }
 
   promote-images:
     if: ${{ inputs.promote_to_prod }}
@@ -95,4 +85,4 @@ jobs:
   prod:
     needs: promote-images
     uses: ./.github/workflows/deploy-env.yml
-    with: { environment: prod, image-tag: "${{ inputs.image_tag }}" }
+    with: { environment: prod, image-tag: "${{ inputs.image_tag }}", replace-newer: "${{ inputs.replace_newer == true }}" }

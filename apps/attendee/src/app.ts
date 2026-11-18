@@ -4,17 +4,19 @@ import swagger from "@fastify/swagger";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { type Db, sql } from "@event-manager/db";
-import { DomainError, type registration } from "@event-manager/domain";
+import { DomainError } from "@event-manager/domain";
 import {
   AttendeeInvitationAccept, AttendeeInvitationView, AttendeeOccurrence, AttendeeRegistration, AttendeeRegistrationCreate, AttendeeRegistrationCreated, AttendeeRegistrationPatch, AttendeeRegistrationView, Problem,
 } from "@event-manager/schemas";
 import { registerPages } from "./pages.js";
 import { RateLimiter } from "./rate-limit.js";
-import { AttendeeService, type Details, preferredLocale } from "./service.js";
+import { type AttendeeRegistration as AttendeeRegistrationResult, AttendeeService, type Details, preferredLocale } from "./service.js";
 
 // The attendee deployment unit (docs/registration.md, "Attendee pages"): the hosted pages
 // and the attendee API they share their logic with. No accounts and no cookies; open
 // registration takes an occurrence id, everything else a signed manage token.
+
+export const DEFAULT_TRUSTED_PROXIES = "loopback, linklocal, uniquelocal";
 
 export interface AttendeeAppDeps {
   db: Db;
@@ -22,6 +24,14 @@ export interface AttendeeAppDeps {
   /** Per-IP limit on posts (registering, changing, cancelling). */
   rateLimit?: { capacity: number; refillPerSecond: number };
   clock?: () => Date;
+  /**
+   * Which proxies' X-Forwarded-For entries to trust (proxy-addr names or CIDRs, comma-separated).
+   * Default: private addresses, which is where Azure Container Apps ingress reaches the app from.
+   * The client address is the first untrusted entry from the right, the one the ingress appended,
+   * so anything a caller writes further left cannot pick its own rate-limit bucket. Add a proxy's
+   * ranges here if one with public addresses (e.g. Front Door) is put in front.
+   */
+  trustedProxies?: string;
 }
 
 const TYPE_BASE = "https://docs.event-manager.dev/problems/";
@@ -36,10 +46,11 @@ class ApiProblem extends Error {
 }
 
 const iso = (d: Date) => d.toISOString();
-const registrationDto = (r: registration.Registration) => ({
-  id: r.id, name: r.name, email: r.email, locale: r.locale, partySize: r.partySize, status: r.status, createdAt: iso(r.createdAt),
+const registrationDto = ({ registration: r, answers }: AttendeeRegistrationResult) => ({
+  id: r.id, name: r.name, email: r.email, locale: r.locale, partySize: r.partySize, status: r.status, answers, createdAt: iso(r.createdAt),
 });
 const detailsDto = (d: Details) => ({
+  form: d.form,
   locale: d.locale,
   account: d.account,
   occurrence: {
@@ -54,7 +65,8 @@ const detailsDto = (d: Details) => ({
 export async function buildAttendeeApp(deps: AttendeeAppDeps) {
   const app = Fastify({
     logger: deps.logger ?? false,
-    trustProxy: true,
+    // Not true: that trusts every address in X-Forwarded-For, including ones the caller sends.
+    trustProxy: deps.trustedProxies ?? DEFAULT_TRUSTED_PROXIES,
     ajv: { customOptions: { removeAdditional: false, coerceTypes: "array", useDefaults: true } },
   }).withTypeProvider<TypeBoxTypeProvider>();
   const svc = new AttendeeService(deps.db, deps.clock);
@@ -164,7 +176,7 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
           rateLimited(req);
           const res = await svc.register(req.params.id, req.body);
           if (!res) throw new ApiProblem(404, "not_found", "Occurrence not found");
-          return reply.status(201).send({ registration: registrationDto(res.registration), manageToken: res.manageToken });
+          return reply.status(201).send({ registration: registrationDto(res), manageToken: res.manageToken });
         },
       );
 
@@ -179,7 +191,7 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
         async (req) => {
           const v = await svc.view(bearer(req), req.query.locale);
           if (!v) throw invalidToken();
-          return { registration: registrationDto(v.registration), details: detailsDto(v.details), rights: v.rights, admissionToken: v.admissionToken };
+          return { registration: registrationDto(v), details: detailsDto(v.details), rights: v.rights, admissionToken: v.admissionToken };
         },
       );
 
@@ -187,7 +199,7 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
         "/registration",
         {
           schema: {
-            operationId: "updateRegistration", tags: ["registration"], summary: "Change the name, locale or guest until registration closes", security,
+            operationId: "updateRegistration", tags: ["registration"], summary: "Change the name, locale, guest or answers until registration closes", security,
             body: AttendeeRegistrationPatch, response: { 200: Type.Object({ registration: AttendeeRegistration }), ...writeErrors },
           },
         },
@@ -237,7 +249,7 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
               locale: v.details.locale, account: v.details.account,
               invitation: { name: v.registration.name, email: v.registration.email, status: "accepted" as const, guestAllowed: v.details.target.event.guestAllowed },
               event: { id: v.details.target.event.id, title: v.details.title, shortDescription: v.details.shortDescription, image: v.details.image },
-              occurrences: [], manageToken: r.accepted,
+              form: v.details.form, occurrences: [], manageToken: r.accepted,
             };
           }
           const d = r.details;
@@ -245,6 +257,7 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
             locale: d.locale, account: d.account,
             invitation: { name: d.invitation.name, email: d.invitation.email, status: d.invitation.status, guestAllowed: d.guestAllowed },
             event: { id: d.event.id, title: d.title, shortDescription: d.shortDescription, image: d.image },
+            form: d.form,
             occurrences: d.options.map((o) => ({
               id: o.target.occurrence.id, startUtc: iso(o.target.occurrence.startUtc), endUtc: iso(o.target.occurrence.endUtc), timezone: d.event.timezone,
               location: o.target.location,
@@ -267,7 +280,7 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
           rateLimited(req);
           const res = await svc.accept(bearer(req), req.body);
           if (!res) throw invalidInvitation();
-          return reply.status(201).send({ registration: registrationDto(res.registration), manageToken: res.manageToken });
+          return reply.status(201).send({ registration: registrationDto(res), manageToken: res.manageToken });
         },
       );
 

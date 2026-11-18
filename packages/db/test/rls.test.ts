@@ -82,6 +82,17 @@ const fixtures: Record<string, Fixture> = {
       [randomUUID(), t, ids.catalogEvent]).then(() => {}),
   "registration.import_mapping": (c, t) =>
     c.query(`insert into registration.import_mapping (tenant_id, mapping) values ($1, '{"email":"E-post"}')`, [t]).then(() => {}),
+  "registration.form_version": (c, t, ids) =>
+    c.query(`insert into registration.form_version (tenant_id, event_id, version, fields) values ($1, $2, 1, '[]')`,
+      [t, ids.catalogEvent]).then(() => {}),
+  "registration.answer": (c, t, ids) =>
+    c.query(`insert into registration.answer (tenant_id, registration_id, field_id, value) values ($1, $2, 'org', '"NTNU"')`,
+      [t, ids.registration]).then(() => {}),
+  "registration.sensitive_answer": (c, t, ids) =>
+    c.query(`insert into registration.sensitive_answer (tenant_id, registration_id, field_id, ciphertext) values ($1, $2, 'diet', '\\x00')`,
+      [t, ids.registration]).then(() => {}),
+  "registration.data_key": (c, t) =>
+    c.query(`insert into registration.data_key (tenant_id, wrapped, master_key_id) values ($1, '\\x00', 'k1')`, [t]).then(() => {}),
 };
 
 const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID() });

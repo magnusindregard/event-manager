@@ -8,6 +8,7 @@ const { buildTaskList } = await import("./tasks.js");
 const { defaultHandlers } = await import("./handlers.js");
 const { mailerFromEnv, provisionDepsFromEnv, registrationEmailDepsFromEnv } = await import("./config.js");
 const { HORIZON_CRONTAB } = await import("./horizon.js");
+const { RETENTION_CRONTAB } = await import("./retention.js");
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is required");
@@ -24,7 +25,7 @@ const runner = await run({
   pgPool,
   concurrency,
   taskList: buildTaskList(db, defaultHandlers, provisionDepsFromEnv(process.env, log, mailer), registrationEmailDepsFromEnv(process.env, mailer)),
-  crontab: process.env.WORKER_CRONTAB ?? HORIZON_CRONTAB,
+  crontab: process.env.WORKER_CRONTAB ?? [HORIZON_CRONTAB, RETENTION_CRONTAB].join("\n"),
 });
 await runner.promise;
 await db.destroy();

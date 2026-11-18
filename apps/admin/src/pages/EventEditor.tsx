@@ -28,6 +28,7 @@ import { eventTitle, statusVariant } from "./Events.js";
 import { Occurrences } from "./Occurrences.js";
 import { Rules } from "./Rules.js";
 import { GuestList } from "./guests/GuestList.js";
+import { FormBuilder } from "./registration/FormBuilder.js";
 
 const TIMEZONES: string[] = (() => {
   try {
@@ -146,7 +147,7 @@ function fieldOf(e: unknown): string | undefined {
 export function EventEditor() {
   const { id } = useParams();
   const { t, i18n } = useTranslation();
-  const { api, accountId } = useApp();
+  const { api, accountId, can } = useApp();
   const qc = useQueryClient();
   const isNew = id === "new";
 
@@ -242,7 +243,8 @@ export function EventEditor() {
             <TabsTrigger value="details">{t("events.tabs.details")}</TabsTrigger>
             <TabsTrigger value="occurrences">{t("events.tabs.occurrences")}</TabsTrigger>
             <TabsTrigger value="rules">{t("events.tabs.rules")}</TabsTrigger>
-            {event?.admissionMode === "registration" && <TabsTrigger value="guests">{t("events.tabs.guests")}</TabsTrigger>}
+            {event?.admissionMode === "registration" && <TabsTrigger value="form">{t("events.tabs.form")}</TabsTrigger>}
+            {event?.admissionMode === "registration" && can("registrations.read") && <TabsTrigger value="guests">{t("events.tabs.guests")}</TabsTrigger>}
             <TabsTrigger value="audit">{t("events.tabs.audit")}</TabsTrigger>
           </TabsList>
           <TabsContent value="details" className="pt-4">
@@ -255,6 +257,11 @@ export function EventEditor() {
             <Rules event={event!} />
           </TabsContent>
           {event?.admissionMode === "registration" && (
+            <TabsContent value="form" className="pt-4">
+              <FormBuilder event={event} />
+            </TabsContent>
+          )}
+          {event?.admissionMode === "registration" && can("registrations.read") && (
             <TabsContent value="guests" className="pt-4">
               <GuestList event={event} />
             </TabsContent>
