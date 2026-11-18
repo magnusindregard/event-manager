@@ -340,8 +340,10 @@ export async function deleteOccurrence(tx: Tx, ctx: ActorContext, id: string, ex
 }
 
 /**
- * Puts a detached series occurrence back on its slot: series time, no overrides, no
- * conflict. Fails if the series no longer has the slot.
+ * Puts a detached series occurrence back on its slot: series time, no overrides (capacity
+ * included), no conflict. Fails if the series no longer has the slot. An occurrence with
+ * registrations stays detached (detachForRegistrations), so later regeneration still reports a
+ * conflict instead of moving or deleting a booked occurrence.
  */
 export async function reattachOccurrence(tx: Tx, ctx: ActorContext, id: string, expectedVersion: number): Promise<Occurrence> {
   assertCan(ctx, "content.write");
@@ -355,7 +357,8 @@ export async function reattachOccurrence(tx: Tx, ctx: ActorContext, id: string, 
     .updateTable("catalog.occurrence")
     .set({
       start_utc: slot.startUtc, end_utc: slot.endUtc, location_override_id: null, external_url_override: null, tags_override: null,
-      location_cleared: false, external_url_cleared: false, detached: false, conflict: false, version: sql<number>`version + 1`,
+      capacity_override: null, location_cleared: false, external_url_cleared: false, conflict: false, version: sql<number>`version + 1`,
+      detached: sql<boolean>`exists (select 1 from registration.registration r where r.occurrence_id = ${id} and r.status <> 'cancelled')`,
     })
     .where("id", "=", id)
     .where("version", "=", expectedVersion)
