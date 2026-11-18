@@ -2,22 +2,31 @@ import { type ActorContext, DomainError } from "../shared/index.js";
 import type { Role } from "@event-manager/db";
 
 /**
- * registrations.*: names and emails of attendees. Separate from content.* so the guest-data
- * permission (docs/registration.md, open question 1) can be narrowed without touching content.
+ * Guest data is kept apart from content (docs/registration.md, open question 1):
+ *   registrations.read / write  names, emails, plain answers, the guest list and door list
+ *   registrations.sensitive     sensitive answers (dietary needs, free text marked sensitive)
+ * Editors work on content only; event managers have content and guest data.
  */
-export type Permission = "account.write" | "members.manage" | "content.write" | "content.read" | "audit.read" | "registrations.read" | "registrations.write";
+export type Permission =
+  | "account.write" | "members.manage" | "content.write" | "content.read" | "audit.read"
+  | "registrations.read" | "registrations.write" | "registrations.sensitive";
 
-// Full role model from ADR 0005; the MVP enables owner and editor.
-export const ENABLED_ROLES: readonly Role[] = ["owner", "editor"];
+// Full role model from ADR 0005. Box office, door staff and finance arrive with ticketing and the validator.
+export const ENABLED_ROLES: readonly Role[] = ["owner", "event_manager", "editor"];
 
 const grants: Record<Role, readonly Permission[]> = {
-  owner: ["account.write", "members.manage", "content.write", "content.read", "audit.read", "registrations.read", "registrations.write"],
-  editor: ["content.write", "content.read", "audit.read", "registrations.read", "registrations.write"],
-  event_manager: ["content.write", "content.read", "audit.read", "registrations.read", "registrations.write"],
+  owner: ["account.write", "members.manage", "content.write", "content.read", "audit.read", "registrations.read", "registrations.write", "registrations.sensitive"],
+  event_manager: ["content.write", "content.read", "audit.read", "registrations.read", "registrations.write", "registrations.sensitive"],
+  editor: ["content.write", "content.read", "audit.read"],
   box_office: ["content.read", "registrations.read", "registrations.write"],
   door_staff: ["content.read", "registrations.read"],
   finance: ["content.read", "audit.read"],
 };
+
+/** The permissions a set of roles grants, e.g. for the admin to show or hide guest data. */
+export function permissionsOf(roles: readonly string[]): Permission[] {
+  return [...new Set(roles.flatMap((r) => grants[r as Role] ?? []))];
+}
 
 export function can(ctx: Pick<ActorContext, "roles">, permission: Permission): boolean {
   return ctx.roles.some((r) => grants[r as Role]?.includes(permission));

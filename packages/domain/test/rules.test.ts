@@ -65,6 +65,14 @@ describe("effects", () => {
     expect(() => rules.normalizeEffects([{ type: "tags", value: { add: [TAG_1], remove: [TAG_1] } }])).toThrow(/both/);
   });
 
+  it("treats tag ids case-insensitively (#43)", () => {
+    const upper = TAG_2.toUpperCase();
+    expect(rules.normalizeEffects([{ type: "tags", value: { add: [upper, TAG_2] } }])).toEqual([{ type: "tags", targetRef: null, value: { add: [TAG_2], remove: [] } }]);
+    expect(() => rules.normalizeEffects([{ type: "tags", value: { add: [TAG_1], remove: [TAG_1.toUpperCase()] } }])).toThrow(/both/);
+    // A rule stored before ids were normalized still removes the lowercase default.
+    expect(rules.effectType("tags").apply({ add: [], remove: [TAG_1.toUpperCase()] }, [TAG_1, TAG_2])).toEqual([TAG_2]);
+  });
+
   it("lists referenced locations and tags", () => {
     const effects = rules.normalizeEffects([{ type: "location", value: LOC_A }, { type: "tags", value: { add: [TAG_2], remove: [TAG_1] } }]);
     expect(rules.effectRefs(effects)).toEqual({ locations: [LOC_A], tags: [TAG_2, TAG_1] });

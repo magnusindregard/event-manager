@@ -14,6 +14,7 @@ import * as m0008 from "./migrations/0008_capacity.js";
 import * as m0009 from "./migrations/0009_registration.js";
 import * as m0011 from "./migrations/0011_cleared_overrides.js";
 import * as m0012 from "./migrations/0012_invitations.js";
+import * as m0013 from "./migrations/0013_forms_privacy.js";
 import * as m0014 from "./migrations/0014_reinvite.js";
 
 const migrations: Record<string, Migration> = {
@@ -28,6 +29,7 @@ const migrations: Record<string, Migration> = {
   "0009_registration": m0009,
   "0011_cleared_overrides": m0011,
   "0012_invitations": m0012,
+  "0013_forms_privacy": m0013,
   "0014_reinvite": m0014,
 };
 

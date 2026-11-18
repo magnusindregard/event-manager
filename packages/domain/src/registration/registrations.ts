@@ -4,7 +4,8 @@ import * as catalog from "../catalog/index.js";
 import * as inventory from "../inventory/index.js";
 import { emit } from "../outbox/index.js";
 import { type ActorContext, DomainError } from "../shared/index.js";
-import { assertCan, getAccount, recordAudit } from "../tenancy/index.js";
+import { assertCan, can, getAccount, recordAudit } from "../tenancy/index.js";
+import { type AnswerInput, checkAnswers, type CheckedAnswers, getForm, readAnswers, writeAnswers } from "./forms.js";
 import { issueToken, peekToken, verifyToken } from "./tokens.js";
 
 // Registrations (docs/registration.md, milestone 2): open registration from the hosted
@@ -30,6 +31,12 @@ export interface Registration {
   tokenVersion: number;
   /** When the reminder before the event went out. */
   remindedAt: Date | null;
+  /** The form version the answers were given to; null when none were. */
+  formVersion: number | null;
+  /** When the attendee agreed to sensitive answers being stored. */
+  sensitiveConsentAt: Date | null;
+  /** Name, email and answers removed by retention; name and email are then empty. */
+  anonymisedAt: Date | null;
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -38,7 +45,7 @@ export interface Registration {
 /** Who acts: the attendee through a link or the open page, or staff in the admin. */
 export type Actor = { kind: "attendee" } | { kind: "staff"; ctx: ActorContext };
 
-export interface RegistrationInput {
+export interface RegistrationInput extends AnswerInput {
   name: string;
   email: string;
   /** One of the account's locales; falls back to the account default. */
@@ -51,22 +58,27 @@ export interface RegistrationPatch {
   name?: string;
   partySize?: number;
   locale?: string;
+  /** Replaces all answers (with consent for sensitive ones). Left out: answers unchanged. */
+  answers?: Record<string, unknown>;
+  consent?: boolean;
 }
 
 const columns = [
   "id", "event_id", "occurrence_id", "invitation_id", "name", "email", "locale", "party_size", "status", "source", "cancelled_at", "cancelled_by",
-  "token_version", "reminded_at", "version", "created_at", "updated_at",
+  "token_version", "reminded_at", "form_version", "sensitive_consent_at", "anonymised_at", "version", "created_at", "updated_at",
 ] as const;
 type Row = {
-  id: string; event_id: string; occurrence_id: string; invitation_id: string | null; name: string; email: string; locale: string; party_size: number;
+  id: string; event_id: string; occurrence_id: string; invitation_id: string | null; name: string | null; email: string | null; locale: string; party_size: number;
   status: RegistrationStatus; source: RegistrationSource; cancelled_at: Date | null; cancelled_by: "attendee" | "staff" | null;
-  token_version: number; reminded_at: Date | null; version: number; created_at: Date; updated_at: Date;
+  token_version: number; reminded_at: Date | null; form_version: number | null; sensitive_consent_at: Date | null; anonymised_at: Date | null;
+  version: number; created_at: Date; updated_at: Date;
 };
 
 const toRegistration = (r: Row): Registration => ({
-  id: r.id, eventId: r.event_id, occurrenceId: r.occurrence_id, invitationId: r.invitation_id, name: r.name, email: r.email, locale: r.locale, partySize: r.party_size,
+  id: r.id, eventId: r.event_id, occurrenceId: r.occurrence_id, invitationId: r.invitation_id, name: r.name ?? "", email: r.email ?? "", locale: r.locale, partySize: r.party_size,
   status: r.status, source: r.source, cancelledAt: r.cancelled_at, cancelledBy: r.cancelled_by, tokenVersion: r.token_version,
-  remindedAt: r.reminded_at, version: r.version, createdAt: r.created_at, updatedAt: r.updated_at,
+  remindedAt: r.reminded_at, formVersion: r.form_version, sensitiveConsentAt: r.sensitive_consent_at, anonymisedAt: r.anonymised_at,
+  version: r.version, createdAt: r.created_at, updatedAt: r.updated_at,
 });
 
 const invalid = (field: string, message: string) => new DomainError("validation_failed", message, { field });
@@ -95,13 +107,16 @@ export async function pickLocale(tx: Tx, locale: string | undefined): Promise<st
 const pgCode = (e: unknown) => (typeof e === "object" && e !== null && "code" in e ? String((e as { code: unknown }).code) : undefined);
 
 /**
- * Whether the attendee may still change or cancel. Changes follow the registration window;
- * cancelling is possible until the occurrence starts.
+ * Whether the attendee may still change or cancel. Changes follow the registration window and
+ * need a scheduled occurrence of a published event. Cancelling is possible until the occurrence
+ * starts, also when staff cancelled the occurrence or event: registrations are kept then, and the
+ * attendee must still be able to withdraw (and free the places if it is restored).
  */
 export function attendeeRights(reg: Pick<Registration, "status">, target: catalog.RegistrationTarget, now: Date): { change: boolean; cancel: boolean } {
-  const active = reg.status !== "cancelled" && target.occurrence.status === "scheduled" && target.event.status === "published";
+  const held = reg.status !== "cancelled";
+  const active = held && target.occurrence.status === "scheduled" && target.event.status === "published";
   const { closesAt } = catalog.registrationWindow(target.occurrence.startUtc, target.event.opensMinBefore, target.event.closesMinBefore);
-  return { change: active && now < closesAt, cancel: active && now < target.occurrence.startUtc };
+  return { change: active && now < closesAt, cancel: held && target.event.status !== "archived" && now < target.occurrence.startUtc };
 }
 
 /** Registers for an occurrence. Throws full, registration_closed, already_registered or invitation_required. */
@@ -121,7 +136,8 @@ export async function register(
   const partySize = input.partySize ?? 1;
   assertPartySize(partySize, target.event.guestAllowed, actor);
   const locale = await pickLocale(tx, input.locale);
-  const reg = await insertConfirmed(tx, tenantId, target, { name, email, locale, partySize, source: actor.kind === "staff" ? "staff" : "open", invitationId: null });
+  const { form, answers } = await formAnswers(tx, target.event.id, input, actor);
+  const reg = await insertConfirmed(tx, tenantId, target, { name, email, locale, partySize, source: actor.kind === "staff" ? "staff" : "open", invitationId: null }, { form, answers });
   if (actor.kind === "staff") {
     await recordAudit(tx, actor.ctx, { action: "registration.created", entityType: "event", entityId: target.event.id, diff: { registrationId: reg.id, occurrenceId, partySize } });
   }
@@ -129,12 +145,31 @@ export async function register(
 }
 
 /**
- * Internal: inserts a confirmed registration, takes its places, issues the admission and
- * emits registration.confirmed. The caller has checked who may register and the window.
+ * Checks answers against the event's current form. Attendees must answer required fields;
+ * staff may leave them out, and give sensitive answers only with registrations.sensitive.
+ */
+export async function formAnswers(tx: Tx, eventId: string, input: AnswerInput, actor: Actor) {
+  // saveForm locks the event FOR UPDATE, so a form save waits for registrations that read
+  // the form until they commit, and then sees their answers when it checks whether a field
+  // may change classification. Event edits (plain UPDATE) do not conflict with KEY SHARE.
+  await tx.selectFrom("catalog.event").select("id").where("id", "=", eventId).forKeyShare().executeTakeFirst();
+  const form = await getForm(tx, eventId);
+  const answers = checkAnswers(form.fields, input, actor.kind === "attendee");
+  if (actor.kind === "staff" && Object.keys(answers.sensitive).length && !can(actor.ctx, "registrations.sensitive")) {
+    throw new DomainError("forbidden", "Missing permission registrations.sensitive");
+  }
+  return { form, answers };
+}
+
+/**
+ * Internal: inserts a confirmed registration with its answers, takes its places, issues the
+ * admission and emits registration.confirmed. The caller has checked who may register, the
+ * window and the answers.
  */
 export async function insertConfirmed(
   tx: Tx, tenantId: string, target: catalog.RegistrationTarget,
   r: { name: string; email: string; locale: string; partySize: number; source: RegistrationSource; invitationId: string | null },
+  a?: { form: Awaited<ReturnType<typeof getForm>>; answers: CheckedAnswers },
 ): Promise<Registration> {
   const id = newId();
   const occurrenceId = target.occurrence.id;
@@ -152,6 +187,10 @@ export async function insertConfirmed(
     });
   // Fails without changing anything if the places do not fit; the transaction then rolls back.
   if (!(await inventory.takePlaces(tx, occurrenceId, r.partySize))) throw new DomainError("full", "There are no places left");
+  if (a && a.form.version > 0) {
+    await writeAnswers(tx, tenantId, id, a.form, a.answers);
+    Object.assign(row, await tx.selectFrom("registration.registration").select(["form_version", "sensitive_consent_at"]).where("id", "=", id).executeTakeFirstOrThrow());
+  }
   await admission.issueAdmission(tx, tenantId, id, occurrenceId, r.partySize);
   await catalog.detachForRegistrations(tx, occurrenceId);
   await emit(tx, tenantId, {
@@ -181,6 +220,7 @@ export async function updateRegistration(
     throw new DomainError("version_conflict", "Registration was changed by someone else", { currentVersion: before.version });
   }
   if (before.status === "cancelled") throw new DomainError("conflict", "The registration is cancelled");
+  if (before.anonymisedAt) throw new DomainError("conflict", "The registration has been anonymised");
   const target = await catalog.getRegistrationTarget(tx, before.occurrenceId);
   if (actor.kind === "attendee" && !attendeeRights(before, target, now).change) throw new DomainError("registration_closed", "Registration can no longer be changed");
 
@@ -188,10 +228,20 @@ export async function updateRegistration(
   const partySize = patch.partySize ?? before.partySize;
   if (partySize !== before.partySize) assertPartySize(partySize, await guestAllowedFor(tx, before, target), actor);
   const locale = patch.locale !== undefined ? await pickLocale(tx, patch.locale) : before.locale;
+  // Answers: staff without registrations.sensitive cannot see sensitive ones, so theirs stay as stored.
+  let newAnswers: Awaited<ReturnType<typeof formAnswers>> | null = null;
+  const keepSensitive = actor.kind === "staff" && !can(actor.ctx, "registrations.sensitive");
+  if (patch.answers !== undefined) {
+    const next = await formAnswers(tx, before.eventId, { answers: patch.answers, consent: patch.consent }, actor);
+    const prev = (await readAnswers(tx, tenantId, [id], actor.kind === "staff" ? actor : { kind: "attendee" })).get(id)!;
+    const merged = { ...next.answers.plain, ...(keepSensitive ? {} : next.answers.sensitive) };
+    if (canonical(merged) !== canonical(prev) || (before.formVersion ?? 0) !== next.form.version) newAnswers = next;
+  }
   const changed = [
     ...(name !== before.name ? ["name"] : []),
     ...(partySize !== before.partySize ? ["partySize"] : []),
     ...(locale !== before.locale ? ["locale"] : []),
+    ...(newAnswers ? ["answers"] : []),
   ];
   if (changed.length === 0) return before;
 
@@ -205,6 +255,10 @@ export async function updateRegistration(
     .returning(columns)
     .executeTakeFirstOrThrow();
   if (delta !== 0) await admission.setAdmissionPartySize(tx, id, partySize);
+  if (newAnswers) {
+    await writeAnswers(tx, tenantId, id, newAnswers.form, newAnswers.answers, { keepSensitive, now });
+    Object.assign(row, await tx.selectFrom("registration.registration").select(["form_version", "sensitive_consent_at"]).where("id", "=", id).executeTakeFirstOrThrow());
+  }
   await emit(tx, tenantId, {
     type: "registration.changed.v1", subject: `registration/${id}`,
     data: { registrationId: id, occurrenceId: before.occurrenceId, eventId: before.eventId, status: row.status, partySize, changed },
@@ -214,6 +268,9 @@ export async function updateRegistration(
   }
   return toRegistration(row);
 }
+
+/** Pure: a stable text for comparing answers. */
+const canonical = (a: Record<string, unknown>) => JSON.stringify(Object.keys(a).sort().map((k) => [k, a[k]]));
 
 /** Whether the registration may bring a guest: the invitation's allowance if it came from one, else the event's. */
 export async function guestAllowedFor(tx: Tx, reg: Pick<Registration, "invitationId">, target: catalog.RegistrationTarget): Promise<boolean> {
@@ -320,7 +377,8 @@ export interface RegistrationMessage {
 
 export async function loadMessage(tx: Tx, id: string): Promise<RegistrationMessage | null> {
   const row = await tx.selectFrom("registration.registration").select(columns).where("id", "=", id).executeTakeFirst();
-  if (!row) return null;
+  // Nothing to send to an anonymised registration.
+  if (!row || row.anonymised_at) return null;
   const [target, account] = await Promise.all([catalog.getRegistrationTarget(tx, row.occurrence_id), getAccount(tx)]);
   return { registration: toRegistration(row), target, account: { name: account.name, defaultLocale: account.defaultLocale } };
 }

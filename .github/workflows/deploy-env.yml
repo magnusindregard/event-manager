@@ -4,6 +4,8 @@ on:
     inputs:
       environment: { type: string, required: true }
       image-tag: { type: string, required: true }
+      # Deploy even if it replaces a newer main commit or another branch's preview (ALLOW_REPLACE).
+      replace-newer: { type: string, default: "false" }
 
 permissions:
   id-token: write
@@ -14,6 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     # Protection rules on the "prod" environment give the manual approval step.
     environment: ${{ inputs.environment }}
+    # One deploy per environment at a time, whichever branch or trigger started it. A newer
+    # pending deploy replaces an older pending one; a running deploy is never cancelled.
+    concurrency:
+      group: deploy-env-${{ inputs.environment }}
+      cancel-in-progress: false
     env:
       RG: ${{ vars.RESOURCE_GROUP }}
       PG_ADMIN_GROUP_ID: ${{ vars.PG_ADMIN_GROUP_ID }}
@@ -26,10 +33,13 @@ jobs:
       GRAPH_TENANT_DOMAIN: ${{ vars.GRAPH_TENANT_DOMAIN }}
       MAIL_FROM: ${{ vars.MAIL_FROM }}
       POSTMARK_WEBHOOK: ${{ vars.POSTMARK_WEBHOOK || 'false' }}
+      SENSITIVE_ANSWERS: ${{ vars.SENSITIVE_ANSWERS || 'false' }}
       ADMIN_URL: ${{ vars.ADMIN_URL }}
       PG_ADMIN_TYPE: ${{ vars.PG_ADMIN_TYPE || 'Group' }}
     steps:
+      # Full history: deploy-env.sh compares image-tag with the commit the environment runs and with main.
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: azure/login@v2
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
@@ -41,11 +51,12 @@ jobs:
         with: { node-version-file: .nvmrc, cache: pnpm }
       - run: pnpm install --frozen-lockfile
 
-      # Bicep → migrations → admin upload → smoke test. The same script deploys by hand (infra/README.md).
+      # Freshness check → Bicep (infra, migrate job) → migrations → Bicep (apps) → admin upload → smoke test. The same script deploys by hand (infra/README.md).
       - name: Deploy
         env:
           RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
           ENTRA_ADMIN_CLIENT_ID: ${{ vars.ENTRA_ADMIN_CLIENT_ID }}
           ENTRA_AUTHORITY: ${{ vars.ENTRA_AUTHORITY }}
           ENTRA_API_SCOPE: ${{ vars.ENTRA_API_SCOPE }}
+          ALLOW_REPLACE: ${{ inputs.replace-newer }}
         run: scripts/deploy-env.sh ${{ inputs.environment }} ${{ inputs.image-tag }}

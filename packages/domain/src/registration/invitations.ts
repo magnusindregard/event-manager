@@ -3,7 +3,8 @@ import * as catalog from "../catalog/index.js";
 import { emit } from "../outbox/index.js";
 import { type ActorContext, DomainError } from "../shared/index.js";
 import { assertCan, getAccount, recordAudit } from "../tenancy/index.js";
-import { assertPartySize, insertConfirmed, normalizeContact, pickLocale, type Registration } from "./registrations.js";
+import type { AnswerInput } from "./forms.js";
+import { assertPartySize, formAnswers, insertConfirmed, normalizeContact, pickLocale, type Registration } from "./registrations.js";
 import { issueToken, verifyToken } from "./tokens.js";
 
 // Guest invitations (docs/registration.md, milestone 3). An invitation belongs to an event
@@ -198,7 +199,7 @@ export async function createInvitation(tx: Tx, ctx: ActorContext, eventId: strin
     .returning(invitationColumns)
     .executeTakeFirstOrThrow()
     .catch(alreadyInvited);
-  await recordAudit(tx, ctx, { action: "invitation.created", entityType: "event", entityId: eventId, diff: { invitationId: row.id, email } });
+  await recordAudit(tx, ctx, { action: "invitation.created", entityType: "event", entityId: eventId, diff: { invitationId: row.id } });
   return toInvitation(row);
 }
 
@@ -434,7 +435,7 @@ export async function activeRegistrationFor(tx: Tx, invitationId: string): Promi
 
 export const effectiveGuestAllowed = (inv: Pick<GuestInvitation, "guestAllowed">, event: { guestAllowed: boolean }) => inv.guestAllowed ?? event.guestAllowed;
 
-export interface AcceptInput {
+export interface AcceptInput extends AnswerInput {
   occurrenceId: string;
   /** Needed when the guest list has no name for the guest. */
   name?: string;
@@ -458,7 +459,8 @@ export async function acceptInvitation(tx: Tx, tenantId: string, invitationId: s
   const partySize = input.partySize ?? 1;
   assertPartySize(partySize, effectiveGuestAllowed(inv, target.event), { kind: "attendee" });
   const locale = await pickLocale(tx, input.locale ?? inv.locale ?? undefined);
-  const reg = await insertConfirmed(tx, tenantId, target, { name, email, locale, partySize, source: "invitation", invitationId: inv.id });
+  const answers = await formAnswers(tx, inv.eventId, input, { kind: "attendee" });
+  const reg = await insertConfirmed(tx, tenantId, target, { name, email, locale, partySize, source: "invitation", invitationId: inv.id }, answers);
   await tx.updateTable("registration.guest_invitation")
     .set({ status: "accepted", responded_at: now, name: inv.name ?? name, version: sql<number>`version + 1` })
     .where("id", "=", inv.id).execute();

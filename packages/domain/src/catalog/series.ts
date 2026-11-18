@@ -5,7 +5,7 @@ import { assertCan, getAccount, isValidTimezone, recordAudit } from "../tenancy/
 import { expand, normalizeLocal, normalizeRrule, remapExdates, type SeriesDef, type Slot, slotAt, splitRules } from "./recurrence.js";
 import { type ExistingOccurrence, planRegeneration, type RegenerationPlan } from "./regenerate.js";
 import { resolveEventOccurrences } from "./resolve.js";
-import { invalid, notFound, versionConflict } from "./shared.js";
+import { invalid, lockScheduleEvent, notFound, versionConflict } from "./shared.js";
 
 // Series and Outlook-style edits (docs/mvp.md, "Series"). Every change regenerates the
 // series' materialized occurrences in the caller's transaction, or only plans it (dryRun),
@@ -109,11 +109,13 @@ async function horizonFor(tx: Tx, now: Date, generatedUntil?: Date): Promise<Dat
   return generatedUntil && generatedUntil > target ? generatedUntil : target;
 }
 
-async function loadEvent(tx: Tx, eventId: string) {
-  const event = await tx.selectFrom("catalog.event").select(["id", "status", "timezone", "default_duration_min"]).where("id", "=", eventId).executeTakeFirst();
-  if (!event) throw notFound("Event");
-  if (event.status === "archived") throw new DomainError("conflict", "The event is archived");
-  return event;
+const loadEvent = lockScheduleEvent;
+
+/** Locks the series row: series edits, splits, deletes and horizon runs take turns. */
+async function seriesForUpdate(tx: Tx, id: string): Promise<Series> {
+  const row = await tx.selectFrom("catalog.series").select(columns).where("id", "=", id).forUpdate().executeTakeFirst();
+  if (!row) throw notFound("Series");
+  return toSeries(row);
 }
 
 function validateDef(def: SeriesDef): SeriesDef {
@@ -122,11 +124,18 @@ function validateDef(def: SeriesDef): SeriesDef {
   return { ...def, rrule: normalizeRrule(def.rrule), dtstartLocal: normalizeLocal("dtstartLocal", def.dtstartLocal) };
 }
 
+/**
+ * The series' occurrences, locked (by id, like other schedule changes): a hand edit committed
+ * while regeneration waited is seen here (detached), and one started later waits for it and then
+ * fails its version check if the occurrence was moved. The plan never overwrites a hand edit.
+ */
 async function loadExisting(tx: Tx, seriesId: string): Promise<ExistingOccurrence[]> {
   const rows = await tx
     .selectFrom("catalog.occurrence")
     .select(["id", "recurrence_id_local", "start_utc", "end_utc", "detached", "conflict"])
     .where("series_id", "=", seriesId)
+    .orderBy("id")
+    .forUpdate()
     .execute();
   return rows.map((r) => ({
     id: r.id, recurrenceIdLocal: r.recurrence_id_local!, startUtc: r.start_utc, endUtc: r.end_utc, detached: r.detached, conflict: r.conflict,
@@ -238,9 +247,10 @@ export async function createSeries(tx: Tx, ctx: ActorContext, eventId: string, i
 }
 
 async function lockedSeries(tx: Tx, id: string, expectedVersion: number): Promise<Series> {
-  const s = await getSeries(tx, id);
+  const { eventId } = await getSeries(tx, id);
+  await loadEvent(tx, eventId);
+  const s = await seriesForUpdate(tx, id);
   if (s.version !== expectedVersion) throw versionConflict("Series", s.version);
-  await loadEvent(tx, s.eventId);
   return s;
 }
 
@@ -383,8 +393,20 @@ export async function seriesDueForExtension(tx: Tx, at: Date): Promise<{ tenantI
  * else changes, so there is no audit entry; the outbox event lets caches refresh.
  */
 export async function extendSeriesHorizon(tx: Tx, tenantId: string, id: string, now: Date = new Date()): Promise<number> {
-  const s = await getSeries(tx, id);
-  if (s.complete) return 0;
+  const ref = await tx.selectFrom("catalog.series").select("event_id").where("id", "=", id).executeTakeFirst();
+  if (!ref) return 0; // deleted since it was found due
+  // Same lock order as other schedule changes: the event first (FOR SHARE; not
+  // lockScheduleEvent, which refuses archived events), then the series and its occurrences.
+  // Taking the event share only later, when resolving the new occurrences, deadlocked with a
+  // rule save, which holds the event for update and then waits for the occurrences.
+  await tx.selectFrom("catalog.event").select("id").where("id", "=", ref.event_id).forShare().execute();
+  // The series is locked, and read after any edit in progress commits: a rule changed meanwhile
+  // (shortened, completed) is the one extended, and overlapping runs see each other's slots.
+  const s = await seriesForUpdate(tx, id).catch((e: unknown) => {
+    if (e instanceof DomainError && e.code === "not_found") return null; // deleted while we waited
+    throw e;
+  });
+  if (!s || s.complete) return 0;
   const untilUtc = await horizonFor(tx, now, s.generatedUntil);
   const { slots, complete } = expand(s, { untilUtc, fromUtc: s.generatedUntil });
   // Only new slots; existing occurrences are untouched.

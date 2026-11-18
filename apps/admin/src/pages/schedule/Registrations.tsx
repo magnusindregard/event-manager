@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, UserPlus, X } from "lucide-react";
+import { Download, ExternalLink, Lock, Printer, UserPlus, X } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 import { toast } from "sonner";
 import { type ColumnDef, DataTable } from "@/components/data-table";
 import { Field } from "@/components/page";
@@ -16,19 +17,28 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ApiProblem, type CatalogEvent, type Occurrence, type Registration, unwrap } from "../../api.js";
+import { type AnswerField, ApiProblem, type CatalogEvent, type Occurrence, type Registration, unwrap } from "../../api.js";
 import { useApp } from "../../AppContext.js";
+import { downloadDoorList } from "../registration/door-list.js";
+
+/** An answer as text in the admin's language. */
+function answerText(f: AnswerField, v: Registration["answers"][string], lang: string, yes: string): string {
+  const pick = (l: Record<string, string>) => l[lang] ?? Object.values(l)[0] ?? "";
+  if (f.type === "checkbox") return v === true ? yes : "";
+  if (Array.isArray(v)) return v.map((id) => f.options.find((o) => o.id === id)).filter(Boolean).map((o) => pick(o!.label)).join(", ");
+  return String(v);
+}
 
 const ATTENDEE_URL = (import.meta.env.VITE_ATTENDEE_URL ?? "").replace(/\/+$/, "");
 
 /**
  * An occurrence's registrations (docs/registration.md, "Occurrence → Registrations"): who is
- * coming, with party size and source; add someone by hand or cancel. Waitlist, moving and the
- * door list come in later milestones.
+ * coming, with party size, source and answers; add someone by hand, cancel, or open the door
+ * list. Sensitive answers show only with registrations.sensitive. Waitlist and moving come later.
  */
 export function Registrations({ event, occurrence, label, onClose }: { event: CatalogEvent; occurrence: Occurrence | null; label: string; onClose: () => void }) {
-  const { t } = useTranslation();
-  const { api, accountId } = useApp();
+  const { t, i18n } = useTranslation();
+  const { api, accountId, can } = useApp();
   const qc = useQueryClient();
   const [show, setShow] = useState<"active" | "cancelled">("active");
   const [toCancel, setToCancel] = useState<Registration | null>(null);
@@ -39,7 +49,7 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
   const query = useQuery({
     queryKey: key,
     enabled: !!occurrence,
-    queryFn: async () => unwrap(await api.GET("/v1/occurrences/{id}/registrations", { params: { path: { id: occurrence!.id } } })).items,
+    queryFn: async () => unwrap(await api.GET("/v1/occurrences/{id}/registrations", { params: { path: { id: occurrence!.id } } })),
   });
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: key });
@@ -75,7 +85,8 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
     onError: (e) => toast.error(problemText(e)),
   });
 
-  const all = query.data ?? [];
+  const all = query.data?.items ?? [];
+  const fields = query.data?.fields ?? [];
   const active = all.filter((r) => r.status !== "cancelled");
   const rows = show === "active" ? active : all.filter((r) => r.status === "cancelled");
   const people = active.reduce((n, r) => n + r.partySize, 0);
@@ -89,12 +100,27 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
     {
       id: "name",
       header: t("registrations.name"),
-      cell: ({ row }) => (
-        <div className="grid">
-          <span className="font-medium">{row.original.name}</span>
-          <span className="text-muted-foreground text-xs">{row.original.email}</span>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const r = row.original;
+        const answered = fields.filter((f) => r.answers[f.id] !== undefined && answerText(f, r.answers[f.id]!, i18n.language, t("registrations.yes")));
+        return (
+          <div className="grid gap-0.5">
+            <span className="font-medium">{r.anonymisedAt ? <span className="text-muted-foreground italic">{t("registrations.anonymised")}</span> : r.name}</span>
+            {r.email && <span className="text-muted-foreground text-xs">{r.email}</span>}
+            {answered.length > 0 && (
+              <dl className="mt-1 grid gap-0.5 text-xs">
+                {answered.map((f) => (
+                  <div key={f.id} className="flex gap-1">
+                    <dt className="text-muted-foreground">{f.label[i18n.language] ?? Object.values(f.label)[0]}{f.sensitive && <Lock aria-label={t("registrations.sensitive")} className="ml-0.5 inline size-3" />}:</dt>
+                    <dd className="whitespace-pre-line">{answerText(f, r.answers[f.id]!, i18n.language, t("registrations.yes"))}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            {r.hiddenSensitiveAnswers && <span className="text-muted-foreground text-xs inline-flex items-center gap-1"><Lock className="size-3" /> {t("registrations.hiddenSensitive")}</span>}
+          </div>
+        );
+      },
     },
     { id: "party", header: t("registrations.party"), cell: ({ row }) => <span className="tabular-nums">{row.original.partySize}</span> },
     { id: "source", header: t("registrations.source"), cell: ({ row }) => <Badge variant="outline">{t(`registrations.sources.${row.original.source}`)}</Badge> },
@@ -103,11 +129,13 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
       header: () => <span className="sr-only">{t("common.actions")}</span>,
       cell: ({ row }) =>
         row.original.status !== "cancelled" ? (
-          <div className="flex justify-end">
-            <Button variant="ghost" size="icon" aria-label={t("registrations.cancelFor", { name: row.original.name })} onClick={() => setToCancel(row.original)}>
-              <X />
-            </Button>
-          </div>
+          can("registrations.write") && (
+            <div className="flex justify-end">
+              <Button variant="ghost" size="icon" aria-label={t("registrations.cancelFor", { name: row.original.name ?? "" })} onClick={() => setToCancel(row.original)}>
+                <X />
+              </Button>
+            </div>
+          )
         ) : (
           <span className="text-muted-foreground text-xs">{t(`registrations.cancelledBy.${row.original.cancelledBy ?? "staff"}`)}</span>
         ),
@@ -131,6 +159,16 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
               <a className="text-sm underline underline-offset-4 inline-flex items-center gap-1" href={`${ATTENDEE_URL}/r/${occurrence.id}`} target="_blank" rel="noreferrer">
                 {t("registrations.openPage")} <ExternalLink className="size-3.5" />
               </a>
+            )}
+            {occurrence && (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" asChild>
+                  <Link to={`/door-list/${occurrence.id}`} target="_blank" rel="noreferrer"><Printer /> {t("doorList.open")}</Link>
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => downloadDoorList(api, occurrence.id, true, i18n.language).catch(() => toast.error(t("error.generic")))}>
+                  <Download /> {t("doorList.csvWithAnswers")}
+                </Button>
+              </div>
             )}
             <Tabs value={show} onValueChange={(v) => setShow(v as "active" | "cancelled")}>
               <TabsList>

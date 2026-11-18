@@ -2,7 +2,7 @@ import { type Db, newId, type ProvisionStatus, sql, type SigninKind, type Tx, wi
 import { emit } from "../outbox/index.js";
 import { type ActorContext, DomainError } from "../shared/index.js";
 import { recordAudit } from "./audit.js";
-import { assertCan, ENABLED_ROLES } from "./permissions.js";
+import { assertCan, ENABLED_ROLES, type Permission, permissionsOf } from "./permissions.js";
 
 export interface VerifiedIdentity {
   issuer: string;
@@ -25,13 +25,18 @@ export interface AccountSummary {
   slug: string;
   name: string;
   roles: Role[];
+  /** What the roles allow, so clients need not know the role model. */
+  permissions: Permission[];
 }
 
 export async function myAccounts(db: Db, userId: string): Promise<AccountSummary[]> {
   return withoutTenant(db, async (tx) => {
     const res = await sql<{ account_id: string; slug: string; name: string; roles: string }>`
       select account_id, slug, name, roles::text[] as roles from tenancy.my_accounts(${userId}::uuid)`.execute(tx);
-    return res.rows.map((r) => ({ accountId: r.account_id, slug: r.slug, name: r.name, roles: r.roles as unknown as Role[] }));
+    return res.rows.map((r) => {
+      const roles = r.roles as unknown as Role[];
+      return { accountId: r.account_id, slug: r.slug, name: r.name, roles, permissions: permissionsOf(roles.filter((x) => ENABLED_ROLES.includes(x))) };
+    });
   });
 }
 

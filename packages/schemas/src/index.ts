@@ -11,7 +11,13 @@ export const Role = Type.Union([
   Type.Literal("owner"), Type.Literal("editor"), Type.Literal("event_manager"),
   Type.Literal("box_office"), Type.Literal("door_staff"), Type.Literal("finance"),
 ]);
-export const EnabledRole = Type.Union([Type.Literal("owner"), Type.Literal("editor")]);
+export const EnabledRole = Type.Union([Type.Literal("owner"), Type.Literal("event_manager"), Type.Literal("editor")], {
+  description: "owner: everything. event_manager: content and guest data. editor: content only",
+});
+export const Permission = Type.Union([
+  Type.Literal("account.write"), Type.Literal("members.manage"), Type.Literal("content.write"), Type.Literal("content.read"), Type.Literal("audit.read"),
+  Type.Literal("registrations.read"), Type.Literal("registrations.write"), Type.Literal("registrations.sensitive"),
+]);
 
 /** RFC 9457 problem details with a stable reason code. */
 export const Problem = Type.Object(
@@ -40,6 +46,8 @@ export const Account = Type.Object(
     defaultLocale: Locale,
     locales: Type.Array(Locale, { minItems: 1 }),
     horizonMonths: Type.Integer({ minimum: 1, maximum: 60 }),
+    anonymiseAfterMonths: Type.Integer({ minimum: 1, maximum: 120, description: "Registrations are anonymised this many months after their occurrence" }),
+    sensitiveDeleteAfterDays: Type.Integer({ minimum: 1, maximum: 365, description: "Sensitive answers are deleted this many days after their occurrence" }),
     version: Type.Integer(),
     updatedAt: DateTime,
   },
@@ -53,13 +61,15 @@ export const AccountPatch = Type.Object(
     defaultLocale: Type.Optional(Locale),
     locales: Type.Optional(Type.Array(Locale, { minItems: 1, uniqueItems: true })),
     horizonMonths: Type.Optional(Type.Integer({ minimum: 1, maximum: 60 })),
+    anonymiseAfterMonths: Type.Optional(Type.Integer({ minimum: 1, maximum: 120 })),
+    sensitiveDeleteAfterDays: Type.Optional(Type.Integer({ minimum: 1, maximum: 365 })),
   },
   { additionalProperties: false, minProperties: 1 },
 );
 export type AccountPatch = Static<typeof AccountPatch>;
 
 export const AccountSummary = Type.Object(
-  { accountId: Uuid, slug: Type.String(), name: Type.String(), roles: Type.Array(Role) },
+  { accountId: Uuid, slug: Type.String(), name: Type.String(), roles: Type.Array(Role), permissions: Type.Array(Permission) },
 );
 
 export const Me = Type.Object(
