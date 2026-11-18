@@ -7,6 +7,7 @@ import { type ActorContext, catalog, registration, tenancy } from "@event-manage
 import { defaultHandlers } from "../src/handlers.js";
 import { FakeDirectory } from "../src/identity/directory.js";
 import { FakeMailer } from "../src/identity/mailer.js";
+import { mergeNotice } from "../src/occurrence-notice.js";
 import { buildTaskList } from "../src/tasks.js";
 
 let tdb: TestDatabase;
@@ -205,6 +206,17 @@ describe("occurrence notices", () => {
     expect(mailer.sent).toEqual([]);
   });
 
+  it("tells them the new time when a cancellation is withdrawn with a time change before its notice went out", async () => {
+    const { occ } = await setup();
+    let o = await run((tx) => catalog.getOccurrence(tx, occ.id));
+    o = await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, o.version, { status: "cancelled" }));
+    const later = new Date(o.startUtc.getTime() + 3_600_000);
+    await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, o.version, { status: "scheduled", startUtc: later }));
+    await drain();
+    expect(recipients()).toEqual(["kari", "ola"]);
+    expect(mailer.sent.find((m) => m.to.startsWith("ola"))!.subject).toBe("New time or place: Evening tour");
+  });
+
   it("still tells them of an event cancellation dispatched after the start (#55)", async () => {
     const { occ } = await setup();
     const ev = await run((tx) => catalog.getEvent(tx, occ.eventId));
@@ -250,5 +262,23 @@ describe("occurrence notices", () => {
     await run((tx) => catalog.updateLocation(tx, ctx, venue.id, venue.version, { geo: { lat: 59.9, lng: 10.75 } }));
     await drain();
     expect(mailer.sent).toEqual([]);
+  });
+});
+
+describe("mergeNotice", () => {
+  it("lets a cancellation and its restoration cancel out, unless the occurrence also moved", () => {
+    expect(mergeNotice({ reason: "cancelled" }, "restored")).toBeNull();
+    expect(mergeNotice({ reason: "cancelled" }, "restored", true)).toEqual({ reason: "changed" });
+    expect(mergeNotice({ reason: "cancelled", changed: true }, "restored")).toEqual({ reason: "changed" });
+    expect(mergeNotice({ reason: "restored" }, "cancelled")).toBeNull();
+    expect(mergeNotice({ reason: "restored" }, "cancelled", true)).toEqual({ reason: "cancelled", changed: true });
+  });
+
+  it("remembers a move under a cancellation, and keeps restorations and moves", () => {
+    expect(mergeNotice(null, "cancelled", true)).toEqual({ reason: "cancelled", changed: true });
+    expect(mergeNotice({ reason: "changed" }, "cancelled")).toEqual({ reason: "cancelled", changed: true });
+    expect(mergeNotice(null, "restored", true)).toEqual({ reason: "restored" });
+    expect(mergeNotice({ reason: "changed" }, "changed")).toEqual({ reason: "changed" });
+    expect(mergeNotice({ reason: "restored" }, "changed")).toEqual({ reason: "restored", changed: true });
   });
 });

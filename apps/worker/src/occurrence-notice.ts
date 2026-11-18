@@ -33,28 +33,31 @@ type Pending = { reason: Reason; changed?: boolean };
 /**
  * What a waiting job should say after another change, or null to drop it: the attendee last
  * heard of the state before the waiting job, so a cancellation and its restoration cancel out.
+ * alsoChanged: the same edit also moved the occurrence (a restoration or cancellation with a new
+ * time), which attendees must hear about even when the status change itself cancels out.
  */
-export function mergeNotice(prev: Pending | null, next: Reason): Pending | null {
-  if (!prev) return { reason: next };
+export function mergeNotice(prev: Pending | null, next: Reason, alsoChanged = false): Pending | null {
   if (next === "cancelled") {
-    if (prev.reason === "restored") return null; // they were told it is cancelled; it is again
-    return { reason: "cancelled", changed: prev.reason === "changed" || !!prev.changed };
+    const changed = alsoChanged || (!!prev && (prev.reason === "changed" || !!prev.changed));
+    if (prev?.reason === "restored" && !changed) return null; // they were told it is cancelled; it is again
+    return changed ? { reason: "cancelled", changed: true } : { reason: "cancelled" };
   }
   if (next === "restored") {
-    if (prev.reason === "cancelled") return prev.changed ? { reason: "changed" } : null;
-    return { reason: "restored" };
+    if (prev?.reason === "cancelled") return prev.changed || alsoChanged ? { reason: "changed" } : null;
+    return { reason: "restored" }; // the notice shows the current details, a new time included
   }
+  if (!prev) return { reason: "changed" };
   return prev.reason === "changed" ? prev : { ...prev, changed: true };
 }
 
-async function enqueue(tx: Tx, tenantId: string, registrationIds: readonly string[], reason: Reason) {
+async function enqueue(tx: Tx, tenantId: string, registrationIds: readonly string[], reason: Reason, alsoChanged: boolean) {
   for (const id of registrationIds) {
     const key = `occnotice:${id}`;
     // A job already running is not merged into: it has read or sent its state.
     const waiting = await sql<{ payload: Pending }>`
       select payload from graphile_worker._private_jobs where key = ${key} and locked_at is null`.execute(tx);
     const p = waiting.rows[0]?.payload;
-    const merged = mergeNotice(p && typeof p.reason === "string" ? { reason: p.reason, changed: p.changed } : p ? { reason: "changed" } : null, reason);
+    const merged = mergeNotice(p && typeof p.reason === "string" ? { reason: p.reason, changed: p.changed } : p ? { reason: "changed" } : null, reason, alsoChanged);
     if (!merged) {
       await sql`select graphile_worker.remove_job(${key})`.execute(tx);
       continue;
@@ -71,15 +74,18 @@ async function enqueue(tx: Tx, tenantId: string, registrationIds: readonly strin
 /** Which occurrences an outbox event concerns, and why; null when attendees need not hear of it. */
 async function affected(tx: Tx, type: string, data: { id: string; changed?: unknown; previousStatus?: unknown; change?: unknown }) {
   const changed = Array.isArray(data.changed) ? (data.changed as unknown[]) : [];
+  const moved = changed.some((c) => TIME_FIELDS.includes(c as string));
   switch (type) {
     case "occurrence.cancelled.v1":
-      return { reason: "cancelled" as const, occurrenceIds: [data.id] };
+      return { reason: "cancelled" as const, occurrenceIds: [data.id], alsoChanged: moved };
     case "event.cancelled.v1":
       return { reason: "cancelled" as const, occurrenceIds: await catalog.unendedOccurrenceIds(tx, data.id) };
     case "occurrence.changed.v1":
       // Cancelling emits occurrence.cancelled.v1, so a status change here is a restoration.
-      if (changed.includes("status")) return { reason: "restored" as const, occurrenceIds: [data.id] };
-      if (changed.some((c) => TIME_FIELDS.includes(c as string))) return { reason: "changed" as const, occurrenceIds: [data.id] };
+      // The same edit can also give it a new time, which must not be lost if the restoration
+      // cancels out a cancellation notice that has not been sent.
+      if (changed.includes("status")) return { reason: "restored" as const, occurrenceIds: [data.id], alsoChanged: moved };
+      if (moved) return { reason: "changed" as const, occurrenceIds: [data.id] };
       return null;
     case "occurrence.relocated.v1":
       return { reason: "changed" as const, occurrenceIds: [data.id] };
@@ -103,7 +109,7 @@ export const queueOccurrenceNotices: InternalHandler = {
     const a = await affected(tx, event.type, { ...data, id: data.id });
     if (!a) return;
     const ids = await registration.activeRegistrationIds(tx, a.occurrenceIds);
-    await enqueue(tx, event.tenantId, ids, a.reason);
+    await enqueue(tx, event.tenantId, ids, a.reason, "alsoChanged" in a && !!a.alsoChanged);
     if (ids.length) log.info("occurrence notices queued", { cause: event.type, subject: event.subject, reason: a.reason, registrations: ids.length });
   },
 };
