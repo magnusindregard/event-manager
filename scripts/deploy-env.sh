@@ -6,9 +6,15 @@
 #   scripts/build-images.sh <tag>                # build and push images (ACR Tasks)
 #   scripts/deploy-env.sh staging <tag>
 #
-# Steps: Bicep (infra and migrate job; apps stay on their image) → migrations
+# Steps: freshness check → Bicep (infra and migrate job; apps stay on their image) → migrations
 # → Bicep (apps to the new image) → admin SPA build and upload → smoke test.
 # Bicep parameters come from the environment (see infra/env/<env>.bicepparam).
+#
+# The workflow runs this under one concurrency group per environment. By hand, do not run it while
+# a workflow deploy to the same environment is in progress.
+#
+# ALLOW_REPLACE=true deploys <tag> even when it would replace a newer main commit or another
+# branch's preview (see the freshness check). Without it such a deploy stops before changing anything.
 set -euo pipefail
 
 ENV_NAME=${1:?usage: deploy-env.sh <staging|prod> <image tag>}
@@ -22,6 +28,26 @@ current=""
 if [ -n "$api_app" ]; then
   current=$(az containerapp show -g "$RG" -n "$api_app" --query "properties.template.containers[0].image" -o tsv)
   current=${current##*:}
+fi
+
+# Never silently roll an environment back: a delayed run, or a branch deploy started before newer
+# main code deployed, must not replace it. Allowed without ALLOW_REPLACE:
+#   - <tag> contains what runs (forward);
+#   - what runs is not on main (a branch preview) and <tag> is on main (main replaces previews).
+MAIN_REF=${MAIN_REF:-origin/main}
+is_commit() { git cat-file -e "$1^{commit}" 2>/dev/null; }
+on_main() { is_commit "$1" && git merge-base --is-ancestor "$1" "$MAIN_REF"; }
+if [ -n "$current" ] && [ "$current" != "$TAG" ] && [ "$current" != bootstrap ] && [ "${ALLOW_REPLACE:-false}" != true ]; then
+  if is_commit "$current" && is_commit "$TAG" && git merge-base --is-ancestor "$current" "$TAG"; then
+    :
+  elif ! on_main "$current" && on_main "$TAG"; then
+    echo "▸ $ENV_NAME runs branch preview $current; replacing it with $TAG from main"
+  else
+    if on_main "$current"; then why="a newer main commit"; else why="another branch's preview"; fi
+    echo "::error::$ENV_NAME runs $current ($why), which $TAG does not contain. Not replacing it." >&2
+    echo "Deploy again with ALLOW_REPLACE=true (workflow input replace_newer) to replace it on purpose." >&2
+    exit 1
+  fi
 fi
 
 bicep() {

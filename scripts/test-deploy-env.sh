@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# Checks the order of scripts/deploy-env.sh without Azure: az, pnpm and curl are stubs
+# Checks the order and guards of scripts/deploy-env.sh without Azure: az, pnpm and curl are stubs
 # that log their calls. Needs full git history (CI checks out with fetch-depth 0).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 new=$(git rev-parse HEAD)
 old=$(git rev-parse HEAD~1)
+# Branch previews: commits that are not on "main" (here: the history of $new).
+preview=$(git commit-tree "$old^{tree}" -p "$old" -m "preview")
+preview2=$(git commit-tree "$old^{tree}" -p "$old" -m "another preview")
+export MAIN_REF=$new
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir "$work/bin"
@@ -51,9 +55,22 @@ run failed "$old" Failed "$new"; [ "$code" != 0 ] || fail "deploy succeeded alth
 [ "$(bicep_tags)" = "$old $new" ] || fail "apps rolled out although the migration failed"
 ! grep -q '^az storage' "$LOG" || fail "admin uploaded although the migration failed"
 
+# An environment running a newer main commit is not rolled back.
+run rollback "$new" Succeeded "$old"; [ "$code" != 0 ] || fail "deployed an older commit over a newer one"
+! grep -q '^az deployment' "$LOG" || fail "changed the environment before refusing"
+grep -q "ALLOW_REPLACE" "$work/rollback.out" || fail "refusal does not explain the override"
+
+# ...unless that is explicitly asked for.
+ALLOW_REPLACE=true run override "$new" Succeeded "$old"; [ "$code" = 0 ] || fail "ALLOW_REPLACE did not deploy"
+
+# Main replaces a branch preview, but a branch does not replace another branch's preview.
+run main-over-preview "$preview" Succeeded "$new"; [ "$code" = 0 ] || fail "main did not replace a preview: $(cat "$work/main-over-preview.out")"
+run preview-over-preview "$preview" Succeeded "$preview2"; [ "$code" != 0 ] || fail "a branch replaced another branch's preview"
+! grep -q '^az deployment' "$LOG" || fail "changed the environment before refusing"
+
 # A fresh environment has no apps to keep: one tag throughout.
 run fresh "" Succeeded "$new"; [ "$code" = 0 ] || fail "fresh deploy failed: $(cat "$work/fresh.out")"
 [ "$(bicep_tags)" = "$new $new
 $new $new" ] || fail "fresh environment should deploy $new in both steps"
 
-echo "deploy-env.sh: order OK"
+echo "deploy-env.sh: order and guards OK"
