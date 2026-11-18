@@ -152,6 +152,31 @@ describe("changing and cancelling", () => {
     expect(await code(run((tx) => registration.updateRegistration(tx, ctx.tenantId, r.id, { name: "X" }, attendee, { now: NOW })))).toBe("conflict");
   });
 
+  it("lets attendees withdraw after staff cancel the occurrence or the event (#52)", async () => {
+    const start = new Date("2027-03-01T17:00:00Z");
+    for (const cancel of ["occurrence", "event"] as const) {
+      const { event, occ } = await openEvent({ guestAllowed: true }, start);
+      const r = await run((tx) => registration.register(tx, ctx.tenantId, occ.id, person(cancel === "event" ? 15 : 14, { partySize: 2 }), attendee, NOW));
+      await run(async (tx) => {
+        if (cancel === "occurrence") await catalog.updateOccurrence(tx, ctx, occ.id, occ.version, { status: "cancelled" });
+        else await catalog.transitionEvent(tx, ctx, event.id, event.version, "cancel");
+      });
+      const target = await run((tx) => catalog.getRegistrationTarget(tx, occ.id));
+      expect(registration.attendeeRights(r, target, NOW)).toEqual({ change: false, cancel: true });
+      expect(registration.attendeeRights(r, target, start)).toEqual({ change: false, cancel: false });
+
+      expect(await code(run((tx) => registration.cancelRegistration(tx, ctx.tenantId, r.id, attendee, start)))).toBe("registration_closed");
+      const c = await run((tx) => registration.cancelRegistration(tx, ctx.tenantId, r.id, attendee, NOW));
+      expect(c).toMatchObject({ status: "cancelled", cancelledBy: "attendee" });
+      expect(await run((tx) => registration.cancelRegistration(tx, ctx.tenantId, r.id, attendee, NOW))).toMatchObject({ version: c.version });
+      expect((await run((tx) => catalog.getOccurrence(tx, occ.id))).pool).toMatchObject({ taken: 0 });
+      const adm = await run((tx) => tx.selectFrom("admission.admission").select("status").where("registration_id", "=", r.id).executeTakeFirstOrThrow());
+      expect(adm.status).toBe("void");
+      const events = await run((tx) => tx.selectFrom("outbox.event").select("type").where("subject", "=", `registration/${r.id}`).execute());
+      expect(events.map((e) => e.type)).toContain("registration.cancelled.v1");
+    }
+  });
+
   it("closes changes with the window and cancelling at the start", async () => {
     const start = new Date("2027-03-01T17:00:00Z");
     const { occ } = await openEvent({ closesMinBefore: 120 }, start);

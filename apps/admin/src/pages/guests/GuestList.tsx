@@ -34,7 +34,7 @@ type Confirm = { kind: "invitation" | "reminder"; ids?: string[]; count: number 
 
 export function GuestList({ event }: { event: CatalogEvent }) {
   const { t, i18n } = useTranslation();
-  const { api, accountId, me } = useApp();
+  const { api, accountId, can } = useApp();
   const qc = useQueryClient();
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
@@ -44,8 +44,7 @@ export function GuestList({ event }: { event: CatalogEvent }) {
   const [confirm, setConfirm] = useState<Confirm>(null);
   const key = ["invitations", accountId, event.id];
   const published = event.status === "published";
-  const roles = me?.accounts.find((a) => a.accountId === accountId)?.roles ?? [];
-  const canWrite = roles.some((r) => ["owner", "editor", "event_manager", "box_office"].includes(r));
+  const canWrite = can("registrations.write");
 
   const query = useQuery({
     queryKey: key,

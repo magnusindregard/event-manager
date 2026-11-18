@@ -249,7 +249,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Change the name, locale or guest until registration closes */
+        /** Change the name, locale, guest or answers until registration closes */
         patch: operations["updateRegistration"];
         trace?: never;
     };
@@ -399,6 +399,36 @@ export interface operations {
                             /** Format: date-time */
                             closesAt: string;
                         };
+                        form: {
+                            /** @description Asked after name and email, in this order */
+                            fields: {
+                                id: string;
+                                /** @description dietary: free text, always sensitive. text: one line or multiline, optionally sensitive. checkbox: e.g. consent to photos. choice: one or several options */
+                                type: "text" | "dietary" | "checkbox" | "choice";
+                                /** @description Text per locale */
+                                label: {
+                                    [key: string]: string;
+                                };
+                                /** @description Text per locale */
+                                help: {
+                                    [key: string]: string;
+                                };
+                                required: boolean;
+                                /** @description Stored encrypted, shown only with registrations.sensitive, deleted soon after the occurrence */
+                                sensitive: boolean;
+                                multiline: boolean;
+                                multiple: boolean;
+                                options: {
+                                    id: string;
+                                    /** @description Text per locale */
+                                    label: {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                            }[];
+                            /** @description Sensitive answers are deleted this many days after the occurrence; for the consent text */
+                            sensitiveDeleteAfterDays: number;
+                        };
                     };
                 };
             };
@@ -513,6 +543,12 @@ export interface operations {
                     locale?: string;
                     /** @description 2 brings a guest, where the event allows it */
                     partySize?: number;
+                    /** @description By field id */
+                    answers?: {
+                        [key: string]: string | boolean | string[];
+                    };
+                    /** @description Agreement to sensitive answers being stored; required when any is given */
+                    consent?: boolean;
                 };
             };
         };
@@ -532,6 +568,10 @@ export interface operations {
                             locale: string;
                             partySize: number;
                             status: "confirmed" | "waitlisted" | "offered" | "cancelled";
+                            /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
+                            answers: {
+                                [key: string]: string | boolean | string[];
+                            };
                             /** Format: date-time */
                             createdAt: string;
                         };
@@ -729,6 +769,10 @@ export interface operations {
                             locale: string;
                             partySize: number;
                             status: "confirmed" | "waitlisted" | "offered" | "cancelled";
+                            /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
+                            answers: {
+                                [key: string]: string | boolean | string[];
+                            };
                             /** Format: date-time */
                             createdAt: string;
                         };
@@ -778,6 +822,36 @@ export interface operations {
                                 opensAt: string | null;
                                 /** Format: date-time */
                                 closesAt: string;
+                            };
+                            form: {
+                                /** @description Asked after name and email, in this order */
+                                fields: {
+                                    id: string;
+                                    /** @description dietary: free text, always sensitive. text: one line or multiline, optionally sensitive. checkbox: e.g. consent to photos. choice: one or several options */
+                                    type: "text" | "dietary" | "checkbox" | "choice";
+                                    /** @description Text per locale */
+                                    label: {
+                                        [key: string]: string;
+                                    };
+                                    /** @description Text per locale */
+                                    help: {
+                                        [key: string]: string;
+                                    };
+                                    required: boolean;
+                                    /** @description Stored encrypted, shown only with registrations.sensitive, deleted soon after the occurrence */
+                                    sensitive: boolean;
+                                    multiline: boolean;
+                                    multiple: boolean;
+                                    options: {
+                                        id: string;
+                                        /** @description Text per locale */
+                                        label: {
+                                            [key: string]: string;
+                                        };
+                                    }[];
+                                }[];
+                                /** @description Sensitive answers are deleted this many days after the occurrence; for the consent text */
+                                sensitiveDeleteAfterDays: number;
                             };
                         };
                         rights: {
@@ -898,6 +972,12 @@ export interface operations {
                     name?: string;
                     locale?: string;
                     partySize?: number;
+                    /** @description By field id. Replaces all answers */
+                    answers?: {
+                        [key: string]: string | boolean | string[];
+                    };
+                    /** @description Agreement to sensitive answers being stored; required when any is given */
+                    consent?: boolean;
                 };
             };
         };
@@ -917,6 +997,10 @@ export interface operations {
                             locale: string;
                             partySize: number;
                             status: "confirmed" | "waitlisted" | "offered" | "cancelled";
+                            /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
+                            answers: {
+                                [key: string]: string | boolean | string[];
+                            };
                             /** Format: date-time */
                             createdAt: string;
                         };
@@ -1110,6 +1194,10 @@ export interface operations {
                             locale: string;
                             partySize: number;
                             status: "confirmed" | "waitlisted" | "offered" | "cancelled";
+                            /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
+                            answers: {
+                                [key: string]: string | boolean | string[];
+                            };
                             /** Format: date-time */
                             createdAt: string;
                         };
@@ -1308,6 +1396,36 @@ export interface operations {
                             /** @description Whether the guest may bring someone */
                             guestAllowed: boolean;
                         };
+                        form: {
+                            /** @description Asked after name and email, in this order */
+                            fields: {
+                                id: string;
+                                /** @description dietary: free text, always sensitive. text: one line or multiline, optionally sensitive. checkbox: e.g. consent to photos. choice: one or several options */
+                                type: "text" | "dietary" | "checkbox" | "choice";
+                                /** @description Text per locale */
+                                label: {
+                                    [key: string]: string;
+                                };
+                                /** @description Text per locale */
+                                help: {
+                                    [key: string]: string;
+                                };
+                                required: boolean;
+                                /** @description Stored encrypted, shown only with registrations.sensitive, deleted soon after the occurrence */
+                                sensitive: boolean;
+                                multiline: boolean;
+                                multiple: boolean;
+                                options: {
+                                    id: string;
+                                    /** @description Text per locale */
+                                    label: {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                            }[];
+                            /** @description Sensitive answers are deleted this many days after the occurrence; for the consent text */
+                            sensitiveDeleteAfterDays: number;
+                        };
                         event: {
                             /** Format: uuid */
                             id: string;
@@ -1460,6 +1578,12 @@ export interface operations {
                     name?: string;
                     locale?: string;
                     partySize?: number;
+                    /** @description By field id */
+                    answers?: {
+                        [key: string]: string | boolean | string[];
+                    };
+                    /** @description Agreement to sensitive answers being stored; required when any is given */
+                    consent?: boolean;
                 };
             };
         };
@@ -1479,6 +1603,10 @@ export interface operations {
                             locale: string;
                             partySize: number;
                             status: "confirmed" | "waitlisted" | "offered" | "cancelled";
+                            /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
+                            answers: {
+                                [key: string]: string | boolean | string[];
+                            };
                             /** Format: date-time */
                             createdAt: string;
                         };

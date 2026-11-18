@@ -16,6 +16,7 @@ import { Locations } from "./pages/Locations.js";
 import { Members } from "./pages/Members.js";
 import { Settings } from "./pages/Settings.js";
 import { SignIn } from "./pages/SignIn.js";
+import { DoorListPage } from "./pages/registration/DoorListPage.js";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
 
@@ -51,6 +52,7 @@ function Routed() {
         <Route path="audit" element={<Audit />} />
         <Route path="*" element={<Navigate to="/events" replace />} />
       </Route>
+      <Route path="door-list/:occurrenceId" element={<DoorListPage />} />
     </Routes>
   );
 }

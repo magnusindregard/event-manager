@@ -5,7 +5,7 @@ import { assertCan, diffFields, recordAudit } from "../tenancy/index.js";
 import { assertUsableLocation } from "./locations.js";
 import * as inventory from "../inventory/index.js";
 import { type EffectiveValues, loadEffectiveValues, resolveEventOccurrences } from "./resolve.js";
-import { assertUrl, invalid, notFound, pgCode, versionConflict } from "./shared.js";
+import { assertUrl, invalid, lockScheduleEvent, notFound, pgCode, versionConflict } from "./shared.js";
 import { isSlot, slotAt } from "./recurrence.js";
 import { assertUsableTags } from "./tags.js";
 
@@ -141,14 +141,26 @@ function nextOverride(before: OverrideState, value: string | null | undefined, c
 
 const inherit: OverrideState = { value: null, cleared: false };
 
+/**
+ * An occurrence about to change: its event is locked and not archived (lockScheduleEvent), and
+ * the occurrence row is locked, so series regeneration cannot plan from a state this change is
+ * about to replace (it locks the same rows, after the event).
+ */
+async function lockedOccurrence(tx: Tx, id: string): Promise<Occurrence> {
+  const ref = await tx.selectFrom("catalog.occurrence").select("event_id").where("id", "=", id).executeTakeFirst();
+  if (!ref) throw notFound("Occurrence");
+  await lockScheduleEvent(tx, ref.event_id);
+  const row = await tx.selectFrom("catalog.occurrence").select(columns).where("id", "=", id).forUpdate().executeTakeFirst();
+  if (!row) throw notFound("Occurrence");
+  return (await hydrate(tx, [row]))[0]!;
+}
+
 const summary = (o: Occurrence) => ({ occurrenceId: o.id, startUtc: o.startUtc.toISOString(), endUtc: o.endUtc.toISOString() });
 
 /** Adds a one-off occurrence (no series) to an event. */
 export async function createOccurrence(tx: Tx, ctx: ActorContext, eventId: string, input: OccurrenceInput): Promise<Occurrence> {
   assertCan(ctx, "content.write");
-  const event = await tx.selectFrom("catalog.event").select(["default_duration_min", "status"]).where("id", "=", eventId).executeTakeFirst();
-  if (!event) throw notFound("Event");
-  if (event.status === "archived") throw new DomainError("conflict", "The event is archived");
+  const event = await lockScheduleEvent(tx, eventId);
   const endUtc = input.endUtc ?? new Date(input.startUtc.getTime() + event.default_duration_min * 60_000);
   if (endUtc <= input.startUtc) throw invalid("endUtc", "End must be after start");
   await validateOverrides(tx, input);
@@ -258,7 +270,7 @@ async function patchOccurrence(tx: Tx, ctx: ActorContext, before: Occurrence, ex
 
 export async function updateOccurrence(tx: Tx, ctx: ActorContext, id: string, expectedVersion: number, patch: OccurrencePatch): Promise<Occurrence> {
   assertCan(ctx, "content.write");
-  const before = await getOccurrence(tx, id);
+  const before = await lockedOccurrence(tx, id);
   await validateOverrides(tx, patch);
   const r = await patchOccurrence(tx, ctx, before, expectedVersion, patch);
   await resolveEventOccurrences(tx, before.eventId, [id]);
@@ -288,9 +300,7 @@ export async function bulkUpdateOccurrences(
   if (items.length > BULK_LIMIT) throw invalid("items", `At most ${BULK_LIMIT} occurrences at a time`);
   if (new Set(items.map((i) => i.id)).size !== items.length) throw invalid("items", "An occurrence is listed twice");
   if (Object.values(patch).every((v) => v === undefined)) throw invalid("set", "Nothing to change");
-  const event = await tx.selectFrom("catalog.event").select("status").where("id", "=", eventId).executeTakeFirst();
-  if (!event) throw notFound("Event");
-  if (event.status === "archived") throw new DomainError("conflict", "The event is archived");
+  await lockScheduleEvent(tx, eventId);
   await validateOverrides(tx, patch);
 
   const rows = await tx.selectFrom("catalog.occurrence").select(columns).where("id", "in", items.map((i) => i.id)).orderBy("id").forUpdate().execute();
@@ -318,7 +328,7 @@ export async function bulkUpdateOccurrences(
  */
 export async function deleteOccurrence(tx: Tx, ctx: ActorContext, id: string, expectedVersion: number): Promise<void> {
   assertCan(ctx, "content.write");
-  const before = await getOccurrence(tx, id);
+  const before = await lockedOccurrence(tx, id);
   // Registrations reference the occurrence without cascade (foreign key violation 23503).
   const res = await tx.deleteFrom("catalog.occurrence").where("id", "=", id).where("version", "=", expectedVersion).executeTakeFirst().catch((e: unknown) => {
     if (pgCode(e) === "23503") throw new DomainError("conflict", "The occurrence has registrations; cancel it instead", { occurrenceId: id });
@@ -347,7 +357,7 @@ export async function deleteOccurrence(tx: Tx, ctx: ActorContext, id: string, ex
  */
 export async function reattachOccurrence(tx: Tx, ctx: ActorContext, id: string, expectedVersion: number): Promise<Occurrence> {
   assertCan(ctx, "content.write");
-  const before = await getOccurrence(tx, id);
+  const before = await lockedOccurrence(tx, id);
   if (!before.seriesId || !before.recurrenceIdLocal) throw new DomainError("conflict", "Only series occurrences can be reattached");
   const s = await tx.selectFrom("catalog.series").select(["rrule", "dtstart_local", "duration_min", "timezone", "exdates"]).where("id", "=", before.seriesId).executeTakeFirstOrThrow();
   const def = { rrule: s.rrule, dtstartLocal: s.dtstart_local, durationMin: s.duration_min, timezone: s.timezone, exdates: s.exdates };

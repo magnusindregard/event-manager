@@ -22,6 +22,8 @@ jobs:
       # Unit + integration tests; Testcontainers starts Postgres 16 on the runner's Docker.
       - run: pnpm test
       - run: pnpm build
+      - name: Deploy script order and guards
+        run: bash scripts/test-deploy-env.sh
 
       - name: OpenAPI and SDK are up to date
         run: |
@@ -44,3 +46,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: az bicep install && az bicep build --file infra/main.bicep --stdout > /dev/null
+
+  # Staging deploys only after the checks above pass, for the same commit (#50).
+  deploy-staging:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/deploy.yml

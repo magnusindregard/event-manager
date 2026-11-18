@@ -514,6 +514,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/events/{id}/form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The event's registration form (fields after name and email) */
+        get: operations["getRegistrationForm"];
+        /** Save the form as its next version. Answers given to earlier versions stay readable. 412 if it changed since `version` */
+        put: operations["saveRegistrationForm"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/occurrences/{id}/registrations": {
         parameters: {
             query?: never;
@@ -521,10 +539,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The occurrence's registrations, oldest first */
+        /** The occurrence's registrations with their answers, oldest first */
         get: operations["listRegistrations"];
         put?: never;
-        /** Add someone by hand. Confirmed at once and emailed; 409 full when there is no place */
+        /** Add someone by hand. Confirmed at once and emailed; 409 full when there is no place. Sensitive answers need registrations.sensitive */
         post: operations["createRegistration"];
         delete?: never;
         options?: never;
@@ -545,7 +563,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Change name, locale or party size. Requires If-Match. */
+        /** Change name, locale, party size or answers. Requires If-Match. Without registrations.sensitive, stored sensitive answers are kept */
         patch: operations["updateRegistration"];
         trace?: never;
     };
@@ -560,6 +578,40 @@ export interface paths {
         put?: never;
         /** Cancel and give the places back; the attendee is emailed. Cancelling twice is a no-op */
         post: operations["cancelRegistration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/occurrences/{id}/door-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Confirmed attendees in name order, for printing at the door */
+        get: operations["getDoorList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/occurrences/{id}/door-list.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The door list as CSV (UTF-8). Semicolon-separated unless delimiter=comma */
+        get: operations["exportDoorList"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -809,6 +861,7 @@ export interface operations {
                             slug: string;
                             name: string;
                             roles: ("owner" | "editor" | "event_manager" | "box_office" | "door_staff" | "finance")[];
+                            permissions: ("account.write" | "members.manage" | "content.write" | "content.read" | "audit.read" | "registrations.read" | "registrations.write" | "registrations.sensitive")[];
                         }[];
                     };
                 };
@@ -867,6 +920,10 @@ export interface operations {
                         defaultLocale: string;
                         locales: string[];
                         horizonMonths: number;
+                        /** @description Registrations are anonymised this many months after their occurrence */
+                        anonymiseAfterMonths: number;
+                        /** @description Sensitive answers are deleted this many days after their occurrence */
+                        sensitiveDeleteAfterDays: number;
                         version: number;
                         /** Format: date-time */
                         updatedAt: string;
@@ -986,6 +1043,8 @@ export interface operations {
                     defaultLocale?: string;
                     locales?: string[];
                     horizonMonths?: number;
+                    anonymiseAfterMonths?: number;
+                    sensitiveDeleteAfterDays?: number;
                 };
             };
         };
@@ -1010,6 +1069,10 @@ export interface operations {
                         defaultLocale: string;
                         locales: string[];
                         horizonMonths: number;
+                        /** @description Registrations are anonymised this many months after their occurrence */
+                        anonymiseAfterMonths: number;
+                        /** @description Sensitive answers are deleted this many days after their occurrence */
+                        sensitiveDeleteAfterDays: number;
                         version: number;
                         /** Format: date-time */
                         updatedAt: string;
@@ -1329,7 +1392,8 @@ export interface operations {
                 "application/json": {
                     /** Format: email */
                     email: string;
-                    role: "owner" | "editor";
+                    /** @description owner: everything. event_manager: content and guest data. editor: content only */
+                    role: "owner" | "event_manager" | "editor";
                     /** @description auto: decided by a realm lookup on the address. work: guest with their organisation's account. local: email one-time passcode. */
                     signinKind?: "auto" | "work" | "local";
                 };
@@ -10992,6 +11056,418 @@ export interface operations {
             };
         };
     };
+    getRegistrationForm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        eventId: string;
+                        /** @description 0: no form saved yet */
+                        version: number;
+                        fields: {
+                            id: string;
+                            /** @description dietary: free text, always sensitive. text: one line or multiline, optionally sensitive. checkbox: e.g. consent to photos. choice: one or several options */
+                            type: "text" | "dietary" | "checkbox" | "choice";
+                            /** @description Text per locale */
+                            label: {
+                                [key: string]: string;
+                            };
+                            /** @description Text per locale */
+                            help: {
+                                [key: string]: string;
+                            };
+                            required: boolean;
+                            /** @description Stored encrypted, shown only with registrations.sensitive, deleted soon after the occurrence */
+                            sensitive: boolean;
+                            multiline: boolean;
+                            multiple: boolean;
+                            options: {
+                                id: string;
+                                /** @description Text per locale */
+                                label: {
+                                    [key: string]: string;
+                                };
+                            }[];
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    saveRegistrationForm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The version the editor started from; 412 if the form has changed since */
+                    version: number;
+                    fields: {
+                        id?: string;
+                        /** @description dietary: free text, always sensitive. text: one line or multiline, optionally sensitive. checkbox: e.g. consent to photos. choice: one or several options */
+                        type: "text" | "dietary" | "checkbox" | "choice";
+                        /** @description Text per locale */
+                        label: {
+                            [key: string]: string;
+                        };
+                        /** @description Text per locale */
+                        help?: {
+                            [key: string]: string;
+                        };
+                        required?: boolean;
+                        /** @description text only; dietary is always sensitive */
+                        sensitive?: boolean;
+                        multiline?: boolean;
+                        multiple?: boolean;
+                        options?: {
+                            id?: string;
+                            /** @description Text per locale */
+                            label: {
+                                [key: string]: string;
+                            };
+                        }[];
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        eventId: string;
+                        /** @description 0: no form saved yet */
+                        version: number;
+                        fields: {
+                            id: string;
+                            /** @description dietary: free text, always sensitive. text: one line or multiline, optionally sensitive. checkbox: e.g. consent to photos. choice: one or several options */
+                            type: "text" | "dietary" | "checkbox" | "choice";
+                            /** @description Text per locale */
+                            label: {
+                                [key: string]: string;
+                            };
+                            /** @description Text per locale */
+                            help: {
+                                [key: string]: string;
+                            };
+                            required: boolean;
+                            /** @description Stored encrypted, shown only with registrations.sensitive, deleted soon after the occurrence */
+                            sensitive: boolean;
+                            multiline: boolean;
+                            multiple: boolean;
+                            options: {
+                                id: string;
+                                /** @description Text per locale */
+                                label: {
+                                    [key: string]: string;
+                                };
+                            }[];
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     listRegistrations: {
         parameters: {
             query?: {
@@ -11019,7 +11495,9 @@ export interface operations {
                             eventId: string;
                             /** Format: uuid */
                             occurrenceId: string;
+                            /** @description Empty once anonymised (see anonymisedAt) */
                             name: string;
+                            /** @description Empty once anonymised (see anonymisedAt) */
                             email: string;
                             locale: string;
                             partySize: number;
@@ -11028,12 +11506,51 @@ export interface operations {
                             /** Format: date-time */
                             cancelledAt: string | null;
                             cancelledBy: null | ("attendee" | "staff");
+                            /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
+                            answers: {
+                                [key: string]: string | boolean | string[];
+                            };
+                            /** @description Sensitive answers exist that the caller may not see */
+                            hiddenSensitiveAnswers: boolean;
+                            /** Format: date-time */
+                            sensitiveConsentAt: string | null;
+                            /** Format: date-time */
+                            anonymisedAt: string | null;
                             version: number;
                             /** Format: date-time */
                             createdAt: string;
                             /** Format: date-time */
                             updatedAt: string;
                         }[];
+                        /** @description The fields to show answers under; sensitive ones only with registrations.sensitive */
+                        fields: ({
+                            id: string;
+                            /** @description dietary: free text, always sensitive. text: one line or multiline, optionally sensitive. checkbox: e.g. consent to photos. choice: one or several options */
+                            type: "text" | "dietary" | "checkbox" | "choice";
+                            /** @description Text per locale */
+                            label: {
+                                [key: string]: string;
+                            };
+                            /** @description Text per locale */
+                            help: {
+                                [key: string]: string;
+                            };
+                            required: boolean;
+                            /** @description Stored encrypted, shown only with registrations.sensitive, deleted soon after the occurrence */
+                            sensitive: boolean;
+                            multiline: boolean;
+                            multiple: boolean;
+                            options: {
+                                id: string;
+                                /** @description Text per locale */
+                                label: {
+                                    [key: string]: string;
+                                };
+                            }[];
+                        } & {
+                            /** @description Removed from the form; kept so earlier answers stay readable */
+                            retired: boolean;
+                        })[];
                     };
                 };
             };
@@ -11151,6 +11668,12 @@ export interface operations {
                     locale?: string;
                     /** @description Staff may add a guest even where the event does not offer one */
                     partySize?: number;
+                    /** @description By field id. Replaces all answers */
+                    answers?: {
+                        [key: string]: string | boolean | string[];
+                    };
+                    /** @description Agreement to sensitive answers being stored; required when any is given */
+                    consent?: boolean;
                 };
             };
         };
@@ -11168,7 +11691,9 @@ export interface operations {
                         eventId: string;
                         /** Format: uuid */
                         occurrenceId: string;
+                        /** @description Empty once anonymised (see anonymisedAt) */
                         name: string;
+                        /** @description Empty once anonymised (see anonymisedAt) */
                         email: string;
                         locale: string;
                         partySize: number;
@@ -11177,6 +11702,16 @@ export interface operations {
                         /** Format: date-time */
                         cancelledAt: string | null;
                         cancelledBy: null | ("attendee" | "staff");
+                        /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
+                        answers: {
+                            [key: string]: string | boolean | string[];
+                        };
+                        /** @description Sensitive answers exist that the caller may not see */
+                        hiddenSensitiveAnswers: boolean;
+                        /** Format: date-time */
+                        sensitiveConsentAt: string | null;
+                        /** Format: date-time */
+                        anonymisedAt: string | null;
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -11386,6 +11921,12 @@ export interface operations {
                     name?: string;
                     locale?: string;
                     partySize?: number;
+                    /** @description By field id. Replaces all answers */
+                    answers?: {
+                        [key: string]: string | boolean | string[];
+                    };
+                    /** @description Agreement to sensitive answers being stored; required when any is given */
+                    consent?: boolean;
                 };
             };
         };
@@ -11403,7 +11944,9 @@ export interface operations {
                         eventId: string;
                         /** Format: uuid */
                         occurrenceId: string;
+                        /** @description Empty once anonymised (see anonymisedAt) */
                         name: string;
+                        /** @description Empty once anonymised (see anonymisedAt) */
                         email: string;
                         locale: string;
                         partySize: number;
@@ -11412,6 +11955,16 @@ export interface operations {
                         /** Format: date-time */
                         cancelledAt: string | null;
                         cancelledBy: null | ("attendee" | "staff");
+                        /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
+                        answers: {
+                            [key: string]: string | boolean | string[];
+                        };
+                        /** @description Sensitive answers exist that the caller may not see */
+                        hiddenSensitiveAnswers: boolean;
+                        /** Format: date-time */
+                        sensitiveConsentAt: string | null;
+                        /** Format: date-time */
+                        anonymisedAt: string | null;
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -11630,7 +12183,9 @@ export interface operations {
                         eventId: string;
                         /** Format: uuid */
                         occurrenceId: string;
+                        /** @description Empty once anonymised (see anonymisedAt) */
                         name: string;
+                        /** @description Empty once anonymised (see anonymisedAt) */
                         email: string;
                         locale: string;
                         partySize: number;
@@ -11639,6 +12194,16 @@ export interface operations {
                         /** Format: date-time */
                         cancelledAt: string | null;
                         cancelledBy: null | ("attendee" | "staff");
+                        /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
+                        answers: {
+                            [key: string]: string | boolean | string[];
+                        };
+                        /** @description Sensitive answers exist that the caller may not see */
+                        hiddenSensitiveAnswers: boolean;
+                        /** Format: date-time */
+                        sensitiveConsentAt: string | null;
+                        /** Format: date-time */
+                        anonymisedAt: string | null;
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -11815,6 +12380,272 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    getDoorList: {
+        parameters: {
+            query?: {
+                /** @description Add the form's answers; sensitive ones only with registrations.sensitive (logged in the audit log) */
+                answers?: boolean;
+                /** @description Locale of the column labels and choices */
+                locale?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        occurrenceId: string;
+                        /** Format: uuid */
+                        eventId: string;
+                        columns: {
+                            fieldId: string;
+                            label: string;
+                            sensitive: boolean;
+                        }[];
+                        /** @description Confirmed registrations in name order */
+                        entries: {
+                            /** Format: uuid */
+                            registrationId: string;
+                            name: string;
+                            email: string;
+                            partySize: number;
+                            source: "invitation" | "open" | "staff";
+                            /** @description Answers as text by field id */
+                            answers: {
+                                [key: string]: string;
+                            };
+                        }[];
+                        totals: {
+                            registrations: number;
+                            people: number;
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    exportDoorList: {
+        parameters: {
+            query?: {
+                /** @description Add the form's answers; sensitive ones only with registrations.sensitive (logged in the audit log) */
+                answers?: boolean;
+                /** @description Locale of the column labels and choices */
+                locale?: string;
+                delimiter?: "semicolon" | "comma";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": {
                         type: string;
                         title: string;
                         status: number;

@@ -16,6 +16,8 @@ const app = await buildAttendeeApp({
     capacity: Number(process.env.ATTENDEE_RATE_LIMIT_BURST ?? 10),
     refillPerSecond: Number(process.env.ATTENDEE_RATE_LIMIT_PER_SECOND ?? 0.2),
   },
+  // Proxies whose X-Forwarded-For entries count (default: private addresses, the ingress).
+  ...(process.env.TRUSTED_PROXIES ? { trustedProxies: process.env.TRUSTED_PROXIES } : {}),
 });
 
 const shutdown = async () => {

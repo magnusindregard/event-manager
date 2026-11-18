@@ -1,4 +1,4 @@
-import type { AccessPolicy, AdmissionMode, EventStatus, OccurrenceStatus, Tx } from "@event-manager/db";
+import { type AccessPolicy, type AdmissionMode, type EventStatus, type OccurrenceStatus, sql, type Tx } from "@event-manager/db";
 import * as inventory from "../inventory/index.js";
 import { loadEffectiveValues } from "./resolve.js";
 import { notFound } from "./shared.js";
@@ -131,6 +131,35 @@ export const targetAvailability = (t: RegistrationTarget, now: Date): Availabili
  */
 export async function detachForRegistrations(tx: Tx, occurrenceId: string): Promise<void> {
   await tx.updateTable("catalog.occurrence").set({ detached: true }).where("id", "=", occurrenceId).where("series_id", "is not", null).where("detached", "=", false).execute();
+}
+
+/**
+ * Ids of an event's occurrences that have not ended, optionally only scheduled ones: whose
+ * attendees to tell when the event is cancelled or restored. The end, not the start, matches the
+ * notice task's own cutoff, so a dispatch delayed past the start still reaches attendees.
+ */
+export async function unendedOccurrenceIds(tx: Tx, eventId: string, opts: { now?: Date; scheduledOnly?: boolean } = {}): Promise<string[]> {
+  let q = tx.selectFrom("catalog.occurrence").select("id").where("event_id", "=", eventId).where("end_utc", ">", opts.now ?? new Date());
+  if (opts.scheduledOnly) q = q.where("status", "=", "scheduled");
+  return (await q.execute()).map((r) => r.id);
+}
+
+/**
+ * Ids of occurrences that have not ended and show this location to attendees: it is their
+ * effective location, or it is the venue of their effective space (whose venue name and, when
+ * the space has none, address they show).
+ */
+export async function unendedOccurrenceIdsAt(tx: Tx, locationId: string, now: Date = new Date()): Promise<string[]> {
+  const rows = await tx
+    .selectFrom("rules.effective_value as ev")
+    .innerJoin("catalog.occurrence as o", "o.id", "ev.occurrence_id")
+    .leftJoin("catalog.location as l", (j) => j.on(sql`l.id::text`, "=", sql`ev.value #>> '{}'`))
+    .select("o.id")
+    .where("ev.field", "=", "location")
+    .where("o.end_utc", ">", now)
+    .where((eb) => eb.or([eb(sql`ev.value #>> '{}'`, "=", locationId), eb("l.parent_id", "=", locationId)]))
+    .execute();
+  return rows.map((r) => r.id);
 }
 
 /** Ids of an event's occurrences that have not started, e.g. to notify attendees when the event is cancelled. */

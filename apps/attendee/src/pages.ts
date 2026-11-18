@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import QRCode from "qrcode";
 import { DomainError } from "@event-manager/domain";
 import { html, page, raw, type Raw } from "./html.js";
+import { answerList, answersFromForm, answersToForm, errorField, type FieldError, formFields, type FormValues } from "./form-fields.js";
 import { formatWhen, type Texts, textsFor } from "./i18n.js";
 import type { RateLimiter } from "./rate-limit.js";
 import { type AttendeeService, type Details, type InvitationDetails, preferredLocale } from "./service.js";
@@ -58,7 +59,10 @@ function availabilityBadge(d: Details, t: Texts): Raw {
 const langLinks = (d: Details, base: string) =>
   d.locales.length > 1 ? d.locales.filter((l) => l !== d.locale).map((l) => ({ locale: l, href: `${base}?lang=${encodeURIComponent(l)}` })) : [];
 
-function registrationForm(d: Details, t: Texts, action: string, values: Form, error: string | null, now: Date): Raw {
+/** Answers and consent from a posted form, for the domain. */
+const answerInput = (fields: Details["form"]["fields"], form: Form) => ({ answers: answersFromForm(fields, form as FormValues), consent: form.consent === "1" });
+
+function registrationForm(d: Details, t: Texts, action: string, values: Form, error: string | null, now: Date, fieldError: FieldError): Raw {
   return html`
 <form class="card" method="post" action="${action}" novalidate>
   <h2 style="margin-top:0">${t.registerFor} ${d.title}</h2>
@@ -72,11 +76,12 @@ function registrationForm(d: Details, t: Texts, action: string, values: Form, er
   <input type="email" id="email" name="email" required maxlength="254" autocomplete="email" aria-describedby="email-help" value="${values.email ?? ""}">
   <p class="help" id="email-help">${t.emailHelp}</p>
   ${d.target.event.guestAllowed ? html`<label class="check"><input type="checkbox" name="guest" value="1"${values.guest ? raw(" checked") : ""}> ${t.guest}</label>` : ""}
+  ${formFields(d.form, t, d.locale, d.account.name, values, fieldError)}
   <button type="submit">${t.submit}</button>
 </form>`;
 }
 
-function invitationForm(d: InvitationDetails, t: Texts, action: string, values: Form): Raw {
+function invitationForm(d: InvitationDetails, t: Texts, action: string, values: Form, fieldError: FieldError): Raw {
   const inv = d.invitation;
   const bookable = d.options.filter((o) => o.bookable);
   const single = d.options.length === 1 ? d.options[0]! : null;
@@ -101,7 +106,8 @@ function invitationForm(d: InvitationDetails, t: Texts, action: string, values: 
   <label>${t.email}</label>
   <p class="readonly">${inv.email}</p>
   <p class="help">${t.emailFixed}</p>
-  ${d.guestAllowed ? html`<label class="check"><input type="checkbox" name="guest" value="1"${values.guest ? raw(" checked") : ""}> ${t.guest}</label>` : ""}` : ""}
+  ${d.guestAllowed ? html`<label class="check"><input type="checkbox" name="guest" value="1"${values.guest ? raw(" checked") : ""}> ${t.guest}</label>` : ""}
+  ${formFields(d.form, t, d.locale, d.account.name, values, fieldError)}` : ""}
   <div class="actions">
     ${bookable.length ? html`<button type="submit" name="answer" value="accept">${t.accept}</button>` : ""}
     ${inv.status !== "declined" ? html`<button type="submit" name="answer" value="decline" class="secondary" formnovalidate>${t.decline}</button>` : ""}
@@ -134,7 +140,7 @@ ${d.image ? html`<img class="hero" src="${d.image.url}" alt="${d.image.alt ?? ""
 <h1>${d.title}</h1>
 ${d.shortDescription ? html`<p class="muted">${d.shortDescription}</p>` : ""}
 ${d.guestAllowed ? html`<p>${t.guestInvite}</p>` : ""}
-${invitationForm(d, t, base, values)}`;
+${invitationForm(d, t, base, values, n && "error" in n ? errorField(n.error) : null)}`;
     const links = d.locales.length > 1 ? d.locales.filter((l) => l !== d.locale).map((l) => ({ locale: l, href: `${base}?lang=${encodeURIComponent(l)}` })) : [];
     return send(reply, status, page({ locale: d.locale, title: d.title, account: d.account.name, langLinks: links, body }));
   };
@@ -153,7 +159,8 @@ ${invitationForm(d, t, base, values)}`;
         return reply.redirect(`/i/${token}?declined=1${langQ ? `&${langQ}` : ""}`, 303);
       }
       if (!form.occurrenceId) return renderInvitation(reply, token, form.locale, { error: "not_found" }, form, 422);
-      const res = await svc.accept(token, { occurrenceId: form.occurrenceId, name: form.name, locale: form.locale, partySize: form.guest ? 2 : 1 });
+      const fields = (await svc.invitationForm(token))?.fields ?? [];
+      const res = await svc.accept(token, { occurrenceId: form.occurrenceId, name: form.name, locale: form.locale, partySize: form.guest ? 2 : 1, ...answerInput(fields, form) });
       if (!res) return notFound(reply, form.locale ?? "en", true);
       return reply.redirect(`/m/${res.manageToken}?welcome=1${langQ ? `&${langQ}` : ""}`, 303);
     } catch (e) {
@@ -162,7 +169,7 @@ ${invitationForm(d, t, base, values)}`;
     }
   });
 
-  const renderOpen = async (reply: FastifyReply, d: Details, values: Form = {}, error: string | null = null, status = 200) => {
+  const renderOpen = async (reply: FastifyReply, d: Details, values: Form = {}, error: string | null = null, status = 200, fieldError: FieldError = null) => {
     const t = textsFor(d.locale);
     const id = d.target.occurrence.id;
     const now = d.now;
@@ -171,7 +178,7 @@ ${invitationForm(d, t, base, values)}`;
 ${eventBlock(d)}
 ${availabilityBadge(d, t)}
 ${d.target.event.accessPolicy !== "open" ? html`<p>${t.invitationOnly}</p>` : ""}
-${canRegister || error ? registrationForm(d, t, `/r/${id}`, values, error, now) : ""}`;
+${canRegister || error ? registrationForm(d, t, `/r/${id}`, values, error, now, fieldError) : ""}`;
     return send(reply, status, page({ locale: d.locale, title: d.title, account: d.account.name, langLinks: langLinks(d, `/r/${id}`), body }));
   };
 
@@ -190,18 +197,18 @@ ${canRegister || error ? registrationForm(d, t, `/r/${id}`, values, error, now) 
     const started = Number(form.t);
     if (form.website || !Number.isFinite(started) || svc.now().getTime() - started < MIN_FORM_MS) return renderOpen(reply, d, form, t.errors.bot, 400);
     try {
-      const res = await svc.register(d.target.occurrence.id, { name: form.name ?? "", email: form.email ?? "", locale: d.locale, partySize: form.guest ? 2 : 1 });
+      const res = await svc.register(d.target.occurrence.id, { name: form.name ?? "", email: form.email ?? "", locale: d.locale, partySize: form.guest ? 2 : 1, ...answerInput(d.form.fields, form) });
       if (!res) return notFound(reply, d.locale);
       return reply.redirect(`/m/${res.manageToken}?welcome=1`, 303);
     } catch (e) {
       if (!(e instanceof DomainError)) throw e;
-      return renderOpen(reply, await svc.occurrence(d.target.occurrence.id, d.locale) ?? d, form, errorText(t, e), e.status);
+      return renderOpen(reply, await svc.occurrence(d.target.occurrence.id, d.locale) ?? d, form, errorText(t, e), e.status, errorField(e));
     }
   });
 
   /** notice: a success message key, or an error (a DomainError or a key of the error texts). */
   type Notice = { ok: "welcome" | "saved" | "cancelled" } | { error: unknown } | null;
-  const renderManage = async (reply: FastifyReply, token: string, locale: string | undefined, n: Notice, status = 200) => {
+  const renderManage = async (reply: FastifyReply, token: string, locale: string | undefined, n: Notice, status = 200, posted: Form | null = null) => {
     const v = await svc.view(token, locale);
     if (!v) return notFound(reply, locale ?? "en", true);
     const d = v.details;
@@ -220,6 +227,7 @@ ${d.target.occurrence.status === "cancelled" ? html`<p><span class="status cance
 <section class="card">
   <h2 style="margin-top:0">${t.yourRegistration}</h2>
   <ul class="meta"><li>${reg.name}</li><li>${reg.email}</li><li>${t.partyOf(reg.partySize)}</li></ul>
+  ${answerList(d.form, v.answers, t, d.locale)}
   ${qr ? html`<div class="qr" role="img" aria-label="${t.qrAlt}">${raw(qr)}</div>` : ""}
 </section>
 ${reg.status !== "cancelled" ? (v.rights.change ? html`
@@ -227,8 +235,10 @@ ${reg.status !== "cancelled" ? (v.rights.change ? html`
   <h2 style="margin-top:0">${t.changeTitle}</h2>
   <input type="hidden" name="locale" value="${d.locale}">
   <label for="name">${t.name}</label>
-  <input type="text" id="name" name="name" required maxlength="200" autocomplete="name" value="${reg.name}">
-  ${d.target.event.guestAllowed || reg.partySize === 2 ? html`<input type="hidden" name="guestField" value="1"><label class="check"><input type="checkbox" name="guest" value="1"${reg.partySize === 2 ? raw(" checked") : ""}> ${t.guest}</label>` : ""}
+  <input type="text" id="name" name="name" required maxlength="200" autocomplete="name" value="${posted?.name ?? reg.name}">
+  ${d.target.event.guestAllowed || reg.partySize === 2 ? html`<input type="hidden" name="guestField" value="1"><label class="check"><input type="checkbox" name="guest" value="1"${(posted ? posted.guest : reg.partySize === 2) ? raw(" checked") : ""}> ${t.guest}</label>` : ""}
+  ${d.form.fields.length ? html`<input type="hidden" name="answersField" value="1">
+  ${formFields(d.form, t, d.locale, d.account.name, posted ?? { ...answersToForm(d.form.fields, v.answers), ...(reg.sensitiveConsentAt ? { consent: "1" } : {}) }, n && "error" in n ? errorField(n.error) : null)}` : ""}
   <button type="submit">${t.save}</button>
 </form>` : html`<p class="muted">${t.changeClosed}</p>`) : ""}
 ${v.rights.cancel ? html`
@@ -251,13 +261,14 @@ ${v.rights.cancel ? html`
     const form = req.body ?? {};
     if (limited(req)) return renderManage(reply, req.params.token, form.locale, { error: "rate_limited" }, 429);
     try {
-      const patch = { name: form.name, ...(form.guestField ? { partySize: form.guest ? 2 : 1 } : {}) };
+      const fields = form.answersField ? (await svc.view(req.params.token, form.locale))?.details.form.fields ?? [] : [];
+      const patch = { name: form.name, ...(form.guestField ? { partySize: form.guest ? 2 : 1 } : {}), ...(form.answersField ? answerInput(fields, form) : {}) };
       const r = await svc.update(req.params.token, patch);
       if (!r) return notFound(reply, form.locale ?? "en", true);
       return reply.redirect(`/m/${req.params.token}?saved=1${form.locale ? `&lang=${encodeURIComponent(form.locale)}` : ""}`, 303);
     } catch (e) {
       if (!(e instanceof DomainError)) throw e;
-      return renderManage(reply, req.params.token, form.locale, { error: e }, e.status);
+      return renderManage(reply, req.params.token, form.locale, { error: e }, e.status, form);
     }
   });
 

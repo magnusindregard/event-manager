@@ -45,8 +45,16 @@ p { margin: 0 0 1rem; }
 .status.available { color: var(--ok); } .status.few_left { color: var(--warn); } .status.full, .status.closed, .status.cancelled { color: var(--bad); }
 label { display: block; font-weight: 500; margin: 1rem 0 .25rem; }
 label.check { display: flex; gap: .5rem; align-items: center; font-weight: 400; }
-input[type=text], input[type=email] { width: 100%; padding: .625rem .75rem; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: .5rem; }
-input[type=checkbox] { width: 1.125rem; height: 1.125rem; }
+input[type=text], input[type=email], textarea { width: 100%; padding: .625rem .75rem; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: .5rem; }
+input[type=checkbox], input[type=radio] { width: 1.125rem; height: 1.125rem; flex: none; }
+textarea { min-height: 5rem; resize: vertical; }
+label .opt { color: var(--muted); font-weight: 400; }
+.field-error { color: var(--bad); font-size: .875rem; margin-top: .25rem; }
+[aria-invalid=true] { border-color: var(--bad) !important; }
+.consent { margin-top: 1.25rem; padding: .75rem; border: 1px solid var(--line); border-radius: .5rem; }
+.consent label.check { margin: 0; align-items: flex-start; }
+.consent input { margin-top: .2rem; }
+dl.answers { margin: 0 0 1rem; } dl.answers dt { color: var(--muted); font-size: .875rem; } dl.answers dd { margin: 0 0 .5rem; white-space: pre-line; }
 input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .help { color: var(--muted); font-size: .875rem; margin-top: .25rem; }
 button { margin-top: 1.25rem; padding: .625rem 1.25rem; font: inherit; font-weight: 600; border-radius: .5rem; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); cursor: pointer; }

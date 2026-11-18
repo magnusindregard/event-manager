@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
 
-type Role = "owner" | "editor";
+type Role = "owner" | "event_manager" | "editor";
 type SigninKind = "auto" | "work" | "local";
 
 export function Members() {
@@ -77,14 +77,21 @@ export function Members() {
             <div className="grid gap-2">
               <Label htmlFor="invite-role">{t("members.role")}</Label>
               <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-                <SelectTrigger id="invite-role" className="w-full sm:w-36">
+                <SelectTrigger id="invite-role" className="w-full sm:w-52" aria-describedby="invite-role-help">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="editor">{roleLabel("editor")}</SelectItem>
-                  <SelectItem value="owner">{roleLabel("owner")}</SelectItem>
+                  {(["editor", "event_manager", "owner"] as const).map((r) => (
+                    <SelectItem key={r} value={r}>
+                      <span className="grid">
+                        <span>{roleLabel(r)}</span>
+                        <span className="text-xs text-muted-foreground">{t(`members.roleHelp.${r}`)}</span>
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              <p id="invite-role-help" className="text-xs text-muted-foreground sm:max-w-52">{t(`members.roleHelp.${role}`)}</p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="invite-signin">{t("members.signin")}</Label>
