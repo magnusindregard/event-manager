@@ -120,10 +120,19 @@ export async function listInvitations(tx: Tx): Promise<Invitation[]> {
 export async function inviteMember(tx: Tx, ctx: ActorContext, email: string, role: Role, signinKind: SigninKind = "auto"): Promise<Invitation> {
   assertCan(ctx, "members.manage");
   if (!ENABLED_ROLES.includes(role)) throw new DomainError("validation_failed", `Role ${role} is not enabled`, { field: "role" });
+  const member = await tx
+    .selectFrom("tenancy.membership as m")
+    .innerJoin("tenancy.user as u", "u.id", "m.user_id")
+    .select("m.id")
+    .where("u.email", "=", email.toLowerCase())
+    .where("m.role", "=", role)
+    .executeTakeFirst();
+  if (member) throw new DomainError("conflict", "Already a member with this role");
+  // Only pending invitations are unique: someone removed after accepting can be invited again.
   const row = await tx
     .insertInto("tenancy.invitation")
     .values({ id: newId(), tenant_id: ctx.tenantId, email: email.toLowerCase(), role, invited_by: ctx.userId, signin_kind: signinKind })
-    .onConflict((oc) => oc.columns(["tenant_id", "email", "role"]).doNothing())
+    .onConflict((oc) => oc.columns(["tenant_id", "email", "role"]).where("accepted_at", "is", null).doNothing())
     .returning(invitationColumns)
     .executeTakeFirst();
   if (!row) throw new DomainError("conflict", "Already invited");
@@ -148,11 +157,22 @@ export async function retryInvitation(tx: Tx, ctx: ActorContext, id: string): Pr
   return toInvitation(row);
 }
 
+/**
+ * Serializes membership changes in the transaction's tenant on its account row, then rechecks
+ * that the acting user still holds `permission` (their roles were read before the lock).
+ */
+async function lockMembership(tx: Tx, ctx: ActorContext, permission: "members.manage"): Promise<void> {
+  await tx.selectFrom("tenancy.account").select("id").where("id", "=", ctx.tenantId).forUpdate().executeTakeFirstOrThrow();
+  if (ctx.userId) assertCan({ roles: await rolesInTenant(tx, ctx.userId) }, permission);
+}
+
 export async function removeMember(tx: Tx, ctx: ActorContext, userId: string): Promise<void> {
   assertCan(ctx, "members.manage");
   if (userId === ctx.userId) throw new DomainError("conflict", "You cannot remove yourself");
+  // Two owners removing each other must not both pass the last-owner check.
+  await lockMembership(tx, ctx, "members.manage");
   const owners = await tx.selectFrom("tenancy.membership").select("user_id").where("role", "=", "owner").execute();
-  if (owners.length === 1 && owners[0]!.user_id === userId) throw new DomainError("conflict", "An account needs at least one owner");
+  if (owners.length > 0 && owners.every((o) => o.user_id === userId)) throw new DomainError("conflict", "An account needs at least one owner");
   const res = await tx.deleteFrom("tenancy.membership").where("user_id", "=", userId).executeTakeFirst();
   if (!res.numDeletedRows) throw new DomainError("not_found", "Member not found");
   await recordAudit(tx, ctx, { action: "member.removed", entityType: "user", entityId: userId });

@@ -9,7 +9,11 @@ export interface CoreClientOptions {
   baseUrl: string;
   /** Returns a fresh access token for each request. */
   getToken: () => Promise<string>;
-  /** Returns the account the request acts on, if any (sent as Account-Id). */
+  /**
+   * Returns the account the request acts on, if any (sent as Account-Id). Read synchronously when
+   * the request starts, before the token is awaited, so a request stays bound to the account that
+   * was selected when it was made even if the selection changes while the token is refreshed.
+   */
   getAccountId?: () => string | null;
 }
 
@@ -18,8 +22,11 @@ export function createCoreClient(opts: CoreClientOptions) {
   const client = createClient<paths>({ baseUrl: opts.baseUrl });
   const auth: Middleware = {
     async onRequest({ request }) {
-      request.headers.set("authorization", `Bearer ${await opts.getToken()}`);
+      // Bind the tenant before the first await (openapi-fetch runs this middleware synchronously
+      // from the call), so switching accounts during token acquisition cannot redirect it.
       const accountId = opts.getAccountId?.();
+      const token = await opts.getToken();
+      request.headers.set("authorization", `Bearer ${token}`);
       if (accountId) request.headers.set("account-id", accountId);
       return request;
     },
