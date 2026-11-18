@@ -188,7 +188,8 @@
                     "occurrence",
                     "event",
                     "location",
-                    "availability"
+                    "availability",
+                    "form"
                   ],
                   "properties": {
                     "locale": {
@@ -424,6 +425,122 @@
                         }
                       },
                       "description": "Places for registration occurrences, without exact numbers. Null for other admission modes"
+                    },
+                    "form": {
+                      "type": "object",
+                      "required": [
+                        "fields",
+                        "sensitiveDeleteAfterDays"
+                      ],
+                      "properties": {
+                        "fields": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "type",
+                              "label",
+                              "help",
+                              "required",
+                              "sensitive",
+                              "multiline",
+                              "multiple",
+                              "options"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9]{1,40}$"
+                              },
+                              "type": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "text"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "dietary"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "checkbox"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "choice"
+                                    ]
+                                  }
+                                ],
+                                "description": "dietary: free text, always sensitive. text: one line or multiline, optionally sensitive. checkbox: e.g. consent to photos. choice: one or several options"
+                              },
+                              "label": {
+                                "type": "object",
+                                "description": "Text per locale",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "help": {
+                                "type": "object",
+                                "description": "Text per locale",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": {
+                                "type": "boolean"
+                              },
+                              "sensitive": {
+                                "type": "boolean",
+                                "description": "Stored encrypted, shown only with registrations.sensitive, deleted soon after the occurrence"
+                              },
+                              "multiline": {
+                                "type": "boolean"
+                              },
+                              "multiple": {
+                                "type": "boolean"
+                              },
+                              "options": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "label"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9]{1,40}$"
+                                    },
+                                    "label": {
+                                      "type": "object",
+                                      "description": "Text per locale",
+                                      "additionalProperties": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "description": "Asked after name and email, in this order"
+                        },
+                        "sensitiveDeleteAfterDays": {
+                          "type": "integer",
+                          "description": "Sensitive answers are deleted this many days after the occurrence; for the consent text"
+                        }
+                      }
                     }
                   }
                 }
@@ -694,6 +811,30 @@
                     "minimum": 1,
                     "maximum": 2,
                     "description": "2 brings a guest, where the event allows it"
+                  },
+                  "answers": {
+                    "type": "object",
+                    "description": "By field id",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "consent": {
+                    "type": "boolean",
+                    "description": "Agreement to sensitive answers being stored; required when any is given"
                   }
                 },
                 "additionalProperties": false
@@ -733,6 +874,7 @@
                         "locale",
                         "partySize",
                         "status",
+                        "answers",
                         "createdAt"
                       ],
                       "properties": {
@@ -781,6 +923,26 @@
                               ]
                             }
                           ]
+                        },
+                        "answers": {
+                          "type": "object",
+                          "description": "By field id: text, true for a ticked checkbox, option ids for a choice",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "boolean"
+                              },
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            ]
+                          }
                         },
                         "createdAt": {
                           "type": "string",
@@ -1238,6 +1400,7 @@
                         "locale",
                         "partySize",
                         "status",
+                        "answers",
                         "createdAt"
                       ],
                       "properties": {
@@ -1287,6 +1450,26 @@
                             }
                           ]
                         },
+                        "answers": {
+                          "type": "object",
+                          "description": "By field id: text, true for a ticked checkbox, option ids for a choice",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "boolean"
+                              },
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            ]
+                          }
+                        },
                         "createdAt": {
                           "type": "string",
                           "format": "date-time"
@@ -1301,7 +1484,8 @@
                         "occurrence",
                         "event",
                         "location",
-                        "availability"
+                        "availability",
+                        "form"
                       ],
                       "properties": {
                         "locale": {
@@ -1537,6 +1721,122 @@
                             }
                           },
                           "description": "Places for registration occurrences, without exact numbers. Null for other admission modes"
+                        },
+                        "form": {
+                          "type": "object",
+                          "required": [
+                            "fields",
+                            "sensitiveDeleteAfterDays"
+                          ],
+                          "properties": {
+                            "fields": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "id",
+                                  "type",
+                                  "label",
+                                  "help",
+                                  "required",
+                                  "sensitive",
+                                  "multiline",
+                                  "multiple",
+                                  "options"
+                                ],
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "pattern": "^[a-z0-9]{1,40}$"
+                                  },
+                                  "type": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "text"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "dietary"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "checkbox"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "choice"
+                                        ]
+                                      }
+                                    ],
+                                    "description": "dietary: free text, always sensitive. text: one line or multiline, optionally sensitive. checkbox: e.g. consent to photos. choice: one or several options"
+                                  },
+                                  "label": {
+                                    "type": "object",
+                                    "description": "Text per locale",
+                                    "additionalProperties": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "help": {
+                                    "type": "object",
+                                    "description": "Text per locale",
+                                    "additionalProperties": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": {
+                                    "type": "boolean"
+                                  },
+                                  "sensitive": {
+                                    "type": "boolean",
+                                    "description": "Stored encrypted, shown only with registrations.sensitive, deleted soon after the occurrence"
+                                  },
+                                  "multiline": {
+                                    "type": "boolean"
+                                  },
+                                  "multiple": {
+                                    "type": "boolean"
+                                  },
+                                  "options": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "required": [
+                                        "id",
+                                        "label"
+                                      ],
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "pattern": "^[a-z0-9]{1,40}$"
+                                        },
+                                        "label": {
+                                          "type": "object",
+                                          "description": "Text per locale",
+                                          "additionalProperties": {
+                                            "type": "string"
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              "description": "Asked after name and email, in this order"
+                            },
+                            "sensitiveDeleteAfterDays": {
+                              "type": "integer",
+                              "description": "Sensitive answers are deleted this many days after the occurrence; for the consent text"
+                            }
+                          }
                         }
                       }
                     },
@@ -1801,7 +2101,7 @@
       },
       "patch": {
         "operationId": "updateRegistration",
-        "summary": "Change the name, locale or guest until registration closes",
+        "summary": "Change the name, locale, guest or answers until registration closes",
         "tags": [
           "registration"
         ],
@@ -1825,6 +2125,30 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 2
+                  },
+                  "answers": {
+                    "type": "object",
+                    "description": "By field id. Replaces all answers",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "consent": {
+                    "type": "boolean",
+                    "description": "Agreement to sensitive answers being stored; required when any is given"
                   }
                 },
                 "additionalProperties": false,
@@ -1858,6 +2182,7 @@
                         "locale",
                         "partySize",
                         "status",
+                        "answers",
                         "createdAt"
                       ],
                       "properties": {
@@ -1906,6 +2231,26 @@
                               ]
                             }
                           ]
+                        },
+                        "answers": {
+                          "type": "object",
+                          "description": "By field id: text, true for a ticked checkbox, option ids for a choice",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "boolean"
+                              },
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            ]
+                          }
                         },
                         "createdAt": {
                           "type": "string",
@@ -2345,6 +2690,7 @@
                         "locale",
                         "partySize",
                         "status",
+                        "answers",
                         "createdAt"
                       ],
                       "properties": {
@@ -2393,6 +2739,26 @@
                               ]
                             }
                           ]
+                        },
+                        "answers": {
+                          "type": "object",
+                          "description": "By field id: text, true for a ticked checkbox, option ids for a choice",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "boolean"
+                              },
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            ]
+                          }
                         },
                         "createdAt": {
                           "type": "string",
@@ -2834,6 +3200,7 @@
                     "locale",
                     "account",
                     "invitation",
+                    "form",
                     "event",
                     "occurrences",
                     "manageToken"
@@ -2906,6 +3273,122 @@
                         "guestAllowed": {
                           "type": "boolean",
                           "description": "Whether the guest may bring someone"
+                        }
+                      }
+                    },
+                    "form": {
+                      "type": "object",
+                      "required": [
+                        "fields",
+                        "sensitiveDeleteAfterDays"
+                      ],
+                      "properties": {
+                        "fields": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "type",
+                              "label",
+                              "help",
+                              "required",
+                              "sensitive",
+                              "multiline",
+                              "multiple",
+                              "options"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "pattern": "^[a-z0-9]{1,40}$"
+                              },
+                              "type": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "text"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "dietary"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "checkbox"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "choice"
+                                    ]
+                                  }
+                                ],
+                                "description": "dietary: free text, always sensitive. text: one line or multiline, optionally sensitive. checkbox: e.g. consent to photos. choice: one or several options"
+                              },
+                              "label": {
+                                "type": "object",
+                                "description": "Text per locale",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "help": {
+                                "type": "object",
+                                "description": "Text per locale",
+                                "additionalProperties": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": {
+                                "type": "boolean"
+                              },
+                              "sensitive": {
+                                "type": "boolean",
+                                "description": "Stored encrypted, shown only with registrations.sensitive, deleted soon after the occurrence"
+                              },
+                              "multiline": {
+                                "type": "boolean"
+                              },
+                              "multiple": {
+                                "type": "boolean"
+                              },
+                              "options": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "label"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "pattern": "^[a-z0-9]{1,40}$"
+                                    },
+                                    "label": {
+                                      "type": "object",
+                                      "description": "Text per locale",
+                                      "additionalProperties": {
+                                        "type": "string"
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "description": "Asked after name and email, in this order"
+                        },
+                        "sensitiveDeleteAfterDays": {
+                          "type": "integer",
+                          "description": "Sensitive answers are deleted this many days after the occurrence; for the consent text"
                         }
                       }
                     },
@@ -3372,6 +3855,30 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 2
+                  },
+                  "answers": {
+                    "type": "object",
+                    "description": "By field id",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "consent": {
+                    "type": "boolean",
+                    "description": "Agreement to sensitive answers being stored; required when any is given"
                   }
                 },
                 "additionalProperties": false
@@ -3405,6 +3912,7 @@
                         "locale",
                         "partySize",
                         "status",
+                        "answers",
                         "createdAt"
                       ],
                       "properties": {
@@ -3453,6 +3961,26 @@
                               ]
                             }
                           ]
+                        },
+                        "answers": {
+                          "type": "object",
+                          "description": "By field id: text, true for a ticked checkbox, option ids for a choice",
+                          "additionalProperties": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "boolean"
+                              },
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            ]
+                          }
                         },
                         "createdAt": {
                           "type": "string",

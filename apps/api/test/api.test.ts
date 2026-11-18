@@ -53,7 +53,7 @@ describe("/v1", () => {
   it("GET /me lists the accounts the user was invited to", async () => {
     const res = await call("GET", "/v1/me", { as: "owner@a.test" });
     expect(res.status).toBe(200);
-    expect(res.body.accounts).toEqual([{ accountId: accountA, slug: "acme-a", name: "A", roles: ["owner"] }]);
+    expect(res.body.accounts).toEqual([{ accountId: accountA, slug: "acme-a", name: "A", roles: ["owner"], permissions: expect.arrayContaining(["registrations.sensitive"]) }]);
   });
 
   it("does not let a user read an account they are not a member of", async () => {

@@ -5,7 +5,9 @@ import { HttpProblem } from "./problem.js";
 
 // Idempotency-Key for retriable POSTs (ADR 0007). The response is stored per tenant and key
 // for 24 hours in the same transaction as the change, so a retry after a lost response
-// gets the original result instead of a duplicate.
+// gets the original result instead of a duplicate. Responses that carry personal data or
+// decrypted answers store only a reference (`store`) and are rebuilt on replay (`replay`), so
+// the cache never holds a plaintext copy that retention and anonymisation would miss.
 
 const TTL = "24 hours";
 
@@ -21,6 +23,7 @@ export async function idempotent(
   tenantId: string,
   status: number,
   fn: () => Promise<unknown>,
+  opts: { store?: (body: unknown) => unknown; replay?: (stored: unknown) => Promise<unknown> } = {},
 ): Promise<Stored> {
   const raw = req.headers["idempotency-key"];
   if (raw === undefined) return { status, body: await fn(), replayed: false };
@@ -39,14 +42,14 @@ export async function idempotent(
     if (prior.request_hash !== requestHash) {
       throw new HttpProblem(422, "idempotency_key_reused", "This Idempotency-Key was used for a different request");
     }
-    return { status: prior.status_code, body: prior.response, replayed: true };
+    return { status: prior.status_code, body: opts.replay ? await opts.replay(prior.response) : prior.response, replayed: true };
   }
 
   const body = await fn();
   // A concurrent request with the same key fails on the primary key and rolls back.
   await tx
     .insertInto("tenancy.idempotency_key")
-    .values({ tenant_id: tenantId, key: raw, request_hash: requestHash, status_code: status, response: JSON.stringify(body) })
+    .values({ tenant_id: tenantId, key: raw, request_hash: requestHash, status_code: status, response: JSON.stringify(opts.store ? opts.store(body) : body) })
     .onConflict((oc) =>
       oc.columns(["tenant_id", "key"]).doUpdateSet((eb) => ({
         request_hash: eb.ref("excluded.request_hash"),

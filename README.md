@@ -55,8 +55,8 @@ The publishable key goes in `?key=` (the edge cache keys on the query string); a
 ```
 apps/api          core API (/v1), Fastify
 apps/public-api   /public/v1, read-only, edge-cached
-apps/attendee     hosted attendee pages (/r, /m) and the attendee API (/attendee/v1)
-apps/worker       graphile-worker: outbox dispatch, invitation provisioning, rule resolution, series horizon, registration emails
+apps/attendee     hosted attendee pages (/r, /i, /m) and the attendee API (/attendee/v1)
+apps/worker       graphile-worker: outbox dispatch, invitation provisioning, rule resolution, series horizon, registration emails, retention
 apps/admin        React + shadcn/ui admin
 packages/db       Kysely, migrations, roles and RLS, withTenant
 packages/domain   modules: tenancy, catalog, rules, inventory, registration, admission, outbox

@@ -31,7 +31,7 @@ describe("tenancy", () => {
   it("first sign-in accepts the owner invitation", async () => {
     const { account, userId } = await bootstrap("munch", "owner@munch.test");
     const accounts = await tenancy.myAccounts(db, userId);
-    expect(accounts).toEqual([{ accountId: account.id, slug: "munch", name: "MUNCH", roles: ["owner"] }]);
+    expect(accounts).toEqual([{ accountId: account.id, slug: "munch", name: "MUNCH", roles: ["owner"], permissions: expect.arrayContaining(["registrations.sensitive", "members.manage"]) }]);
     const roles = await withTenant(db, { tenantId: account.id }, (tx) => tenancy.rolesInTenant(tx, userId));
     expect(roles).toEqual(["owner"]);
   });

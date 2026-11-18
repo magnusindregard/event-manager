@@ -7,7 +7,14 @@ import { catalog, registration, tenancy } from "@event-manager/domain";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** The form the attendee fills in, and how long sensitive answers are kept (for the consent text). */
+export interface FormDetails {
+  fields: registration.FormField[];
+  sensitiveDeleteAfterDays: number;
+}
+
 export interface Details {
+  form: FormDetails;
   locale: string;
   locales: string[];
   account: { name: string };
@@ -22,9 +29,11 @@ export interface Details {
 
 async function details(tx: Tx, occurrenceId: string, wanted: string | undefined, now: Date): Promise<Details> {
   const [account, target] = await Promise.all([tenancy.getAccount(tx), catalog.getRegistrationTarget(tx, occurrenceId)]);
+  const form = await registration.getForm(tx, target.event.id);
   const locale = wanted && account.locales.includes(wanted) ? wanted : account.defaultLocale;
   const t = target.event.translations[locale] ?? target.event.translations[account.defaultLocale] ?? Object.values(target.event.translations)[0];
   return {
+    form: { fields: form.fields, sensitiveDeleteAfterDays: account.sensitiveDeleteAfterDays },
     locale,
     locales: account.locales,
     account: { name: account.name },
@@ -46,6 +55,7 @@ export interface InvitationOption {
 }
 
 export interface InvitationDetails {
+  form: FormDetails;
   locale: string;
   locales: string[];
   account: { name: string };
@@ -60,8 +70,8 @@ export interface InvitationDetails {
 }
 
 async function invitationDetails(tx: Tx, inv: registration.GuestInvitation, wanted: string | undefined, now: Date): Promise<InvitationDetails> {
-  const [account, event, targets] = await Promise.all([
-    tenancy.getAccount(tx), catalog.getEvent(tx, inv.eventId), catalog.upcomingRegistrationTargets(tx, inv.eventId, now),
+  const [account, event, targets, form] = await Promise.all([
+    tenancy.getAccount(tx), catalog.getEvent(tx, inv.eventId), catalog.upcomingRegistrationTargets(tx, inv.eventId, now), registration.getForm(tx, inv.eventId),
   ]);
   const pick = [wanted, inv.locale].find((l): l is string => !!l && account.locales.includes(l));
   const locale = pick ?? account.defaultLocale;
@@ -73,6 +83,7 @@ async function invitationDetails(tx: Tx, inv: registration.GuestInvitation, want
       return { target, availability, bookable: availability.status === "available" || availability.status === "few_left" };
     });
   return {
+    form: { fields: form.fields, sensitiveDeleteAfterDays: account.sensitiveDeleteAfterDays },
     locale, locales: account.locales, account: { name: account.name }, invitation: inv, event,
     title: t?.title ?? event.slug, shortDescription: t?.shortDescription ?? null, image: t?.imageUrl ? { url: t.imageUrl, alt: t.imageAlt } : null,
     guestAllowed: registration.effectiveGuestAllowed(inv, event.registration), options, now,
@@ -84,8 +95,18 @@ export function preferredLocale(acceptLanguage: string | undefined): string | un
   return acceptLanguage?.split(",").map((s) => s.split(";")[0]!.trim().split("-")[0]!.toLowerCase()).find(Boolean);
 }
 
-export interface RegistrationView {
+/** A registration with its answers; the attendee sees all of their own, sensitive ones too. */
+export interface AttendeeRegistration {
   registration: registration.Registration;
+  answers: registration.Answers;
+}
+
+const withAnswers = async (tx: Tx, tenantId: string, reg: registration.Registration): Promise<AttendeeRegistration> => ({
+  registration: reg,
+  answers: (await registration.readAnswers(tx, tenantId, [reg.id], { kind: "attendee" })).get(reg.id) ?? {},
+});
+
+export interface RegistrationView extends AttendeeRegistration {
   details: Details;
   rights: { change: boolean; cancel: boolean };
   admissionToken: string | null;
@@ -110,12 +131,12 @@ export class AttendeeService {
     return withTenant(this.db, { tenantId }, (tx) => details(tx, occurrenceId, locale, this.now()));
   }
 
-  async register(occurrenceId: string, input: registration.RegistrationInput): Promise<{ registration: registration.Registration; manageToken: string } | null> {
+  async register(occurrenceId: string, input: registration.RegistrationInput): Promise<(AttendeeRegistration & { manageToken: string }) | null> {
     const tenantId = await this.tenantOf(occurrenceId);
     if (!tenantId) return null;
     return withTenant(this.db, { tenantId }, async (tx) => {
       const reg = await registration.register(tx, tenantId, occurrenceId, input, { kind: "attendee" }, this.now());
-      return { registration: reg, manageToken: await registration.manageToken(tx, tenantId, reg) };
+      return { ...(await withAnswers(tx, tenantId, reg)), manageToken: await registration.manageToken(tx, tenantId, reg) };
     });
   }
 
@@ -135,7 +156,7 @@ export class AttendeeService {
       // An invited guest's allowance can differ from the event's.
       const d: Details = { ...d0, target: { ...d0.target, event: { ...d0.target.event, guestAllowed: await registration.guestAllowedFor(tx, reg, d0.target) } } };
       return {
-        registration: reg,
+        ...(await withAnswers(tx, tenantId, reg)),
         details: d,
         rights: registration.attendeeRights(reg, d.target, this.now()),
         admissionToken: await registration.admissionToken(tx, tenantId, reg),
@@ -143,12 +164,13 @@ export class AttendeeService {
     });
   }
 
-  async update(token: string, patch: registration.RegistrationPatch) {
-    return this.withToken(token, (tx, tenantId, reg) => registration.updateRegistration(tx, tenantId, reg.id, patch, { kind: "attendee" }, { now: this.now() }));
+  async update(token: string, patch: registration.RegistrationPatch): Promise<AttendeeRegistration | null> {
+    return this.withToken(token, async (tx, tenantId, reg) =>
+      withAnswers(tx, tenantId, await registration.updateRegistration(tx, tenantId, reg.id, patch, { kind: "attendee" }, { now: this.now() })));
   }
 
-  async cancel(token: string) {
-    return this.withToken(token, (tx, tenantId, reg) => registration.cancelRegistration(tx, tenantId, reg.id, { kind: "attendee" }, this.now()));
+  async cancel(token: string): Promise<AttendeeRegistration | null> {
+    return this.withToken(token, async (tx, tenantId, reg) => withAnswers(tx, tenantId, await registration.cancelRegistration(tx, tenantId, reg.id, { kind: "attendee" }, this.now())));
   }
 
   // ── Invitation links ──
@@ -172,10 +194,18 @@ export class AttendeeService {
     });
   }
 
-  async accept(token: string, input: registration.AcceptInput): Promise<{ registration: registration.Registration; manageToken: string } | null> {
+  async accept(token: string, input: registration.AcceptInput): Promise<(AttendeeRegistration & { manageToken: string }) | null> {
     return this.withInvitation(token, async (tx, tenantId, inv) => {
       const reg = await registration.acceptInvitation(tx, tenantId, inv.id, input, this.now());
-      return { registration: reg, manageToken: await registration.manageToken(tx, tenantId, reg) };
+      return { ...(await withAnswers(tx, tenantId, reg)), manageToken: await registration.manageToken(tx, tenantId, reg) };
+    });
+  }
+
+  /** The form behind an invitation link, to read a posted form; null for an invalid token. */
+  async invitationForm(token: string): Promise<FormDetails | null> {
+    return this.withInvitation(token, async (tx, _tenantId, inv) => {
+      const [form, account] = await Promise.all([registration.getForm(tx, inv.eventId), tenancy.getAccount(tx)]);
+      return { fields: form.fields, sensitiveDeleteAfterDays: account.sensitiveDeleteAfterDays };
     });
   }
 
