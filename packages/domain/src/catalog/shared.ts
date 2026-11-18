@@ -1,3 +1,4 @@
+import type { Tx } from "@event-manager/db";
 import { DomainError } from "../shared/index.js";
 
 /** Postgres error with a SQLSTATE code, as thrown by pg. */
@@ -36,3 +37,20 @@ export function slugify(text: string): string {
 }
 
 export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/**
+ * Schedule changes (occurrences and series) start here. Locks the event row FOR SHARE, so an
+ * archive (an UPDATE of the event) waits for the change to commit, or the change sees the event
+ * archived. Lock order for schedule changes: event (share), series, then occurrences by id.
+ */
+export async function lockScheduleEvent(tx: Tx, eventId: string) {
+  const event = await tx
+    .selectFrom("catalog.event")
+    .select(["id", "status", "timezone", "default_duration_min"])
+    .where("id", "=", eventId)
+    .forShare()
+    .executeTakeFirst();
+  if (!event) throw notFound("Event");
+  if (event.status === "archived") throw new DomainError("conflict", "The event is archived");
+  return event;
+}
