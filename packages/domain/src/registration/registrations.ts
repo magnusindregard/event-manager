@@ -146,6 +146,10 @@ export async function register(
  * staff may leave them out, and give sensitive answers only with registrations.sensitive.
  */
 export async function formAnswers(tx: Tx, eventId: string, input: AnswerInput, actor: Actor) {
+  // saveForm locks the event FOR UPDATE, so a form save waits for registrations that read
+  // the form until they commit, and then sees their answers when it checks whether a field
+  // may change classification. Event edits (plain UPDATE) do not conflict with KEY SHARE.
+  await tx.selectFrom("catalog.event").select("id").where("id", "=", eventId).forKeyShare().executeTakeFirst();
   const form = await getForm(tx, eventId);
   const answers = checkAnswers(form.fields, input, actor.kind === "attendee");
   if (actor.kind === "staff" && Object.keys(answers.sensitive).length && !can(actor.ctx, "registrations.sensitive")) {

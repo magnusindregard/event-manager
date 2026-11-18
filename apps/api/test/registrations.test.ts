@@ -158,6 +158,8 @@ describe("/v1 forms, answers and the door list", () => {
     // The replay is rebuilt from the registration, as the caller may see it now.
     const replay = await call("POST", `/v1/occurrences/${occurrenceId}/registrations`, { body, headers });
     expect(replay).toMatchObject({ status: 201, body: { id: first.body.id, name: "Ida Idem", answers: { diet: "Skalldyr", org: "SINTEF" } } });
+    // Keys are per account, so another member can hit the same key; their current access decides.
+    expect((await call("POST", `/v1/occurrences/${occurrenceId}/registrations`, { as: "editor@a.test", body, headers })).status).toBe(403);
   });
 });
 

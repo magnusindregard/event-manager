@@ -221,6 +221,31 @@ describe("answers", () => {
     const relabel = form.fields.map((f) => (f.id === "org" ? { ...f, label: { nb: "Arbeidsgiver" } } : f));
     expect((await run((tx) => registration.saveForm(tx, ctx, event.id, v3.version, relabel))).version).toBe(v3.version + 1);
   });
+
+  it("waits for a registration in progress before changing a field's classification", async () => {
+    const { event, occ, form } = await gala();
+    const toSensitive = form.fields.map((f) => (f.id === "org" ? { ...f, sensitive: true } : f));
+    let release!: () => void;
+    const held = new Promise<void>((r) => { release = r; });
+    let registered!: () => void;
+    const inFlight = new Promise<void>((r) => { registered = r; });
+    // register's steps, paused after the form is read and before the answer is written.
+    const a = run(async (tx) => {
+      const target = await catalog.getRegistrationTarget(tx, occ.id);
+      const answers = await registration.formAnswers(tx, event.id, { answers: { org: "NTNU" } }, { kind: "staff", ctx });
+      registered();
+      await held;
+      await registration.insertConfirmed(tx, ctx.tenantId, target, { name: "Rask", email: "rask@example.com", locale: "nb", partySize: 1, source: "staff", invitationId: null }, answers);
+    });
+    await inFlight;
+    let settled = false;
+    const b = code(run((tx) => registration.saveForm(tx, ctx, event.id, form.version, toSensitive))).finally(() => { settled = true; });
+    await new Promise((r) => setTimeout(r, 300));
+    expect(settled).toBe(false);
+    release();
+    await a;
+    expect(await b).toBe("validation_failed:fields.1.sensitive");
+  });
 });
 
 describe("encryption and tenants", () => {

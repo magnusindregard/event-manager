@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import type { Tx } from "@event-manager/db";
-import { type ActorContext, registration } from "@event-manager/domain";
+import { type ActorContext, registration, tenancy } from "@event-manager/domain";
 import {
   DoorList, Form, FormSave, Problem, Registration, RegistrationCreate, RegistrationList, RegistrationPatch, RegistrationStatus, Uuid,
 } from "@event-manager/schemas";
@@ -99,12 +99,15 @@ export const registrationRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req, reply) => {
-      const r = await inTenant(app, req, (tx, ctx) =>
-        idempotent(tx, req, ctx.tenantId, 201, async () => one(tx, ctx, await registration.register(tx, ctx.tenantId, req.params.id, req.body, { kind: "staff", ctx })), {
+      const r = await inTenant(app, req, (tx, ctx) => {
+        // Checked here too, since a replay skips register: a key must not outlive the caller's access.
+        tenancy.assertCan(ctx, "registrations.write");
+        return idempotent(tx, req, ctx.tenantId, 201, async () => one(tx, ctx, await registration.register(tx, ctx.tenantId, req.params.id, req.body, { kind: "staff", ctx })), {
           // Only the id is cached: the response holds personal data and decrypted answers.
           store: (body) => ({ id: (body as { id: string }).id }),
           replay: async (stored) => one(tx, ctx, await registration.getRegistration(tx, (stored as { id: string }).id)),
-        }));
+        });
+      });
       setEtag(reply, (r.body as { version: number }).version);
       return reply.status(r.status).send(r.body as never);
     },
