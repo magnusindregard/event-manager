@@ -115,10 +115,19 @@ export async function listInvitations(tx: Tx): Promise<Invitation[]> {
 export async function inviteMember(tx: Tx, ctx: ActorContext, email: string, role: Role, signinKind: SigninKind = "auto"): Promise<Invitation> {
   assertCan(ctx, "members.manage");
   if (!ENABLED_ROLES.includes(role)) throw new DomainError("validation_failed", `Role ${role} is not enabled`, { field: "role" });
+  const member = await tx
+    .selectFrom("tenancy.membership as m")
+    .innerJoin("tenancy.user as u", "u.id", "m.user_id")
+    .select("m.id")
+    .where("u.email", "=", email.toLowerCase())
+    .where("m.role", "=", role)
+    .executeTakeFirst();
+  if (member) throw new DomainError("conflict", "Already a member with this role");
+  // Only pending invitations are unique: someone removed after accepting can be invited again.
   const row = await tx
     .insertInto("tenancy.invitation")
     .values({ id: newId(), tenant_id: ctx.tenantId, email: email.toLowerCase(), role, invited_by: ctx.userId, signin_kind: signinKind })
-    .onConflict((oc) => oc.columns(["tenant_id", "email", "role"]).doNothing())
+    .onConflict((oc) => oc.columns(["tenant_id", "email", "role"]).where("accepted_at", "is", null).doNothing())
     .returning(invitationColumns)
     .executeTakeFirst();
   if (!row) throw new DomainError("conflict", "Already invited");

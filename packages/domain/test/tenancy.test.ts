@@ -109,4 +109,21 @@ describe("tenancy", () => {
     const other: ActorContext = { ...ctx, userId: null };
     await expect(withTenant(db, ctx, (tx) => tenancy.removeMember(tx, other, userId))).rejects.toMatchObject({ code: "conflict" });
   });
+
+  it("a removed member can be invited to the same role again", async () => {
+    const { ctx } = await bootstrap("reinvite", "owner@re.test");
+    const identity = { issuer: "https://idp.test", subject: "ed@re.test", email: "ed@re.test", name: null };
+    await withTenant(db, ctx, (tx) => tenancy.inviteMember(tx, ctx, "ed@re.test", "editor"));
+    await expect(withTenant(db, ctx, (tx) => tenancy.inviteMember(tx, ctx, "ed@re.test", "editor"))).rejects.toMatchObject({ message: "Already invited" });
+    const edId = await tenancy.login(db, identity);
+    await expect(withTenant(db, ctx, (tx) => tenancy.inviteMember(tx, ctx, "ed@re.test", "editor")))
+      .rejects.toMatchObject({ code: "conflict", message: "Already a member with this role" });
+
+    await withTenant(db, ctx, (tx) => tenancy.removeMember(tx, ctx, edId));
+    const again = await withTenant(db, ctx, (tx) => tenancy.inviteMember(tx, ctx, "ed@re.test", "editor"));
+    expect(await withTenant(db, ctx, (tx) => tenancy.listInvitations(tx))).toEqual([expect.objectContaining({ id: again.id })]);
+    await tenancy.login(db, identity);
+    expect(await withTenant(db, ctx, (tx) => tenancy.rolesInTenant(tx, edId))).toEqual(["editor"]);
+    expect(await withTenant(db, ctx, (tx) => tenancy.listInvitations(tx))).toEqual([]);
+  });
 });
