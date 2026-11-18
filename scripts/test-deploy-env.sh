@@ -6,7 +6,9 @@ cd "$(dirname "$0")/.."
 
 new=$(git rev-parse HEAD)
 old=$(git rev-parse HEAD~1)
-# Branch previews: commits that are not on "main" (here: the history of $new).
+# Branch previews: commits that are not on "main" (here: the history of $new). Dangling commit
+# objects only; CI runners have no git identity, so give these one.
+export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.invalid GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.invalid
 preview=$(git commit-tree "$old^{tree}" -p "$old" -m "preview")
 preview2=$(git commit-tree "$old^{tree}" -p "$old" -m "another preview")
 export MAIN_REF=$new
