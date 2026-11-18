@@ -18,7 +18,8 @@ import * as m0013 from "./migrations/0013_forms_privacy.js";
 import * as m0014 from "./migrations/0014_reinvite.js";
 import * as m0015 from "./migrations/0015_waitlist.js";
 
-const migrations: Record<string, Migration> = {
+/** By name, in order. Exported for tests that run one migration down and up again. */
+export const migrations: Record<string, Migration> = {
   "0001_foundation": m0001,
   "0002_tenancy": m0002,
   "0003_outbox": m0003,

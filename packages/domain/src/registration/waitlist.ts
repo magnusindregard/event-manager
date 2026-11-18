@@ -4,7 +4,7 @@ import * as catalog from "../catalog/index.js";
 import * as inventory from "../inventory/index.js";
 import { emit } from "../outbox/index.js";
 import { DomainError } from "../shared/index.js";
-import { attendeeRights, getRegistration, locked, type Registration } from "./registrations.js";
+import { attendeeRights, getRegistration, lockedWithPool, type Registration } from "./registrations.js";
 
 // Waitlist (docs/registration.md, milestone 5). A registration that finds the occurrence full
 // joins the line (waitlisted) when the event has a waitlist and its cutoff has not passed.
@@ -14,9 +14,9 @@ import { attendeeRights, getRegistration, locked, type Registration } from "./re
 // attendee claims the offer from their manage page (confirmed, with the QR code); if they don't
 // in time, the offer is cancelled as expired and the places go to the next in line.
 //
-// Lock order, to stay clear of deadlocks: promotion locks the pool first and then rows of the
-// line. Anything that locks a waiting row and then touches the pool (claiming or declining an
-// offer) is only ever a row that promotion skips while it is locked (SKIP LOCKED).
+// Lock order, to stay clear of deadlocks: the occurrence's pool first, then registration rows.
+// Promotion does so, and so does everything that changes a registration in a way that may touch
+// the pool (claiming, cancelling, changing the party size; see lockedWithPool).
 
 /** Pure: whether the event takes people on the waitlist now (offers stop at the cutoff). */
 export function waitlistOpen(target: catalog.RegistrationTarget, now: Date): boolean {
@@ -65,8 +65,8 @@ export async function promoteWaitlist(tx: Tx, tenantId: string, occurrenceId: st
   const pool = await tx.selectFrom("inventory.capacity_pool").select("id").where("occurrence_id", "=", occurrenceId).forUpdate().executeTakeFirst();
   if (!pool) return out;
 
-  // Offers past their deadline. A row locked by someone else is being claimed or declined
-  // right now; that settles it (a claim after the deadline fails, and its job comes back).
+  // Offers past their deadline. A row locked by someone else (an edit that does not touch the
+  // pool) is skipped rather than waited for; its expiry job comes back for it.
   const due = await tx.selectFrom("registration.registration")
     .select(["id", "event_id", "invitation_id", "party_size", "offer_hold_id"])
     .where("occurrence_id", "=", occurrenceId).where("status", "=", "offered").where("offer_expires_at", "<=", now)
@@ -137,7 +137,7 @@ export async function promoteWaitlist(tx: Tx, tenantId: string, occurrenceId: st
  * Throws offer_expired after the deadline and no_offer when there is nothing to claim.
  */
 export async function claimOffer(tx: Tx, tenantId: string, id: string, now: Date = new Date()): Promise<Registration> {
-  const before = await locked(tx, id);
+  const before = await lockedWithPool(tx, id);
   if (before.status === "confirmed" && before.confirmedAt) return before;
   if (before.status === "cancelled" && before.cancelledBy === "expired") throw new DomainError("offer_expired", "The offer was not claimed in time");
   if (before.status !== "offered") throw new DomainError("no_offer", "There is no offer to claim");

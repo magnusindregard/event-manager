@@ -38,8 +38,17 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await sql`
     DROP INDEX registration.registration_waitlist;
     -- Waiting registrations cannot be represented without the waitlist; they are cancelled.
+    -- An offer's hold goes too, and its places back to the pool.
+    WITH ended AS (
+      DELETE FROM inventory.hold h USING registration.registration r
+       WHERE r.status = 'offered' AND h.id = r.offer_hold_id
+      RETURNING h.pool_id, h.quantity
+    ), per_pool AS (SELECT pool_id, sum(quantity) AS quantity FROM ended GROUP BY pool_id)
+    UPDATE inventory.capacity_pool p SET held = greatest(p.held - per_pool.quantity, 0)
+      FROM per_pool WHERE p.id = per_pool.pool_id;
     UPDATE registration.registration
-       SET status = 'cancelled', cancelled_at = coalesce(cancelled_at, now()), waitlist_position = NULL
+       SET status = 'cancelled', cancelled_at = coalesce(cancelled_at, now()), cancelled_by = coalesce(cancelled_by, 'staff'),
+           waitlist_position = NULL, offer_hold_id = NULL, offer_expires_at = NULL
      WHERE status IN ('waitlisted', 'offered');
     UPDATE registration.registration SET cancelled_by = 'staff' WHERE cancelled_by = 'expired';
     ALTER TABLE registration.registration

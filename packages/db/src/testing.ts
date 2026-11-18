@@ -2,6 +2,8 @@ import pg from "pg";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { migrate } from "./migrate.js";
 
+export { migrations } from "./migrate.js";
+
 export interface TestDatabase {
   container: StartedPostgreSqlContainer;
   /** Superuser, for test fixtures that must get past RLS or into graphile-worker's tables. */

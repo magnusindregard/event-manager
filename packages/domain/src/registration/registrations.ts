@@ -242,6 +242,19 @@ export async function insertConfirmed(
   return toRegistration(row);
 }
 
+/**
+ * Locks the occurrence's capacity pool and then the registration, for changes that may touch the
+ * pool (places, holds, promotion). Every such path takes the pool first, as promotion does, so
+ * they queue on the pool and never hold the row while waiting for it, whatever status the row
+ * moves to meanwhile. The occurrence of a registration never changes, so reading it unlocked is safe.
+ */
+export async function lockedWithPool(tx: Tx, id: string): Promise<Registration> {
+  const r = await tx.selectFrom("registration.registration").select("occurrence_id").where("id", "=", id).executeTakeFirst();
+  if (!r) throw new DomainError("not_found", "Registration not found");
+  await tx.selectFrom("inventory.capacity_pool").select("id").where("occurrence_id", "=", r.occurrence_id).forUpdate().execute();
+  return locked(tx, id);
+}
+
 export async function locked(tx: Tx, id: string): Promise<Registration> {
   const row = await tx.selectFrom("registration.registration").select(columns).where("id", "=", id).forUpdate().executeTakeFirst();
   if (!row) throw new DomainError("not_found", "Registration not found");
@@ -254,13 +267,8 @@ export async function updateRegistration(
 ): Promise<Registration> {
   if (actor.kind === "staff") assertCan(actor.ctx, "registrations.write");
   const now = opts.now ?? new Date();
-  // A waiting party that shrinks may fit now, which promotes the line. Promotion locks the pool
-  // and then rows of the line, so take the pool first here too, before this row.
-  if (patch.partySize !== undefined) {
-    const peek = await tx.selectFrom("registration.registration").select(["occurrence_id", "status"]).where("id", "=", id).executeTakeFirst();
-    if (peek?.status === "waitlisted") await tx.selectFrom("inventory.capacity_pool").select("id").where("occurrence_id", "=", peek.occurrence_id).forUpdate().execute();
-  }
-  const before = await locked(tx, id);
+  // A party size change takes or gives back places, or promotes the line: pool first.
+  const before = patch.partySize !== undefined ? await lockedWithPool(tx, id) : await locked(tx, id);
   if (opts.expectedVersion !== undefined && opts.expectedVersion !== before.version) {
     throw new DomainError("version_conflict", "Registration was changed by someone else", { currentVersion: before.version });
   }
@@ -341,7 +349,7 @@ export async function guestAllowedFor(tx: Tx, reg: Pick<Registration, "invitatio
  */
 export async function cancelRegistration(tx: Tx, tenantId: string, id: string, actor: Actor, now: Date = new Date()): Promise<Registration> {
   if (actor.kind === "staff") assertCan(actor.ctx, "registrations.write");
-  const before = await locked(tx, id);
+  const before = await lockedWithPool(tx, id);
   if (before.status === "cancelled") return before;
   if (actor.kind === "attendee") {
     const target = await catalog.getRegistrationTarget(tx, before.occurrenceId);

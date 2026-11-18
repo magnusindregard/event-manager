@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Db, sql, type Tx, withTenant } from "@event-manager/db";
-import { startTestDatabase, type TestDatabase } from "@event-manager/db/testing";
+import { migrations, startTestDatabase, type TestDatabase } from "@event-manager/db/testing";
 import { type ActorContext, catalog, DomainError, registration, tenancy } from "../../src/index.js";
 
 // Registration milestone 5 (docs/registration.md): the waitlist. Full occurrences take people
@@ -311,7 +311,45 @@ describe("offers", () => {
     expect(statuses).toEqual(["offered", "offered", "offered", "waitlisted", "waitlisted", "waitlisted"]);
     expect(await pool(occ.id)).toMatchObject({ taken: 1, held: 3 });
   });
+
+  it("do not deadlock when a resize and a cancellation queue behind a promotion of the same registration (review #69)", async () => {
+    const { occ } = await talk({ capacity: 1, overbookingPct: 0 });
+    const holder = await register(occ.id, 1);
+    const w = await register(occ.id, 2);
+    expect(w.status).toBe("waitlisted");
+    // Promotion holds the pool and the now offered row; the resize read the row as waiting.
+    let release!: () => void;
+    let promoted!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const ready = new Promise<void>((r) => (promoted = r));
+    const promotion = run(async (tx) => {
+      await registration.cancelRegistration(tx, ctx.tenantId, holder.id, attendee, NOW);
+      promoted();
+      await gate;
+    });
+    await ready;
+    const resize = code(run((tx) => registration.updateRegistration(tx, ctx.tenantId, w.id, { partySize: 2 }, attendee, { now: NOW })));
+    await lockWaiters(1);
+    const cancel = code(run((tx) => registration.cancelRegistration(tx, ctx.tenantId, w.id, attendee, NOW)));
+    await lockWaiters(2);
+    release();
+    await promotion;
+    // The resize finds an offer (claim it first); the cancellation ends it. Neither deadlocks.
+    expect(await Promise.all([resize, cancel])).toEqual(["conflict", "ok"]);
+    expect(await get(w.id)).toMatchObject({ status: "cancelled" });
+    expect(await pool(occ.id)).toMatchObject({ taken: 0, held: 0 });
+  });
 });
+
+/** Waits until n sessions are waiting for a lock. */
+async function lockWaiters(n: number) {
+  for (let i = 0; i < 200; i++) {
+    const r = await sql<{ n: number }>`select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and datname = current_database()`.execute(db);
+    if (r.rows[0]!.n >= n) return;
+    await new Promise((res) => setTimeout(res, 25));
+  }
+  throw new Error(`fewer than ${n} sessions waiting for a lock`);
+}
 
 describe("invited guests", () => {
   it("join the waitlist when the time they accept is full", async () => {
@@ -327,5 +365,29 @@ describe("invited guests", () => {
     await run((tx) => registration.cancelRegistration(tx, ctx.tenantId, r1.id, attendee, NOW));
     await run((tx) => registration.expireOffer(tx, ctx.tenantId, r2.id, later(48 * HOUR)));
     expect(await run((tx) => registration.getInvitation(tx, i2.id))).toMatchObject({ status: "declined" });
+  });
+});
+
+// Last: it rolls the schema back and forward again.
+describe("migration 0015", () => {
+  it("rolls back with open offers, giving their held places back to the pool (review #69)", async () => {
+    const { occ } = await talk({ capacity: 1, overbookingPct: 0 });
+    const holder = await register(occ.id, 1);
+    const w = await register(occ.id, 2);
+    await run((tx) => registration.cancelRegistration(tx, ctx.tenantId, holder.id, attendee, NOW));
+    expect(await get(w.id)).toMatchObject({ status: "offered" });
+    expect(await pool(occ.id)).toMatchObject({ held: 1 });
+    const su = createDb(tdb.superuserUrl) as unknown as Parameters<(typeof migrations)[string]["up"]>[0];
+    try {
+      await migrations["0015_waitlist"]!.down!(su);
+      const r = await sql<{ status: string; held: number; holds: number }>`
+        select r.status, p.held, (select count(*)::int from inventory.hold h where h.pool_id = p.id) as holds
+          from registration.registration r join inventory.capacity_pool p on p.occurrence_id = r.occurrence_id
+         where r.id = ${w.id}`.execute(su);
+      expect(r.rows).toEqual([{ status: "cancelled", held: 0, holds: 0 }]);
+      await migrations["0015_waitlist"]!.up(su);
+    } finally {
+      await su.destroy();
+    }
   });
 });
