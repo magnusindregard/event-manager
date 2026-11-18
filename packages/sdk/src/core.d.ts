@@ -542,7 +542,7 @@ export interface paths {
         /** The occurrence's registrations with their answers, oldest first */
         get: operations["listRegistrations"];
         put?: never;
-        /** Add someone by hand. Confirmed at once and emailed; 409 full when there is no place. Sensitive answers need registrations.sensitive */
+        /** Add someone by hand. Confirmed at once and emailed; 409 full when there is no place, unless waitlist is set. Sensitive answers need registrations.sensitive */
         post: operations["createRegistration"];
         delete?: never;
         options?: never;
@@ -576,7 +576,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Cancel and give the places back; the attendee is emailed. Cancelling twice is a no-op */
+        /** Cancel and give the places back (they go to the waitlist); the attendee is emailed. Also removes someone from the waitlist. Cancelling twice is a no-op */
         post: operations["cancelRegistration"];
         delete?: never;
         options?: never;
@@ -11505,7 +11505,19 @@ export interface operations {
                             source: "invitation" | "open" | "staff";
                             /** Format: date-time */
                             cancelledAt: string | null;
-                            cancelledBy: null | ("attendee" | "staff");
+                            cancelledBy: null | ("attendee" | "staff" | "expired");
+                            /** @description Place in line while waitlisted (1 = next) */
+                            waitlistPosition: number | null;
+                            /**
+                             * Format: date-time
+                             * @description While offered: when the offer must be claimed
+                             */
+                            offerExpiresAt: string | null;
+                            /**
+                             * Format: date-time
+                             * @description When the places were taken: at once, or when a waitlist offer was claimed
+                             */
+                            confirmedAt: string | null;
                             /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
                             answers: {
                                 [key: string]: string | boolean | string[];
@@ -11668,6 +11680,8 @@ export interface operations {
                     locale?: string;
                     /** @description Staff may add a guest even where the event does not offer one */
                     partySize?: number;
+                    /** @description Join the waitlist when the occurrence is full instead of failing with 409 full (needs the event's waitlist, before its cutoff) */
+                    waitlist?: boolean;
                     /** @description By field id. Replaces all answers */
                     answers?: {
                         [key: string]: string | boolean | string[];
@@ -11701,7 +11715,19 @@ export interface operations {
                         source: "invitation" | "open" | "staff";
                         /** Format: date-time */
                         cancelledAt: string | null;
-                        cancelledBy: null | ("attendee" | "staff");
+                        cancelledBy: null | ("attendee" | "staff" | "expired");
+                        /** @description Place in line while waitlisted (1 = next) */
+                        waitlistPosition: number | null;
+                        /**
+                         * Format: date-time
+                         * @description While offered: when the offer must be claimed
+                         */
+                        offerExpiresAt: string | null;
+                        /**
+                         * Format: date-time
+                         * @description When the places were taken: at once, or when a waitlist offer was claimed
+                         */
+                        confirmedAt: string | null;
                         /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
                         answers: {
                             [key: string]: string | boolean | string[];
@@ -11954,7 +11980,19 @@ export interface operations {
                         source: "invitation" | "open" | "staff";
                         /** Format: date-time */
                         cancelledAt: string | null;
-                        cancelledBy: null | ("attendee" | "staff");
+                        cancelledBy: null | ("attendee" | "staff" | "expired");
+                        /** @description Place in line while waitlisted (1 = next) */
+                        waitlistPosition: number | null;
+                        /**
+                         * Format: date-time
+                         * @description While offered: when the offer must be claimed
+                         */
+                        offerExpiresAt: string | null;
+                        /**
+                         * Format: date-time
+                         * @description When the places were taken: at once, or when a waitlist offer was claimed
+                         */
+                        confirmedAt: string | null;
                         /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
                         answers: {
                             [key: string]: string | boolean | string[];
@@ -12193,7 +12231,19 @@ export interface operations {
                         source: "invitation" | "open" | "staff";
                         /** Format: date-time */
                         cancelledAt: string | null;
-                        cancelledBy: null | ("attendee" | "staff");
+                        cancelledBy: null | ("attendee" | "staff" | "expired");
+                        /** @description Place in line while waitlisted (1 = next) */
+                        waitlistPosition: number | null;
+                        /**
+                         * Format: date-time
+                         * @description While offered: when the offer must be claimed
+                         */
+                        offerExpiresAt: string | null;
+                        /**
+                         * Format: date-time
+                         * @description When the places were taken: at once, or when a waitlist offer was claimed
+                         */
+                        confirmedAt: string | null;
                         /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
                         answers: {
                             [key: string]: string | boolean | string[];

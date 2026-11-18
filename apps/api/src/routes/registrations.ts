@@ -10,8 +10,8 @@ import { expectedVersion, setEtag } from "../plugins/etag.js";
 import { idempotent } from "../plugins/idempotency.js";
 import { csvField } from "./invitations.js";
 
-// Staff: an occurrence's registrations, an event's form and the door list (docs/registration.md,
-// "Admin interface"). Staff additions skip the registration window and the guest setting, but
+// Staff: an occurrence's registrations (with the waitlist), an event's form and the door list
+// (docs/registration.md, "Admin interface"). Staff additions skip the registration window and the guest setting, but
 // not the places. Sensitive answers are only returned with registrations.sensitive.
 
 const accountScoped = { security: [{ bearer: [], accountId: [] }] };
@@ -20,10 +20,11 @@ const writeErrors = { ...errors, 409: Problem, 412: Problem, 422: Problem, 428: 
 const IdParams = Type.Object({ id: Uuid });
 
 const iso = (d: Date) => d.toISOString();
-const dto = (r: registration.Registration, answers: registration.Answers, hidden: boolean) => ({
+const dto = (r: registration.Registration, answers: registration.Answers, hidden: boolean, rank: number | null) => ({
   id: r.id, eventId: r.eventId, occurrenceId: r.occurrenceId,
   name: r.anonymisedAt ? "" : r.name, email: r.anonymisedAt ? "" : r.email, locale: r.locale, partySize: r.partySize,
   status: r.status, source: r.source, cancelledAt: r.cancelledAt ? iso(r.cancelledAt) : null, cancelledBy: r.cancelledBy,
+  waitlistPosition: rank, offerExpiresAt: r.offerExpiresAt ? iso(r.offerExpiresAt) : null, confirmedAt: r.confirmedAt ? iso(r.confirmedAt) : null,
   answers, hiddenSensitiveAnswers: hidden,
   sensitiveConsentAt: r.sensitiveConsentAt ? iso(r.sensitiveConsentAt) : null, anonymisedAt: r.anonymisedAt ? iso(r.anonymisedAt) : null,
   version: r.version, createdAt: iso(r.createdAt), updatedAt: iso(r.updatedAt),
@@ -33,11 +34,13 @@ const dto = (r: registration.Registration, answers: registration.Answers, hidden
 async function withAnswers(tx: Tx, ctx: ActorContext, regs: registration.Registration[]) {
   const ids = regs.map((r) => r.id);
   const reader = { kind: "staff" as const, ctx };
-  const [answers, sensitive] = await Promise.all([
+  const waiting = regs.filter((r) => r.status === "waitlisted").map((r) => r.id);
+  const [answers, sensitive, ranks] = await Promise.all([
     registration.readAnswers(tx, ctx.tenantId, ids, reader),
     registration.canReadSensitive(reader) ? Promise.resolve(new Set<string>()) : registration.hasSensitiveAnswers(tx, ids),
+    registration.waitlistRanks(tx, waiting),
   ]);
-  return regs.map((r) => dto(r, answers.get(r.id) ?? {}, sensitive.has(r.id)));
+  return regs.map((r) => dto(r, answers.get(r.id) ?? {}, sensitive.has(r.id), ranks.get(r.id) ?? null));
 }
 const one = async (tx: Tx, ctx: ActorContext, r: registration.Registration) => (await withAnswers(tx, ctx, [r]))[0]!;
 
@@ -93,7 +96,7 @@ export const registrationRoutes: FastifyPluginAsyncTypebox = async (app) => {
     {
       schema: {
         operationId: "createRegistration", tags: ["registrations"], ...accountScoped,
-        summary: "Add someone by hand. Confirmed at once and emailed; 409 full when there is no place. Sensitive answers need registrations.sensitive",
+        summary: "Add someone by hand. Confirmed at once and emailed; 409 full when there is no place, unless waitlist is set. Sensitive answers need registrations.sensitive",
         params: IdParams, headers: Type.Object({ "idempotency-key": Type.Optional(Type.String({ minLength: 1, maxLength: 255 })) }),
         body: RegistrationCreate, response: { 201: Registration, ...writeErrors },
       },
@@ -135,7 +138,7 @@ export const registrationRoutes: FastifyPluginAsyncTypebox = async (app) => {
     "/registrations/:id/cancel",
     {
       schema: {
-        operationId: "cancelRegistration", tags: ["registrations"], ...accountScoped, summary: "Cancel and give the places back; the attendee is emailed. Cancelling twice is a no-op",
+        operationId: "cancelRegistration", tags: ["registrations"], ...accountScoped, summary: "Cancel and give the places back (they go to the waitlist); the attendee is emailed. Also removes someone from the waitlist. Cancelling twice is a no-op",
         params: IdParams, response: { 200: Registration, ...writeErrors },
       },
     },

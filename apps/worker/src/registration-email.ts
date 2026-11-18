@@ -6,7 +6,8 @@ import type { InternalHandler } from "./handlers.js";
 import type { Mail, Mailer } from "./identity/mailer.js";
 
 // Registration emails (docs/registration.md, "Email"): confirmation with the QR code,
-// change confirmation and cancellation confirmation, in the attendee's locale. One job per
+// change confirmation and cancellation confirmation, and for the waitlist: joined, a place
+// offered (with the claim deadline), offer expired and left the waitlist; in the attendee's locale. One job per
 // outbox event; the job key makes a redelivered event send once. The email always shows the
 // registration as it is when the job runs, so a quick change and cancel do not send stale
 // details. The account's own template (logo and colours) comes with account email settings.
@@ -19,21 +20,32 @@ export interface RegistrationEmailDeps {
   attendeeUrl: string;
 }
 
-export type EmailKind = "confirmed" | "changed" | "cancelled";
+export type EmailKind = "confirmed" | "changed" | "cancelled" | "waitlisted" | "offered" | "offerExpired" | "leftWaitlist";
+const EMAIL_KINDS: readonly EmailKind[] = ["confirmed", "changed", "cancelled", "waitlisted", "offered", "offerExpired", "leftWaitlist"];
 /** Notices about the occurrence itself, and the reminder before it (reminder.ts). */
 export type NoticeKind = "moved" | "occurrenceCancelled" | "restored" | "reminder";
 const KINDS: Record<string, EmailKind> = {
   "registration.confirmed.v1": "confirmed",
   "registration.changed.v1": "changed",
   "registration.cancelled.v1": "cancelled",
+  "registration.waitlisted.v1": "waitlisted",
+  "registration.offered.v1": "offered",
 };
+
+/** Pure: which email an outbox event sends; a cancellation reads differently for someone who was waiting. */
+export function emailKind(type: string, data: { by?: unknown; previousStatus?: unknown }): EmailKind | undefined {
+  const kind = KINDS[type];
+  if (kind !== "cancelled") return kind;
+  if (data.by === "expired") return "offerExpired";
+  return data.previousStatus === "waitlisted" || data.previousStatus === "offered" ? "leftWaitlist" : "cancelled";
+}
 
 export const queueRegistrationEmail: InternalHandler = {
   name: "registration-email",
   types: Object.keys(KINDS),
   async handle(tx, event, log) {
     const id = (event.data as { registrationId?: unknown }).registrationId;
-    const kind = KINDS[event.type];
+    const kind = emailKind(event.type, event.data as { by?: unknown; previousStatus?: unknown });
     if (typeof id !== "string" || !kind) return;
     // A change of locale only is not worth an email.
     const changed = (event.data as { changed?: unknown }).changed;
@@ -54,10 +66,16 @@ interface Payload {
 }
 const isPayload = (p: unknown): p is Payload =>
   typeof p === "object" && p !== null && typeof (p as Payload).tenantId === "string" && typeof (p as Payload).registrationId === "string" &&
-  ["confirmed", "changed", "cancelled"].includes((p as Payload).kind);
+  EMAIL_KINDS.includes((p as Payload).kind);
 
 const ESC: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 export const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ESC[c]!);
+
+/** A point in time, e.g. the claim deadline: "mandag 1. mars 2027, 18:00". */
+export function formatTime(locale: string, timezone: string, at: Date): string {
+  const lang = locale.startsWith("n") ? "nb-NO" : locale;
+  return new Intl.DateTimeFormat(lang, { timeZone: timezone, weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(at);
+}
 
 export function formatWhen(locale: string, timezone: string, start: Date, end: Date): string {
   const lang = locale.startsWith("n") ? "nb-NO" : locale;
@@ -84,6 +102,8 @@ export function registrationEmail(i: EmailInput): Omit<Mail, "to"> {
   const when = formatWhen(locale, target.event.timezone, target.occurrence.startUtc, target.occurrence.endUtc);
   const where = target.location ? [target.location.name, target.location.venue && target.location.venue !== target.location.name ? target.location.venue : null, target.location.address].filter(Boolean).join(", ") : null;
   const party = nb ? (reg.partySize === 1 ? "1 person" : `${reg.partySize} personer`) : reg.partySize === 1 ? "1 person" : `${reg.partySize} people`;
+  const deadline = reg.offerExpiresAt ? formatTime(locale, target.event.timezone, reg.offerExpiresAt) : "";
+  const rank = i.message.waitlistRank;
 
   const copy = {
     confirmed: {
@@ -123,6 +143,36 @@ export function registrationEmail(i: EmailInput): Omit<Mail, "to"> {
       lead: nb ? `Hei ${reg.name}, vi må dessverre avlyse ${title}. Du trenger ikke gjøre noe.` : `Hi ${reg.name}, unfortunately ${title} has been cancelled. You do not need to do anything.`,
       qr: "",
       link: nb ? "Påmeldingen din:" : "Your registration:",
+    },
+    waitlisted: {
+      subject: nb ? `På venteliste: ${title}` : `On the waitlist: ${title}`,
+      lead: nb
+        ? `Hei ${reg.name}, ${title} er fullt, så du står på ventelisten${rank ? ` som nummer ${rank}` : ""}. Blir det en plass ledig, får du en e-post med en frist for å ta den.`
+        : `Hi ${reg.name}, ${title} is full, so you are on the waitlist${rank ? ` as number ${rank}` : ""}. If a place comes free, we will email you with a deadline to claim it.`,
+      qr: "",
+      link: nb ? "Se plassen din i køen, eller meld deg av ventelisten:" : "See your place in line, or leave the waitlist:",
+    },
+    offered: {
+      subject: nb ? `Ledig plass: ${title}` : `A place for you: ${title}`,
+      lead: nb
+        ? `Hei ${reg.name}, en plass har blitt ledig på ${title}, og den er din hvis du tar den innen ${deadline}. Etter det går den til nestemann i køen.`
+        : `Hi ${reg.name}, a place has come free for ${title}, and it is yours if you claim it by ${deadline}. After that it goes to the next in line.`,
+      qr: "",
+      link: nb ? "Ta plassen, eller si fra deg den:" : "Claim the place, or let it go:",
+    },
+    offerExpired: {
+      subject: nb ? `Fristen gikk ut: ${title}` : `Offer expired: ${title}`,
+      lead: nb
+        ? `Hei ${reg.name}, plassen du ble tilbudt på ${title} ble ikke tatt innen fristen, så den har gått videre til nestemann i køen.`
+        : `Hi ${reg.name}, the place you were offered for ${title} was not claimed in time, so it has gone to the next in line.`,
+      qr: "",
+      link: nb ? "Detaljer:" : "Details:",
+    },
+    leftWaitlist: {
+      subject: nb ? `Avmeldt venteliste: ${title}` : `Left the waitlist: ${title}`,
+      lead: nb ? `Hei ${reg.name}, du står ikke lenger på ventelisten til ${title}.` : `Hi ${reg.name}, you are no longer on the waitlist for ${title}.`,
+      qr: "",
+      link: nb ? "Detaljer:" : "Details:",
     },
     cancelled: {
       subject: nb ? `Avbestilt: ${title}` : `Cancelled: ${title}`,
@@ -172,11 +222,17 @@ export function registrationEmailTask(db: Db, deps: RegistrationEmailDeps): Task
     const prepared = await withTenant(db, { tenantId: payload.tenantId }, async (tx) => {
       const message = await registration.loadMessage(tx, payload.registrationId);
       if (!message) return null;
+      const status = message.registration.status;
+      const ending = payload.kind === "cancelled" || payload.kind === "offerExpired" || payload.kind === "leftWaitlist";
       // A confirmation or change for a registration that was cancelled meanwhile: the cancellation email says it.
-      if (payload.kind !== "cancelled" && message.registration.status === "cancelled") return null;
+      if (!ending && status === "cancelled") return null;
+      // Waitlist news that is out of date by now: an offer already claimed or passed on, or a
+      // "you are on the waitlist" for someone who has an offer already (that email follows).
+      if (payload.kind === "waitlisted" && status !== "waitlisted") return null;
+      if (payload.kind === "offered" && status !== "offered") return null;
       const [manage, admission] = await Promise.all([
         registration.manageToken(tx, payload.tenantId, message.registration),
-        payload.kind === "cancelled" ? Promise.resolve(null) : registration.admissionToken(tx, payload.tenantId, message.registration),
+        ending ? Promise.resolve(null) : registration.admissionToken(tx, payload.tenantId, message.registration),
       ]);
       return { message, manage, admission };
     });

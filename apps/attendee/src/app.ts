@@ -46,8 +46,9 @@ class ApiProblem extends Error {
 }
 
 const iso = (d: Date) => d.toISOString();
-const registrationDto = ({ registration: r, answers }: AttendeeRegistrationResult) => ({
-  id: r.id, name: r.name, email: r.email, locale: r.locale, partySize: r.partySize, status: r.status, answers, createdAt: iso(r.createdAt),
+const registrationDto = ({ registration: r, answers, ...res }: AttendeeRegistrationResult) => ({
+  id: r.id, name: r.name, email: r.email, locale: r.locale, partySize: r.partySize, status: r.status,
+  waitlistPosition: res.waitlistPosition, offerExpiresAt: r.offerExpiresAt ? iso(r.offerExpiresAt) : null, answers, createdAt: iso(r.createdAt),
 });
 const detailsDto = (d: Details) => ({
   form: d.form,
@@ -167,7 +168,7 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
         "/occurrences/:id/registrations",
         {
           schema: {
-            operationId: "register", tags: ["registration"], summary: "Register; confirmed at once. Returns the manage token",
+            operationId: "register", tags: ["registration"], summary: "Register; confirmed at once, or on the waitlist when full (status waitlisted). Returns the manage token",
             params: Type.Object({ id: Type.String({ format: "uuid" }) }), body: AttendeeRegistrationCreate,
             response: { 201: AttendeeRegistrationCreated, ...writeErrors },
           },
@@ -215,13 +216,30 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
         "/registration/cancel",
         {
           schema: {
-            operationId: "cancelRegistration", tags: ["registration"], summary: "Cancel until the occurrence starts; the place goes back", security,
+            operationId: "cancelRegistration", tags: ["registration"], summary: "Cancel until the occurrence starts; the place goes back. Also leaves the waitlist or declines an offer", security,
             response: { 200: Type.Object({ registration: AttendeeRegistration }), ...writeErrors },
           },
         },
         async (req) => {
           rateLimited(req);
           const r = await svc.cancel(bearer(req));
+          if (!r) throw invalidToken();
+          return { registration: registrationDto(r) };
+        },
+      );
+
+      v1.post(
+        "/registration/claim",
+        {
+          schema: {
+            operationId: "claimOffer", tags: ["registration"], security,
+            summary: "Claim a waitlist offer before it expires: confirmed, with the QR code. 409 offer_expired after the deadline, no_offer without one",
+            response: { 200: Type.Object({ registration: AttendeeRegistration }), ...writeErrors },
+          },
+        },
+        async (req) => {
+          rateLimited(req);
+          const r = await svc.claim(bearer(req));
           if (!r) throw invalidToken();
           return { registration: registrationDto(r) };
         },

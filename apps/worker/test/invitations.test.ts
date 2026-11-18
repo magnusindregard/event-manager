@@ -159,7 +159,7 @@ describe("reminder before the event", () => {
     expect(job.rows[0]!.run_at.getTime()).toBe(occ.startUtc.getTime() - DAY);
 
     // The occurrence moves to 12 hours from now: the reminder is due at once.
-    await admin.query(`update registration.registration set created_at = now() - interval '2 days' where id = $1`, [reg.id]);
+    await admin.query(`update registration.registration set created_at = now() - interval '2 days', confirmed_at = now() - interval '2 days' where id = $1`, [reg.id]);
     const o = await run((tx) => catalog.getOccurrence(tx, occ.id));
     await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, o.version, { startUtc: new Date(Date.now() + DAY / 2), endUtc: new Date(Date.now() + DAY / 2 + 3_600_000) }));
     mailer.sent.length = 0;

@@ -445,8 +445,9 @@ export interface AcceptInput extends AnswerInput {
 
 /**
  * Accepts an invitation for one of the event's occurrences: a confirmed registration from
- * the invitation, whatever the occurrence's access policy. Throws already_registered when the
- * guest has accepted already, registration_closed outside the window and full without places.
+ * the invitation, whatever the occurrence's access policy, or a place on its waitlist when it is
+ * full. Throws already_registered when the guest has accepted already, registration_closed
+ * outside the window and full without places or waitlist.
  */
 export async function acceptInvitation(tx: Tx, tenantId: string, invitationId: string, input: AcceptInput, now: Date = new Date()): Promise<Registration> {
   const inv = await lockedInvitation(tx, invitationId);
@@ -460,7 +461,8 @@ export async function acceptInvitation(tx: Tx, tenantId: string, invitationId: s
   assertPartySize(partySize, effectiveGuestAllowed(inv, target.event), { kind: "attendee" });
   const locale = await pickLocale(tx, input.locale ?? inv.locale ?? undefined);
   const answers = await formAnswers(tx, inv.eventId, input, { kind: "attendee" });
-  const reg = await insertConfirmed(tx, tenantId, target, { name, email, locale, partySize, source: "invitation", invitationId: inv.id }, answers);
+  // Full: the guest joins the waitlist when the event has one (docs/registration.md, "Closed event", step 7).
+  const reg = await insertConfirmed(tx, tenantId, target, { name, email, locale, partySize, source: "invitation", invitationId: inv.id }, answers, { waitlist: true, now });
   await tx.updateTable("registration.guest_invitation")
     .set({ status: "accepted", responded_at: now, name: inv.name ?? name, version: sql<number>`version + 1` })
     .where("id", "=", inv.id).execute();

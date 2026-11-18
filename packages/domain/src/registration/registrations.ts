@@ -1,4 +1,4 @@
-import { newId, type RegistrationSource, type RegistrationStatus, sql, type Tx } from "@event-manager/db";
+import { type CancelledBy, newId, type RegistrationSource, type RegistrationStatus, sql, type Tx } from "@event-manager/db";
 import * as admission from "../admission/index.js";
 import * as catalog from "../catalog/index.js";
 import * as inventory from "../inventory/index.js";
@@ -7,12 +7,14 @@ import { type ActorContext, DomainError } from "../shared/index.js";
 import { assertCan, can, getAccount, recordAudit } from "../tenancy/index.js";
 import { type AnswerInput, checkAnswers, type CheckedAnswers, getForm, readAnswers, writeAnswers } from "./forms.js";
 import { issueToken, peekToken, verifyToken } from "./tokens.js";
+import { hasWaiting, promoteWaitlist, waitlistOpen, waitlistRanks } from "./waitlist.js";
 
 // Registrations (docs/registration.md, milestone 2): open registration from the hosted
 // pages, and staff adding people by hand. A registration is confirmed at once and takes its
 // party size from the occurrence's pool with the conditional update (ADR 0003), so the last
-// place goes to exactly one person. Waitlist (milestone 5) and invitations (milestone 3)
-// build on the same rows.
+// place goes to exactly one person. When the occurrence is full and the event has a waitlist,
+// the registration joins the waitlist instead (waitlist.ts, milestone 5); invitations
+// (milestone 3) build on the same rows.
 
 export interface Registration {
   id: string;
@@ -27,7 +29,12 @@ export interface Registration {
   status: RegistrationStatus;
   source: RegistrationSource;
   cancelledAt: Date | null;
-  cancelledBy: "attendee" | "staff" | null;
+  /** expired: a waitlist offer that was not claimed in time. */
+  cancelledBy: CancelledBy | null;
+  /** While offered: when the offer must be claimed. */
+  offerExpiresAt: Date | null;
+  /** When the places were taken: at once, or when a waitlist offer was claimed. */
+  confirmedAt: Date | null;
   tokenVersion: number;
   /** When the reminder before the event went out. */
   remindedAt: Date | null;
@@ -52,6 +59,11 @@ export interface RegistrationInput extends AnswerInput {
   locale?: string;
   /** 1, or 2 with a guest. */
   partySize?: number;
+  /**
+   * Staff: join the waitlist when the occurrence is full, instead of failing with full.
+   * Attendees always join it when the event has one.
+   */
+  waitlist?: boolean;
 }
 
 export interface RegistrationPatch {
@@ -65,18 +77,19 @@ export interface RegistrationPatch {
 
 const columns = [
   "id", "event_id", "occurrence_id", "invitation_id", "name", "email", "locale", "party_size", "status", "source", "cancelled_at", "cancelled_by",
-  "token_version", "reminded_at", "form_version", "sensitive_consent_at", "anonymised_at", "version", "created_at", "updated_at",
+  "offer_hold_id", "offer_expires_at", "confirmed_at", "token_version", "reminded_at", "form_version", "sensitive_consent_at", "anonymised_at", "version", "created_at", "updated_at",
 ] as const;
 type Row = {
   id: string; event_id: string; occurrence_id: string; invitation_id: string | null; name: string | null; email: string | null; locale: string; party_size: number;
-  status: RegistrationStatus; source: RegistrationSource; cancelled_at: Date | null; cancelled_by: "attendee" | "staff" | null;
-  token_version: number; reminded_at: Date | null; form_version: number | null; sensitive_consent_at: Date | null; anonymised_at: Date | null;
+  status: RegistrationStatus; source: RegistrationSource; cancelled_at: Date | null; cancelled_by: CancelledBy | null;
+  offer_hold_id: string | null; offer_expires_at: Date | null; confirmed_at: Date | null; token_version: number; reminded_at: Date | null; form_version: number | null; sensitive_consent_at: Date | null; anonymised_at: Date | null;
   version: number; created_at: Date; updated_at: Date;
 };
 
 const toRegistration = (r: Row): Registration => ({
   id: r.id, eventId: r.event_id, occurrenceId: r.occurrence_id, invitationId: r.invitation_id, name: r.name ?? "", email: r.email ?? "", locale: r.locale, partySize: r.party_size,
-  status: r.status, source: r.source, cancelledAt: r.cancelled_at, cancelledBy: r.cancelled_by, tokenVersion: r.token_version,
+  status: r.status, source: r.source, cancelledAt: r.cancelled_at, cancelledBy: r.cancelled_by,
+  offerExpiresAt: r.offer_expires_at, confirmedAt: r.confirmed_at, tokenVersion: r.token_version,
   remindedAt: r.reminded_at, formVersion: r.form_version, sensitiveConsentAt: r.sensitive_consent_at, anonymisedAt: r.anonymised_at,
   version: r.version, createdAt: r.created_at, updatedAt: r.updated_at,
 });
@@ -112,14 +125,23 @@ const pgCode = (e: unknown) => (typeof e === "object" && e !== null && "code" in
  * starts, also when staff cancelled the occurrence or event: registrations are kept then, and the
  * attendee must still be able to withdraw (and free the places if it is restored).
  */
-export function attendeeRights(reg: Pick<Registration, "status">, target: catalog.RegistrationTarget, now: Date): { change: boolean; cancel: boolean } {
+export function attendeeRights(
+  reg: Pick<Registration, "status" | "offerExpiresAt">, target: catalog.RegistrationTarget, now: Date,
+): { change: boolean; cancel: boolean; claim: boolean } {
   const held = reg.status !== "cancelled";
   const active = held && target.occurrence.status === "scheduled" && target.event.status === "published";
   const { closesAt } = catalog.registrationWindow(target.occurrence.startUtc, target.event.opensMinBefore, target.event.closesMinBefore);
-  return { change: active && now < closesAt, cancel: held && target.event.status !== "archived" && now < target.occurrence.startUtc };
+  // A waitlist offer can be claimed until it expires, also after registration has closed (offers
+  // stop at the waitlist cutoff, and the deadline is always before the start).
+  const claim = active && reg.status === "offered" && !!reg.offerExpiresAt && now < reg.offerExpiresAt && now < target.occurrence.startUtc;
+  return { change: active && now < closesAt, cancel: held && target.event.status !== "archived" && now < target.occurrence.startUtc, claim };
 }
 
-/** Registers for an occurrence. Throws full, registration_closed, already_registered or invitation_required. */
+/**
+ * Registers for an occurrence. When it is full, the registration joins the waitlist if the event
+ * has one that is still open (always for attendees; for staff only when they ask). Throws full,
+ * registration_closed, already_registered or invitation_required.
+ */
 export async function register(
   tx: Tx, tenantId: string, occurrenceId: string, input: RegistrationInput, actor: Actor, now: Date = new Date(),
 ): Promise<Registration> {
@@ -137,9 +159,12 @@ export async function register(
   assertPartySize(partySize, target.event.guestAllowed, actor);
   const locale = await pickLocale(tx, input.locale);
   const { form, answers } = await formAnswers(tx, target.event.id, input, actor);
-  const reg = await insertConfirmed(tx, tenantId, target, { name, email, locale, partySize, source: actor.kind === "staff" ? "staff" : "open", invitationId: null }, { form, answers });
+  const reg = await insertConfirmed(
+    tx, tenantId, target, { name, email, locale, partySize, source: actor.kind === "staff" ? "staff" : "open", invitationId: null }, { form, answers },
+    { waitlist: actor.kind === "attendee" || input.waitlist === true, now },
+  );
   if (actor.kind === "staff") {
-    await recordAudit(tx, actor.ctx, { action: "registration.created", entityType: "event", entityId: target.event.id, diff: { registrationId: reg.id, occurrenceId, partySize } });
+    await recordAudit(tx, actor.ctx, { action: "registration.created", entityType: "event", entityId: target.event.id, diff: { registrationId: reg.id, occurrenceId, partySize, status: reg.status } });
   }
   return reg;
 }
@@ -162,22 +187,25 @@ export async function formAnswers(tx: Tx, eventId: string, input: AnswerInput, a
 }
 
 /**
- * Internal: inserts a confirmed registration with its answers, takes its places, issues the
- * admission and emits registration.confirmed. The caller has checked who may register, the
- * window and the answers.
+ * Internal: inserts a registration with its answers and takes its places: confirmed, with its
+ * admission and registration.confirmed. When the places do not fit and opts.waitlist allows it
+ * and the event's waitlist is open, it joins the waitlist instead (registration.waitlisted);
+ * otherwise it throws full. The caller has checked who may register, the window and the answers.
  */
 export async function insertConfirmed(
   tx: Tx, tenantId: string, target: catalog.RegistrationTarget,
   r: { name: string; email: string; locale: string; partySize: number; source: RegistrationSource; invitationId: string | null },
   a?: { form: Awaited<ReturnType<typeof getForm>>; answers: CheckedAnswers },
+  opts: { waitlist?: boolean; now?: Date } = {},
 ): Promise<Registration> {
   const id = newId();
+  const now = opts.now ?? new Date();
   const occurrenceId = target.occurrence.id;
   const row = await tx
     .insertInto("registration.registration")
     .values({
       id, tenant_id: tenantId, event_id: target.event.id, occurrence_id: occurrenceId, invitation_id: r.invitationId,
-      name: r.name, email: r.email, locale: r.locale, party_size: r.partySize, status: "confirmed", source: r.source,
+      name: r.name, email: r.email, locale: r.locale, party_size: r.partySize, status: "confirmed", source: r.source, confirmed_at: sql<Date>`now()`,
     })
     .returning(columns)
     .executeTakeFirstOrThrow()
@@ -185,25 +213,61 @@ export async function insertConfirmed(
       if (pgCode(e) === "23505") throw new DomainError("already_registered", "This email address is already registered for this occurrence");
       throw e;
     });
-  // Fails without changing anything if the places do not fit; the transaction then rolls back.
-  if (!(await inventory.takePlaces(tx, occurrenceId, r.partySize))) throw new DomainError("full", "There are no places left");
+  // People already waiting go first: places that came free are offered to them before a
+  // newcomer can take them.
+  if (await hasWaiting(tx, occurrenceId)) await promoteWaitlist(tx, tenantId, occurrenceId, now);
+  // Fails without changing anything if the places do not fit.
+  const confirmed = await inventory.takePlaces(tx, occurrenceId, r.partySize);
+  if (!confirmed) {
+    // The transaction then rolls back.
+    if (!opts.waitlist || !waitlistOpen(target, now)) throw new DomainError("full", "There are no places left");
+    Object.assign(row, await tx.updateTable("registration.registration")
+      .set({ status: "waitlisted", confirmed_at: null, waitlist_position: sql<string>`nextval('registration.waitlist_seq')` })
+      .where("id", "=", id).returning(["status", "confirmed_at"]).executeTakeFirstOrThrow());
+  }
   if (a && a.form.version > 0) {
     await writeAnswers(tx, tenantId, id, a.form, a.answers);
     Object.assign(row, await tx.selectFrom("registration.registration").select(["form_version", "sensitive_consent_at"]).where("id", "=", id).executeTakeFirstOrThrow());
   }
-  await admission.issueAdmission(tx, tenantId, id, occurrenceId, r.partySize);
+  if (confirmed) await admission.issueAdmission(tx, tenantId, id, occurrenceId, r.partySize);
   await catalog.detachForRegistrations(tx, occurrenceId);
+  const status = confirmed ? "confirmed" : "waitlisted";
   await emit(tx, tenantId, {
-    type: "registration.confirmed.v1", subject: `registration/${id}`,
+    type: `registration.${status}.v1`, subject: `registration/${id}`,
     data: {
-      registrationId: id, occurrenceId, eventId: target.event.id, status: "confirmed", partySize: r.partySize, source: r.source,
+      registrationId: id, occurrenceId, eventId: target.event.id, status, partySize: r.partySize, source: r.source,
       ...(r.invitationId ? { invitationId: r.invitationId } : {}),
     },
   });
   return toRegistration(row);
 }
 
-async function locked(tx: Tx, id: string): Promise<Registration> {
+/**
+ * Locks the occurrence's capacity pool and then the registration, for changes that may touch the
+ * pool (places, holds, promotion). Every such path takes the pool first, as promotion does, so
+ * they queue on the pool and never hold the row while waiting for it, whatever status the row
+ * moves to meanwhile. The occurrence of a registration never changes, so reading it unlocked is safe.
+ */
+export async function lockedWithPool(tx: Tx, id: string): Promise<Registration> {
+  const r = await tx.selectFrom("registration.registration").select("occurrence_id").where("id", "=", id).executeTakeFirst();
+  if (!r) throw new DomainError("not_found", "Registration not found");
+  await lockPool(tx, r.occurrence_id);
+  return locked(tx, id);
+}
+
+/**
+ * Locks an occurrence's capacity pool, after a key share lock on the occurrence itself. Editing an
+ * occurrence locks it and then its pool, and inserting an admission or hold takes a key share on
+ * the occurrence for its foreign key; taking that share first keeps the order occurrence, pool,
+ * registrations for everyone. Returns the pool's id, or undefined for an occurrence without one.
+ */
+export async function lockPool(tx: Tx, occurrenceId: string): Promise<string | undefined> {
+  await tx.selectFrom("catalog.occurrence").select("id").where("id", "=", occurrenceId).forKeyShare().execute();
+  const pool = await tx.selectFrom("inventory.capacity_pool").select("id").where("occurrence_id", "=", occurrenceId).forUpdate().executeTakeFirst();
+  return pool?.id;
+}
+
+export async function locked(tx: Tx, id: string): Promise<Registration> {
   const row = await tx.selectFrom("registration.registration").select(columns).where("id", "=", id).forUpdate().executeTakeFirst();
   if (!row) throw new DomainError("not_found", "Registration not found");
   return toRegistration(row);
@@ -215,7 +279,8 @@ export async function updateRegistration(
 ): Promise<Registration> {
   if (actor.kind === "staff") assertCan(actor.ctx, "registrations.write");
   const now = opts.now ?? new Date();
-  const before = await locked(tx, id);
+  // A party size change takes or gives back places, or promotes the line: pool first.
+  const before = patch.partySize !== undefined ? await lockedWithPool(tx, id) : await locked(tx, id);
   if (opts.expectedVersion !== undefined && opts.expectedVersion !== before.version) {
     throw new DomainError("version_conflict", "Registration was changed by someone else", { currentVersion: before.version });
   }
@@ -246,15 +311,25 @@ export async function updateRegistration(
   if (changed.length === 0) return before;
 
   const delta = partySize - before.partySize;
-  if (delta > 0 && !(await inventory.takePlaces(tx, before.occurrenceId, delta))) throw new DomainError("full", "There is no place left for a guest");
-  if (delta < 0) await inventory.releasePlaces(tx, before.occurrenceId, -delta);
+  // An offer holds exactly the party's places: claim it (or decline it) first.
+  if (delta !== 0 && before.status === "offered") throw new DomainError("conflict", "Claim the offered place before changing the party size", { field: "partySize" });
+  // Only confirmed registrations hold places; a waiting one just changes the size it waits for.
+  const holdsPlaces = before.status === "confirmed";
+  if (holdsPlaces && delta > 0 && !(await inventory.takePlaces(tx, before.occurrenceId, delta))) throw new DomainError("full", "There is no place left for a guest");
+  if (holdsPlaces && delta < 0) await inventory.releasePlaces(tx, before.occurrenceId, -delta);
   const row = await tx
     .updateTable("registration.registration")
     .set({ name, party_size: partySize, locale, version: sql<number>`version + 1` })
     .where("id", "=", id)
     .returning(columns)
     .executeTakeFirstOrThrow();
-  if (delta !== 0) await admission.setAdmissionPartySize(tx, id, partySize);
+  if (holdsPlaces && delta !== 0) await admission.setAdmissionPartySize(tx, id, partySize);
+  // The place given back, or a waiting party that now fits, goes to the first in line whose party fits.
+  if (delta < 0 && (holdsPlaces || before.status === "waitlisted")) {
+    const { offered } = await promoteWaitlist(tx, tenantId, before.occurrenceId, now);
+    // Promotion may have offered this very registration a place: return (and announce) that.
+    if (offered.includes(id)) Object.assign(row, await tx.selectFrom("registration.registration").select(columns).where("id", "=", id).executeTakeFirstOrThrow());
+  }
   if (newAnswers) {
     await writeAnswers(tx, tenantId, id, newAnswers.form, newAnswers.answers, { keepSensitive, now });
     Object.assign(row, await tx.selectFrom("registration.registration").select(["form_version", "sensitive_consent_at"]).where("id", "=", id).executeTakeFirstOrThrow());
@@ -279,24 +354,42 @@ export async function guestAllowedFor(tx: Tx, reg: Pick<Registration, "invitatio
   return r?.guest_allowed ?? target.event.guestAllowed;
 }
 
-/** Cancels and gives the places back. Cancelling twice is a no-op. */
+/**
+ * Cancels and gives the places back (a confirmed registration's, or the hold behind an offer),
+ * which then go to the first in line on the waitlist. Leaving the waitlist is cancelling too.
+ * Cancelling twice is a no-op.
+ */
 export async function cancelRegistration(tx: Tx, tenantId: string, id: string, actor: Actor, now: Date = new Date()): Promise<Registration> {
   if (actor.kind === "staff") assertCan(actor.ctx, "registrations.write");
-  const before = await locked(tx, id);
+  const before = await lockedWithPool(tx, id);
   if (before.status === "cancelled") return before;
   if (actor.kind === "attendee") {
     const target = await catalog.getRegistrationTarget(tx, before.occurrenceId);
     if (!attendeeRights(before, target, now).cancel) throw new DomainError("registration_closed", "The registration can no longer be cancelled");
   }
+  // Read before the update below clears it.
+  const holdId = before.status === "offered"
+    ? (await tx.selectFrom("registration.registration").select("offer_hold_id").where("id", "=", id).executeTakeFirst())?.offer_hold_id ?? null
+    : null;
   const row = await tx
     .updateTable("registration.registration")
-    .set({ status: "cancelled", cancelled_at: now, cancelled_by: actor.kind, version: sql<number>`version + 1` })
+    .set({
+      status: "cancelled", cancelled_at: now, cancelled_by: actor.kind, waitlist_position: null, offer_hold_id: null, offer_expires_at: null,
+      version: sql<number>`version + 1`,
+    })
     .where("id", "=", id)
     .returning(columns)
     .executeTakeFirstOrThrow();
-  // Only confirmed registrations hold places (waitlisted ones arrive in milestone 5).
-  if (before.status === "confirmed") await inventory.releasePlaces(tx, before.occurrenceId, before.partySize);
+  // Confirmed registrations hold places, offers a hold; waiting ones hold nothing.
+  let freed = false;
+  if (before.status === "confirmed") {
+    await inventory.releasePlaces(tx, before.occurrenceId, before.partySize);
+    freed = true;
+  } else if (holdId) {
+    freed = await inventory.endHold(tx, holdId, false, now);
+  }
   await admission.voidAdmission(tx, id);
+  if (freed) await promoteWaitlist(tx, tenantId, before.occurrenceId, now);
   // An invited guest who cancels has said no; the invitation link still lets them change their mind.
   if (before.invitationId) {
     await tx.updateTable("registration.guest_invitation").set({ status: "declined", responded_at: now, version: sql<number>`version + 1` })
@@ -304,7 +397,7 @@ export async function cancelRegistration(tx: Tx, tenantId: string, id: string, a
   }
   await emit(tx, tenantId, {
     type: "registration.cancelled.v1", subject: `registration/${id}`,
-    data: { registrationId: id, occurrenceId: before.occurrenceId, eventId: before.eventId, status: "cancelled", partySize: before.partySize, by: actor.kind },
+    data: { registrationId: id, occurrenceId: before.occurrenceId, eventId: before.eventId, status: "cancelled", previousStatus: before.status, partySize: before.partySize, by: actor.kind },
   });
   if (actor.kind === "staff") {
     await recordAudit(tx, actor.ctx, { action: "registration.cancelled", entityType: "event", entityId: before.eventId, diff: { registrationId: id, occurrenceId: before.occurrenceId } });
@@ -373,14 +466,18 @@ export interface RegistrationMessage {
   registration: Registration;
   target: catalog.RegistrationTarget;
   account: { name: string; defaultLocale: string };
+  /** Position in line while waitlisted; null otherwise. */
+  waitlistRank: number | null;
 }
 
 export async function loadMessage(tx: Tx, id: string): Promise<RegistrationMessage | null> {
   const row = await tx.selectFrom("registration.registration").select(columns).where("id", "=", id).executeTakeFirst();
   // Nothing to send to an anonymised registration.
   if (!row || row.anonymised_at) return null;
-  const [target, account] = await Promise.all([catalog.getRegistrationTarget(tx, row.occurrence_id), getAccount(tx)]);
-  return { registration: toRegistration(row), target, account: { name: account.name, defaultLocale: account.defaultLocale } };
+  const [target, account, ranks] = await Promise.all([
+    catalog.getRegistrationTarget(tx, row.occurrence_id), getAccount(tx), row.status === "waitlisted" ? waitlistRanks(tx, [id]) : Promise.resolve(new Map<string, number>()),
+  ]);
+  return { registration: toRegistration(row), target, account: { name: account.name, defaultLocale: account.defaultLocale }, waitlistRank: ranks.get(id) ?? null };
 }
 
 // ── Reminder before the event ─────────────────────────────────────────────────
@@ -390,24 +487,27 @@ export async function loadMessage(tx: Tx, id: string): Promise<RegistrationMessa
  * already, cancelled, started, or registered after the reminder time (the confirmation was
  * the reminder).
  */
-export function reminderTime(reg: { status: RegistrationStatus; remindedAt: Date | null; createdAt: Date }, target: catalog.RegistrationTarget, now: Date): Date | null {
+export function reminderTime(
+  reg: { status: RegistrationStatus; remindedAt: Date | null; createdAt: Date; confirmedAt?: Date | null }, target: catalog.RegistrationTarget, now: Date,
+): Date | null {
   const before = target.event.reminderMinBefore;
   if (before === null || reg.remindedAt || reg.status !== "confirmed") return null;
   if (target.occurrence.status !== "scheduled" || target.event.status !== "published" || target.occurrence.startUtc <= now) return null;
   const at = new Date(target.occurrence.startUtc.getTime() - before * 60_000);
-  return reg.createdAt >= at ? null : at;
+  // A place claimed from the waitlist counts from the claim.
+  return (reg.confirmedAt ?? reg.createdAt) >= at ? null : at;
 }
 
 /** When to remind each of these confirmed registrations; for queueing reminder jobs. */
 export async function reminderTimes(tx: Tx, registrationIds: readonly string[], now: Date = new Date()): Promise<{ id: string; runAt: Date }[]> {
   if (registrationIds.length === 0) return [];
-  const rows = await tx.selectFrom("registration.registration").select(["id", "occurrence_id", "status", "reminded_at", "created_at"]).where("id", "in", registrationIds).execute();
+  const rows = await tx.selectFrom("registration.registration").select(["id", "occurrence_id", "status", "reminded_at", "created_at", "confirmed_at"]).where("id", "in", registrationIds).execute();
   const targets = new Map<string, catalog.RegistrationTarget>();
   const out: { id: string; runAt: Date }[] = [];
   for (const r of rows) {
     if (r.status !== "confirmed" || r.reminded_at) continue;
     if (!targets.has(r.occurrence_id)) targets.set(r.occurrence_id, await catalog.getRegistrationTarget(tx, r.occurrence_id));
-    const at = reminderTime({ status: r.status, remindedAt: r.reminded_at, createdAt: r.created_at }, targets.get(r.occurrence_id)!, now);
+    const at = reminderTime({ status: r.status, remindedAt: r.reminded_at, createdAt: r.created_at, confirmedAt: r.confirmed_at }, targets.get(r.occurrence_id)!, now);
     if (at) out.push({ id: r.id, runAt: at });
   }
   return out;

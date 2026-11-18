@@ -7,7 +7,8 @@ import { notFound } from "./shared.js";
 // "Public API"). One pure function, used by the public API, the attendee API and the
 // registration module, so they never disagree about "open".
 
-export type AvailabilityStatus = "available" | "few_left" | "full" | "closed";
+/** waitlist: full, but people can still join the waitlist and may be offered a place. */
+export type AvailabilityStatus = "available" | "few_left" | "full" | "waitlist" | "closed";
 
 export interface Availability {
   status: AvailabilityStatus;
@@ -25,6 +26,22 @@ export interface AvailabilityInput {
   closesMinBefore: number;
   /** Null: no pool, so no registration. */
   pool: Pick<inventory.Pool, "bookableLimit" | "available"> | null;
+  /** The event's waitlist; left out or disabled: none. */
+  waitlist?: { enabled: boolean; cutoffMinBefore: number };
+}
+
+/** No waitlist offers from this time on; joining the waitlist after it would be pointless. */
+export const waitlistCutoff = (startUtc: Date, cutoffMinBefore: number) => new Date(startUtc.getTime() - cutoffMinBefore * 60_000);
+
+/**
+ * Pure: when a waitlist offer made now must be claimed. The event's claim window, shortened to
+ * half the time left before the occurrence starts when that is less, so an offer made close to
+ * the start still leaves time for the next in line.
+ */
+export function claimDeadline(now: Date, startUtc: Date, claimWindowMin: number): Date {
+  const window = claimWindowMin * 60_000;
+  const half = Math.max(0, Math.floor((startUtc.getTime() - now.getTime()) / 2));
+  return new Date(now.getTime() + Math.min(window, half));
 }
 
 export const registrationWindow = (startUtc: Date, opensMinBefore: number | null, closesMinBefore: number) => ({
@@ -44,7 +61,10 @@ export function availabilityOf(i: AvailabilityInput): Availability {
   if (!open) return { status: "closed", opensAt, closesAt };
   const { bookableLimit, available } = i.pool!;
   if (bookableLimit === null || available === null) return { status: "available", opensAt, closesAt };
-  if (available <= 0) return { status: "full", opensAt, closesAt };
+  if (available <= 0) {
+    const w = i.waitlist;
+    return { status: w?.enabled && i.now < waitlistCutoff(i.startUtc, w.cutoffMinBefore) ? "waitlist" : "full", opensAt, closesAt };
+  }
   return { status: available <= fewLeftThreshold(bookableLimit) ? "few_left" : "available", opensAt, closesAt };
 }
 
@@ -62,6 +82,9 @@ export interface RegistrationTarget {
     guestAllowed: boolean;
     opensMinBefore: number | null;
     closesMinBefore: number;
+    waitlistEnabled: boolean;
+    claimWindowMin: number;
+    waitlistCutoffMin: number;
     /** Reminder to confirmed attendees this many minutes before start; null: none. */
     reminderMinBefore: number | null;
     translations: Record<string, { title: string; shortDescription: string | null; imageUrl: string | null; imageAlt: string | null }>;
@@ -77,7 +100,7 @@ export async function getRegistrationTarget(tx: Tx, occurrenceId: string): Promi
     .select([
       "o.id", "o.event_id", "o.series_id", "o.start_utc", "o.end_utc", "o.status as occ_status", "o.access_policy_override",
       "e.slug", "e.status", "e.timezone", "e.admission_mode", "e.access_policy", "e.guest_allowed", "e.registration_opens_min", "e.registration_closes_min",
-      "e.reminder_min_before",
+      "e.reminder_min_before", "e.waitlist_enabled", "e.claim_window_min", "e.waitlist_cutoff_min",
     ])
     .where("o.id", "=", occurrenceId)
     .executeTakeFirst();
@@ -110,6 +133,9 @@ export async function getRegistrationTarget(tx: Tx, occurrenceId: string): Promi
       guestAllowed: row.guest_allowed,
       opensMinBefore: row.registration_opens_min,
       closesMinBefore: row.registration_closes_min,
+      waitlistEnabled: row.waitlist_enabled,
+      claimWindowMin: row.claim_window_min,
+      waitlistCutoffMin: row.waitlist_cutoff_min,
       reminderMinBefore: row.reminder_min_before,
       translations: Object.fromEntries(translations.map((t) => [t.locale, { title: t.title, shortDescription: t.short_description, imageUrl: t.image_url, imageAlt: t.image_alt }])),
     },
@@ -122,6 +148,7 @@ export const targetAvailability = (t: RegistrationTarget, now: Date): Availabili
   availabilityOf({
     now, startUtc: t.occurrence.startUtc, eventStatus: t.event.status, occurrenceStatus: t.occurrence.status,
     opensMinBefore: t.event.opensMinBefore, closesMinBefore: t.event.closesMinBefore, pool: t.pool,
+    waitlist: { enabled: t.event.waitlistEnabled, cutoffMinBefore: t.event.waitlistCutoffMin },
   });
 
 /**

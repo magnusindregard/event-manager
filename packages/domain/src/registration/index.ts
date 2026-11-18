@@ -1,4 +1,5 @@
 export * from "./registrations.js";
+export * from "./waitlist.js";
 export * from "./invitations.js";
 export * from "./import.js";
 export * from "./forms.js";

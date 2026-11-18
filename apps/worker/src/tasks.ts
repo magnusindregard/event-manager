@@ -10,6 +10,7 @@ import { REGISTRATION_EMAIL_TASK, type RegistrationEmailDeps, registrationEmailT
 import { REMINDER_TASK, reminderTask } from "./reminder.js";
 import { RETENTION_TASK, retentionTask } from "./retention.js";
 import { RESOLVE_TASK, resolveTask } from "./resolver.js";
+import { OFFER_EXPIRY_TASK, offerExpiryTask } from "./waitlist.js";
 
 interface DispatchPayload {
   eventId: string;
@@ -46,6 +47,7 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
     [HORIZON_TASK]: horizonTask(db),
     [RESOLVE_TASK]: resolveTask(db),
     [RETENTION_TASK]: retentionTask(db),
+    [OFFER_EXPIRY_TASK]: offerExpiryTask(db),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
     ...(registrationEmail
       ? {

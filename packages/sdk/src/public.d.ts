@@ -158,8 +158,8 @@ export interface operations {
                                 url: string | null;
                             };
                             availability: null | {
-                                /** @description closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added */
-                                status: "available" | "few_left" | "full" | "closed";
+                                /** @description waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added */
+                                status: "available" | "few_left" | "full" | "waitlist" | "closed";
                                 /**
                                  * Format: date-time
                                  * @description Null: open as soon as the event is published
@@ -485,8 +485,8 @@ export interface operations {
                                     url: string | null;
                                 };
                                 availability: null | {
-                                    /** @description closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added */
-                                    status: "available" | "few_left" | "full" | "closed";
+                                    /** @description waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added */
+                                    status: "available" | "few_left" | "full" | "waitlist" | "closed";
                                     /**
                                      * Format: date-time
                                      * @description Null: open as soon as the event is published

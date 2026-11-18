@@ -10,7 +10,8 @@ import { type AttendeeService, type Details, type InvitationDetails, preferredLo
 // Hosted attendee pages (docs/registration.md, "Attendee pages"):
 //   /r/{occurrence}  open registration
 //   /i/{token}       an invitation: pick a time and accept, or decline
-//   /m/{token}       see, change or cancel a registration
+//   /m/{token}       see, change or cancel a registration; leave the waitlist, or claim or
+//                    decline a waitlist offer (the offer email links here)
 // Forms post back to the same URL and redirect (post/redirect/get). Basic bot protection:
 // a hidden honeypot field, a minimum time on the form and a per-IP rate limit on posts.
 
@@ -63,9 +64,11 @@ const langLinks = (d: Details, base: string) =>
 const answerInput = (fields: Details["form"]["fields"], form: Form) => ({ answers: answersFromForm(fields, form as FormValues), consent: form.consent === "1" });
 
 function registrationForm(d: Details, t: Texts, action: string, values: Form, error: string | null, now: Date, fieldError: FieldError): Raw {
+  const waitlist = d.availability.status === "waitlist";
   return html`
 <form class="card" method="post" action="${action}" novalidate>
-  <h2 style="margin-top:0">${t.registerFor} ${d.title}</h2>
+  <h2 style="margin-top:0">${waitlist ? t.joinWaitlistFor : t.registerFor} ${d.title}</h2>
+  ${waitlist ? html`<p class="muted">${t.waitlistHelp}</p>` : ""}
   ${error ? html`<p class="notice error" role="alert">${error}</p>` : ""}
   <input type="hidden" name="locale" value="${d.locale}">
   <input type="hidden" name="t" value="${now.getTime()}">
@@ -77,7 +80,7 @@ function registrationForm(d: Details, t: Texts, action: string, values: Form, er
   <p class="help" id="email-help">${t.emailHelp}</p>
   ${d.target.event.guestAllowed ? html`<label class="check"><input type="checkbox" name="guest" value="1"${values.guest ? raw(" checked") : ""}> ${t.guest}</label>` : ""}
   ${formFields(d.form, t, d.locale, d.account.name, values, fieldError)}
-  <button type="submit">${t.submit}</button>
+  <button type="submit">${waitlist ? t.joinWaitlist : t.submit}</button>
 </form>`;
 }
 
@@ -113,6 +116,19 @@ function invitationForm(d: InvitationDetails, t: Texts, action: string, values: 
     ${inv.status !== "declined" ? html`<button type="submit" name="answer" value="decline" class="secondary" formnovalidate>${t.decline}</button>` : ""}
   </div>
 </form>`;
+}
+
+/** The registration's status at the top of the manage page. */
+function statusBlock(reg: { status: string; cancelledBy: string | null; confirmedAt: Date | null }, position: number | null, t: Texts): Raw {
+  if (reg.status === "waitlisted") {
+    return html`<p><span class="status waitlisted">${t.onWaitlist}</span></p>${position ? html`<p>${t.waitlistPosition(position)}</p>` : ""}`;
+  }
+  if (reg.status === "offered") return html`<p><span class="status offered">${t.offered}</span></p>`;
+  if (reg.status === "cancelled") {
+    const text = reg.cancelledBy === "expired" ? t.offerExpired : reg.confirmedAt === null ? t.leftWaitlist : t.cancelledRegistration;
+    return html`<p><span class="status cancelled">${text}</span></p>`;
+  }
+  return html`<p><span class="status available">${t.confirmed}</span></p>`;
 }
 
 export function registerPages(app: FastifyInstance, svc: AttendeeService, limiter: RateLimiter) {
@@ -173,7 +189,7 @@ ${invitationForm(d, t, base, values, n && "error" in n ? errorField(n.error) : n
     const t = textsFor(d.locale);
     const id = d.target.occurrence.id;
     const now = d.now;
-    const canRegister = d.target.event.accessPolicy === "open" && (d.availability.status === "available" || d.availability.status === "few_left");
+    const canRegister = d.target.event.accessPolicy === "open" && ["available", "few_left", "waitlist"].includes(d.availability.status);
     const body = html`
 ${eventBlock(d)}
 ${availabilityBadge(d, t)}
@@ -207,22 +223,34 @@ ${canRegister || error ? registrationForm(d, t, `/r/${id}`, values, error, now, 
   });
 
   /** notice: a success message key, or an error (a DomainError or a key of the error texts). */
-  type Notice = { ok: "welcome" | "saved" | "cancelled" } | { error: unknown } | null;
+  type Notice = { ok: "welcome" | "saved" | "cancelled" | "claimed" } | { error: unknown } | null;
   const renderManage = async (reply: FastifyReply, token: string, locale: string | undefined, n: Notice, status = 200, posted: Form | null = null) => {
     const v = await svc.view(token, locale);
     if (!v) return notFound(reply, locale ?? "en", true);
     const d = v.details;
     const t = textsFor(d.locale);
     const notice = !n ? null
-      : "ok" in n ? { text: n.ok === "welcome" ? t.confirmedLead : n.ok === "saved" ? t.saved : t.cancelledRegistration, error: false }
+      : "ok" in n ? {
+          text: n.ok === "welcome" ? (v.registration.status === "confirmed" ? t.confirmedLead : t.waitlistLead)
+            : n.ok === "saved" ? t.saved : n.ok === "claimed" ? t.claimed
+            : v.registration.status === "cancelled" && v.registration.confirmedAt === null ? t.leftWaitlist : t.cancelledRegistration,
+          error: false,
+        }
       : { text: typeof n.error === "string" && n.error in t.errors ? t.errors[n.error as keyof Texts["errors"]] : errorText(t, n.error), error: true };
     const reg = v.registration;
     const base = `/m/${token}`;
     const qr = v.admissionToken ? await QRCode.toString(v.admissionToken, { type: "svg", errorCorrectionLevel: "M", margin: 1 }) : null;
     const body = html`
 ${notice ? html`<p class="notice${notice.error ? " error" : ""}" role="${notice.error ? "alert" : "status"}">${notice.text}</p>` : ""}
-<p><span class="status ${reg.status === "cancelled" ? "cancelled" : "available"}">${reg.status === "cancelled" ? t.cancelledRegistration : t.confirmed}</span></p>
+${statusBlock(reg, v.waitlistPosition, t)}
 ${eventBlock(d)}
+${reg.status === "offered" && v.rights.claim ? html`
+<form class="card" method="post" action="${base}/claim">
+  <h2 style="margin-top:0">${t.offered}</h2>
+  <input type="hidden" name="locale" value="${d.locale}">
+  <p>${t.offerLead(formatWhen(d.locale, d.target.event.timezone, reg.offerExpiresAt!))}</p>
+  <button type="submit">${t.claim}</button>
+</form>` : ""}
 ${d.target.occurrence.status === "cancelled" ? html`<p><span class="status cancelled">${t.cancelledOccurrence}</span></p>` : ""}
 <section class="card">
   <h2 style="margin-top:0">${t.yourRegistration}</h2>
@@ -243,17 +271,22 @@ ${reg.status !== "cancelled" ? (v.rights.change ? html`
 </form>` : html`<p class="muted">${t.changeClosed}</p>`) : ""}
 ${v.rights.cancel ? html`
 <form class="card" method="post" action="${base}/cancel">
-  <h2 style="margin-top:0">${t.cancel}</h2>
+  ${(() => {
+    const c = reg.status === "waitlisted" ? [t.leaveWaitlist, t.leaveWaitlistHelp, t.leaveWaitlistConfirm]
+      : reg.status === "offered" ? [t.declineOffer, t.declineOfferHelp, t.declineOfferConfirm]
+      : [t.cancel, t.cancelHelp, t.cancelConfirm];
+    return html`<h2 style="margin-top:0">${c[0]}</h2>
   <input type="hidden" name="locale" value="${d.locale}">
-  <p class="muted">${t.cancelHelp}</p>
-  <button type="submit" class="secondary">${t.cancelConfirm}</button>
+  <p class="muted">${c[1]}</p>
+  <button type="submit" class="secondary">${c[2]}</button>`;
+  })()}
 </form>` : ""}`;
     return send(reply, status, page({ locale: d.locale, title: d.title, account: d.account.name, langLinks: langLinks(d, base), body }));
   };
 
-  app.get<{ Params: { token: string }; Querystring: { welcome?: string; saved?: string; cancelled?: string; lang?: string } }>("/m/:token", async (req, reply) => {
+  app.get<{ Params: { token: string }; Querystring: { welcome?: string; saved?: string; cancelled?: string; claimed?: string; lang?: string } }>("/m/:token", async (req, reply) => {
     const q = req.query;
-    const n: Notice = q.welcome ? { ok: "welcome" } : q.saved ? { ok: "saved" } : q.cancelled ? { ok: "cancelled" } : null;
+    const n: Notice = q.welcome ? { ok: "welcome" } : q.saved ? { ok: "saved" } : q.cancelled ? { ok: "cancelled" } : q.claimed ? { ok: "claimed" } : null;
     return renderManage(reply, req.params.token, q.lang, n);
   });
 
@@ -269,6 +302,19 @@ ${v.rights.cancel ? html`
     } catch (e) {
       if (!(e instanceof DomainError)) throw e;
       return renderManage(reply, req.params.token, form.locale, { error: e }, e.status, form);
+    }
+  });
+
+  app.post<{ Params: { token: string }; Body: Form }>("/m/:token/claim", async (req, reply) => {
+    const form = req.body ?? {};
+    if (limited(req)) return renderManage(reply, req.params.token, form.locale, { error: "rate_limited" }, 429);
+    try {
+      const r = await svc.claim(req.params.token);
+      if (!r) return notFound(reply, form.locale ?? "en", true);
+      return reply.redirect(`/m/${req.params.token}?claimed=1${form.locale ? `&lang=${encodeURIComponent(form.locale)}` : ""}`, 303);
+    } catch (e) {
+      if (!(e instanceof DomainError)) throw e;
+      return renderManage(reply, req.params.token, form.locale, { error: e }, e.status);
     }
   });
 

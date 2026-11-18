@@ -42,7 +42,7 @@ p { margin: 0 0 1rem; }
 .meta { list-style: none; padding: 0; margin: 0 0 1rem; }
 .meta li { margin: .25rem 0; }
 .status { display: inline-block; font-weight: 600; font-size: .875rem; padding: .125rem .5rem; border-radius: 999px; border: 1px solid currentColor; }
-.status.available { color: var(--ok); } .status.few_left { color: var(--warn); } .status.full, .status.closed, .status.cancelled { color: var(--bad); }
+.status.available { color: var(--ok); } .status.few_left, .status.waitlist, .status.waitlisted, .status.offered { color: var(--warn); } .status.full, .status.closed, .status.cancelled { color: var(--bad); }
 label { display: block; font-weight: 500; margin: 1rem 0 .25rem; }
 label.check { display: flex; gap: .5rem; align-items: center; font-weight: 400; }
 input[type=text], input[type=email], textarea { width: 100%; padding: .625rem .75rem; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: .5rem; }

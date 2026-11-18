@@ -278,6 +278,8 @@ export interface HoldTable {
 
 export type RegistrationStatus = "confirmed" | "waitlisted" | "offered" | "cancelled";
 export type RegistrationSource = "invitation" | "open" | "staff";
+/** expired: a waitlist offer that was not claimed in time. */
+export type CancelledBy = "attendee" | "staff" | "expired";
 export type AdmissionStatus = "valid" | "void";
 
 export interface RegistrationTable {
@@ -293,10 +295,14 @@ export interface RegistrationTable {
   party_size: number;
   status: RegistrationStatus;
   source: RegistrationSource;
-  waitlist_position: number | null;
+  /** Place in line while waitlisted or offered (from registration.waitlist_seq; not a rank). */
+  waitlist_position: string | number | null;
+  offer_hold_id: string | null;
+  offer_expires_at: Timestamp | null;
+  confirmed_at: Timestamp | null;
   token_version: Generated<number>;
   cancelled_at: Timestamp | null;
-  cancelled_by: "attendee" | "staff" | null;
+  cancelled_by: CancelledBy | null;
   reminded_at: Timestamp | null;
   form_version: number | null;
   sensitive_consent_at: Timestamp | null;

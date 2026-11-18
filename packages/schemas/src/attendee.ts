@@ -47,7 +47,11 @@ export const AttendeeRegistration = Type.Object({
   email: Type.String(),
   locale: Type.String(),
   partySize: Type.Integer({ minimum: 1, maximum: 2 }),
-  status: Type.Union([Type.Literal("confirmed"), Type.Literal("waitlisted"), Type.Literal("offered"), Type.Literal("cancelled")]),
+  status: Type.Union([Type.Literal("confirmed"), Type.Literal("waitlisted"), Type.Literal("offered"), Type.Literal("cancelled")], {
+    description: "waitlisted: in line for a place. offered: a place is held until offerExpiresAt; claim it with /registration/claim",
+  }),
+  waitlistPosition: Nullable(Type.Integer({ minimum: 1, description: "Place in line while waitlisted (1 = next)" })),
+  offerExpiresAt: Nullable(DateTime),
   answers: Answers,
   createdAt: DateTime,
 });
@@ -85,7 +89,8 @@ export const AttendeeRegistrationView = Type.Object({
   details: AttendeeOccurrence,
   rights: Type.Object({
     change: Type.Boolean({ description: "Name and guest can be changed until registration closes" }),
-    cancel: Type.Boolean({ description: "Can be cancelled until the occurrence starts" }),
+    cancel: Type.Boolean({ description: "Can be cancelled (or the waitlist left, or an offer declined) until the occurrence starts" }),
+    claim: Type.Boolean({ description: "An offered place can be claimed now" }),
   }),
   admissionToken: Nullable(Type.String({ description: "The QR code's content; null when cancelled" })),
 });

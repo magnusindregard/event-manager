@@ -162,8 +162,8 @@ describe("changing and cancelling", () => {
         else await catalog.transitionEvent(tx, ctx, event.id, event.version, "cancel");
       });
       const target = await run((tx) => catalog.getRegistrationTarget(tx, occ.id));
-      expect(registration.attendeeRights(r, target, NOW)).toEqual({ change: false, cancel: true });
-      expect(registration.attendeeRights(r, target, start)).toEqual({ change: false, cancel: false });
+      expect(registration.attendeeRights(r, target, NOW)).toEqual({ change: false, cancel: true, claim: false });
+      expect(registration.attendeeRights(r, target, start)).toEqual({ change: false, cancel: false, claim: false });
 
       expect(await code(run((tx) => registration.cancelRegistration(tx, ctx.tenantId, r.id, attendee, start)))).toBe("registration_closed");
       const c = await run((tx) => registration.cancelRegistration(tx, ctx.tenantId, r.id, attendee, NOW));
