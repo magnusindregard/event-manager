@@ -4,7 +4,7 @@ import * as catalog from "../catalog/index.js";
 import * as inventory from "../inventory/index.js";
 import { emit } from "../outbox/index.js";
 import { DomainError } from "../shared/index.js";
-import { attendeeRights, getRegistration, lockedWithPool, type Registration } from "./registrations.js";
+import { attendeeRights, getRegistration, lockedWithPool, lockPool, type Registration } from "./registrations.js";
 
 // Waitlist (docs/registration.md, milestone 5). A registration that finds the occurrence full
 // joins the line (waitlisted) when the event has a waitlist and its cutoff has not passed.
@@ -14,7 +14,8 @@ import { attendeeRights, getRegistration, lockedWithPool, type Registration } fr
 // attendee claims the offer from their manage page (confirmed, with the QR code); if they don't
 // in time, the offer is cancelled as expired and the places go to the next in line.
 //
-// Lock order, to stay clear of deadlocks: the occurrence's pool first, then registration rows.
+// Lock order, to stay clear of deadlocks: the occurrence (a key share, as its foreign keys take),
+// then its pool, then registration rows (lockPool).
 // Promotion does so, and so does everything that changes a registration in a way that may touch
 // the pool (claiming, cancelling, changing the party size; see lockedWithPool).
 
@@ -62,8 +63,7 @@ export interface Promotion {
 export async function promoteWaitlist(tx: Tx, tenantId: string, occurrenceId: string, now: Date = new Date()): Promise<Promotion> {
   const out: Promotion = { offered: [], expired: [] };
   // Serializes promotion per occurrence, so two cancellations never offer the same places twice.
-  const pool = await tx.selectFrom("inventory.capacity_pool").select("id").where("occurrence_id", "=", occurrenceId).forUpdate().executeTakeFirst();
-  if (!pool) return out;
+  if (!(await lockPool(tx, occurrenceId))) return out;
 
   // Offers past their deadline. A row locked by someone else (an edit that does not touch the
   // pool) is skipped rather than waited for; its expiry job comes back for it.

@@ -339,6 +339,33 @@ describe("offers", () => {
     expect(await get(w.id)).toMatchObject({ status: "cancelled" });
     expect(await pool(occ.id)).toMatchObject({ taken: 0, held: 0 });
   });
+
+  it("do not deadlock when a claim and a capacity edit of the occurrence overlap (review #69)", async () => {
+    const { occ } = await talk({ capacity: 1, overbookingPct: 0 });
+    const holder = await register(occ.id, 1);
+    const w = await register(occ.id, 2);
+    await run((tx) => registration.cancelRegistration(tx, ctx.tenantId, holder.id, attendee, NOW));
+    expect(await get(w.id)).toMatchObject({ status: "offered" });
+    const o = await run((tx) => catalog.getOccurrence(tx, occ.id));
+    // The claim has taken its locks; the capacity edit starts before it issues the admission.
+    let release!: () => void;
+    let lockedIn!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const ready = new Promise<void>((r) => (lockedIn = r));
+    const claim = code(run(async (tx) => {
+      await registration.lockedWithPool(tx, w.id);
+      lockedIn();
+      await gate;
+      return registration.claimOffer(tx, ctx.tenantId, w.id, NOW);
+    }));
+    await ready;
+    const edit = code(run((tx) => catalog.updateOccurrence(tx, ctx, o.id, o.version, { capacityOverride: 2 })));
+    await lockWaiters(1);
+    release();
+    expect(await Promise.all([claim, edit])).toEqual(["ok", "ok"]);
+    expect(await get(w.id)).toMatchObject({ status: "confirmed" });
+    expect(await pool(occ.id)).toMatchObject({ taken: 1, held: 0 });
+  });
 });
 
 /** Waits until n sessions are waiting for a lock. */

@@ -251,8 +251,20 @@ export async function insertConfirmed(
 export async function lockedWithPool(tx: Tx, id: string): Promise<Registration> {
   const r = await tx.selectFrom("registration.registration").select("occurrence_id").where("id", "=", id).executeTakeFirst();
   if (!r) throw new DomainError("not_found", "Registration not found");
-  await tx.selectFrom("inventory.capacity_pool").select("id").where("occurrence_id", "=", r.occurrence_id).forUpdate().execute();
+  await lockPool(tx, r.occurrence_id);
   return locked(tx, id);
+}
+
+/**
+ * Locks an occurrence's capacity pool, after a key share lock on the occurrence itself. Editing an
+ * occurrence locks it and then its pool, and inserting an admission or hold takes a key share on
+ * the occurrence for its foreign key; taking that share first keeps the order occurrence, pool,
+ * registrations for everyone. Returns the pool's id, or undefined for an occurrence without one.
+ */
+export async function lockPool(tx: Tx, occurrenceId: string): Promise<string | undefined> {
+  await tx.selectFrom("catalog.occurrence").select("id").where("id", "=", occurrenceId).forKeyShare().execute();
+  const pool = await tx.selectFrom("inventory.capacity_pool").select("id").where("occurrence_id", "=", occurrenceId).forUpdate().executeTakeFirst();
+  return pool?.id;
 }
 
 export async function locked(tx: Tx, id: string): Promise<Registration> {
