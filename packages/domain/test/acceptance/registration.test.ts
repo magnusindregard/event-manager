@@ -277,3 +277,50 @@ describe("pure availability", () => {
 
 // Keeps sql imported for ad-hoc debugging in this file.
 void sql;
+
+describe("reset to series (#48, #51)", () => {
+  async function seriesEvent(capacity: number) {
+    const event = await run(async (tx) => {
+      const e = await catalog.createEvent(tx, ctx, { translations: title("Serie"), admissionMode: "registration", registration: { capacity } });
+      return catalog.transitionEvent(tx, ctx, e.id, e.version, "publish");
+    });
+    // Daily at 12:00 Oslo from 1 March 2027.
+    const series = (await run((tx) => catalog.createSeries(tx, ctx, event.id, { rrule: "FREQ=DAILY;COUNT=3", dtstartLocal: "2027-03-01T12:00" }, { now: NOW }))).series!;
+    const occs = await run((tx) => catalog.listOccurrences(tx, { eventId: event.id, limit: 10 }));
+    return { event, series, occs };
+  }
+
+  it("clears the capacity override, so capacity follows the event again", async () => {
+    const { occs } = await seriesEvent(1);
+    const edited = await run((tx) => catalog.updateOccurrence(tx, ctx, occs[0]!.id, occs[0]!.version, { capacityOverride: 5 }));
+    expect(edited).toMatchObject({ detached: true, overrides: { capacity: 5 }, pool: { capacity: 5 } });
+    const reset = await run((tx) => catalog.reattachOccurrence(tx, ctx, edited.id, edited.version));
+    expect(reset).toMatchObject({ detached: false, overrides: { capacity: null }, effective: { capacity: { value: 1, source: "default" } }, pool: { capacity: 1, bookableLimit: 1 } });
+  });
+
+  it("keeps a booked occurrence protected from regeneration", async () => {
+    const { series, occs } = await seriesEvent(10);
+    const booked = occs[0]!;
+    await run((tx) => registration.register(tx, ctx.tenantId, booked.id, person(500), attendee, NOW));
+    const protectedOcc = await run((tx) => catalog.getOccurrence(tx, booked.id));
+    expect(protectedOcc.detached).toBe(true);
+    const reset = await run((tx) => catalog.reattachOccurrence(tx, ctx, booked.id, protectedOcc.version));
+    expect(reset.detached).toBe(true);
+
+    const moved = await run((tx) => catalog.updateSeries(tx, ctx, series.id, series.version, { dtstartLocal: "2027-03-01T15:00" }, { now: NOW }));
+    expect(moved.changes.conflicts).toEqual([expect.objectContaining({ occurrenceId: booked.id, reason: "moved" })]);
+    expect((await run((tx) => catalog.getOccurrence(tx, booked.id))).startUtc).toEqual(new Date("2027-03-01T11:00:00Z"));
+
+    // Removing the booked slot is reported, and the occurrence stays.
+    const after = await run((tx) => catalog.getSeries(tx, series.id));
+    const removed = await run((tx) => catalog.updateSeries(tx, ctx, series.id, after.version, { dtstartLocal: "2027-03-02T15:00", rrule: "FREQ=DAILY;COUNT=2" }, { now: NOW }));
+    expect(removed.changes.conflicts).toEqual([expect.objectContaining({ occurrenceId: booked.id })]);
+    expect(await run((tx) => catalog.getOccurrence(tx, booked.id))).toMatchObject({ id: booked.id, detached: true });
+  });
+
+  it("lets an occurrence without registrations follow the series again", async () => {
+    const { occs } = await seriesEvent(10);
+    const edited = await run((tx) => catalog.updateOccurrence(tx, ctx, occs[1]!.id, occs[1]!.version, { startUtc: new Date("2027-03-02T14:00:00Z") }));
+    expect((await run((tx) => catalog.reattachOccurrence(tx, ctx, edited.id, edited.version))).detached).toBe(false);
+  });
+});

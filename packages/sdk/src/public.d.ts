@@ -124,17 +124,17 @@ export interface operations {
                             endUtc: string;
                             timezone: string;
                             status: "scheduled" | "cancelled";
-                            location: {
+                            location: null | {
                                 /** Format: uuid */
                                 id: string;
                                 name: string;
                                 kind: "venue" | "space";
-                                venue: {
+                                venue: null | {
                                     /** Format: uuid */
                                     id: string;
                                     name: string;
-                                } | null;
-                            } | null;
+                                };
+                            };
                             tags: {
                                 /** Format: uuid */
                                 id: string;
@@ -154,15 +154,20 @@ export interface operations {
                             } | {
                                 /** @enum {string} */
                                 mode: "registration";
+                                /** @description Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links */
                                 url: string | null;
                             };
-                            availability: {
+                            availability: null | {
                                 /** @description closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added */
                                 status: "available" | "few_left" | "full" | "closed";
+                                /**
+                                 * Format: date-time
+                                 * @description Null: open as soon as the event is published
+                                 */
                                 opensAt: string | null;
                                 /** Format: date-time */
                                 closesAt: string;
-                            } | null;
+                            };
                             event: {
                                 /** Format: uuid */
                                 id: string;
@@ -173,10 +178,10 @@ export interface operations {
                                 locale: string;
                                 title: string;
                                 shortDescription: string | null;
-                                image: {
+                                image: null | {
                                     url: string;
                                     alt: string | null;
-                                } | null;
+                                };
                                 /** @description IANA timezone for displaying times */
                                 timezone: string;
                                 externalRefs: {
@@ -295,10 +300,10 @@ export interface operations {
                             locale: string;
                             title: string;
                             shortDescription: string | null;
-                            image: {
+                            image: null | {
                                 url: string;
                                 alt: string | null;
-                            } | null;
+                            };
                             /** @description IANA timezone for displaying times */
                             timezone: string;
                             externalRefs: {
@@ -421,10 +426,10 @@ export interface operations {
                             locale: string;
                             title: string;
                             shortDescription: string | null;
-                            image: {
+                            image: null | {
                                 url: string;
                                 alt: string | null;
-                            } | null;
+                            };
                             /** @description IANA timezone for displaying times */
                             timezone: string;
                             externalRefs: {
@@ -446,17 +451,17 @@ export interface operations {
                                 endUtc: string;
                                 timezone: string;
                                 status: "scheduled" | "cancelled";
-                                location: {
+                                location: null | {
                                     /** Format: uuid */
                                     id: string;
                                     name: string;
                                     kind: "venue" | "space";
-                                    venue: {
+                                    venue: null | {
                                         /** Format: uuid */
                                         id: string;
                                         name: string;
-                                    } | null;
-                                } | null;
+                                    };
+                                };
                                 tags: {
                                     /** Format: uuid */
                                     id: string;
@@ -476,15 +481,20 @@ export interface operations {
                                 } | {
                                     /** @enum {string} */
                                     mode: "registration";
+                                    /** @description Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links */
                                     url: string | null;
                                 };
-                                availability: {
+                                availability: null | {
                                     /** @description closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added */
                                     status: "available" | "few_left" | "full" | "closed";
+                                    /**
+                                     * Format: date-time
+                                     * @description Null: open as soon as the event is published
+                                     */
                                     opensAt: string | null;
                                     /** Format: date-time */
                                     closesAt: string;
-                                } | null;
+                                };
                             }[];
                         };
                     };
@@ -608,19 +618,19 @@ export interface operations {
                             id: string;
                             name: string;
                             address: string | null;
-                            geo: {
+                            geo: null | {
                                 lat: number;
                                 lng: number;
-                            } | null;
+                            };
                             spaces: {
                                 /** Format: uuid */
                                 id: string;
                                 name: string;
                                 address: string | null;
-                                geo: {
+                                geo: null | {
                                     lat: number;
                                     lng: number;
-                                } | null;
+                                };
                             }[];
                         }[];
                     };

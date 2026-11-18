@@ -203,6 +203,9 @@
                           "location": {
                             "anyOf": [
                               {
+                                "type": "null"
+                              },
+                              {
                                 "type": "object",
                                 "required": [
                                   "id",
@@ -237,6 +240,9 @@
                                   "venue": {
                                     "anyOf": [
                                       {
+                                        "type": "null"
+                                      },
+                                      {
                                         "type": "object",
                                         "required": [
                                           "id",
@@ -251,16 +257,10 @@
                                             "type": "string"
                                           }
                                         }
-                                      },
-                                      {
-                                        "type": "null"
                                       }
                                     ]
                                   }
                                 }
-                              },
-                              {
-                                "type": "null"
                               }
                             ]
                           },
@@ -340,15 +340,11 @@
                                     ]
                                   },
                                   "url": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string",
-                                        "description": "Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links"
                                   }
                                 }
                               }
@@ -357,6 +353,9 @@
                           },
                           "availability": {
                             "anyOf": [
+                              {
+                                "type": "null"
+                              },
                               {
                                 "type": "object",
                                 "required": [
@@ -395,16 +394,12 @@
                                     "description": "closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added"
                                   },
                                   "opensAt": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string",
-                                        "format": "date-time",
-                                        "description": "Null: open as soon as the event is published"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
-                                    ]
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "format": "date-time",
+                                    "description": "Null: open as soon as the event is published"
                                   },
                                   "closesAt": {
                                     "type": "string",
@@ -412,9 +407,6 @@
                                   }
                                 },
                                 "description": "Places for registration occurrences, without exact numbers. Null for other admission modes"
-                              },
-                              {
-                                "type": "null"
                               }
                             ]
                           },
@@ -470,17 +462,16 @@
                                 "type": "string"
                               },
                               "shortDescription": {
-                                "anyOf": [
-                                  {
-                                    "type": "string"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
+                                "type": [
+                                  "string",
+                                  "null"
                                 ]
                               },
                               "image": {
                                 "anyOf": [
+                                  {
+                                    "type": "null"
+                                  },
                                   {
                                     "type": "object",
                                     "required": [
@@ -492,19 +483,12 @@
                                         "type": "string"
                                       },
                                       "alt": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
+                                        "type": [
+                                          "string",
+                                          "null"
                                         ]
                                       }
                                     }
-                                  },
-                                  {
-                                    "type": "null"
                                   }
                                 ]
                               },
@@ -524,13 +508,9 @@
                       }
                     },
                     "nextCursor": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
+                      "type": [
+                        "string",
+                        "null"
                       ]
                     }
                   }
@@ -862,17 +842,16 @@
                             "type": "string"
                           },
                           "shortDescription": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
+                            "type": [
+                              "string",
+                              "null"
                             ]
                           },
                           "image": {
                             "anyOf": [
+                              {
+                                "type": "null"
+                              },
                               {
                                 "type": "object",
                                 "required": [
@@ -884,19 +863,12 @@
                                     "type": "string"
                                   },
                                   "alt": {
-                                    "anyOf": [
-                                      {
-                                        "type": "string"
-                                      },
-                                      {
-                                        "type": "null"
-                                      }
+                                    "type": [
+                                      "string",
+                                      "null"
                                     ]
                                   }
                                 }
-                              },
-                              {
-                                "type": "null"
                               }
                             ]
                           },
@@ -941,13 +913,9 @@
                       }
                     },
                     "nextCursor": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
+                      "type": [
+                        "string",
+                        "null"
                       ]
                     }
                   }
@@ -1249,17 +1217,16 @@
                           "type": "string"
                         },
                         "shortDescription": {
-                          "anyOf": [
-                            {
-                              "type": "string"
-                            },
-                            {
-                              "type": "null"
-                            }
+                          "type": [
+                            "string",
+                            "null"
                           ]
                         },
                         "image": {
                           "anyOf": [
+                            {
+                              "type": "null"
+                            },
                             {
                               "type": "object",
                               "required": [
@@ -1271,19 +1238,12 @@
                                   "type": "string"
                                 },
                                 "alt": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
+                                  "type": [
+                                    "string",
+                                    "null"
                                   ]
                                 }
                               }
-                            },
-                            {
-                              "type": "null"
                             }
                           ]
                         },
@@ -1374,6 +1334,9 @@
                               "location": {
                                 "anyOf": [
                                   {
+                                    "type": "null"
+                                  },
+                                  {
                                     "type": "object",
                                     "required": [
                                       "id",
@@ -1408,6 +1371,9 @@
                                       "venue": {
                                         "anyOf": [
                                           {
+                                            "type": "null"
+                                          },
+                                          {
                                             "type": "object",
                                             "required": [
                                               "id",
@@ -1422,16 +1388,10 @@
                                                 "type": "string"
                                               }
                                             }
-                                          },
-                                          {
-                                            "type": "null"
                                           }
                                         ]
                                       }
                                     }
-                                  },
-                                  {
-                                    "type": "null"
                                   }
                                 ]
                               },
@@ -1511,15 +1471,11 @@
                                         ]
                                       },
                                       "url": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string",
-                                            "description": "Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ],
+                                        "description": "Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links"
                                       }
                                     }
                                   }
@@ -1528,6 +1484,9 @@
                               },
                               "availability": {
                                 "anyOf": [
+                                  {
+                                    "type": "null"
+                                  },
                                   {
                                     "type": "object",
                                     "required": [
@@ -1566,16 +1525,12 @@
                                         "description": "closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added"
                                       },
                                       "opensAt": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string",
-                                            "format": "date-time",
-                                            "description": "Null: open as soon as the event is published"
-                                          },
-                                          {
-                                            "type": "null"
-                                          }
-                                        ]
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ],
+                                        "format": "date-time",
+                                        "description": "Null: open as soon as the event is published"
                                       },
                                       "closesAt": {
                                         "type": "string",
@@ -1583,9 +1538,6 @@
                                       }
                                     },
                                     "description": "Places for registration occurrences, without exact numbers. Null for other admission modes"
-                                  },
-                                  {
-                                    "type": "null"
                                   }
                                 ]
                               }
@@ -1884,17 +1836,16 @@
                             "type": "string"
                           },
                           "address": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
+                            "type": [
+                              "string",
+                              "null"
                             ]
                           },
                           "geo": {
                             "anyOf": [
+                              {
+                                "type": "null"
+                              },
                               {
                                 "type": "object",
                                 "required": [
@@ -1909,9 +1860,6 @@
                                     "type": "number"
                                   }
                                 }
-                              },
-                              {
-                                "type": "null"
                               }
                             ]
                           },
@@ -1934,17 +1882,16 @@
                                   "type": "string"
                                 },
                                 "address": {
-                                  "anyOf": [
-                                    {
-                                      "type": "string"
-                                    },
-                                    {
-                                      "type": "null"
-                                    }
+                                  "type": [
+                                    "string",
+                                    "null"
                                   ]
                                 },
                                 "geo": {
                                   "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
                                     {
                                       "type": "object",
                                       "required": [
@@ -1959,9 +1906,6 @@
                                           "type": "number"
                                         }
                                       }
-                                    },
-                                    {
-                                      "type": "null"
                                     }
                                   ]
                                 }

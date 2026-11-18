@@ -1,4 +1,5 @@
 import { Type } from "typebox";
+import { Nullable } from "./nullable.js";
 import { Availability } from "./public.js";
 import { Answers, AnswerValue, FormField } from "./registration.js";
 
@@ -8,7 +9,6 @@ import { Answers, AnswerValue, FormField } from "./registration.js";
 
 const Uuid = Type.String({ format: "uuid" });
 const DateTime = Type.String({ format: "date-time" });
-const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(t: T) => Type.Union([t, Type.Null()]);
 
 export const AttendeeForm = Type.Object({
   fields: Type.Array(FormField, { description: "Asked after name and email, in this order" }),

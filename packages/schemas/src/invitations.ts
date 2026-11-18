@@ -1,11 +1,11 @@
 import { Type } from "typebox";
+import { Nullable } from "./nullable.js";
 
 // Staff view of guest invitations and the guest list import (/v1, docs/registration.md,
 // "Event → Guest list"). "Guest invitation" keeps them apart from staff invitations.
 
 const Uuid = Type.String({ format: "uuid" });
 const DateTime = Type.String({ format: "date-time" });
-const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(t: T) => Type.Union([t, Type.Null()]);
 const LocaleCode = Type.String({ pattern: "^[a-z]{2,3}(-[A-Z]{2})?$" });
 
 export const GuestInvitationStatus = Type.Union([Type.Literal("pending"), Type.Literal("sent"), Type.Literal("accepted"), Type.Literal("declined")], {

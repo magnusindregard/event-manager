@@ -1,10 +1,10 @@
 import { Type } from "typebox";
+import { Nullable } from "./nullable.js";
 
 // Staff view of registrations (/v1, docs/registration.md "Admin interface").
 
 const Uuid = Type.String({ format: "uuid" });
 const DateTime = Type.String({ format: "date-time" });
-const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(t: T) => Type.Union([t, Type.Null()]);
 
 // ── Forms (milestone 4) ──
 
