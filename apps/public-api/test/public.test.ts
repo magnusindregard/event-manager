@@ -220,6 +220,26 @@ describe("/public/v1", () => {
     });
   });
 
+  it("serves tags from rules that name them in uppercase (#43)", async () => {
+    const c = await bootstrap("pub-upper");
+    const key = await withTenant(db, c, async (tx) => {
+      const vocab = await catalog.createVocabulary(tx, c, { key: "program", labels: { nb: "Program", en: "Programme" } });
+      const kept = await catalog.createTag(tx, c, vocab.id, { key: "kept", labels: { nb: "Beholdt", en: "Kept" } });
+      const dropped = await catalog.createTag(tx, c, vocab.id, { key: "dropped", labels: { nb: "Fjernet", en: "Dropped" } });
+      const added = await catalog.createTag(tx, c, vocab.id, { key: "added", labels: { nb: "Lagt til", en: "Added" } });
+      let ev = await catalog.createEvent(tx, c, { slug: "upper", translations: { nb: { title: "Store bokstaver" } }, tagIds: [kept.id, dropped.id] });
+      ev = await catalog.transitionEvent(tx, c, ev.id, ev.version, "publish");
+      ids.upper = (await catalog.createOccurrence(tx, c, ev.id, { startUtc: inDays(4) })).id;
+      await catalog.createRule(tx, c, ev.id, {
+        name: "Store", effects: [{ type: "tags", value: { add: [added.id.toUpperCase()], remove: [dropped.id.toUpperCase()] } }],
+      });
+      return (await tenancy.createApiKey(tx, c, "publishable", "web")).secret;
+    });
+    const res = await get(`/public/v1/occurrences?key=${key}&locale=en`);
+    const occ = res.body.items.find((o: { id: string }) => o.id === ids.upper);
+    expect(occ.tags.map((t: { key: string }) => t.key).sort()).toEqual(["added", "kept"]);
+  });
+
   it("rate-limits per key", async () => {
     const small = await buildPublicApp({ db, rateLimit: { capacity: 2, refillPerSecond: 0.01 } });
     const url = `/public/v1/locations?key=${keyB}`;

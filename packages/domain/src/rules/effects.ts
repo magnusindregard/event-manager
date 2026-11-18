@@ -32,7 +32,8 @@ const invalid = (field: string, message: string) => new DomainError("validation_
 const uuidList = (v: unknown, path: string): string[] => {
   if (!Array.isArray(v) || v.some((x) => typeof x !== "string" || !UUID_RE.test(x))) throw invalid(path, "Must be a list of tag ids");
   if (v.length > 100) throw invalid(path, "At most 100 tags");
-  return [...new Set(v as string[])].sort();
+  // Postgres returns uuids in lowercase; case variants are the same tag (#43).
+  return [...new Set((v as string[]).map((x) => x.toLowerCase()))].sort();
 };
 
 export interface TagsEffect {
@@ -71,9 +72,10 @@ const tags: EffectType<TagsEffect> = {
   },
   refs: (v) => ({ tags: [...v.add, ...v.remove] }),
   apply(v, base) {
-    const out = new Set(Array.isArray(base) ? (base as string[]) : []);
-    for (const t of v.add) out.add(t);
-    for (const t of v.remove) out.delete(t);
+    // Lowercase here too: rules saved before ids were normalized may hold uppercase ids.
+    const out = new Set(Array.isArray(base) ? (base as string[]).map((t) => t.toLowerCase()) : []);
+    for (const t of v.add) out.add(t.toLowerCase());
+    for (const t of v.remove) out.delete(t.toLowerCase());
     return [...out].sort();
   },
 };
