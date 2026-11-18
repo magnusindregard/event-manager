@@ -151,9 +151,9 @@ describe("/v1 forms, answers and the door list", () => {
     const headers = { "idempotency-key": "reg-sensitive-1" };
     const first = await call("POST", `/v1/occurrences/${occurrenceId}/registrations`, { body, headers });
     expect(first.status).toBe(201);
-    const stored = await withTenant(db, { tenantId: A, userId: null, clientId: null, roles: ["owner"] }, (tx) =>
+    const stored = await withTenant(db, { tenantId: A }, (tx) =>
       tx.selectFrom("tenancy.idempotency_key").select("response").where("key", "=", "reg-sensitive-1").executeTakeFirstOrThrow());
-    expect(stored.response).toEqual({ id: first.body.id });
+    expect(stored.response as unknown).toEqual({ id: first.body.id });
 
     // The replay is rebuilt from the registration, as the caller may see it now.
     const replay = await call("POST", `/v1/occurrences/${occurrenceId}/registrations`, { body, headers });
