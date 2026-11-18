@@ -6,7 +6,8 @@
 #   scripts/build-images.sh <tag>                # build and push images (ACR Tasks)
 #   scripts/deploy-env.sh staging <tag>
 #
-# Steps: Bicep (infra and apps) → migrations → admin SPA build and upload → smoke test.
+# Steps: Bicep (infra and migrate job; apps stay on their image) → migrations
+# → Bicep (apps to the new image) → admin SPA build and upload → smoke test.
 # Bicep parameters come from the environment (see infra/env/<env>.bicepparam).
 set -euo pipefail
 
@@ -15,35 +16,52 @@ TAG=${2:?usage: deploy-env.sh <staging|prod> <image tag>}
 RG=${RESOURCE_GROUP:?RESOURCE_GROUP is required}
 cd "$(dirname "$0")/.."
 
-echo "▸ Bicep ($RG, tag $TAG)"
+# The image tag the apps run now (empty on a fresh environment).
+api_app=$(az containerapp list -g "$RG" --query "[?ends_with(name, '-api')].name | [0]" -o tsv)
+current=""
+if [ -n "$api_app" ]; then
+  current=$(az containerapp show -g "$RG" -n "$api_app" --query "properties.template.containers[0].image" -o tsv)
+  current=${current##*:}
+fi
+
+bicep() {
+  az deployment group create -g "$RG" -n "em-$(date +%Y%m%d%H%M%S)-$1" \
+    -f infra/main.bicep -p "infra/env/$ENV_NAME.bicepparam" -p imageTag="$2" -p migrateImageTag="$TAG" \
+    --query properties.outputs -o json
+}
+
+# New application code may need the new schema, so the apps move only after migrations succeed.
+# Migrations stay additive within a version (ADR 0007), so the old apps keep working meanwhile.
+# A fresh environment has no apps to keep, and nothing is served before this deploy finishes.
+echo "▸ Bicep: infrastructure and migrate job ($RG, migrate $TAG, apps stay on ${current:-$TAG})"
 az bicep install >/dev/null 2>&1 || true
-out=$(az deployment group create -g "$RG" -n "em-$(date +%Y%m%d%H%M%S)" \
-  -f infra/main.bicep -p "infra/env/$ENV_NAME.bicepparam" -p imageTag="$TAG" \
-  --query properties.outputs -o json)
+out=$(bicep prepare "${current:-$TAG}")
 val() { echo "$out" | jq -r ".$1.value"; }
 MIGRATE_JOB=$(val migrateJobName)
+
+echo "▸ Migrations ($MIGRATE_JOB)"
+exec_name=$(az containerapp job start -g "$RG" -n "$MIGRATE_JOB" --query name -o tsv)
+status=""
+for _ in $(seq 1 90); do
+  status=$(az containerapp job execution show -g "$RG" -n "$MIGRATE_JOB" --job-execution-name "$exec_name" --query properties.status -o tsv)
+  echo "  migration: $status"
+  [ "$status" = "Succeeded" ] && break
+  if [ "$status" = "Failed" ]; then
+    echo "Migration failed; the apps still run ${current:-nothing}. Logs: az containerapp job logs show -g $RG -n $MIGRATE_JOB --execution $exec_name --container migrate" >&2
+    exit 1
+  fi
+  sleep "${POLL_SECONDS:-10}"
+done
+[ "$status" = "Succeeded" ] || { echo "Migration timed out; the apps still run ${current:-nothing}" >&2; exit 1; }
+
+echo "▸ Bicep: apps → $TAG"
+out=$(bicep apps "$TAG")
 STORAGE=$(val adminStorageAccount)
 FRONT_DOOR=$(val frontDoorHost)
 API_HOST=$(val apiHost)
 PUBLIC_HOST=$(val publicApiHost)
 ATTENDEE_HOST=$(val attendeeHost)
 ADMIN_ORIGIN=$(val adminOrigin)
-
-# Container Apps roll out the new image when Bicep updates the template; migrations are
-# additive within a version (ADR 0007), so old revisions keep working meanwhile.
-echo "▸ Migrations ($MIGRATE_JOB)"
-exec_name=$(az containerapp job start -g "$RG" -n "$MIGRATE_JOB" --query name -o tsv)
-for _ in $(seq 1 90); do
-  status=$(az containerapp job execution show -g "$RG" -n "$MIGRATE_JOB" --job-execution-name "$exec_name" --query properties.status -o tsv)
-  echo "  migration: $status"
-  [ "$status" = "Succeeded" ] && break
-  if [ "$status" = "Failed" ]; then
-    echo "Migration failed. Logs: az containerapp job logs show -g $RG -n $MIGRATE_JOB --execution $exec_name --container migrate" >&2
-    exit 1
-  fi
-  sleep 10
-done
-[ "$status" = "Succeeded" ] || { echo "Migration timed out" >&2; exit 1; }
 
 # Behind Front Door the admin calls /v1 on its own host; without it, the API's host (CORS allows the admin).
 echo "▸ Admin ($STORAGE)"

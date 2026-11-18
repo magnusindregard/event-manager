@@ -7,6 +7,8 @@ param env string
 param location string = 'norwayeast'
 @description('Container image tag (git SHA). Ignored when deployApps is false.')
 param imageTag string = 'bootstrap'
+@description('Image tag of the migrate job; defaults to imageTag. scripts/deploy-env.sh sets it to the new tag while the apps stay on the old one.')
+param migrateImageTag string = imageTag
 @description('First run: false creates the registry and data tier before any image exists.')
 param deployApps bool = true
 @description('Entra group whose members administer PostgreSQL (humans).')
@@ -149,6 +151,7 @@ module apps 'modules/apps.bicep' = if (deployApps) {
     tags: tags
     prod: prod
     imageTag: imageTag
+    migrateImageTag: migrateImageTag
     registryServer: registry.properties.loginServer
     subnetId: network.outputs.appsSubnetId
     logAnalyticsCustomerId: logs.properties.customerId
