@@ -111,6 +111,33 @@ describe("acceptance: open talk with 40 places and 10 % overbooking", () => {
     expect(await run((tx) => inventory.endHold(tx, expired!, false))).toBe(false);
   });
 
+  it("never converts an expired hold, even before the sweeper runs (#47)", async () => {
+    const event = await run((tx) => catalog.createEvent(tx, ctx, {
+      translations: title("Utløpt"), admissionMode: "registration", registration: { capacity: 1 },
+    }));
+    const occ = await run((tx) => catalog.createOccurrence(tx, ctx, event.id, { startUtc: new Date("2027-04-04T17:00:00Z") }));
+    const deadline = new Date("2027-01-01T12:00:00Z");
+    const expired = await run((tx) => inventory.placeHold(tx, ctx.tenantId, occ.id, 1, deadline));
+    // At the deadline it has expired; the place is released, not taken.
+    expect(await run((tx) => inventory.endHold(tx, expired!, true, deadline))).toBe(false);
+    expect(await run((tx) => inventory.getPool(tx, occ.id))).toMatchObject({ held: 0, taken: 0, available: 1 });
+    expect(await run((tx) => inventory.endHold(tx, expired!, true, deadline))).toBe(false);
+
+    // Just before the deadline it converts, exactly once.
+    const valid = await run((tx) => inventory.placeHold(tx, ctx.tenantId, occ.id, 1, deadline));
+    const justBefore = new Date(deadline.getTime() - 1);
+    const claims = await Promise.all([1, 2].map(() => run((tx) => inventory.endHold(tx, valid!, true, justBefore))));
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    expect(await run((tx) => inventory.getPool(tx, occ.id))).toMatchObject({ held: 0, taken: 1 });
+
+    // A claim racing the sweeper: one of them ends the hold, the places move once.
+    const event2 = await run((tx) => catalog.createEvent(tx, ctx, { translations: title("Feiing"), admissionMode: "registration", registration: { capacity: 2 } }));
+    const occ2 = await run((tx) => catalog.createOccurrence(tx, ctx, event2.id, { startUtc: new Date("2027-04-05T17:00:00Z") }));
+    const raced = await run((tx) => inventory.placeHold(tx, ctx.tenantId, occ2.id, 2, deadline));
+    await Promise.all([run((tx) => inventory.endHold(tx, raced!, true, deadline)), run((tx) => inventory.sweepExpiredHolds(tx, deadline))]);
+    expect(await run((tx) => inventory.getPool(tx, occ2.id))).toMatchObject({ held: 0, taken: 0, available: 2 });
+  });
+
   it("allows lowering capacity below what is taken, and flags it", async () => {
     const event = await run((tx) => catalog.createEvent(tx, ctx, {
       translations: title("Senket"), admissionMode: "registration", registration: { capacity: 5 },

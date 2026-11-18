@@ -158,20 +158,25 @@ export async function placeHold(tx: Tx, tenantId: string, occurrenceId: string, 
 }
 
 /**
- * Ends a hold. With convert, its places become taken (the offer was claimed); otherwise
- * they are released. Returns false if the hold no longer exists (expired and swept).
+ * Ends a hold. With convert, its places become taken (the offer was claimed), but only before
+ * it expires (ADR 0003: expiry is checked on confirmation, not only by the sweeper); an expired
+ * hold is released instead. Without convert, the places are released. Returns false if nothing
+ * was claimed or released: the hold had expired (convert) or no longer exists (swept). The hold
+ * row is deleted in the same statement that reads it, so a concurrent sweep or second claim
+ * finds nothing and never releases or takes its places twice.
  */
-export async function endHold(tx: Tx, holdId: string, convert: boolean): Promise<boolean> {
-  const hold = await tx.deleteFrom("inventory.hold").where("id", "=", holdId).returning(["pool_id", "quantity"]).executeTakeFirst();
+export async function endHold(tx: Tx, holdId: string, convert: boolean, now: Date = new Date()): Promise<boolean> {
+  const hold = await tx.deleteFrom("inventory.hold").where("id", "=", holdId).returning(["pool_id", "quantity", "expires_at"]).executeTakeFirst();
   if (!hold) return false;
+  const claim = convert && hold.expires_at > now;
   await tx
     .updateTable("inventory.capacity_pool")
-    .set(convert
+    .set(claim
       ? { held: sql<number>`greatest(held - ${hold.quantity}, 0)`, taken: sql<number>`taken + ${hold.quantity}` }
       : { held: sql<number>`greatest(held - ${hold.quantity}, 0)` })
     .where("id", "=", hold.pool_id)
     .execute();
-  return true;
+  return convert ? claim : true;
 }
 
 /** Releases holds that expired before now. Returns the occurrences whose places came free. */
