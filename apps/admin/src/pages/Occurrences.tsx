@@ -109,6 +109,20 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
     void qc.invalidateQueries({ queryKey: ["audit", accountId] });
   };
   const onError = (e: Error) => isConflict(e) && setConflict(true);
+  /**
+   * Conflict dialog's Reload: drop every form and confirmation that holds the stale version, fetch
+   * the latest, and reopen the occurrence that was being edited with its current values and version.
+   */
+  const reload = async () => {
+    const editing = draft?.occ?.id;
+    setDraft(null);
+    setToDelete(null);
+    setSeriesToDelete(null);
+    refresh();
+    await qc.refetchQueries({ queryKey: key });
+    const latest = editing && qc.getQueryData<Occurrence[]>(key)?.find((o) => o.id === editing);
+    if (latest) open(latest);
+  };
   const visible = filterOccurrences(query.data ?? [], filter, event.timezone, locations.data ?? []);
   const chosen = visible.filter((o) => selected.has(o.id));
   const setChosen = (ids: string[], on: boolean) => {
@@ -628,7 +642,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
           setConflict(true);
         }}
       />
-      <ConflictDialog open={conflict} onOpenChange={setConflict} onReload={refresh} />
+      <ConflictDialog open={conflict} onOpenChange={setConflict} onReload={() => void reload()} />
     </div>
   );
 }
