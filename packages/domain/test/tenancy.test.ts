@@ -110,6 +110,32 @@ describe("tenancy", () => {
     await expect(withTenant(db, ctx, (tx) => tenancy.removeMember(tx, other, userId))).rejects.toMatchObject({ code: "conflict" });
   });
 
+  it("concurrent owners removing each other leave one owner", async () => {
+    const { account, ctx: aCtx } = await bootstrap("two-owners", "a@two.test");
+    await withTenant(db, aCtx, (tx) => tenancy.inviteMember(tx, aCtx, "b@two.test", "owner"));
+    const bId = await tenancy.login(db, { issuer: "https://idp.test", subject: "b@two.test", email: "b@two.test", name: null });
+    const bCtx: ActorContext = { tenantId: account.id, userId: bId, clientId: null, roles: ["owner"] };
+
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let removed!: () => void;
+    const aRemovedB = new Promise<void>((r) => (removed = r));
+    const first = withTenant(db, aCtx, async (tx) => {
+      await tenancy.removeMember(tx, aCtx, bId);
+      removed();
+      await held; // keep the transaction open while B tries to remove A
+    });
+    await aRemovedB;
+    const second = withTenant(db, bCtx, (tx) => tenancy.removeMember(tx, bCtx, aCtx.userId!)).then(() => "removed", (e: DomainError) => e.code);
+    await new Promise((r) => setTimeout(r, 200));
+    release();
+    await first;
+    expect(await second).toBe("forbidden"); // B is no longer an owner once A's removal commits
+
+    const owners = await admin.query(`select user_id from tenancy.membership where tenant_id = $1 and role = 'owner'`, [account.id]);
+    expect(owners.rows.map((r) => r.user_id)).toEqual([aCtx.userId]);
+  });
+
   it("a removed member can be invited to the same role again", async () => {
     const { ctx } = await bootstrap("reinvite", "owner@re.test");
     const identity = { issuer: "https://idp.test", subject: "ed@re.test", email: "ed@re.test", name: null };

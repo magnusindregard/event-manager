@@ -152,11 +152,22 @@ export async function retryInvitation(tx: Tx, ctx: ActorContext, id: string): Pr
   return toInvitation(row);
 }
 
+/**
+ * Serializes membership changes in the transaction's tenant on its account row, then rechecks
+ * that the acting user still holds `permission` (their roles were read before the lock).
+ */
+async function lockMembership(tx: Tx, ctx: ActorContext, permission: "members.manage"): Promise<void> {
+  await tx.selectFrom("tenancy.account").select("id").where("id", "=", ctx.tenantId).forUpdate().executeTakeFirstOrThrow();
+  if (ctx.userId) assertCan({ roles: await rolesInTenant(tx, ctx.userId) }, permission);
+}
+
 export async function removeMember(tx: Tx, ctx: ActorContext, userId: string): Promise<void> {
   assertCan(ctx, "members.manage");
   if (userId === ctx.userId) throw new DomainError("conflict", "You cannot remove yourself");
+  // Two owners removing each other must not both pass the last-owner check.
+  await lockMembership(tx, ctx, "members.manage");
   const owners = await tx.selectFrom("tenancy.membership").select("user_id").where("role", "=", "owner").execute();
-  if (owners.length === 1 && owners[0]!.user_id === userId) throw new DomainError("conflict", "An account needs at least one owner");
+  if (owners.length > 0 && owners.every((o) => o.user_id === userId)) throw new DomainError("conflict", "An account needs at least one owner");
   const res = await tx.deleteFrom("tenancy.membership").where("user_id", "=", userId).executeTakeFirst();
   if (!res.numDeletedRows) throw new DomainError("not_found", "Member not found");
   await recordAudit(tx, ctx, { action: "member.removed", entityType: "user", entityId: userId });
