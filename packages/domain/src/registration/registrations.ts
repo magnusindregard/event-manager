@@ -305,7 +305,11 @@ export async function updateRegistration(
     .executeTakeFirstOrThrow();
   if (holdsPlaces && delta !== 0) await admission.setAdmissionPartySize(tx, id, partySize);
   // The place given back, or a waiting party that now fits, goes to the first in line whose party fits.
-  if (delta < 0 && (holdsPlaces || before.status === "waitlisted")) await promoteWaitlist(tx, tenantId, before.occurrenceId, now);
+  if (delta < 0 && (holdsPlaces || before.status === "waitlisted")) {
+    const { offered } = await promoteWaitlist(tx, tenantId, before.occurrenceId, now);
+    // Promotion may have offered this very registration a place: return (and announce) that.
+    if (offered.includes(id)) Object.assign(row, await tx.selectFrom("registration.registration").select(columns).where("id", "=", id).executeTakeFirstOrThrow());
+  }
   if (newAnswers) {
     await writeAnswers(tx, tenantId, id, newAnswers.form, newAnswers.answers, { keepSensitive, now });
     Object.assign(row, await tx.selectFrom("registration.registration").select(["form_version", "sensitive_consent_at"]).where("id", "=", id).executeTakeFirstOrThrow());

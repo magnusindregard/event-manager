@@ -43,6 +43,9 @@ export async function waitlistRanks(tx: Tx, registrationIds: readonly string[]):
   return new Map(rows.rows.map((r) => [r.id, Number(r.rank)]));
 }
 
+/** How many waiting registrations promotion reads at a time. */
+export const LINE_BATCH = 1000;
+
 export interface Promotion {
   /** Registrations that got an offer. */
   offered: string[];
@@ -98,25 +101,32 @@ export async function promoteWaitlist(tx: Tx, tenantId: string, occurrenceId: st
   if (expiresAt <= now) return out;
 
   let left = free;
-  const line = await tx.selectFrom("registration.registration")
-    .select(["id", "party_size", "invitation_id"])
-    .where("occurrence_id", "=", occurrenceId).where("status", "=", "waitlisted")
-    .orderBy("waitlist_position").limit(1000).forUpdate().execute();
-  for (const w of line) {
-    if (left <= 0) break;
-    // First in line whose party fits: a party of two waits while a single place goes to the next.
-    if (w.party_size > left) continue;
-    const holdId = await inventory.placeHold(tx, tenantId, occurrenceId, w.party_size, expiresAt);
-    if (!holdId) break;
-    await tx.updateTable("registration.registration")
-      .set({ status: "offered", offer_hold_id: holdId, offer_expires_at: expiresAt, version: sql<number>`version + 1` })
-      .where("id", "=", w.id).execute();
-    await emit(tx, tenantId, {
-      type: "registration.offered.v1", subject: `registration/${w.id}`,
-      data: { registrationId: w.id, occurrenceId, eventId: event.id, status: "offered", partySize: w.party_size, expiresAt: expiresAt.toISOString() },
-    });
-    out.offered.push(w.id);
-    left -= w.party_size;
+  // The line in batches, in position order, until the places run out or nobody is left.
+  let after: string | number | null = null;
+  scan: while (left > 0) {
+    let q = tx.selectFrom("registration.registration")
+      .select(["id", "party_size", "waitlist_position"])
+      .where("occurrence_id", "=", occurrenceId).where("status", "=", "waitlisted");
+    if (after !== null) q = q.where("waitlist_position", ">", after);
+    const line = await q.orderBy("waitlist_position").limit(LINE_BATCH).forUpdate().execute();
+    for (const w of line) {
+      after = w.waitlist_position;
+      if (left <= 0) break scan;
+      // First in line whose party fits: a party of two waits while a single place goes to the next.
+      if (w.party_size > left) continue;
+      const holdId = await inventory.placeHold(tx, tenantId, occurrenceId, w.party_size, expiresAt);
+      if (!holdId) break scan;
+      await tx.updateTable("registration.registration")
+        .set({ status: "offered", offer_hold_id: holdId, offer_expires_at: expiresAt, version: sql<number>`version + 1` })
+        .where("id", "=", w.id).execute();
+      await emit(tx, tenantId, {
+        type: "registration.offered.v1", subject: `registration/${w.id}`,
+        data: { registrationId: w.id, occurrenceId, eventId: event.id, status: "offered", partySize: w.party_size, expiresAt: expiresAt.toISOString() },
+      });
+      out.offered.push(w.id);
+      left -= w.party_size;
+    }
+    if (line.length < LINE_BATCH) break;
   }
   return out;
 }

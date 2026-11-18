@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createDb, type Db, type Tx, withTenant } from "@event-manager/db";
+import { createDb, type Db, sql, type Tx, withTenant } from "@event-manager/db";
 import { startTestDatabase, type TestDatabase } from "@event-manager/db/testing";
 import { type ActorContext, catalog, DomainError, registration, tenancy } from "../../src/index.js";
 
@@ -38,6 +38,9 @@ const register = (occId: string, i: number, extra: Partial<registration.Registra
 const get = (id: string) => run((tx) => registration.getRegistration(tx, id));
 const pool = async (occId: string) => (await run((tx) => catalog.getOccurrence(tx, occId))).pool!;
 const outbox = (id: string) => run((tx) => tx.selectFrom("outbox.event").select(["type", "data"]).where("subject", "=", `registration/${id}`).orderBy("created_at").orderBy("id").execute());
+
+// Columns copied when cloning a waiting registration in bulk (id, email and position are new).
+const copyColumns = ["tenant_id", "event_id", "occurrence_id", "name", "locale", "party_size", "status", "source"];
 
 beforeAll(async () => {
   tdb = await startTestDatabase();
@@ -271,9 +274,30 @@ describe("offers", () => {
     const pair = await register(occ.id, 2, { partySize: 2 });
     expect(pair.status).toBe("waitlisted");
     expect(await pool(occ.id)).toMatchObject({ taken: 1, available: 1 });
-    await run((tx) => registration.updateRegistration(tx, ctx.tenantId, pair.id, { partySize: 1 }, attendee, { now: NOW }));
-    expect(await get(pair.id)).toMatchObject({ status: "offered", partySize: 1 });
+    const updated = await run((tx) => registration.updateRegistration(tx, ctx.tenantId, pair.id, { partySize: 1 }, attendee, { now: NOW }));
+    const stored = await get(pair.id);
+    expect(stored).toMatchObject({ status: "offered", partySize: 1 });
+    // What the update returns (and announces) is the offer, not the row before promotion.
+    expect(updated).toEqual(stored);
+    const changed = (await outbox(pair.id)).find((e) => e.type === "registration.changed.v1");
+    expect(changed?.data).toMatchObject({ status: "offered" });
     expect(await pool(occ.id)).toMatchObject({ taken: 1, held: 1, available: 0 });
+  });
+
+  it("look further down a line longer than one batch for a party that fits (review #69)", async () => {
+    const { occ } = await talk({ capacity: 1, overbookingPct: 0 });
+    const holder = await register(occ.id, 1);
+    const pair = await register(occ.id, 2, { partySize: 2 });
+    // A whole batch of waiting pairs ahead of a single person.
+    await run((tx) => sql`
+      insert into registration.registration (${sql.raw(copyColumns.join(", "))}, id, email, waitlist_position)
+      select ${sql.raw(copyColumns.join(", "))}, gen_random_uuid(), 'pair' || g || '@example.com', nextval('registration.waitlist_seq')
+        from registration.registration, generate_series(1, ${registration.LINE_BATCH - 1}) g where id = ${pair.id}`.execute(tx));
+    const single = await register(occ.id, 3);
+    expect(single.status).toBe("waitlisted");
+    await run((tx) => registration.cancelRegistration(tx, ctx.tenantId, holder.id, attendee, NOW));
+    expect(await get(single.id)).toMatchObject({ status: "offered" });
+    expect((await register(occ.id, 4)).status).toBe("waitlisted");
   });
 
   it("never offer more places than came free when cancellations race", async () => {
