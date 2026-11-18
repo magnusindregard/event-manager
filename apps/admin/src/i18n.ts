@@ -136,6 +136,10 @@ const resources = {
         next: "Neste", occurrences: "Forekomster", tags: "Tagger", allStatuses: "Alle statuser", allTags: "Alle tagger", allLocations: "Alle steder",
         empty: "Ingen arrangementer", notFound: "Fant ikke arrangementet",
         actions: { publish: "Publiser", unpublish: "Avpubliser", cancel: "Avlys", archive: "Arkiver" },
+        unsaved: {
+          title: "Ulagrede endringer", body: "Du har endret detaljene uten å lagre. Vil du lagre endringene først?",
+          save: "Lagre og {{action}}", discard: "Forkast og {{action}}",
+        },
         tabs: { details: "Detaljer", occurrences: "Tidsplan", rules: "Regler", form: "Skjema", guests: "Gjesteliste", audit: "Endringslogg" },
         texts: "Tekster", defaultLocaleRequired: "Påkrevd i standardspråket", optionalLocale: "Valgfritt. Uten tittel vises standardspråket.",
         shortDescription: "Kort beskrivelse", imageUrl: "Bilde-URL", imageAlt: "Alternativ tekst for bildet",
@@ -414,6 +418,10 @@ const resources = {
         next: "Next", occurrences: "Occurrences", tags: "Tags", allStatuses: "All statuses", allTags: "All tags", allLocations: "All locations",
         empty: "No events", notFound: "Event not found",
         actions: { publish: "Publish", unpublish: "Unpublish", cancel: "Cancel event", archive: "Archive" },
+        unsaved: {
+          title: "Unsaved changes", body: "You changed the details without saving. Save the changes first?",
+          save: "Save and {{action}}", discard: "Discard and {{action}}",
+        },
         tabs: { details: "Details", occurrences: "Schedule", rules: "Rules", form: "Form", guests: "Guest list", audit: "Audit log" },
         texts: "Texts", defaultLocaleRequired: "Required in the default language", optionalLocale: "Optional. Without a title, the default language is shown.",
         shortDescription: "Short description", imageUrl: "Image URL", imageAlt: "Image alt text",

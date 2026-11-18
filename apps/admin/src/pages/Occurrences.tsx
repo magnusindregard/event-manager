@@ -22,7 +22,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiProblem, type CatalogEvent, etagOf, isConflict, type Occurrence, type Series, unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
-import { describeRule } from "../lib/recurrence.js";
+import { describeRule, slotsBefore } from "../lib/recurrence.js";
 import { locationPath, useEventRules, useLocations, useTagLabels, useVocabularies } from "../queries.js";
 import { useRuleRefresh } from "./Rules.js";
 import { BulkOverride } from "./schedule/BulkOverride.js";
@@ -109,6 +109,20 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
     void qc.invalidateQueries({ queryKey: ["audit", accountId] });
   };
   const onError = (e: Error) => isConflict(e) && setConflict(true);
+  /**
+   * Conflict dialog's Reload: drop every form and confirmation that holds the stale version, fetch
+   * the latest, and reopen the occurrence that was being edited with its current values and version.
+   */
+  const reload = async () => {
+    const editing = draft?.occ?.id;
+    setDraft(null);
+    setToDelete(null);
+    setSeriesToDelete(null);
+    refresh();
+    await qc.refetchQueries({ queryKey: key });
+    const latest = editing && qc.getQueryData<Occurrence[]>(key)?.find((o) => o.id === editing);
+    if (latest) open(latest);
+  };
   const visible = filterOccurrences(query.data ?? [], filter, event.timezone, locations.data ?? []);
   const chosen = visible.filter((o) => selected.has(o.id));
   const setChosen = (ids: string[], on: boolean) => {
@@ -489,7 +503,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
                     busy={settle.isPending}
                     onFollowing={(series, at) => {
                       setDraft(null);
-                      setEditor({ kind: "split", series, at });
+                      setEditor({ kind: "split", series, at, slotsBefore: slotsBefore(series, query.data ?? [], at) });
                     }}
                     onAll={(series) => {
                       setDraft(null);
@@ -628,7 +642,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
           setConflict(true);
         }}
       />
-      <ConflictDialog open={conflict} onOpenChange={setConflict} onReload={refresh} />
+      <ConflictDialog open={conflict} onOpenChange={setConflict} onReload={() => void reload()} />
     </div>
   );
 }

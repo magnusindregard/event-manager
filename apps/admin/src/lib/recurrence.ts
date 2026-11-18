@@ -49,6 +49,35 @@ export function parseRule(rrule: string): RuleForm {
   };
 }
 
+/**
+ * How many slots of a series come before `at`, kept or removed (exdates): what a COUNT rule has
+ * used up by then. Matches the server's split, which counts the rule's slots before the split.
+ */
+export function slotsBefore(
+  series: { id: string; exdates: readonly string[] },
+  occurrences: readonly { seriesId?: string | null; recurrenceIdLocal: string | null }[],
+  at: string,
+): number {
+  const ids = new Set(series.exdates.filter((x) => x < at));
+  for (const o of occurrences) if (o.seriesId === series.id && o.recurrenceIdLocal && o.recurrenceIdLocal < at) ids.add(o.recurrenceIdLocal);
+  return ids.size;
+}
+
+/** "This and following": the series' rule as the new series starts it, with what is left of a COUNT. */
+export function followingRule(rrule: string, used: number): RuleForm {
+  const f = parseRule(rrule);
+  return f.mode === "simple" && f.end === "count" ? { ...f, count: Math.max(1, f.count - used) } : f;
+}
+
+/**
+ * The rule to send with a split: none when the editor left it as it was, so the server keeps the
+ * end condition (UNTIL, or the remaining COUNT) itself; otherwise the rule as edited.
+ */
+export function splitRrule(edited: RuleForm, initial: RuleForm): string | undefined {
+  const rrule = buildRule(edited);
+  return rrule === buildRule(initial) ? undefined : rrule;
+}
+
 export function buildRule(f: RuleForm): string {
   if (f.mode === "custom") return f.custom.trim().replace(/^RRULE:/i, "");
   const parts = [`FREQ=${f.freq}`];

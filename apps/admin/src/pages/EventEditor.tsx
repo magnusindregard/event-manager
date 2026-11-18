@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CircleAlert, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type RefObject, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
@@ -9,6 +9,9 @@ import { Combobox } from "@/components/combobox";
 import { ConflictDialog } from "@/components/conflict-dialog";
 import { Field, PageHeader } from "@/components/page";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,6 +134,11 @@ function toBody(f: Form, before: CatalogEvent | null) {
   };
 }
 
+type StatusAction = "publish" | "unpublish" | "cancel" | "archive";
+
+/** Lets the status actions save or discard the details form first, so they never drop edits silently. */
+type DetailsHandle = { dirty(): boolean; save(): Promise<boolean>; discard(): void };
+
 /** Problem details for a field, from a 422 response. */
 function fieldOf(e: unknown): string | undefined {
   return e instanceof ApiProblem ? e.field : undefined;
@@ -152,10 +160,15 @@ export function EventEditor() {
     },
   });
   const event = query.data?.event ?? null;
+  const details = useRef<DetailsHandle | null>(null);
+  // The action stays set while the dialog closes, so its labels do not change during the animation.
+  const [unsaved, setUnsaved] = useState<{ action: StatusAction; open: boolean } | null>(null);
 
   const transition = useMutation({
-    mutationFn: async (action: "publish" | "unpublish" | "cancel" | "archive") => {
-      const opts = { params: { path: { id: id! } }, headers: { "If-Match": query.data!.etag } };
+    mutationFn: async (action: StatusAction) => {
+      // Read the etag from the cache: saving the details first replaces it.
+      const etag = qc.getQueryData<{ etag: string }>(["event", accountId, id])!.etag;
+      const opts = { params: { path: { id: id! } }, headers: { "If-Match": etag } };
       const path = `/v1/events/{id}/${action}` as const;
       const r = await api.POST(path, opts);
       return { event: unwrap(r), etag: r.response.headers.get("etag") ?? "" };
@@ -166,6 +179,20 @@ export function EventEditor() {
       toast.success(t(`events.statuses.${data.event.status}`));
     },
   });
+
+  const startTransition = (action: StatusAction) => {
+    if (details.current?.dirty()) setUnsaved({ action, open: true });
+    else transition.mutate(action);
+  };
+  const actionLabel = unsaved ? t(`events.actions.${unsaved.action}`).toLocaleLowerCase(i18n.language) : "";
+  const closeUnsaved = () => setUnsaved((u) => u && { ...u, open: false });
+  const resolveUnsaved = async (choice: "save" | "discard") => {
+    const action = unsaved!.action;
+    closeUnsaved();
+    if (choice === "save" && !(await details.current!.save())) return;
+    if (choice === "discard") details.current!.discard();
+    transition.mutate(action);
+  };
 
   if (!isNew && query.isError) {
     return (
@@ -197,7 +224,7 @@ export function EventEditor() {
         title={event ? eventTitle(event, i18n.language) : t("events.new")}
         description={event && <Badge variant={statusVariant(event.status)}>{t(`events.statuses.${event.status}`)}</Badge>}
         actions={actions.map(([a]) => (
-          <Button key={a} variant={a === "publish" ? "default" : "outline"} disabled={transition.isPending} onClick={() => transition.mutate(a)}>
+          <Button key={a} variant={a === "publish" ? "default" : "outline"} disabled={transition.isPending} onClick={() => startTransition(a)}>
             {t(`events.actions.${a}`)}
           </Button>
         ))}
@@ -221,7 +248,7 @@ export function EventEditor() {
             <TabsTrigger value="audit">{t("events.tabs.audit")}</TabsTrigger>
           </TabsList>
           <TabsContent value="details" className="pt-4">
-            <EventDetails event={event} etag={query.data!.etag} />
+            <EventDetails event={event} etag={query.data!.etag} handle={details} />
           </TabsContent>
           <TabsContent value="occurrences" className="pt-4">
             <Occurrences event={event!} />
@@ -244,11 +271,28 @@ export function EventEditor() {
           </TabsContent>
         </Tabs>
       )}
+      <AlertDialog open={!!unsaved?.open} onOpenChange={(open) => !open && closeUnsaved()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("events.unsaved.title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("events.unsaved.body")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <Button variant="outline" onClick={() => void resolveUnsaved("discard")}>
+              {t("events.unsaved.discard", { action: actionLabel })}
+            </Button>
+            <Button onClick={() => void resolveUnsaved("save")}>
+              {t("events.unsaved.save", { action: actionLabel })}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-function EventDetails({ event, etag }: { event: CatalogEvent | null; etag: string }) {
+function EventDetails({ event, etag, handle }: { event: CatalogEvent | null; etag: string; handle?: RefObject<DetailsHandle | null> }) {
   const { t, i18n } = useTranslation();
   const { api, accountId } = useApp();
   const qc = useQueryClient();
@@ -257,6 +301,7 @@ function EventDetails({ event, etag }: { event: CatalogEvent | null; etag: strin
   const account = accountQuery.data?.account;
   const [form, setForm] = useState<Form | null>(null);
   const [conflict, setConflict] = useState(false);
+  const formEl = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (account) setForm(toForm(event, account.locales, account.defaultTimezone));
@@ -282,6 +327,22 @@ function EventDetails({ event, etag }: { event: CatalogEvent | null; etag: strin
     onError: (e) => isConflict(e) && setConflict(true),
   });
 
+  useImperativeHandle(handle, () => ({
+    dirty: () =>
+      !!form && !!account && !!event &&
+      JSON.stringify(toBody(form, event)) !== JSON.stringify(toBody(toForm(event, account.locales, account.defaultTimezone), event)),
+    save: async () => {
+      if (!form || !formEl.current?.reportValidity()) return false;
+      try {
+        await save.mutateAsync(form);
+        return true;
+      } catch {
+        return false; // shown in the form (or the conflict dialog)
+      }
+    },
+    discard: () => account && setForm(toForm(event, account.locales, account.defaultTimezone)),
+  }), [form, account, event, save]);
+
   if (!form || !account) return null;
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm({ ...form, [k]: v });
   const setT = (locale: string, patch: Partial<T>) => setForm({ ...form, translations: { ...form.translations, [locale]: { ...form.translations[locale]!, ...patch } } });
@@ -298,6 +359,7 @@ function EventDetails({ event, etag }: { event: CatalogEvent | null; etag: strin
 
   return (
     <form
+      ref={formEl}
       className="max-w-2xl space-y-6"
       onSubmit={(e) => {
         e.preventDefault();
