@@ -34,15 +34,16 @@ const ATTENDEE_URL = (import.meta.env.VITE_ATTENDEE_URL ?? "").replace(/\/+$/, "
 /**
  * An occurrence's registrations (docs/registration.md, "Occurrence → Registrations"): who is
  * coming, with party size, source and answers; add someone by hand, cancel, or open the door
- * list. Sensitive answers show only with registrations.sensitive. Waitlist and moving come later.
+ * list; the waitlist in order, with offers and their deadlines. Sensitive answers show only
+ * with registrations.sensitive. Moving registrations comes later.
  */
 export function Registrations({ event, occurrence, label, onClose }: { event: CatalogEvent; occurrence: Occurrence | null; label: string; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const { api, accountId, can } = useApp();
   const qc = useQueryClient();
-  const [show, setShow] = useState<"active" | "cancelled">("active");
+  const [show, setShow] = useState<"active" | "waitlist" | "cancelled">("active");
   const [toCancel, setToCancel] = useState<Registration | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", guest: false });
+  const [form, setForm] = useState({ name: "", email: "", guest: false, waitlist: false });
   const [formError, setFormError] = useState<string | null>(null);
   const key = ["registrations", accountId, occurrence?.id];
 
@@ -65,11 +66,11 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
     mutationFn: async () =>
       unwrap(await api.POST("/v1/occurrences/{id}/registrations", {
         params: { path: { id: occurrence!.id } },
-        body: { name: form.name, email: form.email, partySize: form.guest ? 2 : 1 },
+        body: { name: form.name, email: form.email, partySize: form.guest ? 2 : 1, ...(form.waitlist ? { waitlist: true } : {}) },
       })),
     onSuccess: (r) => {
-      toast.success(t("registrations.added", { name: r.name }));
-      setForm({ name: "", email: "", guest: false });
+      toast.success(t(r.status === "waitlisted" ? "registrations.waitlistedToast" : "registrations.added", { name: r.name }));
+      setForm({ name: "", email: "", guest: false, waitlist: false });
       setFormError(null);
       refresh();
     },
@@ -87,9 +88,14 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
 
   const all = query.data?.items ?? [];
   const fields = query.data?.fields ?? [];
-  const active = all.filter((r) => r.status !== "cancelled");
-  const rows = show === "active" ? active : all.filter((r) => r.status === "cancelled");
+  const active = all.filter((r) => r.status === "confirmed");
+  // Offers first (they hold places), then the line in order.
+  const waiting = all.filter((r) => r.status === "waitlisted" || r.status === "offered")
+    .sort((a, b) => (a.status === b.status ? (a.waitlistPosition ?? 0) - (b.waitlistPosition ?? 0) : a.status === "offered" ? -1 : 1));
+  const cancelled = all.filter((r) => r.status === "cancelled");
+  const rows = show === "active" ? active : show === "waitlist" ? waiting : cancelled;
   const people = active.reduce((n, r) => n + r.partySize, 0);
+  const when = (iso: string) => new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: event.timezone }).format(new Date(iso));
   const pool = occurrence?.pool;
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -122,8 +128,19 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
         );
       },
     },
+    ...(show === "waitlist" ? [{
+      id: "position",
+      header: t("registrations.position"),
+      cell: ({ row }: { row: { original: Registration } }) => row.original.status === "offered"
+        ? <Badge variant="secondary" className="whitespace-normal">{t("registrations.offeredUntil", { when: when(row.original.offerExpiresAt!) })}</Badge>
+        : <span className="tabular-nums">{row.original.waitlistPosition}</span>,
+    } satisfies ColumnDef<Registration>] : []),
     { id: "party", header: t("registrations.party"), cell: ({ row }) => <span className="tabular-nums">{row.original.partySize}</span> },
-    { id: "source", header: t("registrations.source"), cell: ({ row }) => <Badge variant="outline">{t(`registrations.sources.${row.original.source}`)}</Badge> },
+    // The waitlist shows the position instead, to keep the sheet narrow.
+    ...(show === "waitlist" ? [] : [{
+      id: "source", header: t("registrations.source"),
+      cell: ({ row }: { row: { original: Registration } }) => <Badge variant="outline">{t(`registrations.sources.${row.original.source}`)}</Badge>,
+    } satisfies ColumnDef<Registration>]),
     {
       id: "actions",
       header: () => <span className="sr-only">{t("common.actions")}</span>,
@@ -131,7 +148,9 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
         row.original.status !== "cancelled" ? (
           can("registrations.write") && (
             <div className="flex justify-end">
-              <Button variant="ghost" size="icon" aria-label={t("registrations.cancelFor", { name: row.original.name ?? "" })} onClick={() => setToCancel(row.original)}>
+              <Button variant="ghost" size="icon"
+                aria-label={t(row.original.status === "confirmed" ? "registrations.cancelFor" : "registrations.removeFromWaitlist", { name: row.original.name ?? "" })}
+                onClick={() => setToCancel(row.original)}>
                 <X />
               </Button>
             </div>
@@ -154,6 +173,7 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
             <p className="text-sm" aria-live="polite">
               {t("registrations.summary", { count: active.length, people })}
               {pool && pool.bookableLimit !== null && <> · {t("occurrences.placesOf", { taken: pool.taken + pool.held, limit: pool.bookableLimit })}</>}
+              {waiting.length > 0 && <> · {t("registrations.waitlistSummary", { count: waiting.length })}</>}
             </p>
             {ATTENDEE_URL && event.status === "published" && event.registration.accessPolicy === "open" && occurrence && (
               <a className="text-sm underline underline-offset-4 inline-flex items-center gap-1" href={`${ATTENDEE_URL}/r/${occurrence.id}`} target="_blank" rel="noreferrer">
@@ -170,13 +190,16 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
                 </Button>
               </div>
             )}
-            <Tabs value={show} onValueChange={(v) => setShow(v as "active" | "cancelled")}>
+            <Tabs value={show} onValueChange={(v) => setShow(v as typeof show)}>
               <TabsList>
                 <TabsTrigger value="active">{t("registrations.active")} ({active.length})</TabsTrigger>
-                <TabsTrigger value="cancelled">{t("registrations.cancelled")} ({all.length - active.length})</TabsTrigger>
+                {(event.registration.waitlistEnabled || waiting.length > 0) && (
+                  <TabsTrigger value="waitlist">{t("registrations.waitlist")} ({waiting.length})</TabsTrigger>
+                )}
+                <TabsTrigger value="cancelled">{t("registrations.cancelled")} ({cancelled.length})</TabsTrigger>
               </TabsList>
             </Tabs>
-            <DataTable columns={columns} data={rows} loading={query.isLoading} empty={t("registrations.empty")} getRowId={(r) => r.id} />
+            <DataTable columns={columns} data={rows} loading={query.isLoading} empty={t(show === "waitlist" ? "registrations.waitlistEmpty" : "registrations.empty")} getRowId={(r) => r.id} />
 
             <form onSubmit={submit} className="grid gap-3 rounded-lg border p-4" aria-labelledby="add-registration">
               <h3 id="add-registration" className="text-sm font-medium">{t("registrations.add")}</h3>
@@ -190,6 +213,12 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
                 <Checkbox id="reg-guest" checked={form.guest} onCheckedChange={(v) => setForm({ ...form, guest: v === true })} />
                 <Label htmlFor="reg-guest">{t("registrations.guest")}</Label>
               </div>
+              {event.registration.waitlistEnabled && (
+                <div className="flex items-center gap-2">
+                  <Checkbox id="reg-waitlist" checked={form.waitlist} onCheckedChange={(v) => setForm({ ...form, waitlist: v === true })} />
+                  <Label htmlFor="reg-waitlist">{t("registrations.addToWaitlist")}</Label>
+                </div>
+              )}
               {formError && <p role="alert" className="text-destructive text-sm">{formError}</p>}
               <p className="text-muted-foreground text-xs">{t("registrations.addHelp")}</p>
               <div>
@@ -205,12 +234,14 @@ export function Registrations({ event, occurrence, label, onClose }: { event: Ca
       <AlertDialog open={!!toCancel} onOpenChange={(o) => !o && setToCancel(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("registrations.cancelTitle", { name: toCancel?.name ?? "" })}</AlertDialogTitle>
-            <AlertDialogDescription>{t("registrations.cancelBody")}</AlertDialogDescription>
+            <AlertDialogTitle>{t(toCancel?.status === "confirmed" ? "registrations.cancelTitle" : "registrations.removeTitle", { name: toCancel?.name ?? "" })}</AlertDialogTitle>
+            <AlertDialogDescription>{t(toCancel?.status === "confirmed" ? "registrations.cancelBody" : "registrations.removeBody")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common.back")}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => toCancel && cancel.mutate(toCancel)} disabled={cancel.isPending}>{t("registrations.cancelConfirm")}</AlertDialogAction>
+            <AlertDialogAction onClick={() => toCancel && cancel.mutate(toCancel)} disabled={cancel.isPending}>
+              {t(toCancel?.status === "confirmed" ? "registrations.cancelConfirm" : "registrations.removeConfirm")}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

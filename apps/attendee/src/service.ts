@@ -50,7 +50,7 @@ async function details(tx: Tx, occurrenceId: string, wanted: string | undefined,
 export interface InvitationOption {
   target: catalog.RegistrationTarget;
   availability: catalog.Availability;
-  /** Open for registration and not full. */
+  /** Open for registration and not full, or full with an open waitlist. */
   bookable: boolean;
 }
 
@@ -80,7 +80,8 @@ async function invitationDetails(tx: Tx, inv: registration.GuestInvitation, want
     .filter((target) => target.event.admissionMode === "registration" && target.pool)
     .map((target) => {
       const availability = catalog.targetAvailability(target, now);
-      return { target, availability, bookable: availability.status === "available" || availability.status === "few_left" };
+      // A full time with an open waitlist can be chosen too: accepting joins its waitlist.
+      return { target, availability, bookable: ["available", "few_left", "waitlist"].includes(availability.status) };
     });
   return {
     form: { fields: form.fields, sensitiveDeleteAfterDays: account.sensitiveDeleteAfterDays },
@@ -99,16 +100,19 @@ export function preferredLocale(acceptLanguage: string | undefined): string | un
 export interface AttendeeRegistration {
   registration: registration.Registration;
   answers: registration.Answers;
+  /** Place in line while waitlisted. */
+  waitlistPosition: number | null;
 }
 
 const withAnswers = async (tx: Tx, tenantId: string, reg: registration.Registration): Promise<AttendeeRegistration> => ({
   registration: reg,
   answers: (await registration.readAnswers(tx, tenantId, [reg.id], { kind: "attendee" })).get(reg.id) ?? {},
+  waitlistPosition: reg.status === "waitlisted" ? ((await registration.waitlistRanks(tx, [reg.id])).get(reg.id) ?? null) : null,
 });
 
 export interface RegistrationView extends AttendeeRegistration {
   details: Details;
-  rights: { change: boolean; cancel: boolean };
+  rights: { change: boolean; cancel: boolean; claim: boolean };
   admissionToken: string | null;
 }
 
@@ -167,6 +171,11 @@ export class AttendeeService {
   async update(token: string, patch: registration.RegistrationPatch): Promise<AttendeeRegistration | null> {
     return this.withToken(token, async (tx, tenantId, reg) =>
       withAnswers(tx, tenantId, await registration.updateRegistration(tx, tenantId, reg.id, patch, { kind: "attendee" }, { now: this.now() })));
+  }
+
+  /** Claims a waitlist offer. */
+  async claim(token: string): Promise<AttendeeRegistration | null> {
+    return this.withToken(token, async (tx, tenantId, reg) => withAnswers(tx, tenantId, await registration.claimOffer(tx, tenantId, reg.id, this.now())));
   }
 
   async cancel(token: string): Promise<AttendeeRegistration | null> {

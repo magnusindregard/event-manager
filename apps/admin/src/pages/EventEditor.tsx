@@ -57,7 +57,7 @@ type Settings = CatalogEvent["registration"];
 /** Number fields are kept as text so they can be empty; times are shown in hours. */
 type Reg = {
   accessPolicy: Settings["accessPolicy"]; listed: boolean; guestAllowed: boolean; capacity: string; overbookingPct: string; opensHours: string; closesHours: string;
-  reminderHours: string;
+  reminderHours: string; waitlistEnabled: boolean; claimWindowHours: string; waitlistCutoffHours: string;
 };
 
 const hours = (min: number | null | undefined) => (min === null || min === undefined ? "" : String(min / 60));
@@ -73,6 +73,9 @@ function toReg(s: Settings | undefined): Reg {
     opensHours: hours(s?.opensMinBefore),
     closesHours: hours(s?.closesMinBefore ?? 0),
     reminderHours: hours(s?.reminderMinBefore),
+    waitlistEnabled: s?.waitlistEnabled ?? false,
+    claimWindowHours: hours(s?.claimWindowMin ?? 1440),
+    waitlistCutoffHours: hours(s?.waitlistCutoffMin ?? 120),
   };
 }
 
@@ -86,6 +89,9 @@ function regBody(r: Reg) {
     opensMinBefore: minutes(r.opensHours),
     closesMinBefore: minutes(r.closesHours) ?? 0,
     reminderMinBefore: minutes(r.reminderHours),
+    waitlistEnabled: r.waitlistEnabled,
+    claimWindowMin: minutes(r.claimWindowHours) ?? 1440,
+    waitlistCutoffMin: minutes(r.waitlistCutoffHours) ?? 0,
   };
 }
 
@@ -516,6 +522,25 @@ function RegistrationFields({ reg, onChange, errField }: { reg: Reg; onChange: (
         <Switch id="listed" checked={reg.listed} onCheckedChange={(v) => set("listed", v)} />
         <Label htmlFor="listed">{t("events.reg.listed")}</Label>
       </div>
+      <div className="grid gap-1 sm:col-span-2">
+        <div className="flex items-center gap-2">
+          <Switch id="waitlist" checked={reg.waitlistEnabled} onCheckedChange={(v) => set("waitlistEnabled", v)} />
+          <Label htmlFor="waitlist">{t("events.reg.waitlist")}</Label>
+        </div>
+        <p className="text-muted-foreground text-xs">{t("events.reg.waitlistHint")}</p>
+      </div>
+      {reg.waitlistEnabled && (
+        <>
+          <Field label={t("events.reg.claimWindow")} htmlFor="claim-window" hint={t("events.reg.claimWindowHint")}>
+            <Input id="claim-window" type="number" min={0.1} max={336} step="any" value={reg.claimWindowHours}
+              onChange={(e) => set("claimWindowHours", e.target.value)} aria-invalid={errField === "registration.claimWindowMin"} />
+          </Field>
+          <Field label={t("events.reg.waitlistCutoff")} htmlFor="waitlist-cutoff" hint={t("events.reg.waitlistCutoffHint")}>
+            <Input id="waitlist-cutoff" type="number" min={0} max={336} step="any" value={reg.waitlistCutoffHours}
+              onChange={(e) => set("waitlistCutoffHours", e.target.value)} aria-invalid={errField === "registration.waitlistCutoffMin"} />
+          </Field>
+        </>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { enqueueProvisioning } from "./provision.js";
 import { queueRegistrationEmail } from "./registration-email.js";
 import { queueReminders } from "./reminder.js";
 import { queueResolution } from "./resolver.js";
+import { queueWaitlistWork } from "./waitlist.js";
 
 /**
  * Internal consumers of domain events (ADR 0008). Each runs in the event's tenant
@@ -34,4 +35,4 @@ export const auditTrailHandler: InternalHandler = {
   },
 };
 
-export const defaultHandlers: InternalHandler[] = [auditTrailHandler, enqueueProvisioning, queueResolution, queueRegistrationEmail, queueOccurrenceNotices, queueInvitationEmails, queueReminders];
+export const defaultHandlers: InternalHandler[] = [auditTrailHandler, enqueueProvisioning, queueResolution, queueRegistrationEmail, queueOccurrenceNotices, queueInvitationEmails, queueReminders, queueWaitlistWork];

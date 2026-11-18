@@ -31201,6 +31201,9 @@
                           "source",
                           "cancelledAt",
                           "cancelledBy",
+                          "waitlistPosition",
+                          "offerExpiresAt",
+                          "confirmedAt",
                           "answers",
                           "hiddenSensitiveAnswers",
                           "sensitiveConsentAt",
@@ -31313,10 +31316,41 @@
                                     "enum": [
                                       "staff"
                                     ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "expired"
+                                    ]
                                   }
-                                ]
+                                ],
+                                "description": "expired: a waitlist offer that was not claimed in time"
                               }
                             ]
+                          },
+                          "waitlistPosition": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ],
+                            "minimum": 1,
+                            "description": "Place in line while waitlisted (1 = next)"
+                          },
+                          "offerExpiresAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time",
+                            "description": "While offered: when the offer must be claimed"
+                          },
+                          "confirmedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time",
+                            "description": "When the places were taken: at once, or when a waitlist offer was claimed"
                           },
                           "answers": {
                             "type": "object",
@@ -31722,7 +31756,7 @@
       },
       "post": {
         "operationId": "createRegistration",
-        "summary": "Add someone by hand. Confirmed at once and emailed; 409 full when there is no place. Sensitive answers need registrations.sensitive",
+        "summary": "Add someone by hand. Confirmed at once and emailed; 409 full when there is no place, unless waitlist is set. Sensitive answers need registrations.sensitive",
         "tags": [
           "registrations"
         ],
@@ -31757,6 +31791,10 @@
                     "minimum": 1,
                     "maximum": 2,
                     "description": "Staff may add a guest even where the event does not offer one"
+                  },
+                  "waitlist": {
+                    "type": "boolean",
+                    "description": "Join the waitlist when the occurrence is full instead of failing with 409 full (needs the event's waitlist, before its cutoff)"
                   },
                   "answers": {
                     "type": "object",
@@ -31834,6 +31872,9 @@
                     "source",
                     "cancelledAt",
                     "cancelledBy",
+                    "waitlistPosition",
+                    "offerExpiresAt",
+                    "confirmedAt",
                     "answers",
                     "hiddenSensitiveAnswers",
                     "sensitiveConsentAt",
@@ -31946,10 +31987,41 @@
                               "enum": [
                                 "staff"
                               ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "expired"
+                              ]
                             }
-                          ]
+                          ],
+                          "description": "expired: a waitlist offer that was not claimed in time"
                         }
                       ]
+                    },
+                    "waitlistPosition": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 1,
+                      "description": "Place in line while waitlisted (1 = next)"
+                    },
+                    "offerExpiresAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "While offered: when the offer must be claimed"
+                    },
+                    "confirmedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "When the places were taken: at once, or when a waitlist offer was claimed"
                     },
                     "answers": {
                       "type": "object",
@@ -32551,6 +32623,9 @@
                     "source",
                     "cancelledAt",
                     "cancelledBy",
+                    "waitlistPosition",
+                    "offerExpiresAt",
+                    "confirmedAt",
                     "answers",
                     "hiddenSensitiveAnswers",
                     "sensitiveConsentAt",
@@ -32663,10 +32738,41 @@
                               "enum": [
                                 "staff"
                               ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "expired"
+                              ]
                             }
-                          ]
+                          ],
+                          "description": "expired: a waitlist offer that was not claimed in time"
                         }
                       ]
+                    },
+                    "waitlistPosition": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 1,
+                      "description": "Place in line while waitlisted (1 = next)"
+                    },
+                    "offerExpiresAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "While offered: when the offer must be claimed"
+                    },
+                    "confirmedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "When the places were taken: at once, or when a waitlist offer was claimed"
                     },
                     "answers": {
                       "type": "object",
@@ -33176,7 +33282,7 @@
     "/v1/registrations/{id}/cancel": {
       "post": {
         "operationId": "cancelRegistration",
-        "summary": "Cancel and give the places back; the attendee is emailed. Cancelling twice is a no-op",
+        "summary": "Cancel and give the places back (they go to the waitlist); the attendee is emailed. Also removes someone from the waitlist. Cancelling twice is a no-op",
         "tags": [
           "registrations"
         ],
@@ -33216,6 +33322,9 @@
                     "source",
                     "cancelledAt",
                     "cancelledBy",
+                    "waitlistPosition",
+                    "offerExpiresAt",
+                    "confirmedAt",
                     "answers",
                     "hiddenSensitiveAnswers",
                     "sensitiveConsentAt",
@@ -33328,10 +33437,41 @@
                               "enum": [
                                 "staff"
                               ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "expired"
+                              ]
                             }
-                          ]
+                          ],
+                          "description": "expired: a waitlist offer that was not claimed in time"
                         }
                       ]
+                    },
+                    "waitlistPosition": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 1,
+                      "description": "Place in line while waitlisted (1 = next)"
+                    },
+                    "offerExpiresAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "While offered: when the offer must be claimed"
+                    },
+                    "confirmedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "When the places were taken: at once, or when a waitlist offer was claimed"
                     },
                     "answers": {
                       "type": "object",

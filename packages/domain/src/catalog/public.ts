@@ -171,7 +171,7 @@ export async function listPublicOccurrences(
     .innerJoin("catalog.event as e", "e.id", "o.event_id")
     .select([
       "o.id", "o.start_utc", "o.end_utc", "o.status as occ_status", "o.access_policy_override", "e.id as event_id", "e.slug", "e.status", "e.timezone", "e.external_refs",
-      "e.admission_mode", "e.access_policy", "e.registration_opens_min", "e.registration_closes_min",
+      "e.admission_mode", "e.access_policy", "e.registration_opens_min", "e.registration_closes_min", "e.waitlist_enabled", "e.waitlist_cutoff_min",
     ])
     .where("e.status", "in", c.statuses)
     .where(sql<boolean>`o.resolved_version = o.version`)
@@ -224,7 +224,7 @@ type OccRow = {
   id: string; start_utc: Date; end_utc: Date; occ_status: OccurrenceStatus; event_id: string;
   slug: string; status: EventStatus; timezone: string; external_refs: Record<string, string>;
   access_policy_override: AccessPolicy | null; admission_mode: AdmissionMode; access_policy: AccessPolicy;
-  registration_opens_min: number | null; registration_closes_min: number;
+  registration_opens_min: number | null; registration_closes_min: number; waitlist_enabled: boolean; waitlist_cutoff_min: number;
 };
 
 async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<PublicOccurrence[]> {
@@ -254,6 +254,7 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
       const a = availabilityOf({
         now: c.now, startUtc: r.start_utc, eventStatus: r.status, occurrenceStatus: status,
         opensMinBefore: r.registration_opens_min, closesMinBefore: r.registration_closes_min, pool: pools.get(r.id) ?? null,
+        waitlist: { enabled: r.waitlist_enabled, cutoffMinBefore: r.waitlist_cutoff_min },
       });
       availability = { status: a.status, opensAt: a.opensAt?.toISOString() ?? null, closesAt: a.closesAt.toISOString() };
     }

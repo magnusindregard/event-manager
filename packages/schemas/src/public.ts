@@ -31,8 +31,8 @@ export const Admission = Type.Union(
 
 export const Availability = Type.Object(
   {
-    status: Type.Union([Type.Literal("available"), Type.Literal("few_left"), Type.Literal("full"), Type.Literal("closed")], {
-      description: "closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added",
+    status: Type.Union([Type.Literal("available"), Type.Literal("few_left"), Type.Literal("full"), Type.Literal("waitlist"), Type.Literal("closed")], {
+      description: "waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added",
     }),
     opensAt: Nullable(Type.String({ format: "date-time", description: "Null: open as soon as the event is published" })),
     closesAt: DateTime,

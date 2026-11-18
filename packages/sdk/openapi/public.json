@@ -387,11 +387,17 @@
                                       {
                                         "type": "string",
                                         "enum": [
+                                          "waitlist"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
                                           "closed"
                                         ]
                                       }
                                     ],
-                                    "description": "closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added"
+                                    "description": "waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added"
                                   },
                                   "opensAt": {
                                     "type": [
@@ -1518,11 +1524,17 @@
                                           {
                                             "type": "string",
                                             "enum": [
+                                              "waitlist"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
                                               "closed"
                                             ]
                                           }
                                         ],
-                                        "description": "closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added"
+                                        "description": "waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added"
                                       },
                                       "opensAt": {
                                         "type": [

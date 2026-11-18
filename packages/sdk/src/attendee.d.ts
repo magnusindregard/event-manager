@@ -166,6 +166,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/m/{token}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/m/{token}/cancel": {
         parameters: {
             query?: never;
@@ -227,7 +262,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Register; confirmed at once. Returns the manage token */
+        /** Register; confirmed at once, or on the waitlist when full (status waitlisted). Returns the manage token */
         post: operations["register"];
         delete?: never;
         options?: never;
@@ -262,8 +297,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Cancel until the occurrence starts; the place goes back */
+        /** Cancel until the occurrence starts; the place goes back. Also leaves the waitlist or declines an offer */
         post: operations["cancelRegistration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attendee/v1/registration/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim a waitlist offer before it expires: confirmed, with the QR code. 409 offer_expired after the deadline, no_offer without one */
+        post: operations["claimOffer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -389,8 +441,8 @@ export interface operations {
                         };
                         /** @description Places for registration occurrences, without exact numbers. Null for other admission modes */
                         availability: {
-                            /** @description closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added */
-                            status: "available" | "few_left" | "full" | "closed";
+                            /** @description waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added */
+                            status: "available" | "few_left" | "full" | "waitlist" | "closed";
                             /**
                              * Format: date-time
                              * @description Null: open as soon as the event is published
@@ -567,7 +619,12 @@ export interface operations {
                             email: string;
                             locale: string;
                             partySize: number;
+                            /** @description waitlisted: in line for a place. offered: a place is held until offerExpiresAt; claim it with /registration/claim */
                             status: "confirmed" | "waitlisted" | "offered" | "cancelled";
+                            /** @description Place in line while waitlisted (1 = next) */
+                            waitlistPosition: number | null;
+                            /** Format: date-time */
+                            offerExpiresAt: string | null;
                             /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
                             answers: {
                                 [key: string]: string | boolean | string[];
@@ -768,7 +825,12 @@ export interface operations {
                             email: string;
                             locale: string;
                             partySize: number;
+                            /** @description waitlisted: in line for a place. offered: a place is held until offerExpiresAt; claim it with /registration/claim */
                             status: "confirmed" | "waitlisted" | "offered" | "cancelled";
+                            /** @description Place in line while waitlisted (1 = next) */
+                            waitlistPosition: number | null;
+                            /** Format: date-time */
+                            offerExpiresAt: string | null;
                             /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
                             answers: {
                                 [key: string]: string | boolean | string[];
@@ -813,8 +875,8 @@ export interface operations {
                             };
                             /** @description Places for registration occurrences, without exact numbers. Null for other admission modes */
                             availability: {
-                                /** @description closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added */
-                                status: "available" | "few_left" | "full" | "closed";
+                                /** @description waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added */
+                                status: "available" | "few_left" | "full" | "waitlist" | "closed";
                                 /**
                                  * Format: date-time
                                  * @description Null: open as soon as the event is published
@@ -857,8 +919,10 @@ export interface operations {
                         rights: {
                             /** @description Name and guest can be changed until registration closes */
                             change: boolean;
-                            /** @description Can be cancelled until the occurrence starts */
+                            /** @description Can be cancelled (or the waitlist left, or an offer declined) until the occurrence starts */
                             cancel: boolean;
+                            /** @description An offered place can be claimed now */
+                            claim: boolean;
                         };
                         /** @description The QR code's content; null when cancelled */
                         admissionToken: string | null;
@@ -996,7 +1060,12 @@ export interface operations {
                             email: string;
                             locale: string;
                             partySize: number;
+                            /** @description waitlisted: in line for a place. offered: a place is held until offerExpiresAt; claim it with /registration/claim */
                             status: "confirmed" | "waitlisted" | "offered" | "cancelled";
+                            /** @description Place in line while waitlisted (1 = next) */
+                            waitlistPosition: number | null;
+                            /** Format: date-time */
+                            offerExpiresAt: string | null;
                             /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
                             answers: {
                                 [key: string]: string | boolean | string[];
@@ -1193,7 +1262,214 @@ export interface operations {
                             email: string;
                             locale: string;
                             partySize: number;
+                            /** @description waitlisted: in line for a place. offered: a place is held until offerExpiresAt; claim it with /registration/claim */
                             status: "confirmed" | "waitlisted" | "offered" | "cancelled";
+                            /** @description Place in line while waitlisted (1 = next) */
+                            waitlistPosition: number | null;
+                            /** Format: date-time */
+                            offerExpiresAt: string | null;
+                            /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
+                            answers: {
+                                [key: string]: string | boolean | string[];
+                            };
+                            /** Format: date-time */
+                            createdAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    claimOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        registration: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            email: string;
+                            locale: string;
+                            partySize: number;
+                            /** @description waitlisted: in line for a place. offered: a place is held until offerExpiresAt; claim it with /registration/claim */
+                            status: "confirmed" | "waitlisted" | "offered" | "cancelled";
+                            /** @description Place in line while waitlisted (1 = next) */
+                            waitlistPosition: number | null;
+                            /** Format: date-time */
+                            offerExpiresAt: string | null;
                             /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
                             answers: {
                                 [key: string]: string | boolean | string[];
@@ -1452,8 +1728,8 @@ export interface operations {
                             };
                             /** @description Places for registration occurrences, without exact numbers. Null for other admission modes */
                             availability: {
-                                /** @description closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses (waitlist) may be added */
-                                status: "available" | "few_left" | "full" | "closed";
+                                /** @description waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added */
+                                status: "available" | "few_left" | "full" | "waitlist" | "closed";
                                 /**
                                  * Format: date-time
                                  * @description Null: open as soon as the event is published
@@ -1602,7 +1878,12 @@ export interface operations {
                             email: string;
                             locale: string;
                             partySize: number;
+                            /** @description waitlisted: in line for a place. offered: a place is held until offerExpiresAt; claim it with /registration/claim */
                             status: "confirmed" | "waitlisted" | "offered" | "cancelled";
+                            /** @description Place in line while waitlisted (1 = next) */
+                            waitlistPosition: number | null;
+                            /** Format: date-time */
+                            offerExpiresAt: string | null;
                             /** @description By field id: text, true for a ticked checkbox, option ids for a choice */
                             answers: {
                                 [key: string]: string | boolean | string[];
