@@ -31,9 +31,11 @@ case "$*" in
 esac
 STUB
 printf '#!/usr/bin/env bash\necho "pnpm $*" >> "$LOG"\n' > "$work/bin/pnpm"
-printf '#!/usr/bin/env bash\necho "curl $*" >> "$LOG"\ncase "$*" in *http_code*) echo 401 ;; esac\n' > "$work/bin/curl"
+printf '#!/usr/bin/env bash\necho "curl $*" >> "$LOG"\ncase "$*" in *http_code*) echo 401 ;; *AzureADTokenExchange*) echo "{\\"value\\":\\"oidc\\"}" ;; esac\n' > "$work/bin/curl"
 chmod +x "$work/bin/"*
 
+# Outside GitHub Actions unless a case sets these (refresh_login).
+unset ACTIONS_ID_TOKEN_REQUEST_URL ACTIONS_ID_TOKEN_REQUEST_TOKEN AZURE_CLIENT_ID
 export PATH="$work/bin:$PATH" RESOURCE_GROUP=rg-test ENTRA_ADMIN_CLIENT_ID=x ENTRA_AUTHORITY=x ENTRA_API_SCOPE=x POLL_SECONDS=0
 fail() { echo "FAIL: $*" >&2; echo "--- calls:" >&2; cat "$LOG" >&2; exit 1; }
 run() { # <name> <current tag> <migration status> <tag>; exit code in $code, calls in $LOG
@@ -74,5 +76,14 @@ run preview-over-preview "$preview" Succeeded "$preview2"; [ "$code" != 0 ] || f
 run fresh "" Succeeded "$new"; [ "$code" = 0 ] || fail "fresh deploy failed: $(cat "$work/fresh.out")"
 [ "$(bicep_tags)" = "$new $new
 $new $new" ] || fail "fresh environment should deploy $new in both steps"
+
+# In GitHub Actions the OIDC sign-in expires within minutes, so az signs in again before each phase.
+ACTIONS_ID_TOKEN_REQUEST_URL="https://token.test/?x=1" ACTIONS_ID_TOKEN_REQUEST_TOKEN=t AZURE_CLIENT_ID=c AZURE_TENANT_ID=t AZURE_SUBSCRIPTION_ID=s \
+  run oidc "$old" Succeeded "$new"; [ "$code" = 0 ] || fail "deploy with OIDC refresh failed: $(cat "$work/oidc.out")"
+[ "$(grep -c '^az login --service-principal -u c -t t --federated-token oidc' "$LOG")" = 3 ] || fail "expected a fresh OIDC sign-in before each of the three phases"
+login=$(grep -n '^az login' "$LOG" | tail -1 | cut -d: -f1)
+upload=$(grep -n '^az storage' "$LOG" | head -1 | cut -d: -f1)
+[ "$login" -lt "$upload" ] || fail "admin upload must come after a fresh sign-in"
+! grep -q '^az login' "$work/forward.log" || fail "signed in again outside GitHub Actions"
 
 echo "deploy-env.sh: order and guards OK"
