@@ -168,6 +168,28 @@ describe("horizon extension (#39)", () => {
     expect(await run((tx) => catalog.getSeries(tx, s.id))).toMatchObject({ complete: true });
   });
 
+  it("an extension and a rule save that overlap both finish (no deadlock)", async () => {
+    const { e, s } = await openEnded();
+    const venue = await run((tx) => catalog.createLocation(tx, ctx, { kind: "venue", name: "Horizon venue" }));
+    const first = (await occurrences(e.id))[0]!;
+    // Something else holds one of the series' occurrences, so both operations queue behind it:
+    // the extension first (it locks the series' occurrences), then the rule save (which resolves
+    // every occurrence of the event inline).
+    const blocker = held((tx) => tx.selectFrom("catalog.occurrence").select("id").where("id", "=", first.id).forUpdate().execute());
+    await blocker.done;
+    const extend = settle(run((tx) => catalog.extendSeriesHorizon(tx, ctx.tenantId, s.id, later)));
+    await pause();
+    const rule = settle(run((tx) => catalog.createRule(tx, ctx, e.id, { name: "Alle", effects: [{ type: "location", targetRef: null, value: venue.id }] })));
+    await pause();
+    await blocker.commit();
+    const outcome = (o: Awaited<typeof extend> | Awaited<typeof rule>) => (o.ok ? "ok" : o.error.code); // 40P01: deadlock
+    expect(await Promise.all([extend, rule]).then((both) => both.map(outcome))).toEqual(["ok", "ok"]);
+    // Every occurrence, the extension's new ones included, has the rule's location.
+    const all = await occurrences(e.id);
+    expect(all.length).toBeGreaterThan(500);
+    expect(all.every((o) => o.effective.location?.value === venue.id)).toBe(true);
+  });
+
   it("overlapping extensions create each slot once", async () => {
     const { e, s } = await openEnded();
     const before = (await occurrences(e.id)).length;

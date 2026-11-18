@@ -393,10 +393,17 @@ export async function seriesDueForExtension(tx: Tx, at: Date): Promise<{ tenantI
  * else changes, so there is no audit entry; the outbox event lets caches refresh.
  */
 export async function extendSeriesHorizon(tx: Tx, tenantId: string, id: string, now: Date = new Date()): Promise<number> {
-  // Locked, and read after any edit in progress commits: a rule changed meanwhile (shortened,
-  // completed) is the one extended, and overlapping runs see each other's slots.
+  const ref = await tx.selectFrom("catalog.series").select("event_id").where("id", "=", id).executeTakeFirst();
+  if (!ref) return 0; // deleted since it was found due
+  // Same lock order as other schedule changes: the event first (FOR SHARE; not
+  // lockScheduleEvent, which refuses archived events), then the series and its occurrences.
+  // Taking the event share only later, when resolving the new occurrences, deadlocked with a
+  // rule save, which holds the event for update and then waits for the occurrences.
+  await tx.selectFrom("catalog.event").select("id").where("id", "=", ref.event_id).forShare().execute();
+  // The series is locked, and read after any edit in progress commits: a rule changed meanwhile
+  // (shortened, completed) is the one extended, and overlapping runs see each other's slots.
   const s = await seriesForUpdate(tx, id).catch((e: unknown) => {
-    if (e instanceof DomainError && e.code === "not_found") return null; // deleted since it was found due
+    if (e instanceof DomainError && e.code === "not_found") return null; // deleted while we waited
     throw e;
   });
   if (!s || s.complete) return 0;
