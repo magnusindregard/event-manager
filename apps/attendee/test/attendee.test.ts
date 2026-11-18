@@ -175,4 +175,23 @@ describe("attendee API", () => {
     expect((await send("r2@example.com")).json()).toMatchObject({ status: 429, code: "rate_limited" });
     await limited.close();
   });
+
+  it("keys the limit on the address the ingress appended, not on a spoofed prefix (#53)", async () => {
+    const limited = await buildAttendeeApp({ db, rateLimit: { capacity: 1, refillPerSecond: 0.001 } });
+    // Malformed tokens never reach the database; the limiter runs first.
+    const cancel = (xff: string) => limited.inject({
+      method: "POST", url: "/attendee/v1/registration/cancel", headers: { authorization: "Bearer malformed", "x-forwarded-for": xff },
+    });
+    expect((await cancel("192.0.2.1, 198.51.100.10")).statusCode).toBe(401);
+    expect((await cancel("192.0.2.1, 198.51.100.10")).statusCode).toBe(429);
+    // Changing only what the caller controls (the left part) does not give a fresh budget.
+    expect((await cancel("192.0.2.2, 198.51.100.10")).statusCode).toBe(429);
+    expect((await cancel("198.51.100.10")).statusCode).toBe(429);
+    // Another client, as seen by the ingress, has its own budget.
+    expect((await cancel("192.0.2.1, 198.51.100.11")).statusCode).toBe(401);
+    // Private hops between the ingress and the app are trusted too; the client is still the first public address.
+    expect((await cancel("192.0.2.9, 198.51.100.12, 10.0.0.4")).statusCode).toBe(401);
+    expect((await cancel("192.0.2.8, 198.51.100.12, 10.0.0.5")).statusCode).toBe(429);
+    await limited.close();
+  });
 });
