@@ -151,15 +151,20 @@ export async function claimOffer(tx: Tx, tenantId: string, id: string, now: Date
   return getRegistration(tx, id);
 }
 
+/** How long to wait before trying again when an overdue offer was locked by someone else. */
+export const EXPIRY_RETRY_MS = 60_000;
+
 /**
  * For the job scheduled at an offer's deadline: ends it if it is still open and past due, and
- * offers the places to the next in line. Returns when to run again if the offer is not due yet
- * (the job ran early), otherwise null.
+ * offers the places to the next in line. Returns when to run again, otherwise null: the deadline
+ * if the job ran early, or shortly after now if promotion had to skip the offer because someone
+ * held its row (a late claim that will fail, an attendee editing it), so it is not left holding
+ * its places with nothing left to end it.
  */
 export async function expireOffer(tx: Tx, tenantId: string, id: string, now: Date = new Date()): Promise<Date | null> {
   const reg = await tx.selectFrom("registration.registration").select(["occurrence_id", "status", "offer_expires_at"]).where("id", "=", id).executeTakeFirst();
   if (!reg || reg.status !== "offered" || !reg.offer_expires_at) return null;
   if (reg.offer_expires_at > now) return reg.offer_expires_at;
-  await promoteWaitlist(tx, tenantId, reg.occurrence_id, now);
-  return null;
+  const { expired } = await promoteWaitlist(tx, tenantId, reg.occurrence_id, now);
+  return expired.includes(id) ? null : new Date(now.getTime() + EXPIRY_RETRY_MS);
 }

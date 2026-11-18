@@ -236,6 +236,46 @@ describe("offers", () => {
     expect(await pool(occ.id)).toMatchObject({ taken: 0, held: 0 });
   });
 
+  it("are retried when the expiry job finds the offer locked by someone else (review #69)", async () => {
+    const { occ } = await talk({ capacity: 1, overbookingPct: 0, claimWindowMin: 60 });
+    const a = await register(occ.id, 1);
+    const b = await register(occ.id, 2);
+    const c = await register(occ.id, 3);
+    await run((tx) => registration.cancelRegistration(tx, ctx.tenantId, a.id, attendee, NOW));
+    expect(await get(b.id)).toMatchObject({ status: "offered" });
+    // Someone holds the offered row (a late claim, an edit) while the job runs after the deadline.
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let locked!: () => void;
+    const isLocked = new Promise<void>((r) => (locked = r));
+    const holder = run(async (tx) => {
+      await tx.selectFrom("registration.registration").select("id").where("id", "=", b.id).forUpdate().execute();
+      locked();
+      await held;
+    });
+    await isLocked;
+    const retry = await run((tx) => registration.expireOffer(tx, ctx.tenantId, b.id, later(2 * HOUR)));
+    release();
+    await holder;
+    expect(retry).toEqual(new Date(later(2 * HOUR).getTime() + registration.EXPIRY_RETRY_MS));
+    expect(await get(b.id)).toMatchObject({ status: "offered" });
+    // The retry ends it and passes the place on.
+    expect(await run((tx) => registration.expireOffer(tx, ctx.tenantId, b.id, retry!))).toBeNull();
+    expect(await get(b.id)).toMatchObject({ status: "cancelled", cancelledBy: "expired" });
+    expect(await get(c.id)).toMatchObject({ status: "offered" });
+  });
+
+  it("go to a waiting party that shrinks and now fits (review #69)", async () => {
+    const { occ } = await talk({ capacity: 2, overbookingPct: 0 });
+    await register(occ.id, 1);
+    const pair = await register(occ.id, 2, { partySize: 2 });
+    expect(pair.status).toBe("waitlisted");
+    expect(await pool(occ.id)).toMatchObject({ taken: 1, available: 1 });
+    await run((tx) => registration.updateRegistration(tx, ctx.tenantId, pair.id, { partySize: 1 }, attendee, { now: NOW }));
+    expect(await get(pair.id)).toMatchObject({ status: "offered", partySize: 1 });
+    expect(await pool(occ.id)).toMatchObject({ taken: 1, held: 1, available: 0 });
+  });
+
   it("never offer more places than came free when cancellations race", async () => {
     const { occ } = await talk({ capacity: 4, overbookingPct: 0 });
     const regs: registration.Registration[] = [];

@@ -254,6 +254,12 @@ export async function updateRegistration(
 ): Promise<Registration> {
   if (actor.kind === "staff") assertCan(actor.ctx, "registrations.write");
   const now = opts.now ?? new Date();
+  // A waiting party that shrinks may fit now, which promotes the line. Promotion locks the pool
+  // and then rows of the line, so take the pool first here too, before this row.
+  if (patch.partySize !== undefined) {
+    const peek = await tx.selectFrom("registration.registration").select(["occurrence_id", "status"]).where("id", "=", id).executeTakeFirst();
+    if (peek?.status === "waitlisted") await tx.selectFrom("inventory.capacity_pool").select("id").where("occurrence_id", "=", peek.occurrence_id).forUpdate().execute();
+  }
   const before = await locked(tx, id);
   if (opts.expectedVersion !== undefined && opts.expectedVersion !== before.version) {
     throw new DomainError("version_conflict", "Registration was changed by someone else", { currentVersion: before.version });
@@ -298,8 +304,8 @@ export async function updateRegistration(
     .returning(columns)
     .executeTakeFirstOrThrow();
   if (holdsPlaces && delta !== 0) await admission.setAdmissionPartySize(tx, id, partySize);
-  // The place given back goes to the first in line whose party fits.
-  if (holdsPlaces && delta < 0) await promoteWaitlist(tx, tenantId, before.occurrenceId, now);
+  // The place given back, or a waiting party that now fits, goes to the first in line whose party fits.
+  if (delta < 0 && (holdsPlaces || before.status === "waitlisted")) await promoteWaitlist(tx, tenantId, before.occurrenceId, now);
   if (newAnswers) {
     await writeAnswers(tx, tenantId, id, newAnswers.form, newAnswers.answers, { keepSensitive, now });
     Object.assign(row, await tx.selectFrom("registration.registration").select(["form_version", "sensitive_consent_at"]).where("id", "=", id).executeTakeFirstOrThrow());
