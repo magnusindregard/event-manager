@@ -141,8 +141,9 @@ Chosen per event by the event manager. Name and email are always collected.
 ### Changes to occurrences with registrations
 
 - An occurrence with registrations is marked `detached` (as planned in mvp.md), so series regeneration never moves or deletes it; it is reported as a conflict instead.
-- **Moved** (time or location changed): attendees get an email with the new details and a cancel link.
-- **Cancelled**: attendees get an email. Staff can move registrations to another occurrence of the same event in bulk, within its capacity; moved attendees get a new confirmation.
+- **Moved** (time or location changed, including the address or name of the venue or space they are shown): attendees get an email with the new details and a cancel link.
+- **Cancelled**: attendees get an email, as long as the occurrence has not ended (also when the notice goes out after it started). They can still cancel their registration until it starts. Staff can move registrations to another occurrence of the same event in bulk, within its capacity; moved attendees get a new confirmation.
+- **Restored** (a cancelled occurrence set back to scheduled, or a cancelled event published again): attendees get an email with the current details and their QR code. A cancellation withdrawn within the notice delay sends nothing.
 
 ## Admin interface
 
