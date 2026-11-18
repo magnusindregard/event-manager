@@ -22,7 +22,7 @@ const IdParams = Type.Object({ id: Uuid });
 const iso = (d: Date) => d.toISOString();
 const dto = (r: registration.Registration, answers: registration.Answers, hidden: boolean) => ({
   id: r.id, eventId: r.eventId, occurrenceId: r.occurrenceId,
-  name: r.anonymisedAt ? null : r.name, email: r.anonymisedAt ? null : r.email, locale: r.locale, partySize: r.partySize,
+  name: r.anonymisedAt ? "" : r.name, email: r.anonymisedAt ? "" : r.email, locale: r.locale, partySize: r.partySize,
   status: r.status, source: r.source, cancelledAt: r.cancelledAt ? iso(r.cancelledAt) : null, cancelledBy: r.cancelledBy,
   answers, hiddenSensitiveAnswers: hidden,
   sensitiveConsentAt: r.sensitiveConsentAt ? iso(r.sensitiveConsentAt) : null, anonymisedAt: r.anonymisedAt ? iso(r.anonymisedAt) : null,

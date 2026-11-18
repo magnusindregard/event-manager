@@ -32343,25 +32343,12 @@
                             "format": "uuid"
                           },
                           "name": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "description": "Null once anonymised"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
+                            "type": "string",
+                            "description": "Empty once anonymised (see anonymisedAt)"
                           },
                           "email": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
+                            "type": "string",
+                            "description": "Empty once anonymised (see anonymisedAt)"
                           },
                           "locale": {
                             "type": "string"
@@ -33001,25 +32988,12 @@
                       "format": "uuid"
                     },
                     "name": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "description": "Null once anonymised"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": "string",
+                      "description": "Empty once anonymised (see anonymisedAt)"
                     },
                     "email": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": "string",
+                      "description": "Empty once anonymised (see anonymisedAt)"
                     },
                     "locale": {
                       "type": "string"
@@ -33743,25 +33717,12 @@
                       "format": "uuid"
                     },
                     "name": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "description": "Null once anonymised"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": "string",
+                      "description": "Empty once anonymised (see anonymisedAt)"
                     },
                     "email": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": "string",
+                      "description": "Empty once anonymised (see anonymisedAt)"
                     },
                     "locale": {
                       "type": "string"
@@ -34433,25 +34394,12 @@
                       "format": "uuid"
                     },
                     "name": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "description": "Null once anonymised"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": "string",
+                      "description": "Empty once anonymised (see anonymisedAt)"
                     },
                     "email": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                      "type": "string",
+                      "description": "Empty once anonymised (see anonymisedAt)"
                     },
                     "locale": {
                       "type": "string"

@@ -11227,8 +11227,10 @@ export interface operations {
                             eventId: string;
                             /** Format: uuid */
                             occurrenceId: string;
-                            name: string | null;
-                            email: string | null;
+                            /** @description Empty once anonymised (see anonymisedAt) */
+                            name: string;
+                            /** @description Empty once anonymised (see anonymisedAt) */
+                            email: string;
                             locale: string;
                             partySize: number;
                             status: "confirmed" | "waitlisted" | "offered" | "cancelled";
@@ -11418,8 +11420,10 @@ export interface operations {
                         eventId: string;
                         /** Format: uuid */
                         occurrenceId: string;
-                        name: string | null;
-                        email: string | null;
+                        /** @description Empty once anonymised (see anonymisedAt) */
+                        name: string;
+                        /** @description Empty once anonymised (see anonymisedAt) */
+                        email: string;
                         locale: string;
                         partySize: number;
                         status: "confirmed" | "waitlisted" | "offered" | "cancelled";
@@ -11666,8 +11670,10 @@ export interface operations {
                         eventId: string;
                         /** Format: uuid */
                         occurrenceId: string;
-                        name: string | null;
-                        email: string | null;
+                        /** @description Empty once anonymised (see anonymisedAt) */
+                        name: string;
+                        /** @description Empty once anonymised (see anonymisedAt) */
+                        email: string;
                         locale: string;
                         partySize: number;
                         status: "confirmed" | "waitlisted" | "offered" | "cancelled";
@@ -11900,8 +11906,10 @@ export interface operations {
                         eventId: string;
                         /** Format: uuid */
                         occurrenceId: string;
-                        name: string | null;
-                        email: string | null;
+                        /** @description Empty once anonymised (see anonymisedAt) */
+                        name: string;
+                        /** @description Empty once anonymised (see anonymisedAt) */
+                        email: string;
                         locale: string;
                         partySize: number;
                         status: "confirmed" | "waitlisted" | "offered" | "cancelled";
