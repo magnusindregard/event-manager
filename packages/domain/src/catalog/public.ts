@@ -2,7 +2,7 @@ import { type AccessPolicy, type AdmissionMode, type EventStatus, type Occurrenc
 import * as inventory from "../inventory/index.js";
 import * as offers from "../offers/index.js";
 import { getAccount } from "../tenancy/index.js";
-import { availabilityOf, type AvailabilityStatus } from "./availability.js";
+import { availabilityOf, type AvailabilityStatus, fewLeftThreshold } from "./availability.js";
 import { loadEffectiveValues } from "./resolve.js";
 
 // Read model for the public API (/public/v1). Only published and cancelled events are
@@ -16,6 +16,11 @@ export interface PublicReadOptions {
   /** Base URL of the hosted attendee pages; registration links point there. */
   attendeeUrl?: string;
   now?: Date;
+  /**
+   * A sales channel's key (docs/ticketing.md, "Public API"): only the offers that channel
+   * sells, each with its SKU and limits, and availability with exact places left.
+   */
+  channelId?: string;
 }
 
 export interface PublicLocationRef {
@@ -63,14 +68,33 @@ export interface PublicOffer {
   description: string | null;
   /** Minor units (øre), VAT included. */
   price: { amount: number; currency: string; vatIncluded: true };
-  /** False when the occurrence is cancelled or has started. */
+  /** False when the occurrence is cancelled, or outside the offer's sales window. Channel callers: also without a SKU. */
   onSale: boolean;
+  /** The sales window here; opensAt null: on sale as soon as the event is published. */
+  opensAt: string | null;
+  closesAt: string;
+  /** Channel callers only. */
+  sku?: string | null;
+  placesPerUnit?: number;
+  minPerReservation?: number;
+  maxPerReservation?: number;
 }
+
+export type TicketAvailabilityStatus = "available" | "few_left" | "sold_out" | "not_on_sale";
 
 export interface PublicAvailability {
   status: AvailabilityStatus;
   opensAt: string | null;
   closesAt: string;
+}
+
+/** Ticketed occurrences, channel callers only. */
+export interface PublicTicketAvailability {
+  status: TicketAvailabilityStatus;
+  opensAt: string | null;
+  closesAt: string;
+  /** Null without a limit. */
+  placesLeft: number | null;
 }
 
 export interface PublicOccurrence {
@@ -83,14 +107,15 @@ export interface PublicOccurrence {
   location: PublicLocationRef | null;
   tags: PublicTag[];
   admission: Admission;
-  /** Registration occurrences only; null otherwise. */
-  availability: PublicAvailability | null;
+  /** Registration occurrences; ticketed occurrences for channel callers; null otherwise. */
+  availability: PublicAvailability | PublicTicketAvailability | null;
   /** Ticketed occurrences: the offers available here, in display order, with their prices. Empty otherwise. */
   offers: PublicOffer[];
   event: PublicEventSummary;
 }
 
 interface Ctx {
+  channelId: string | null;
   attendeeUrl: string | null;
   now: Date;
   locale: string;
@@ -101,7 +126,7 @@ interface Ctx {
 async function context(tx: Tx, opts: PublicReadOptions): Promise<Ctx> {
   const account = await getAccount(tx);
   const locale = opts.locale && account.locales.includes(opts.locale) ? opts.locale : account.defaultLocale;
-  return { attendeeUrl: opts.attendeeUrl?.replace(/\/+$/, "") ?? null, now: opts.now ?? new Date(), locale, defaultLocale: account.defaultLocale, statuses: opts.preview ? ["published", "cancelled", "draft"] : ["published", "cancelled"] };
+  return { channelId: opts.channelId ?? null, attendeeUrl: opts.attendeeUrl?.replace(/\/+$/, "") ?? null, now: opts.now ?? new Date(), locale, defaultLocale: account.defaultLocale, statuses: opts.preview ? ["published", "cancelled", "draft"] : ["published", "cancelled"] };
 }
 
 type EventRow = { id: string; slug: string; status: EventStatus; timezone: string; external_refs: Record<string, string> };
@@ -256,11 +281,13 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
   }
   const registrationIds = rows.filter((r) => r.admission_mode === "registration").map((r) => r.id);
   const ticketed = rows.filter((r) => r.admission_mode === "tickets");
+  // Channel callers get exact places for ticketed occurrences too.
+  const poolIds = [...registrationIds, ...(c.channelId ? ticketed.map((r) => r.id) : [])];
   const [events, locs, tags, pools, offers] = await Promise.all([
     eventSummaries(tx, c, rows.map((r) => ({ id: r.event_id, slug: r.slug, status: r.status, timezone: r.timezone, external_refs: r.external_refs }))),
     locationRefs(tx, locIds),
     tagRefs(tx, c, tagIds),
-    registrationIds.length ? inventory.listPools(tx, registrationIds) : Promise.resolve(new Map<string, inventory.Pool>()),
+    poolIds.length ? inventory.listPools(tx, poolIds) : Promise.resolve(new Map<string, inventory.Pool>()),
     ticketed.length ? offersFor(tx, c, ticketed) : Promise.resolve(new Map<string, PublicOffer[]>()),
   ]);
   return rows.map((r) => {
@@ -268,7 +295,7 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
     const url = e.externalUrl?.value ?? null;
     const status: OccurrenceStatus = r.status === "cancelled" ? "cancelled" : r.occ_status;
     let admission: Admission = url ? { mode: "external", url } : { mode: "none" };
-    let availability: PublicAvailability | null = null;
+    let availability: PublicOccurrence["availability"] = null;
     if (r.admission_mode === "registration") {
       const open = (r.access_policy_override ?? r.access_policy) === "open";
       admission = { mode: "registration", url: open && c.attendeeUrl ? `${c.attendeeUrl}/r/${r.id}` : null };
@@ -279,7 +306,10 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
       });
       availability = { status: a.status, opensAt: a.opensAt?.toISOString() ?? null, closesAt: a.closesAt.toISOString() };
     }
-    if (r.admission_mode === "tickets") admission = { mode: "tickets" };
+    if (r.admission_mode === "tickets") {
+      admission = { mode: "tickets" };
+      if (c.channelId) availability = ticketAvailability(offers.get(r.id) ?? [], pools.get(r.id) ?? null);
+    }
     return {
       id: r.id,
       startUtc: r.start_utc.toISOString(),
@@ -297,31 +327,69 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
 }
 
 /**
+ * Pure: a ticketed occurrence's availability for a channel caller. Not on sale while none of
+ * its offers is; sold out once no on-sale offer fits in the places left.
+ */
+export function ticketAvailability(list: readonly PublicOffer[], pool: Pick<inventory.Pool, "bookableLimit" | "available"> | null): PublicTicketAvailability {
+  const opens = list.map((o) => o.opensAt);
+  const opensAt = opens.length && !opens.includes(null) ? opens.reduce((a, b) => (a! < b! ? a : b)) : null;
+  const closesAt = list.length ? list.map((o) => o.closesAt).reduce((a, b) => (a > b ? a : b)) : new Date(0).toISOString();
+  const placesLeft = pool?.available ?? null;
+  const selling = list.filter((o) => o.onSale);
+  let status: TicketAvailabilityStatus;
+  if (!selling.length || !pool) status = "not_on_sale";
+  else if (placesLeft === null) status = "available";
+  else if (!selling.some((o) => (o.placesPerUnit ?? 1) <= placesLeft)) status = "sold_out";
+  else status = placesLeft <= fewLeftThreshold(pool.bookableLimit!) ? "few_left" : "available";
+  return { status, opensAt, closesAt, placesLeft };
+}
+
+/**
  * Active offers per occurrence with their effective prices, leaving out offers taken off sale
- * there (offerAvailable false) and offers whose prices are not resolved yet.
+ * there (offerAvailable false) and offers whose prices are not resolved yet. Channel callers
+ * see only the offers their channel sells, with the channel's SKU and the offer's limits.
  */
 async function offersFor(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Map<string, PublicOffer[]>> {
   const eventIds = [...new Set(rows.map((r) => r.event_id))];
-  const [offerRows, translations, prices] = await Promise.all([
-    tx.selectFrom("offers.offer").select(["id", "event_id", "code", "sort_order"]).where("event_id", "in", eventIds).where("status", "=", "active")
-      .orderBy("sort_order").orderBy("code").execute(),
+  let offerQuery = tx.selectFrom("offers.offer as o")
+    .select(["o.id", "o.event_id", "o.code", "o.sort_order", "o.vat_class_id", "o.places_per_unit", "o.min_per_reservation", "o.max_per_reservation",
+      "o.on_sale_min_before", "o.on_sale_at", "o.off_sale_min_before", "o.off_sale_at"])
+    .where("o.event_id", "in", eventIds).where("o.status", "=", "active")
+    .orderBy("o.sort_order").orderBy("o.code");
+  const channelId = c.channelId;
+  if (channelId) {
+    offerQuery = offerQuery.where((eb) => eb.exists(eb.selectFrom("offers.offer_channel as oc").whereRef("oc.offer_id", "=", "o.id").where("oc.channel_id", "=", channelId).select("oc.offer_id")));
+  }
+  const [offerRows, translations, prices, skus] = await Promise.all([
+    offerQuery.execute(),
     tx.selectFrom("offers.offer_translation as t").innerJoin("offers.offer as o", "o.id", "t.offer_id")
       .select(["t.offer_id", "t.locale", "t.name", "t.description"])
       .where("o.event_id", "in", eventIds).where("t.locale", "in", [...new Set([c.locale, c.defaultLocale])]).execute(),
     offers.loadEffectivePrices(tx, rows.map((r) => r.id)),
+    channelId
+      ? tx.selectFrom("offers.sku_mapping").select(["vat_class_id", "external_sku"]).where("channel_id", "=", channelId).execute()
+      : Promise.resolve([]),
   ]);
+  const skuOf = new Map(skus.map((m) => [m.vat_class_id, m.external_sku]));
   const out = new Map<string, PublicOffer[]>();
   for (const r of rows) {
-    const onSale = r.status !== "cancelled" && r.occ_status === "scheduled" && r.start_utc > c.now;
+    const scheduled = r.status !== "cancelled" && r.occ_status === "scheduled";
     const list: PublicOffer[] = [];
     for (const o of offerRows.filter((x) => x.event_id === r.event_id)) {
       const p = prices.get(r.id)?.get(o.id);
       if (!p || !p.available.value) continue;
       const t = translations.find((x) => x.offer_id === o.id && x.locale === c.locale) ?? translations.find((x) => x.offer_id === o.id && x.locale === c.defaultLocale);
-      list.push({
+      const w = offers.salesWindow(r.start_utc, { onSaleMinBefore: o.on_sale_min_before, onSaleAt: o.on_sale_at, offSaleMinBefore: o.off_sale_min_before, offSaleAt: o.off_sale_at });
+      const sku = skuOf.get(o.vat_class_id) ?? null;
+      const offer: PublicOffer = {
         id: o.id, code: o.code, name: t?.name ?? o.code, description: t?.description ?? null,
-        price: { amount: p.price.value, currency: CURRENCY, vatIncluded: true }, onSale,
-      });
+        price: { amount: p.price.value, currency: CURRENCY, vatIncluded: true },
+        onSale: scheduled && offers.windowOpen(w, c.now) && (!channelId || sku !== null),
+        opensAt: w.opensAt?.toISOString() ?? null,
+        closesAt: w.closesAt.toISOString(),
+      };
+      if (channelId) Object.assign(offer, { sku, placesPerUnit: o.places_per_unit, minPerReservation: o.min_per_reservation, maxPerReservation: o.max_per_reservation });
+      list.push(offer);
     }
     out.set(r.id, list);
   }

@@ -9,7 +9,7 @@ import { startTestDatabase, type TestDatabase } from "../src/testing.js";
 
 type Ids = {
   tenantA: string; tenantB: string; user: string; event: string;
-  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string; vatClass: string; offer: string;
+  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string; vatClass: string; offer: string; channel: string;
 };
 type Fixture = (c: pg.ClientBase, tenantId: string, ids: Ids) => Promise<void>;
 
@@ -106,9 +106,15 @@ const fixtures: Record<string, Fixture> = {
   "offers.effective_price": (c, t, ids) =>
     c.query(`insert into offers.effective_price (tenant_id, occurrence_id, offer_id, amount, amount_source, available, available_source)
               values ($1, $2, $3, 40000, 'override', true, 'default')`, [t, ids.occurrence, ids.offer]).then(() => {}),
+  "offers.sales_channel": (c, t, ids) =>
+    c.query(`insert into offers.sales_channel (id, tenant_id, code, name, kind) values ($1, $2, 'web', 'Web', 'ecom')`, [ids.channel, t]).then(() => {}),
+  "offers.sku_mapping": (c, t, ids) =>
+    c.query(`insert into offers.sku_mapping (tenant_id, vat_class_id, channel_id, external_sku) values ($1, $2, $3, 'TICKET-VAT0')`, [t, ids.vatClass, ids.channel]).then(() => {}),
+  "offers.offer_channel": (c, t, ids) =>
+    c.query(`insert into offers.offer_channel (tenant_id, offer_id, channel_id) values ($1, $2, $3)`, [t, ids.offer, ids.channel]).then(() => {}),
 };
 
-const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID(), vatClass: randomUUID(), offer: randomUUID() });
+const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID(), vatClass: randomUUID(), offer: randomUUID(), channel: randomUUID() });
 
 let db: TestDatabase;
 let admin: pg.Client;

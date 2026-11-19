@@ -162,7 +162,7 @@ describe("/v1 catalog", () => {
     const created = await call("POST", "/v1/api-keys", { body: { kind: "publishable", label: "Website" } });
     expect(created.status).toBe(201);
     expect(created.body.secret).toMatch(/^pk_[A-Za-z0-9]{12}_[A-Za-z0-9_-]{43}$/);
-    expect(await tenancy.verifyApiKey(db, created.body.secret, "publishable")).toEqual({ tenantId: A, kind: "publishable" });
+    expect(await tenancy.verifyApiKey(db, created.body.secret, "publishable")).toEqual({ tenantId: A, kind: "publishable", channelId: null });
     expect(await tenancy.verifyApiKey(db, created.body.secret, "preview")).toBeNull();
     expect(await tenancy.verifyApiKey(db, `${created.body.secret.slice(0, -1)}x`, "publishable")).toBeNull();
 

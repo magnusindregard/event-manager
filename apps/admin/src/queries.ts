@@ -76,6 +76,24 @@ export function useVatClasses() {
   });
 }
 
+/** The account's sales channels, active first. */
+export function useSalesChannels() {
+  const { api, accountId } = useApp();
+  return useQuery({
+    queryKey: ["sales-channels", accountId],
+    queryFn: async () => unwrap(await api.GET("/v1/sales-channels")).items,
+  });
+}
+
+/** The shop's product per (VAT class, channel). */
+export function useSkuMappings() {
+  const { api, accountId } = useApp();
+  return useQuery({
+    queryKey: ["sku-mappings", accountId],
+    queryFn: async () => unwrap(await api.GET("/v1/sku-mappings")).items,
+  });
+}
+
 /** A ticketed event's offers, in display order. */
 export function useEventOffers(eventId: string, enabled = true) {
   const { api, accountId } = useApp();

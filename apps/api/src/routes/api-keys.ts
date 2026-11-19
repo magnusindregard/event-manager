@@ -6,7 +6,8 @@ import { inTenant } from "../plugins/context.js";
 
 const accountScoped = { security: [{ bearer: [], accountId: [] }] };
 const errors = { 400: Problem, 401: Problem, 403: Problem, 404: Problem };
-const dto = (k: tenancy.ApiKey) => ({ ...k, createdAt: k.createdAt.toISOString(), revokedAt: k.revokedAt?.toISOString() ?? null });
+// Channel keys are listed and created under their channel (channels.ts); revoking works here too.
+const dto = (k: tenancy.ApiKey) => ({ id: k.id, kind: k.kind as "publishable" | "preview", prefix: k.prefix, label: k.label, createdAt: k.createdAt.toISOString(), revokedAt: k.revokedAt?.toISOString() ?? null });
 
 /** Public API credentials (owner only). The full secret is returned once, on creation. */
 export const apiKeyRoutes: FastifyPluginAsyncTypebox = async (app) => {

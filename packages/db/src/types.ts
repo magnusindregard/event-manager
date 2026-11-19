@@ -10,7 +10,7 @@ type Json = ColumnType<unknown, string, string>;
 export type LocalDateTime = string;
 
 export type Role = "owner" | "editor" | "event_manager" | "box_office" | "door_staff" | "finance";
-export type ApiKeyKind = "publishable" | "preview";
+export type ApiKeyKind = "publishable" | "preview" | "channel";
 
 export interface AccountTable {
   id: string;
@@ -88,6 +88,8 @@ export interface ApiKeyTable {
   prefix: string;
   secret_hash: string;
   label: string;
+  /** Channel keys only. */
+  channel_id: string | null;
   created_at: GeneratedTimestamp;
   revoked_at: Timestamp | null;
 }
@@ -476,6 +478,10 @@ export interface OfferTable {
   min_per_reservation: Generated<number>;
   max_per_reservation: Generated<number>;
   default_price: number;
+  on_sale_min_before: number | null;
+  on_sale_at: Timestamp | null;
+  off_sale_min_before: number | null;
+  off_sale_at: Timestamp | null;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -509,6 +515,36 @@ export interface EffectivePriceTable {
   available_rule_id: string | null;
 }
 
+export type ChannelKind = "ecom" | "pos";
+
+export interface SalesChannelTable {
+  id: string;
+  tenant_id: string;
+  code: string;
+  name: string;
+  kind: ChannelKind;
+  hold_minutes: Generated<number>;
+  send_tickets: Generated<boolean>;
+  active: Generated<boolean>;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface SkuMappingTable {
+  tenant_id: string;
+  vat_class_id: string;
+  channel_id: string;
+  external_sku: string;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface OfferChannelTable {
+  tenant_id: string;
+  offer_id: string;
+  channel_id: string;
+}
+
 export interface DB {
   "tenancy.tag_vocabulary": TagVocabularyTable;
   "tenancy.tag": TagTable;
@@ -540,6 +576,9 @@ export interface DB {
   "offers.offer_translation": OfferTranslationTable;
   "offers.offer_override": OfferOverrideTable;
   "offers.effective_price": EffectivePriceTable;
+  "offers.sales_channel": SalesChannelTable;
+  "offers.sku_mapping": SkuMappingTable;
+  "offers.offer_channel": OfferChannelTable;
   "tenancy.account": AccountTable;
   "tenancy.user": UserTable;
   "tenancy.membership": MembershipTable;
