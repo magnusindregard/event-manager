@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ApiProblem, type CatalogEvent, type GuestInvitation, unwrap } from "../../api.js";
 import { useApp } from "../../AppContext.js";
+import { sendFailure } from "../../lib/send-failure.js";
 import { GuestImport } from "./GuestImport.js";
 
 // Event → Guest list (docs/registration.md, "Admin interface"): import, list with status
@@ -165,7 +166,7 @@ export function GuestList({ event }: { event: CatalogEvent }) {
             <Badge variant={statusVariant[g.status]}>{t(`guests.statuses.${g.status}`)}</Badge>
             {g.registration && <span className="text-muted-foreground text-xs">{t("guests.party", { count: g.registration.partySize })}</span>}
             {undeliverable(g) && <Badge variant="destructive" title={g.lastSend?.deliveryDetail ?? undefined}>{t(`guests.delivery.${g.lastSend!.deliveryStatus}`)}</Badge>}
-            {g.lastSend?.deliveryStatus === "failed" && <Badge variant="outline" title={g.lastSend.deliveryDetail ?? undefined}>{t("guests.delivery.failed")}</Badge>}
+            {g.lastSend?.deliveryStatus === "failed" && <Badge variant="destructive" title={g.lastSend.deliveryDetail ?? undefined}>{t("guests.delivery.failed")}</Badge>}
           </div>
         );
       },
@@ -177,6 +178,15 @@ export function GuestList({ event }: { event: CatalogEvent }) {
         const s = row.original.lastSend;
         if (!s) return <span className="text-muted-foreground text-xs">{t("guests.notSent")}</span>;
         if (!s.sentAt && s.deliveryStatus === "queued") return <span className="text-muted-foreground text-xs">{t("guests.queued")}</span>;
+        // Never sent: show when it failed and why, not the time it was asked for as if it went out.
+        if (!s.sentAt && s.deliveryStatus === "failed") {
+          return (
+            <div className="grid max-w-64 text-xs" title={s.deliveryDetail ?? undefined}>
+              <span className="text-destructive">{t("guests.failedAt", { when: fmt(s.deliveryAt ?? s.requestedAt) })}</span>
+              <span className="text-muted-foreground">{t(`guests.kinds.${s.kind}`)} · {t(`guests.failure.${sendFailure(s.deliveryDetail)}`)}</span>
+            </div>
+          );
+        }
         return (
           <div className="grid text-xs">
             <span>{fmt(s.sentAt ?? s.requestedAt)}</span>
