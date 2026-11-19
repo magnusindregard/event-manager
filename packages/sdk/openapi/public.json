@@ -381,128 +381,82 @@
                                 "type": "null"
                               },
                               {
-                                "anyOf": [
-                                  {
-                                    "type": "object",
-                                    "required": [
-                                      "status",
-                                      "opensAt",
-                                      "closesAt",
-                                      "placesLeft"
-                                    ],
-                                    "properties": {
-                                      "status": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "available"
-                                            ]
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "few_left"
-                                            ]
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "sold_out"
-                                            ]
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "not_on_sale"
-                                            ]
-                                          }
-                                        ],
-                                        "description": "sold_out: no offer on sale fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added"
-                                      },
-                                      "opensAt": {
-                                        "type": [
-                                          "string",
-                                          "null"
-                                        ],
-                                        "format": "date-time",
-                                        "description": "Earliest sales window opening of the offers; null: on sale once the event is published"
-                                      },
-                                      "closesAt": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                        "description": "Latest sales window closing of the offers"
-                                      },
-                                      "placesLeft": {
-                                        "type": [
-                                          "integer",
-                                          "null"
-                                        ],
-                                        "description": "Places left; null without a limit"
-                                      }
-                                    },
-                                    "description": "Ticketed occurrences, for channel keys only (docs/ticketing.md)"
-                                  },
-                                  {
-                                    "type": "object",
-                                    "required": [
-                                      "status",
-                                      "opensAt",
-                                      "closesAt"
-                                    ],
-                                    "properties": {
-                                      "status": {
-                                        "anyOf": [
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "available"
-                                            ]
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "few_left"
-                                            ]
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "full"
-                                            ]
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "waitlist"
-                                            ]
-                                          },
-                                          {
-                                            "type": "string",
-                                            "enum": [
-                                              "closed"
-                                            ]
-                                          }
-                                        ],
-                                        "description": "waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added"
-                                      },
-                                      "opensAt": {
-                                        "type": [
-                                          "string",
-                                          "null"
-                                        ],
-                                        "format": "date-time",
-                                        "description": "Null: open as soon as the event is published"
-                                      },
-                                      "closesAt": {
-                                        "type": "string",
-                                        "format": "date-time"
-                                      }
-                                    },
-                                    "description": "Places for registration occurrences, without exact numbers. Null for other admission modes"
-                                  }
+                                "type": "object",
+                                "required": [
+                                  "status",
+                                  "opensAt",
+                                  "closesAt"
                                 ],
-                                "description": "Registration occurrences: places without exact numbers. Ticketed occurrences, with a channel key: exact places left. Null otherwise"
+                                "properties": {
+                                  "status": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "available"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "few_left"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "full"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "waitlist"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "closed"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "sold_out"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "not_on_sale"
+                                        ]
+                                      }
+                                    ],
+                                    "description": "Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets (channel keys only): sold_out: no offer on sale fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added"
+                                  },
+                                  "opensAt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "format": "date-time",
+                                    "description": "Null: open as soon as the event is published. Tickets: the earliest sales window opening of the offers"
+                                  },
+                                  "closesAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "description": "Tickets: the latest sales window closing of the offers"
+                                  },
+                                  "placesLeft": {
+                                    "type": [
+                                      "integer",
+                                      "null"
+                                    ],
+                                    "description": "Ticketed occurrences with a channel key only: places left; null without a limit"
+                                  }
+                                },
+                                "description": "Registration occurrences: places without exact numbers. Ticketed occurrences, with a channel key only (docs/ticketing.md): exact places left. Null otherwise"
                               }
                             ]
                           },
@@ -1703,128 +1657,82 @@
                                     "type": "null"
                                   },
                                   {
-                                    "anyOf": [
-                                      {
-                                        "type": "object",
-                                        "required": [
-                                          "status",
-                                          "opensAt",
-                                          "closesAt",
-                                          "placesLeft"
-                                        ],
-                                        "properties": {
-                                          "status": {
-                                            "anyOf": [
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "available"
-                                                ]
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "few_left"
-                                                ]
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "sold_out"
-                                                ]
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "not_on_sale"
-                                                ]
-                                              }
-                                            ],
-                                            "description": "sold_out: no offer on sale fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added"
-                                          },
-                                          "opensAt": {
-                                            "type": [
-                                              "string",
-                                              "null"
-                                            ],
-                                            "format": "date-time",
-                                            "description": "Earliest sales window opening of the offers; null: on sale once the event is published"
-                                          },
-                                          "closesAt": {
-                                            "type": "string",
-                                            "format": "date-time",
-                                            "description": "Latest sales window closing of the offers"
-                                          },
-                                          "placesLeft": {
-                                            "type": [
-                                              "integer",
-                                              "null"
-                                            ],
-                                            "description": "Places left; null without a limit"
-                                          }
-                                        },
-                                        "description": "Ticketed occurrences, for channel keys only (docs/ticketing.md)"
-                                      },
-                                      {
-                                        "type": "object",
-                                        "required": [
-                                          "status",
-                                          "opensAt",
-                                          "closesAt"
-                                        ],
-                                        "properties": {
-                                          "status": {
-                                            "anyOf": [
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "available"
-                                                ]
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "few_left"
-                                                ]
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "full"
-                                                ]
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "waitlist"
-                                                ]
-                                              },
-                                              {
-                                                "type": "string",
-                                                "enum": [
-                                                  "closed"
-                                                ]
-                                              }
-                                            ],
-                                            "description": "waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added"
-                                          },
-                                          "opensAt": {
-                                            "type": [
-                                              "string",
-                                              "null"
-                                            ],
-                                            "format": "date-time",
-                                            "description": "Null: open as soon as the event is published"
-                                          },
-                                          "closesAt": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                          }
-                                        },
-                                        "description": "Places for registration occurrences, without exact numbers. Null for other admission modes"
-                                      }
+                                    "type": "object",
+                                    "required": [
+                                      "status",
+                                      "opensAt",
+                                      "closesAt"
                                     ],
-                                    "description": "Registration occurrences: places without exact numbers. Ticketed occurrences, with a channel key: exact places left. Null otherwise"
+                                    "properties": {
+                                      "status": {
+                                        "anyOf": [
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "available"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "few_left"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "full"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "waitlist"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "closed"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "sold_out"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "not_on_sale"
+                                            ]
+                                          }
+                                        ],
+                                        "description": "Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets (channel keys only): sold_out: no offer on sale fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added"
+                                      },
+                                      "opensAt": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ],
+                                        "format": "date-time",
+                                        "description": "Null: open as soon as the event is published. Tickets: the earliest sales window opening of the offers"
+                                      },
+                                      "closesAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "description": "Tickets: the latest sales window closing of the offers"
+                                      },
+                                      "placesLeft": {
+                                        "type": [
+                                          "integer",
+                                          "null"
+                                        ],
+                                        "description": "Ticketed occurrences with a channel key only: places left; null without a limit"
+                                      }
+                                    },
+                                    "description": "Registration occurrences: places without exact numbers. Ticketed occurrences, with a channel key only (docs/ticketing.md): exact places left. Null otherwise"
                                   }
                                 ]
                               },

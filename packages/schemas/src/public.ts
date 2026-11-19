@@ -41,16 +41,30 @@ export const Availability = Type.Object(
   { description: "Places for registration occurrences, without exact numbers. Null for other admission modes" },
 );
 
-export const TicketAvailability = Type.Object(
+// The public API's availability: the registration shape, plus ticket statuses and exact places
+// left for channel keys. One object rather than a union, so the response stays additive (ADR 0007);
+// the attendee API keeps Availability.
+export const PublicAvailability = Type.Object(
   {
-    status: Type.Union([Type.Literal("available"), Type.Literal("few_left"), Type.Literal("sold_out"), Type.Literal("not_on_sale")], {
-      description: "sold_out: no offer on sale fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added",
-    }),
-    opensAt: Nullable(Type.String({ format: "date-time", description: "Earliest sales window opening of the offers; null: on sale once the event is published" })),
-    closesAt: Type.String({ format: "date-time", description: "Latest sales window closing of the offers" }),
-    placesLeft: Nullable(Type.Integer({ description: "Places left; null without a limit" })),
+    status: Type.Union(
+      [
+        Type.Literal("available"), Type.Literal("few_left"), Type.Literal("full"), Type.Literal("waitlist"), Type.Literal("closed"),
+        Type.Literal("sold_out"), Type.Literal("not_on_sale"),
+      ],
+      {
+        description:
+          "Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. " +
+          "Tickets (channel keys only): sold_out: no offer on sale fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added",
+      },
+    ),
+    opensAt: Nullable(Type.String({ format: "date-time", description: "Null: open as soon as the event is published. Tickets: the earliest sales window opening of the offers" })),
+    closesAt: Type.String({ format: "date-time", description: "Tickets: the latest sales window closing of the offers" }),
+    placesLeft: Type.Optional(Nullable(Type.Integer({ description: "Ticketed occurrences with a channel key only: places left; null without a limit" }))),
   },
-  { description: "Ticketed occurrences, for channel keys only (docs/ticketing.md)" },
+  {
+    description:
+      "Registration occurrences: places without exact numbers. Ticketed occurrences, with a channel key only (docs/ticketing.md): exact places left. Null otherwise",
+  },
 );
 
 export const PublicOffer = Type.Object(
@@ -97,10 +111,7 @@ const occurrenceFields = {
   location: Nullable(PublicLocationRef),
   tags: Type.Array(PublicTag),
   admission: Admission,
-  // Ticket first: the serializer takes the first matching branch, and only ticket availability has placesLeft.
-  availability: Nullable(Type.Union([TicketAvailability, Availability], {
-    description: "Registration occurrences: places without exact numbers. Ticketed occurrences, with a channel key: exact places left. Null otherwise",
-  })),
+  availability: Nullable(PublicAvailability),
   offers: Type.Array(PublicOffer, { description: "Ticketed occurrences only; empty otherwise" }),
 };
 

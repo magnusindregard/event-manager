@@ -160,32 +160,22 @@ export interface operations {
                                 /** @enum {string} */
                                 mode: "tickets";
                             };
-                            availability: null | ({
-                                /** @description sold_out: no offer on sale fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added */
-                                status: "available" | "few_left" | "sold_out" | "not_on_sale";
+                            availability: null | {
+                                /** @description Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets (channel keys only): sold_out: no offer on sale fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added */
+                                status: "available" | "few_left" | "full" | "waitlist" | "closed" | "sold_out" | "not_on_sale";
                                 /**
                                  * Format: date-time
-                                 * @description Earliest sales window opening of the offers; null: on sale once the event is published
+                                 * @description Null: open as soon as the event is published. Tickets: the earliest sales window opening of the offers
                                  */
                                 opensAt: string | null;
                                 /**
                                  * Format: date-time
-                                 * @description Latest sales window closing of the offers
+                                 * @description Tickets: the latest sales window closing of the offers
                                  */
                                 closesAt: string;
-                                /** @description Places left; null without a limit */
-                                placesLeft: number | null;
-                            } | {
-                                /** @description waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added */
-                                status: "available" | "few_left" | "full" | "waitlist" | "closed";
-                                /**
-                                 * Format: date-time
-                                 * @description Null: open as soon as the event is published
-                                 */
-                                opensAt: string | null;
-                                /** Format: date-time */
-                                closesAt: string;
-                            });
+                                /** @description Ticketed occurrences with a channel key only: places left; null without a limit */
+                                placesLeft?: number | null;
+                            };
                             /** @description Ticketed occurrences only; empty otherwise */
                             offers: {
                                 /** Format: uuid */
@@ -542,32 +532,22 @@ export interface operations {
                                     /** @enum {string} */
                                     mode: "tickets";
                                 };
-                                availability: null | ({
-                                    /** @description sold_out: no offer on sale fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added */
-                                    status: "available" | "few_left" | "sold_out" | "not_on_sale";
+                                availability: null | {
+                                    /** @description Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets (channel keys only): sold_out: no offer on sale fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added */
+                                    status: "available" | "few_left" | "full" | "waitlist" | "closed" | "sold_out" | "not_on_sale";
                                     /**
                                      * Format: date-time
-                                     * @description Earliest sales window opening of the offers; null: on sale once the event is published
+                                     * @description Null: open as soon as the event is published. Tickets: the earliest sales window opening of the offers
                                      */
                                     opensAt: string | null;
                                     /**
                                      * Format: date-time
-                                     * @description Latest sales window closing of the offers
+                                     * @description Tickets: the latest sales window closing of the offers
                                      */
                                     closesAt: string;
-                                    /** @description Places left; null without a limit */
-                                    placesLeft: number | null;
-                                } | {
-                                    /** @description waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added */
-                                    status: "available" | "few_left" | "full" | "waitlist" | "closed";
-                                    /**
-                                     * Format: date-time
-                                     * @description Null: open as soon as the event is published
-                                     */
-                                    opensAt: string | null;
-                                    /** Format: date-time */
-                                    closesAt: string;
-                                });
+                                    /** @description Ticketed occurrences with a channel key only: places left; null without a limit */
+                                    placesLeft?: number | null;
+                                };
                                 /** @description Ticketed occurrences only; empty otherwise */
                                 offers: {
                                     /** Format: uuid */
