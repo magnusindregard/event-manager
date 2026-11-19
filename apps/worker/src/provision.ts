@@ -3,7 +3,7 @@ import { type Db, sql, withTenant } from "@event-manager/db";
 import { tenancy } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
 import { DirectoryError, type IdentityDirectory } from "./identity/directory.js";
-import { invitationEmail, type Mailer } from "./identity/mailer.js";
+import { invitationEmail, type Mailer, sendOrGiveUp } from "./identity/mailer.js";
 
 export interface ProvisionDeps {
   directory: IdentityDirectory;
@@ -81,7 +81,8 @@ export function provisionTask(db: Db, deps: ProvisionDeps): Task {
     }
 
     const mail = invitationEmail({ locale: inv.account.defaultLocale, accountName: inv.account.name, invitedBy: inv.invitedBy, adminUrl: deps.adminUrl, kind, redeemUrl });
-    await deps.mailer.send({ to: inv.email, ...mail });
+    // Rejected for good: the identity stays provisioned and unemailed; an owner retry resends.
+    if (!(await sendOrGiveUp(deps.mailer, { to: inv.email, ...mail }, (l) => helpers.logger.error(l), `invitation ${inv.id}: email`))) return;
     await withTenant(db, scope, (tx) => tenancy.markInvitationEmailed(tx, inv.id));
   };
 }

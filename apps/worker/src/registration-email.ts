@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { type Db, sql, withTenant } from "@event-manager/db";
 import { registration } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
-import type { Mail, Mailer } from "./identity/mailer.js";
+import { type Mail, type Mailer, sendOrGiveUp } from "./identity/mailer.js";
 
 // Registration emails (docs/registration.md, "Email"): confirmation with the QR code,
 // change confirmation and cancellation confirmation, and for the waitlist: joined, a place
@@ -242,7 +242,8 @@ export function registrationEmailTask(db: Db, deps: RegistrationEmailDeps): Task
     }
     const qrPng = prepared.admission ? (await QRCode.toBuffer(prepared.admission, { type: "png", width: 400, margin: 1, errorCorrectionLevel: "M" })).toString("base64") : null;
     const mail = registrationEmail({ kind: payload.kind, message: prepared.message, manageUrl: `${base}/m/${prepared.manage}`, qrPng });
-    await deps.mailer.send({ to: prepared.message.registration.email, ...mail });
-    helpers.logger.info(`registration ${payload.registrationId}: ${payload.kind} email sent`);
+    const what = `registration ${payload.registrationId}: ${payload.kind} email`;
+    if (!(await sendOrGiveUp(deps.mailer, { to: prepared.message.registration.email, ...mail }, (l) => helpers.logger.error(l), what))) return;
+    helpers.logger.info(`${what} sent`);
   };
 }

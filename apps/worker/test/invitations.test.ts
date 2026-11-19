@@ -6,7 +6,7 @@ import { startTestDatabase, type TestDatabase } from "@event-manager/db/testing"
 import { type ActorContext, catalog, registration, tenancy } from "@event-manager/domain";
 import { defaultHandlers } from "../src/handlers.js";
 import { FakeDirectory } from "../src/identity/directory.js";
-import { FakeMailer } from "../src/identity/mailer.js";
+import { FakeMailer, isPermanentStatus, MailError } from "../src/identity/mailer.js";
 import { buildTaskList } from "../src/tasks.js";
 
 // Invitation and reminder emails (docs/registration.md, milestone 3), through the outbox
@@ -145,6 +145,32 @@ describe("when the mail service keeps failing", () => {
     expect(await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation", ids: [inv.id] }))).toEqual({ queued: 1, skipped: 0 });
     await drain();
     expect(mailer.sent.map((m) => m.to)).toEqual(["down@example.com"]);
+  });
+});
+
+describe("mail service status codes", () => {
+  it("treats 4xx as permanent, except timeouts and rate limits; 5xx is retried", () => {
+    expect([400, 401, 406, 422].map(isPermanentStatus)).toEqual([true, true, true, true]);
+    expect([408, 429, 500, 503].map(isPermanentStatus)).toEqual([false, false, false, false]);
+  });
+});
+
+describe("when the mail service rejects the message for good (#72)", () => {
+  it("marks the send failed on the first attempt instead of retrying", async () => {
+    const { event } = await gala();
+    const inv = await run((tx) => registration.createInvitation(tx, ctx, event.id, { email: "elsewhere@example.com" }));
+    await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation" }));
+    const rejected = `Postmark → 422: {"ErrorCode":412,"Message":"While your account is pending approval, …"}`;
+    const rejecting = { send: async () => { throw new MailError(rejected, 422, true); } };
+    await runOnce({
+      connectionString: tdb.appUrl,
+      taskList: buildTaskList(db, defaultHandlers, { directory: new FakeDirectory(), mailer: rejecting, adminUrl: "https://admin.test/" }, { mailer: rejecting, attendeeUrl: "https://attend.test/" }),
+    });
+    const send = await run((tx) => tx.selectFrom("registration.invitation_send").select(["id", "delivery_status", "delivery_detail"]).where("invitation_id", "=", inv.id).executeTakeFirstOrThrow());
+    expect(send).toMatchObject({ delivery_status: "failed", delivery_detail: `mail_rejected: ${rejected}` });
+    // The job ended rather than waiting for a retry.
+    const jobs = await admin.query(`select 1 from graphile_worker._private_jobs where key = $1`, [`invsend:${send.id}`]);
+    expect(jobs.rowCount).toBe(0);
   });
 });
 
