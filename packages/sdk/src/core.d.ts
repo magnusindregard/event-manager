@@ -482,6 +482,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/vat-classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The account's VAT classes, lowest rate first */
+        get: operations["listVatClasses"];
+        put?: never;
+        /** Owner only */
+        post: operations["createVatClass"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vat-classes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename, archive or restore a VAT class (owner). The rate can only change while no offer uses the class. Requires If-Match. */
+        patch: operations["updateVatClass"];
+        trace?: never;
+    };
+    "/v1/events/{id}/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The event's offers in display order */
+        get: operations["listEventOffers"];
+        put?: never;
+        /** Add an offer to a ticketed event; its prices are resolved for every occurrence */
+        post: operations["createOffer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/events/{id}/offers/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Copy the active offers of another event (names, VAT class, limits, default prices). Codes the event already has are skipped */
+        post: operations["copyOffers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/offers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getOffer"];
+        put?: never;
+        post?: never;
+        /** Delete an offer no rule refers to; its overrides and prices go with it. Requires If-Match. */
+        delete: operations["deleteOffer"];
+        options?: never;
+        head?: never;
+        /** Edit, archive or restore an offer. A new default price is resolved for every occurrence. Requires If-Match. */
+        patch: operations["updateOffer"];
+        trace?: never;
+    };
+    "/v1/events/{id}/prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The price grid: offers × occurrences in start order, each cell with its effective price and availability and their source */
+        get: operations["getPriceGrid"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/offers/{id}/occurrences/{occurrenceId}/override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Override the offer's price or availability at one occurrence. null inherits again; fields left out are kept */
+        put: operations["setOfferOverride"];
+        post?: never;
+        /** Remove the offer's overrides at one occurrence; price and availability inherit from rules and the default again */
+        delete: operations["clearOfferOverride"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/api-keys": {
         parameters: {
             query?: never;
@@ -861,7 +984,7 @@ export interface operations {
                             slug: string;
                             name: string;
                             roles: ("owner" | "editor" | "event_manager" | "box_office" | "door_staff" | "finance")[];
-                            permissions: ("account.write" | "members.manage" | "content.write" | "content.read" | "audit.read" | "registrations.read" | "registrations.write" | "registrations.sensitive")[];
+                            permissions: ("account.write" | "members.manage" | "content.write" | "content.read" | "audit.read" | "registrations.read" | "registrations.write" | "registrations.sensitive" | "offers.write")[];
                         }[];
                     };
                 };
@@ -3805,9 +3928,10 @@ export interface operations {
                             /** Format: uuid */
                             defaultLocationId: string | null;
                             defaultDurationMin: number;
-                            admissionMode: "none" | "external" | "registration";
+                            /** @description tickets: offers sold through the account's sales channels; capacity and overbooking in registration apply */
+                            admissionMode: "none" | "external" | "registration" | "tickets";
                             externalUrl: string | null;
-                            /** @description Used when admissionMode is registration */
+                            /** @description Used when admissionMode is registration; capacity and overbookingPct also when it is tickets */
                             registration: {
                                 accessPolicy: "open" | "invite_only";
                                 /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
@@ -3968,7 +4092,8 @@ export interface operations {
                     /** Format: uuid */
                     defaultLocationId?: string | null;
                     defaultDurationMin?: number;
-                    admissionMode?: "none" | "external" | "registration";
+                    /** @description tickets: offers sold through the account's sales channels; capacity and overbooking in registration apply */
+                    admissionMode?: "none" | "external" | "registration" | "tickets";
                     externalUrl?: string | null;
                     registration?: {
                         accessPolicy?: "open" | "invite_only";
@@ -4024,9 +4149,10 @@ export interface operations {
                         /** Format: uuid */
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external" | "registration";
+                        /** @description tickets: offers sold through the account's sales channels; capacity and overbooking in registration apply */
+                        admissionMode: "none" | "external" | "registration" | "tickets";
                         externalUrl: string | null;
-                        /** @description Used when admissionMode is registration */
+                        /** @description Used when admissionMode is registration; capacity and overbookingPct also when it is tickets */
                         registration: {
                             accessPolicy: "open" | "invite_only";
                             /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
@@ -4281,9 +4407,10 @@ export interface operations {
                         /** Format: uuid */
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external" | "registration";
+                        /** @description tickets: offers sold through the account's sales channels; capacity and overbooking in registration apply */
+                        admissionMode: "none" | "external" | "registration" | "tickets";
                         externalUrl: string | null;
-                        /** @description Used when admissionMode is registration */
+                        /** @description Used when admissionMode is registration; capacity and overbookingPct also when it is tickets */
                         registration: {
                             accessPolicy: "open" | "invite_only";
                             /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
@@ -4438,7 +4565,8 @@ export interface operations {
                     /** Format: uuid */
                     defaultLocationId?: string | null;
                     defaultDurationMin?: number;
-                    admissionMode?: "none" | "external" | "registration";
+                    /** @description tickets: offers sold through the account's sales channels; capacity and overbooking in registration apply */
+                    admissionMode?: "none" | "external" | "registration" | "tickets";
                     externalUrl?: string | null;
                     registration?: {
                         accessPolicy?: "open" | "invite_only";
@@ -4495,9 +4623,10 @@ export interface operations {
                         /** Format: uuid */
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external" | "registration";
+                        /** @description tickets: offers sold through the account's sales channels; capacity and overbooking in registration apply */
+                        admissionMode: "none" | "external" | "registration" | "tickets";
                         externalUrl: string | null;
-                        /** @description Used when admissionMode is registration */
+                        /** @description Used when admissionMode is registration; capacity and overbookingPct also when it is tickets */
                         registration: {
                             accessPolicy: "open" | "invite_only";
                             /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
@@ -4752,9 +4881,10 @@ export interface operations {
                         /** Format: uuid */
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external" | "registration";
+                        /** @description tickets: offers sold through the account's sales channels; capacity and overbooking in registration apply */
+                        admissionMode: "none" | "external" | "registration" | "tickets";
                         externalUrl: string | null;
-                        /** @description Used when admissionMode is registration */
+                        /** @description Used when admissionMode is registration; capacity and overbookingPct also when it is tickets */
                         registration: {
                             accessPolicy: "open" | "invite_only";
                             /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
@@ -5009,9 +5139,10 @@ export interface operations {
                         /** Format: uuid */
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external" | "registration";
+                        /** @description tickets: offers sold through the account's sales channels; capacity and overbooking in registration apply */
+                        admissionMode: "none" | "external" | "registration" | "tickets";
                         externalUrl: string | null;
-                        /** @description Used when admissionMode is registration */
+                        /** @description Used when admissionMode is registration; capacity and overbookingPct also when it is tickets */
                         registration: {
                             accessPolicy: "open" | "invite_only";
                             /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
@@ -5266,9 +5397,10 @@ export interface operations {
                         /** Format: uuid */
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external" | "registration";
+                        /** @description tickets: offers sold through the account's sales channels; capacity and overbooking in registration apply */
+                        admissionMode: "none" | "external" | "registration" | "tickets";
                         externalUrl: string | null;
-                        /** @description Used when admissionMode is registration */
+                        /** @description Used when admissionMode is registration; capacity and overbookingPct also when it is tickets */
                         registration: {
                             accessPolicy: "open" | "invite_only";
                             /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
@@ -5523,9 +5655,10 @@ export interface operations {
                         /** Format: uuid */
                         defaultLocationId: string | null;
                         defaultDurationMin: number;
-                        admissionMode: "none" | "external" | "registration";
+                        /** @description tickets: offers sold through the account's sales channels; capacity and overbooking in registration apply */
+                        admissionMode: "none" | "external" | "registration" | "tickets";
                         externalUrl: string | null;
-                        /** @description Used when admissionMode is registration */
+                        /** @description Used when admissionMode is registration; capacity and overbookingPct also when it is tickets */
                         registration: {
                             accessPolicy: "open" | "invite_only";
                             /** @description Shown in public listings. Switching to invite_only sets it to false unless given */
@@ -7650,6 +7783,21 @@ export interface operations {
                                 type: "overbooking";
                                 targetRef?: null;
                                 value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "price";
+                                /** Format: uuid */
+                                targetRef: string;
+                                value: {
+                                    /** @description Minor units (øre), VAT included */
+                                    amount: number;
+                                };
+                            } | {
+                                /** @enum {string} */
+                                type: "offerAvailable";
+                                /** Format: uuid */
+                                targetRef: string;
+                                value: boolean;
                             })[];
                             version: number;
                             /** Format: date-time */
@@ -7824,6 +7972,21 @@ export interface operations {
                         /** @enum {string} */
                         type: "overbooking";
                         value: number;
+                    } | {
+                        /** @enum {string} */
+                        type: "price";
+                        /** Format: uuid */
+                        targetRef: string;
+                        value: {
+                            /** @description Minor units (øre), VAT included */
+                            amount: number;
+                        };
+                    } | {
+                        /** @enum {string} */
+                        type: "offerAvailable";
+                        /** Format: uuid */
+                        targetRef: string;
+                        value: boolean;
                     })[];
                 };
             };
@@ -7898,6 +8061,21 @@ export interface operations {
                                 type: "overbooking";
                                 targetRef?: null;
                                 value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "price";
+                                /** Format: uuid */
+                                targetRef: string;
+                                value: {
+                                    /** @description Minor units (øre), VAT included */
+                                    amount: number;
+                                };
+                            } | {
+                                /** @enum {string} */
+                                type: "offerAvailable";
+                                /** Format: uuid */
+                                targetRef: string;
+                                value: boolean;
                             })[];
                             version: number;
                             /** Format: date-time */
@@ -7923,7 +8101,13 @@ export interface operations {
                                 /** Format: date-time */
                                 startUtc: string;
                                 fields: {
-                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
+                                    /** @description price and offerAvailable are per offer (targetRef). New fields may be added */
+                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking" | "price" | "offerAvailable";
+                                    /**
+                                     * Format: uuid
+                                     * @description The offer of a price or offerAvailable field; null otherwise
+                                     */
+                                    targetRef: string | null;
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -7943,7 +8127,13 @@ export interface operations {
                                 occurrenceId: string;
                                 /** Format: date-time */
                                 startUtc: string;
-                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
+                                /** @description price and offerAvailable are per offer (targetRef). New fields may be added */
+                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking" | "price" | "offerAvailable";
+                                /**
+                                 * Format: uuid
+                                 * @description The offer of a price or offerAvailable field; null otherwise
+                                 */
+                                targetRef: string | null;
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -8022,6 +8212,21 @@ export interface operations {
                                 type: "overbooking";
                                 targetRef?: null;
                                 value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "price";
+                                /** Format: uuid */
+                                targetRef: string;
+                                value: {
+                                    /** @description Minor units (øre), VAT included */
+                                    amount: number;
+                                };
+                            } | {
+                                /** @enum {string} */
+                                type: "offerAvailable";
+                                /** Format: uuid */
+                                targetRef: string;
+                                value: boolean;
                             })[];
                             version: number;
                             /** Format: date-time */
@@ -8047,7 +8252,13 @@ export interface operations {
                                 /** Format: date-time */
                                 startUtc: string;
                                 fields: {
-                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
+                                    /** @description price and offerAvailable are per offer (targetRef). New fields may be added */
+                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking" | "price" | "offerAvailable";
+                                    /**
+                                     * Format: uuid
+                                     * @description The offer of a price or offerAvailable field; null otherwise
+                                     */
+                                    targetRef: string | null;
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -8067,7 +8278,13 @@ export interface operations {
                                 occurrenceId: string;
                                 /** Format: date-time */
                                 startUtc: string;
-                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
+                                /** @description price and offerAvailable are per offer (targetRef). New fields may be added */
+                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking" | "price" | "offerAvailable";
+                                /**
+                                 * Format: uuid
+                                 * @description The offer of a price or offerAvailable field; null otherwise
+                                 */
+                                targetRef: string | null;
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -8342,6 +8559,21 @@ export interface operations {
                             type: "overbooking";
                             targetRef?: null;
                             value: number;
+                        } | {
+                            /** @enum {string} */
+                            type: "price";
+                            /** Format: uuid */
+                            targetRef: string;
+                            value: {
+                                /** @description Minor units (øre), VAT included */
+                                amount: number;
+                            };
+                        } | {
+                            /** @enum {string} */
+                            type: "offerAvailable";
+                            /** Format: uuid */
+                            targetRef: string;
+                            value: boolean;
                         })[];
                         version: number;
                         /** Format: date-time */
@@ -8528,6 +8760,21 @@ export interface operations {
                                 type: "overbooking";
                                 targetRef?: null;
                                 value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "price";
+                                /** Format: uuid */
+                                targetRef: string;
+                                value: {
+                                    /** @description Minor units (øre), VAT included */
+                                    amount: number;
+                                };
+                            } | {
+                                /** @enum {string} */
+                                type: "offerAvailable";
+                                /** Format: uuid */
+                                targetRef: string;
+                                value: boolean;
                             })[];
                             version: number;
                             /** Format: date-time */
@@ -8553,7 +8800,13 @@ export interface operations {
                                 /** Format: date-time */
                                 startUtc: string;
                                 fields: {
-                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
+                                    /** @description price and offerAvailable are per offer (targetRef). New fields may be added */
+                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking" | "price" | "offerAvailable";
+                                    /**
+                                     * Format: uuid
+                                     * @description The offer of a price or offerAvailable field; null otherwise
+                                     */
+                                    targetRef: string | null;
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -8573,7 +8826,13 @@ export interface operations {
                                 occurrenceId: string;
                                 /** Format: date-time */
                                 startUtc: string;
-                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
+                                /** @description price and offerAvailable are per offer (targetRef). New fields may be added */
+                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking" | "price" | "offerAvailable";
+                                /**
+                                 * Format: uuid
+                                 * @description The offer of a price or offerAvailable field; null otherwise
+                                 */
+                                targetRef: string | null;
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -8835,6 +9094,21 @@ export interface operations {
                         /** @enum {string} */
                         type: "overbooking";
                         value: number;
+                    } | {
+                        /** @enum {string} */
+                        type: "price";
+                        /** Format: uuid */
+                        targetRef: string;
+                        value: {
+                            /** @description Minor units (øre), VAT included */
+                            amount: number;
+                        };
+                    } | {
+                        /** @enum {string} */
+                        type: "offerAvailable";
+                        /** Format: uuid */
+                        targetRef: string;
+                        value: boolean;
                     })[];
                 };
             };
@@ -8909,6 +9183,21 @@ export interface operations {
                                 type: "overbooking";
                                 targetRef?: null;
                                 value: number;
+                            } | {
+                                /** @enum {string} */
+                                type: "price";
+                                /** Format: uuid */
+                                targetRef: string;
+                                value: {
+                                    /** @description Minor units (øre), VAT included */
+                                    amount: number;
+                                };
+                            } | {
+                                /** @enum {string} */
+                                type: "offerAvailable";
+                                /** Format: uuid */
+                                targetRef: string;
+                                value: boolean;
                             })[];
                             version: number;
                             /** Format: date-time */
@@ -8934,7 +9223,13 @@ export interface operations {
                                 /** Format: date-time */
                                 startUtc: string;
                                 fields: {
-                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
+                                    /** @description price and offerAvailable are per offer (targetRef). New fields may be added */
+                                    field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking" | "price" | "offerAvailable";
+                                    /**
+                                     * Format: uuid
+                                     * @description The offer of a price or offerAvailable field; null otherwise
+                                     */
+                                    targetRef: string | null;
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -8954,7 +9249,13 @@ export interface operations {
                                 occurrenceId: string;
                                 /** Format: date-time */
                                 startUtc: string;
-                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
+                                /** @description price and offerAvailable are per offer (targetRef). New fields may be added */
+                                field: "location" | "tags" | "externalUrl" | "capacity" | "overbooking" | "price" | "offerAvailable";
+                                /**
+                                 * Format: uuid
+                                 * @description The offer of a price or offerAvailable field; null otherwise
+                                 */
+                                targetRef: string | null;
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -10499,6 +10800,2501 @@ export interface operations {
                                 endUtc: string;
                                 reason: "moved" | "removed";
                             }[];
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    listVatClasses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            code: string;
+                            label: string;
+                            /** @description VAT rate in percent, up to two decimals */
+                            ratePct: number;
+                            archived: boolean;
+                            /** @description Offers use the class, so its rate cannot change */
+                            inUse: boolean;
+                            version: number;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    createVatClass: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Makes the POST safe to retry for 24 hours */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                    label: string;
+                    /** @description Percent, at most two decimals */
+                    ratePct: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        code: string;
+                        label: string;
+                        /** @description VAT rate in percent, up to two decimals */
+                        ratePct: number;
+                        archived: boolean;
+                        /** @description Offers use the class, so its rate cannot change */
+                        inUse: boolean;
+                        version: number;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    updateVatClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    label?: string;
+                    /** @description Percent, at most two decimals */
+                    ratePct?: number;
+                    archived?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        code: string;
+                        label: string;
+                        /** @description VAT rate in percent, up to two decimals */
+                        ratePct: number;
+                        archived: boolean;
+                        /** @description Offers use the class, so its rate cannot change */
+                        inUse: boolean;
+                        version: number;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    listEventOffers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            /** @description Stable within the event, for connectors */
+                            code: string;
+                            /** Format: uuid */
+                            vatClassId: string;
+                            sortOrder: number;
+                            status: "active" | "archived";
+                            /** @description Places one unit takes; a family ticket takes 4 and admits a party of 4 */
+                            placesPerUnit: number;
+                            minPerReservation: number;
+                            maxPerReservation: number;
+                            /** @description Minor units (øre), VAT included */
+                            defaultPrice: number;
+                            translations: {
+                                [key: string]: {
+                                    name: string;
+                                    description: string | null;
+                                };
+                            };
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    createOffer: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Makes the POST safe to retry for 24 hours */
+                "idempotency-key"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code?: string;
+                    /** Format: uuid */
+                    vatClassId: string;
+                    sortOrder?: number;
+                    /** @default 1 */
+                    placesPerUnit?: number;
+                    /** @default 1 */
+                    minPerReservation?: number;
+                    /** @default 20 */
+                    maxPerReservation?: number;
+                    /** @description Minor units (øre), VAT included */
+                    defaultPrice: number;
+                    translations: {
+                        [key: string]: {
+                            name: string;
+                            description?: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description offer is null after a delete */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        offer: null | {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            /** @description Stable within the event, for connectors */
+                            code: string;
+                            /** Format: uuid */
+                            vatClassId: string;
+                            sortOrder: number;
+                            status: "active" | "archived";
+                            /** @description Places one unit takes; a family ticket takes 4 and admits a party of 4 */
+                            placesPerUnit: number;
+                            minPerReservation: number;
+                            maxPerReservation: number;
+                            /** @description Minor units (øre), VAT included */
+                            defaultPrice: number;
+                            translations: {
+                                [key: string]: {
+                                    name: string;
+                                    description: string | null;
+                                };
+                            };
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        /** @description done: effective prices are updated. queued: the worker updates them within seconds. none: no prices change. */
+                        resolution: "done" | "queued" | "none";
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    copyOffers: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Makes the POST safe to retry for 24 hours */
+                "idempotency-key"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    fromEventId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        created: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            /** @description Stable within the event, for connectors */
+                            code: string;
+                            /** Format: uuid */
+                            vatClassId: string;
+                            sortOrder: number;
+                            status: "active" | "archived";
+                            /** @description Places one unit takes; a family ticket takes 4 and admits a party of 4 */
+                            placesPerUnit: number;
+                            minPerReservation: number;
+                            maxPerReservation: number;
+                            /** @description Minor units (øre), VAT included */
+                            defaultPrice: number;
+                            translations: {
+                                [key: string]: {
+                                    name: string;
+                                    description: string | null;
+                                };
+                            };
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        /** @description Codes the event already had */
+                        skipped: string[];
+                        /** @description done: effective prices are updated. queued: the worker updates them within seconds. none: no prices change. */
+                        resolution: "done" | "queued" | "none";
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    getOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        eventId: string;
+                        /** @description Stable within the event, for connectors */
+                        code: string;
+                        /** Format: uuid */
+                        vatClassId: string;
+                        sortOrder: number;
+                        status: "active" | "archived";
+                        /** @description Places one unit takes; a family ticket takes 4 and admits a party of 4 */
+                        placesPerUnit: number;
+                        minPerReservation: number;
+                        maxPerReservation: number;
+                        /** @description Minor units (øre), VAT included */
+                        defaultPrice: number;
+                        translations: {
+                            [key: string]: {
+                                name: string;
+                                description: string | null;
+                            };
+                        };
+                        version: number;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    deleteOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    updateOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code?: string;
+                    /** Format: uuid */
+                    vatClassId?: string;
+                    sortOrder?: number;
+                    status?: "active" | "archived";
+                    placesPerUnit?: number;
+                    minPerReservation?: number;
+                    maxPerReservation?: number;
+                    /** @description Minor units (øre), VAT included */
+                    defaultPrice?: number;
+                    /** @description Per locale: replaces the translation, or null removes it */
+                    translations?: {
+                        [key: string]: null | {
+                            name: string;
+                            description?: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description offer is null after a delete */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        offer: null | {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            /** @description Stable within the event, for connectors */
+                            code: string;
+                            /** Format: uuid */
+                            vatClassId: string;
+                            sortOrder: number;
+                            status: "active" | "archived";
+                            /** @description Places one unit takes; a family ticket takes 4 and admits a party of 4 */
+                            placesPerUnit: number;
+                            minPerReservation: number;
+                            maxPerReservation: number;
+                            /** @description Minor units (øre), VAT included */
+                            defaultPrice: number;
+                            translations: {
+                                [key: string]: {
+                                    name: string;
+                                    description: string | null;
+                                };
+                            };
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        /** @description done: effective prices are updated. queued: the worker updates them within seconds. none: no prices change. */
+                        resolution: "done" | "queued" | "none";
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    getPriceGrid: {
+        parameters: {
+            query: {
+                from?: string;
+                to?: string;
+                cursor?: string;
+                limit: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        offers: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            eventId: string;
+                            /** @description Stable within the event, for connectors */
+                            code: string;
+                            /** Format: uuid */
+                            vatClassId: string;
+                            sortOrder: number;
+                            status: "active" | "archived";
+                            /** @description Places one unit takes; a family ticket takes 4 and admits a party of 4 */
+                            placesPerUnit: number;
+                            minPerReservation: number;
+                            maxPerReservation: number;
+                            /** @description Minor units (øre), VAT included */
+                            defaultPrice: number;
+                            translations: {
+                                [key: string]: {
+                                    name: string;
+                                    description: string | null;
+                                };
+                            };
+                            version: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                        items: {
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: date-time */
+                            startUtc: string;
+                            /** Format: date-time */
+                            endUtc: string;
+                            status: "scheduled" | "cancelled";
+                            /** @description Per offer; an offer whose prices are not resolved yet is missing */
+                            cells: {
+                                /** Format: uuid */
+                                offerId: string;
+                                price: {
+                                    value: number;
+                                    source: "default" | "rule" | "override";
+                                    /** Format: uuid */
+                                    ruleId: string | null;
+                                };
+                                available: {
+                                    value: boolean;
+                                    source: "default" | "rule" | "override";
+                                    /** Format: uuid */
+                                    ruleId: string | null;
+                                };
+                                override: null | {
+                                    /** @description Minor units, VAT included; null inherits */
+                                    amount: number | null;
+                                    /** @description false: off sale here; null inherits */
+                                    available: boolean | null;
+                                };
+                            }[];
+                        }[];
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    setOfferOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                occurrenceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Minor units, VAT included. null inherits; left out keeps the stored value */
+                    amount?: number | null;
+                    /** @description false takes the offer off sale here. null inherits; left out keeps the stored value */
+                    available?: boolean | null;
+                };
+            };
+        };
+        responses: {
+            /** @description One offer at one occurrence: effective price and availability with their source */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        offerId: string;
+                        price: {
+                            value: number;
+                            source: "default" | "rule" | "override";
+                            /** Format: uuid */
+                            ruleId: string | null;
+                        };
+                        available: {
+                            value: boolean;
+                            source: "default" | "rule" | "override";
+                            /** Format: uuid */
+                            ruleId: string | null;
+                        };
+                        override: null | {
+                            /** @description Minor units, VAT included; null inherits */
+                            amount: number | null;
+                            /** @description false: off sale here; null inherits */
+                            available: boolean | null;
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    clearOfferOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                occurrenceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One offer at one occurrence: effective price and availability with their source */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        offerId: string;
+                        price: {
+                            value: number;
+                            source: "default" | "rule" | "override";
+                            /** Format: uuid */
+                            ruleId: string | null;
+                        };
+                        available: {
+                            value: boolean;
+                            source: "default" | "rule" | "override";
+                            /** Format: uuid */
+                            ruleId: string | null;
+                        };
+                        override: null | {
+                            /** @description Minor units, VAT included; null inherits */
+                            amount: number | null;
+                            /** @description false: off sale here; null inherits */
+                            available: boolean | null;
                         };
                     };
                 };

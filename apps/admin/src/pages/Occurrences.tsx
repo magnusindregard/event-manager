@@ -79,6 +79,8 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
   const rules = useEventRules(event.id).data ?? [];
   const ruleName = (id: string | null | undefined) => rules.find((r) => r.id === id)?.name;
   const registration = event.admissionMode === "registration";
+  /** Registration and ticketed occurrences have places (a capacity pool). */
+  const pooled = registration || event.admissionMode === "tickets";
   const ruleRefresh = useRuleRefresh(event.id);
 
   const key = ["occurrences", accountId, event.id];
@@ -153,7 +155,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         externalUrlOverride: d.externalUrlCleared ? null : d.externalUrlOverride.trim() || null,
         externalUrlOverrideCleared: d.externalUrlCleared,
         tagsOverride: d.overrideTags ? d.tagsOverride : null,
-        ...(registration ? { capacityOverride: d.capacityOverride.trim() === "" ? null : Number(d.capacityOverride) } : {}),
+        ...(pooled ? { capacityOverride: d.capacityOverride.trim() === "" ? null : Number(d.capacityOverride) } : {}),
       };
       if (d.occ) {
         return unwrap(await api.PATCH("/v1/occurrences/{id}", {
@@ -343,7 +345,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         );
       },
     },
-    ...(registration ? [placesColumn] : []),
+    ...(pooled ? [placesColumn] : []),
     {
       id: "status",
       header: t("events.status"),
@@ -470,7 +472,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         </div>
       )}
       {view === "list" ? (
-        <DataTable columns={baseColumns.filter((c) => !(registration && c.id === "link"))} data={visible} loading={query.isLoading} empty={isFiltering(filter) ? t("filter.none") : t("occurrences.empty")} getRowId={(r) => r.id} />
+        <DataTable columns={baseColumns.filter((c) => !(pooled && c.id === "link"))} data={visible} loading={query.isLoading} empty={isFiltering(filter) ? t("filter.none") : t("occurrences.empty")} getRowId={(r) => r.id} />
       ) : (
         <OccurrenceCalendar occurrences={visible} timezone={event.timezone} title={eventTitleShort(event, i18n.language)} onSelect={(o) => !archived && open(o)} />
       )}
@@ -542,7 +544,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
                     <Label htmlFor="occ-location-cleared" className="font-normal">{t("occurrences.noLocation")}</Label>
                   </div>
                 </Field>
-                {!registration && (
+                {!pooled && (
                   <div className="grid gap-2">
                     <Field label={t("occurrences.link")} htmlFor="occ-url" hint={t("occurrences.inherit", { value: event.externalUrl ?? "—" })}>
                       <Input id="occ-url" type="url" value={draft.externalUrlCleared ? "" : draft.externalUrlOverride} disabled={draft.externalUrlCleared}
@@ -554,7 +556,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
                     </div>
                   </div>
                 )}
-                {registration && (
+                {pooled && (
                   <Field label={t("occurrences.capacityOverride")} htmlFor="occ-capacity"
                     hint={t("occurrences.inherit", { value: event.registration.capacity ?? t("events.reg.unlimited") })}>
                     <Input id="occ-capacity" type="number" min={0} max={1000000} className="w-40" value={draft.capacityOverride}

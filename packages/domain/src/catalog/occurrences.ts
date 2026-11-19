@@ -4,6 +4,7 @@ import { type ActorContext, DomainError } from "../shared/index.js";
 import { assertCan, diffFields, recordAudit } from "../tenancy/index.js";
 import { assertUsableLocation } from "./locations.js";
 import * as inventory from "../inventory/index.js";
+import * as offers from "../offers/index.js";
 import { type EffectiveValues, loadEffectiveValues, resolveEventOccurrences } from "./resolve.js";
 import { assertUrl, invalid, lockScheduleEvent, notFound, pgCode, versionConflict } from "./shared.js";
 import { isSlot, slotAt } from "./recurrence.js";
@@ -350,8 +351,8 @@ export async function deleteOccurrence(tx: Tx, ctx: ActorContext, id: string, ex
 }
 
 /**
- * Puts a detached series occurrence back on its slot: series time, no overrides (capacity
- * included), no conflict. Fails if the series no longer has the slot. An occurrence with
+ * Puts a detached series occurrence back on its slot: series time, no overrides (capacity and
+ * offer prices included), no conflict. Fails if the series no longer has the slot. An occurrence with
  * registrations stays detached (detachForRegistrations), so later regeneration still reports a
  * conflict instead of moving or deleting a booked occurrence.
  */
@@ -359,6 +360,9 @@ export async function reattachOccurrence(tx: Tx, ctx: ActorContext, id: string, 
   assertCan(ctx, "content.write");
   const before = await lockedOccurrence(tx, id);
   if (!before.seriesId || !before.recurrenceIdLocal) throw new DomainError("conflict", "Only series occurrences can be reattached");
+  // Reattaching clears offer overrides, which are offer settings: content-only staff may still
+  // reattach occurrences without them.
+  if (await offers.hasOverrides(tx, id)) assertCan(ctx, "offers.write");
   const s = await tx.selectFrom("catalog.series").select(["rrule", "dtstart_local", "duration_min", "timezone", "exdates"]).where("id", "=", before.seriesId).executeTakeFirstOrThrow();
   const def = { rrule: s.rrule, dtstartLocal: s.dtstart_local, durationMin: s.duration_min, timezone: s.timezone, exdates: s.exdates };
   if (!isSlot(def, before.recurrenceIdLocal)) throw new DomainError("conflict", "The series no longer has this occurrence's slot");
@@ -375,6 +379,8 @@ export async function reattachOccurrence(tx: Tx, ctx: ActorContext, id: string, 
     .returning("id")
     .executeTakeFirst();
   if (!row) throw versionConflict("Occurrence", before.version);
+  // Offer overrides (prices and availability here) are overrides too.
+  await offers.clearOverrides(tx, id);
   await resolveEventOccurrences(tx, before.eventId, [id]);
   await recordAudit(tx, ctx, { action: "occurrence.reattached", entityType: "event", entityId: before.eventId, diff: { ...summary(before), seriesId: before.seriesId } });
   await emit(tx, ctx.tenantId, { type: "occurrence.changed.v1", subject: `occurrence/${id}`, data: { id, eventId: before.eventId, changed: ["reattached"] } });

@@ -67,3 +67,27 @@ export function useEventRules(eventId: string) {
     queryFn: async () => unwrap(await api.GET("/v1/events/{id}/rules", { params: { path: { id: eventId } } })).items,
   });
 }
+
+export function useVatClasses() {
+  const { api, accountId } = useApp();
+  return useQuery({
+    queryKey: ["vat-classes", accountId],
+    queryFn: async () => unwrap(await api.GET("/v1/vat-classes")).items,
+  });
+}
+
+/** A ticketed event's offers, in display order. */
+export function useEventOffers(eventId: string, enabled = true) {
+  const { api, accountId } = useApp();
+  return useQuery({
+    queryKey: ["offers", accountId, eventId],
+    enabled,
+    queryFn: async () => unwrap(await api.GET("/v1/events/{id}/offers", { params: { path: { id: eventId } } })).items,
+  });
+}
+
+/** Offer name in the UI language, then the first name, then the code. */
+export function offerName(offer: { code: string; translations: Record<string, { name: string }> } | undefined, language: string): string {
+  if (!offer) return "…";
+  return offer.translations[language]?.name ?? Object.values(offer.translations)[0]?.name ?? offer.code;
+}

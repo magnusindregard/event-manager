@@ -4,7 +4,7 @@ import * as rules from "../rules/index.js";
 import { type ActorContext, DomainError } from "../shared/index.js";
 import { assertCan, diffFields, recordAudit } from "../tenancy/index.js";
 import { assertUsableLocation } from "./locations.js";
-import { previewOccurrences, resolutionContext, resolveEventSoon } from "./resolve.js";
+import { previewOccurrences, previewTargets, resolutionContext, resolveEventSoon } from "./resolve.js";
 import { notFound, versionConflict } from "./shared.js";
 import { assertUsableTags } from "./tags.js";
 
@@ -64,19 +64,34 @@ function normalize(input: RuleInput): Omit<rules.RuleDef, "id"> {
   };
 }
 
-/** Locations and tags the effects point at must exist and be in use; ones the rule already had may since be archived. */
-async function checkRefs(tx: Tx, effects: readonly rules.Effect[], before?: readonly rules.Effect[]) {
+/**
+ * Locations and tags the effects point at must exist and be in use; ones the rule already had may
+ * since be archived. Offers must be the event's own, and active unless the rule already had them.
+ */
+async function checkRefs(tx: Tx, eventId: string, effects: readonly rules.Effect[], before?: readonly rules.Effect[]) {
   const now = rules.effectRefs(effects);
-  const had = before ? rules.effectRefs(before) : { locations: [], tags: [] };
+  const had = before ? rules.effectRefs(before) : { locations: [], tags: [], offers: [] };
   for (const id of now.locations.filter((x) => !had.locations.includes(x))) await assertUsableLocation(tx, id, "effects");
   await assertUsableTags(tx, now.tags.filter((x) => !had.tags.includes(x)), "effects");
+  const added = now.offers.filter((x) => !had.offers.includes(x));
+  if (added.length) {
+    const found = await tx.selectFrom("offers.offer").select(["id", "status"]).where("event_id", "=", eventId).where("id", "in", added).execute();
+    const missing = added.find((id) => !found.some((o) => o.id === id && o.status === "active"));
+    if (missing) throw new DomainError("validation_failed", "The offer is not an active offer of this event", { field: "effects", offerId: missing });
+  }
+}
+
+/** Price and availability effects are offer settings: changing them takes offers.write as well (docs/ticketing.md, "Permissions"). */
+function assertCanTargets(ctx: ActorContext, ...effects: (readonly rules.Effect[] | undefined)[]) {
+  if (effects.some((list) => list?.some((e) => e.targetRef !== null))) assertCan(ctx, "offers.write");
 }
 
 async function preview(tx: Tx, eventId: string, change: (existing: rules.Rule[]) => rules.RuleDef[], ruleId: string) {
   const c = await resolutionContext(tx, eventId);
   return rules.previewRules({
     defaults: c.defaults,
-    occurrences: await previewOccurrences(tx, eventId, c.timezone),
+    targets: previewTargets(c),
+    occurrences: await previewOccurrences(tx, eventId, c.timezone, c.offers.length > 0),
     before: c.rules,
     after: change(c.rules),
     ruleId,
@@ -102,7 +117,8 @@ export async function createRule(tx: Tx, ctx: ActorContext, eventId: string, inp
   assertCan(ctx, "content.write");
   await writableEvent(tx, eventId);
   const def = normalize(input);
-  await checkRefs(tx, def.effects);
+  assertCanTargets(ctx, def.effects);
+  await checkRefs(tx, eventId, def.effects);
   // A new rule's id sorts after every existing one, so it loses equal-priority ties, as it will once saved.
   const id = newId();
   const p = await preview(tx, eventId, (existing) => [...existing, { ...def, id }], id);
@@ -125,7 +141,8 @@ export async function updateRule(tx: Tx, ctx: ActorContext, id: string, expected
     conditions: patch.conditions ? { ...before.conditions, ...patch.conditions } : before.conditions,
     effects: patch.effects ?? before.effects,
   });
-  await checkRefs(tx, def.effects, before.effects);
+  assertCanTargets(ctx, def.effects, before.effects);
+  await checkRefs(tx, before.eventId, def.effects, before.effects);
   const p = await preview(tx, before.eventId, (existing) => existing.map((r) => (r.id === id ? { ...def, id } : r)), id);
   if (opts.dryRun) return { rule: { ...before, ...def }, preview: p, resolution: "none" };
 
@@ -139,6 +156,7 @@ export async function deleteRule(tx: Tx, ctx: ActorContext, id: string, expected
   const before = await rules.getRule(tx, id);
   if (before.version !== expectedVersion) throw versionConflict("Rule", before.version);
   await writableEvent(tx, before.eventId);
+  assertCanTargets(ctx, before.effects);
   const p = await preview(tx, before.eventId, (existing) => existing.filter((r) => r.id !== id), id);
   if (opts.dryRun) return { rule: before, preview: p, resolution: "none" };
 

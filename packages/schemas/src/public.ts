@@ -25,6 +25,7 @@ export const Admission = Type.Union(
       mode: Type.Literal("registration"),
       url: Nullable(Type.String({ description: "Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links" })),
     }),
+    Type.Object({ mode: Type.Literal("tickets") }, { description: "Tickets are sold through the account's own web shop and box office; offers lists what is for sale" }),
   ],
   { description: "How to get in. More modes (registration, tickets) are added later without changing these." },
 );
@@ -38,6 +39,22 @@ export const Availability = Type.Object(
     closesAt: DateTime,
   },
   { description: "Places for registration occurrences, without exact numbers. Null for other admission modes" },
+);
+
+export const PublicOffer = Type.Object(
+  {
+    id: Uuid,
+    code: Type.String({ description: "Stable offer code, e.g. adult" }),
+    name: Type.String(),
+    description: Nullable(Type.String()),
+    price: Type.Object({
+      amount: Type.Integer({ description: "Minor units (øre), VAT included" }),
+      currency: Type.String({ description: "ISO 4217, e.g. NOK" }),
+      vatIncluded: Type.Literal(true),
+    }),
+    onSale: Type.Boolean({ description: "False when the occurrence is cancelled or has started" }),
+  },
+  { description: "A ticket type at this occurrence, in display order. Offers taken off sale here are left out" },
 );
 
 const eventSummaryFields = {
@@ -63,6 +80,7 @@ const occurrenceFields = {
   tags: Type.Array(PublicTag),
   admission: Admission,
   availability: Nullable(Availability),
+  offers: Type.Array(PublicOffer, { description: "Ticketed occurrences only; empty otherwise" }),
 };
 
 export const PublicOccurrence = Type.Object({ ...occurrenceFields, event: PublicEventSummary });

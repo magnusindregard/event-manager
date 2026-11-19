@@ -17,6 +17,7 @@ import * as m0012 from "./migrations/0012_invitations.js";
 import * as m0013 from "./migrations/0013_forms_privacy.js";
 import * as m0014 from "./migrations/0014_reinvite.js";
 import * as m0015 from "./migrations/0015_waitlist.js";
+import * as m0016 from "./migrations/0016_offers.js";
 
 /** By name, in order. Exported for tests that run one migration down and up again. */
 export const migrations: Record<string, Migration> = {
@@ -34,6 +35,7 @@ export const migrations: Record<string, Migration> = {
   "0013_forms_privacy": m0013,
   "0014_reinvite": m0014,
   "0015_waitlist": m0015,
+  "0016_offers": m0016,
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

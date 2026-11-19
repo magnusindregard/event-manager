@@ -156,6 +156,9 @@ export interface operations {
                                 mode: "registration";
                                 /** @description Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links */
                                 url: string | null;
+                            } | {
+                                /** @enum {string} */
+                                mode: "tickets";
                             };
                             availability: null | {
                                 /** @description waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added */
@@ -168,6 +171,25 @@ export interface operations {
                                 /** Format: date-time */
                                 closesAt: string;
                             };
+                            /** @description Ticketed occurrences only; empty otherwise */
+                            offers: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @description Stable offer code, e.g. adult */
+                                code: string;
+                                name: string;
+                                description: string | null;
+                                price: {
+                                    /** @description Minor units (øre), VAT included */
+                                    amount: number;
+                                    /** @description ISO 4217, e.g. NOK */
+                                    currency: string;
+                                    /** @enum {boolean} */
+                                    vatIncluded: true;
+                                };
+                                /** @description False when the occurrence is cancelled or has started */
+                                onSale: boolean;
+                            }[];
                             event: {
                                 /** Format: uuid */
                                 id: string;
@@ -483,6 +505,9 @@ export interface operations {
                                     mode: "registration";
                                     /** @description Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links */
                                     url: string | null;
+                                } | {
+                                    /** @enum {string} */
+                                    mode: "tickets";
                                 };
                                 availability: null | {
                                     /** @description waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added */
@@ -495,6 +520,25 @@ export interface operations {
                                     /** Format: date-time */
                                     closesAt: string;
                                 };
+                                /** @description Ticketed occurrences only; empty otherwise */
+                                offers: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    /** @description Stable offer code, e.g. adult */
+                                    code: string;
+                                    name: string;
+                                    description: string | null;
+                                    price: {
+                                        /** @description Minor units (øre), VAT included */
+                                        amount: number;
+                                        /** @description ISO 4217, e.g. NOK */
+                                        currency: string;
+                                        /** @enum {boolean} */
+                                        vatIncluded: true;
+                                    };
+                                    /** @description False when the occurrence is cancelled or has started */
+                                    onSale: boolean;
+                                }[];
                             }[];
                         };
                     };

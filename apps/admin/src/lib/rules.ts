@@ -62,10 +62,14 @@ export function describeConditions(c: Conditions, t: TFunction, language: string
   return parts.length ? parts.join(" · ") : t("rules.summary.all");
 }
 
-/** "Location: Rooftop · Tags: + Late opening · Ticket link". */
-export function describeEffects(effects: StoredEffect[], t: TFunction, names: { location(id: string): string; tag(id: string): string }): string {
+/** "Location: Rooftop · Tags: + Late opening · Ticket link · Adult: kr 500". */
+export function describeEffects(
+  effects: StoredEffect[], t: TFunction, names: { location(id: string): string; tag(id: string): string; offer?(id: string): string; money?(minor: number): string },
+): string {
   return effects
     .map((e) => {
+      if (e.type === "price") return `${names.offer?.(e.targetRef) ?? "…"}: ${names.money?.(e.value.amount) ?? e.value.amount}`;
+      if (e.type === "offerAvailable") return `${names.offer?.(e.targetRef) ?? "…"}: ${e.value ? t("prices.onSale") : t("prices.offSale")}`;
       if (e.type === "location") return `${t("rules.effect.location")}: ${names.location(e.value)}`;
       if (e.type === "externalUrl") return `${t("rules.effect.externalUrl")}: ${e.value.replace(/^https?:\/\//, "")}`;
       if (e.type === "capacity") return `${t("rules.effect.capacity")}: ${e.value}`;

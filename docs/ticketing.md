@@ -152,6 +152,21 @@ On `/v1`, called with a channel key. `Idempotency-Key` is **required** on every 
 4. **After the sale:** cancelling confirmed tickets, occurrences with tickets protected, buyer data and retention, admin sales view, outbox events complete.
 5. **Integration guide and pilot:** the integration guide (data ownership per purchase stage), contract tests against the OpenAPI spec, and one client selling through their web shop and POS.
 
+### Status
+
+*Milestone 1 (offers and prices)* is built and tested locally (19 November 2026): `packages/domain/test/acceptance/ticketing.test.ts` covers the first two acceptance scenarios (the Saturday-evening student rule and the weekend price with one override), permissions, copying, VAT classes and the public API; `packages/domain/test/rules.test.ts` the targeted engine; `apps/api/test/offers.test.ts` the endpoints. Decisions taken while building:
+
+- **One override table.** `offers.offer_override (offer_id, occurrence_id, amount, available)` holds both overrides; a null column inherits. Endpoints: `PUT` and `DELETE /v1/offers/{id}/occurrences/{occurrenceId}/override`.
+- **Effective prices in their own table.** `offers.effective_price` has one row per (occurrence, offer), with amount and availability and the source and rule of each, rather than adding a target to `rules.effective_value`. Reservations (milestone 3) read a typed amount, and rows go with their offer.
+- **The engine resolves targets.** `rules.resolveTargets` resolves `price` and `offerAvailable` per offer: override, then the highest-priority matching rule with an effect on that (field, offer), then the offer's default (its `defaultPrice`, and on sale). Ties are reported per target. The rule preview compares targeted fields too, so a price rule's save resolves the event like any other rule, and `changes[].fields[]` and `conflicts[]` carry `targetRef`.
+- **What triggers resolution.** Rule changes, a new offer, a new default price and copying offers resolve the event (inline up to 2,000 occurrences, otherwise by the worker on `offer.changed.v1`). An override resolves its occurrence. New occurrences are priced as they are created. `price.changed.v1` is emitted once per resolution batch with the occurrences whose price or availability changed.
+- **Locking.** Offer changes lock the event row for update, like rule changes, so a resolver that started earlier cannot publish prices from an older configuration (#41). Overrides take the event for share and then the occurrence for update, as schedule changes do.
+- **Price rules need `offers.write`.** Creating, editing or deleting a rule with a `price` or `offerAvailable` effect takes `offers.write` on top of `content.write`, so editors keep plain rules but not prices. Effects must name an active offer of the same event. An offer that rules refer to cannot be deleted.
+- **Offers need `admissionMode: tickets`** to be created or copied. Ticketed events get a capacity pool per occurrence from `registration.capacity` and `overbookingPct`; the other registration settings do not apply.
+- **VAT.** A class an offer uses keeps its rate (409); its label can change, and it can be archived so no new offer uses it. Rates have at most two decimals.
+- **Public API.** Each occurrence has `offers`: the active offers available there, in display order, with `price { amount, currency: "NOK", vatIncluded }` and `onSale` (false once the occurrence is cancelled or has started; sales windows arrive with milestone 2). Offers taken off sale at an occurrence are left out. `admission` is `{ mode: "tickets" }`. Availability for ticketed occurrences (`available`, `few_left`, `sold_out`, `not_on_sale`) is not built yet: it needs holds and sales, so it moves to milestone 3, and `availability` stays null until then.
+- **Admin.** Event → Ticket types (editor, copy from event), Event → Prices (grid with source per cell, override and clear in a popover), price and sale effects per offer in the rule editor, VAT classes under Settings. Ticketed occurrences show places and take capacity overrides like registration occurrences.
+
 ## Acceptance scenarios
 
 - A concert with Adult 450 and Student 250, Student off sale on Saturday evenings by a rule: the price grid shows each cell's source, and the public API shows only Adult on Saturdays.

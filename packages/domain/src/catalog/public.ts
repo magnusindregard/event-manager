@@ -1,5 +1,6 @@
 import { type AccessPolicy, type AdmissionMode, type EventStatus, type OccurrenceStatus, sql, type Tx } from "@event-manager/db";
 import * as inventory from "../inventory/index.js";
+import * as offers from "../offers/index.js";
 import { getAccount } from "../tenancy/index.js";
 import { availabilityOf, type AvailabilityStatus } from "./availability.js";
 import { loadEffectiveValues } from "./resolve.js";
@@ -48,7 +49,23 @@ export type Admission =
   | { mode: "external"; url: string }
   | { mode: "none" }
   /** url: the hosted registration page; null for invite-only occurrences (guests use their personal links). */
-  | { mode: "registration"; url: string | null };
+  | { mode: "registration"; url: string | null }
+  /** Sold through the account's own sales channels; offers lists what is for sale. */
+  | { mode: "tickets" };
+
+/** Tickets are priced in the account's currency; NOK only for now (docs/ticketing.md). */
+export const CURRENCY = "NOK";
+
+export interface PublicOffer {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  /** Minor units (øre), VAT included. */
+  price: { amount: number; currency: string; vatIncluded: true };
+  /** False when the occurrence is cancelled or has started. */
+  onSale: boolean;
+}
 
 export interface PublicAvailability {
   status: AvailabilityStatus;
@@ -68,6 +85,8 @@ export interface PublicOccurrence {
   admission: Admission;
   /** Registration occurrences only; null otherwise. */
   availability: PublicAvailability | null;
+  /** Ticketed occurrences: the offers available here, in display order, with their prices. Empty otherwise. */
+  offers: PublicOffer[];
   event: PublicEventSummary;
 }
 
@@ -236,11 +255,13 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
     if (Array.isArray(e.tags?.value)) tagIds.push(...e.tags.value);
   }
   const registrationIds = rows.filter((r) => r.admission_mode === "registration").map((r) => r.id);
-  const [events, locs, tags, pools] = await Promise.all([
+  const ticketed = rows.filter((r) => r.admission_mode === "tickets");
+  const [events, locs, tags, pools, offers] = await Promise.all([
     eventSummaries(tx, c, rows.map((r) => ({ id: r.event_id, slug: r.slug, status: r.status, timezone: r.timezone, external_refs: r.external_refs }))),
     locationRefs(tx, locIds),
     tagRefs(tx, c, tagIds),
     registrationIds.length ? inventory.listPools(tx, registrationIds) : Promise.resolve(new Map<string, inventory.Pool>()),
+    ticketed.length ? offersFor(tx, c, ticketed) : Promise.resolve(new Map<string, PublicOffer[]>()),
   ]);
   return rows.map((r) => {
     const e = eff.get(r.id) ?? {};
@@ -258,6 +279,7 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
       });
       availability = { status: a.status, opensAt: a.opensAt?.toISOString() ?? null, closesAt: a.closesAt.toISOString() };
     }
+    if (r.admission_mode === "tickets") admission = { mode: "tickets" };
     return {
       id: r.id,
       startUtc: r.start_utc.toISOString(),
@@ -268,9 +290,42 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
       tags: (e.tags?.value ?? []).map((id) => tags.get(id)).filter((t): t is PublicTag => !!t),
       admission,
       availability,
+      offers: offers.get(r.id) ?? [],
       event: events.get(r.event_id)!,
     };
   });
+}
+
+/**
+ * Active offers per occurrence with their effective prices, leaving out offers taken off sale
+ * there (offerAvailable false) and offers whose prices are not resolved yet.
+ */
+async function offersFor(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Map<string, PublicOffer[]>> {
+  const eventIds = [...new Set(rows.map((r) => r.event_id))];
+  const [offerRows, translations, prices] = await Promise.all([
+    tx.selectFrom("offers.offer").select(["id", "event_id", "code", "sort_order"]).where("event_id", "in", eventIds).where("status", "=", "active")
+      .orderBy("sort_order").orderBy("code").execute(),
+    tx.selectFrom("offers.offer_translation as t").innerJoin("offers.offer as o", "o.id", "t.offer_id")
+      .select(["t.offer_id", "t.locale", "t.name", "t.description"])
+      .where("o.event_id", "in", eventIds).where("t.locale", "in", [...new Set([c.locale, c.defaultLocale])]).execute(),
+    offers.loadEffectivePrices(tx, rows.map((r) => r.id)),
+  ]);
+  const out = new Map<string, PublicOffer[]>();
+  for (const r of rows) {
+    const onSale = r.status !== "cancelled" && r.occ_status === "scheduled" && r.start_utc > c.now;
+    const list: PublicOffer[] = [];
+    for (const o of offerRows.filter((x) => x.event_id === r.event_id)) {
+      const p = prices.get(r.id)?.get(o.id);
+      if (!p || !p.available.value) continue;
+      const t = translations.find((x) => x.offer_id === o.id && x.locale === c.locale) ?? translations.find((x) => x.offer_id === o.id && x.locale === c.defaultLocale);
+      list.push({
+        id: o.id, code: o.code, name: t?.name ?? o.code, description: t?.description ?? null,
+        price: { amount: p.price.value, currency: CURRENCY, vatIncluded: true }, onSale,
+      });
+    }
+    out.set(r.id, list);
+  }
+  return out;
 }
 
 export interface PublicEventFilter {

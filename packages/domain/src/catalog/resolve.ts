@@ -1,5 +1,6 @@
 import { type AdmissionMode, sql, type Tx } from "@event-manager/db";
 import * as inventory from "../inventory/index.js";
+import * as offerStore from "../offers/index.js";
 import { emit } from "../outbox/index.js";
 import * as rules from "../rules/index.js";
 import { utcToLocal } from "./recurrence.js";
@@ -7,7 +8,8 @@ import { utcToLocal } from "./recurrence.js";
 // Resolution per occurrence and field (docs/mvp.md): occurrence override → highest-priority
 // matching rule → event default. The rule engine lives in the rules module; this loads the
 // catalog side (event defaults, occurrences) and materializes the result in
-// rules.effective_value. resolved_version = version marks an occurrence as safe to publish.
+// rules.effective_value, and offer prices per (occurrence, offer) in offers.effective_price.
+// resolved_version = version marks an occurrence as safe to publish.
 
 export interface EventDefaults {
   defaultLocationId: string | null;
@@ -72,10 +74,14 @@ export function resolveFields(
 
 export interface ResolutionContext {
   timezone: string;
-  /** Registration events keep a capacity pool per occurrence in step with its effective capacity. */
+  /** Registration events: upcoming occurrences that change place notify their attendees. */
   registration: boolean;
+  /** Registration and ticketed events keep a capacity pool per occurrence in step with its effective capacity. */
+  pooled: boolean;
   defaults: rules.FieldValues;
   rules: rules.Rule[];
+  /** The event's offers, resolved per occurrence for price and availability. */
+  offers: offerStore.PriceTarget[];
 }
 
 /** What every occurrence of an event resolves against: its defaults, timezone and rules. */
@@ -93,6 +99,7 @@ export async function resolutionContext(tx: Tx, eventId: string): Promise<Resolu
   return {
     timezone: event.timezone,
     registration: event.admission_mode === "registration",
+    pooled: event.admission_mode === "registration" || event.admission_mode === "tickets",
     defaults: defaultValues({
       defaultLocationId: event.default_location_id,
       admissionMode: event.admission_mode,
@@ -102,8 +109,18 @@ export async function resolutionContext(tx: Tx, eventId: string): Promise<Resolu
       overbookingPct: event.overbooking_pct,
     }),
     rules: await rules.listRules(tx, eventId),
+    // Read under the event's share lock: offer changes lock the event for update (like rules).
+    offers: await offerStore.priceTargets(tx, eventId),
   };
 }
+
+const targetInputs = (c: ResolutionContext, overrides: Map<string, offerStore.OfferOverride> | undefined): rules.TargetInput[] => {
+  const byOffer = offerStore.targetOverrides(overrides);
+  return c.offers.map((o) => ({ ref: o.id, defaults: offerStore.targetDefaults(o), overrides: byOffer[o.id] ?? {} }));
+};
+
+/** The event's offers with their defaults, as the rule preview takes them. */
+export const previewTargets = (c: ResolutionContext) => c.offers.map((o) => ({ ref: o.id, defaults: offerStore.targetDefaults(o) }));
 
 const occColumns = [
   "id", "tenant_id", "start_utc", "location_override_id", "external_url_override", "location_cleared", "external_url_cleared", "tags_override", "capacity_override",
@@ -118,13 +135,15 @@ const occOverrides = (o: OccRow) => overrideValues({
 });
 
 /** An event's occurrences as the rule preview sees them. */
-export async function previewOccurrences(tx: Tx, eventId: string, timezone: string): Promise<rules.PreviewOccurrence[]> {
+export async function previewOccurrences(tx: Tx, eventId: string, timezone: string, withOffers = false): Promise<rules.PreviewOccurrence[]> {
   const rows = await tx.selectFrom("catalog.occurrence").select(occColumns).where("event_id", "=", eventId).orderBy("start_utc").orderBy("id").execute();
+  const overrides = withOffers ? await offerStore.loadOverrides(tx, rows.map((o) => o.id)) : new Map<string, Map<string, offerStore.OfferOverride>>();
   return rows.map((o) => ({
     id: o.id,
     startUtc: o.start_utc,
     startLocal: utcToLocal(o.start_utc, timezone),
     overrides: occOverrides(o),
+    targetOverrides: offerStore.targetOverrides(overrides.get(o.id)),
   }));
 }
 
@@ -146,18 +165,15 @@ export async function resolveEventOccurrences(tx: Tx, eventId: string, ids?: rea
     if (part) q = q.where("id", "in", part);
     const occs = await q.execute();
     if (occs.length === 0) continue;
-    const rows = occs.map((o) => ({
-      tenantId: o.tenant_id,
-      occurrenceId: o.id,
-      values: rules.resolve(
-        {
-          defaults: c.defaults,
-          overrides: occOverrides(o),
-          startLocal: utcToLocal(o.start_utc, c.timezone),
-        },
-        ordered,
-      ).values,
-    }));
+    const rows = occs.map((o) => {
+      const startLocal = utcToLocal(o.start_utc, c.timezone);
+      return {
+        tenantId: o.tenant_id,
+        occurrenceId: o.id,
+        startLocal,
+        values: rules.resolve({ defaults: c.defaults, overrides: occOverrides(o), startLocal }, ordered).values,
+      };
+    });
     // Attendees are told when an upcoming registration occurrence changes place, whether by an
     // override, a rule or the event's default (occurrence.relocated.v1 → worker notices).
     const relocated: { occurrenceId: string; tenantId: string; from: unknown; to: unknown }[] = [];
@@ -176,7 +192,8 @@ export async function resolveEventOccurrences(tx: Tx, eventId: string, ids?: rea
     for (const m of relocated) {
       await emit(tx, m.tenantId, { type: "occurrence.relocated.v1", subject: `occurrence/${m.occurrenceId}`, data: { id: m.occurrenceId, eventId, from: m.from, to: m.to } });
     }
-    if (c.registration) {
+    if (c.offers.length) await resolvePrices(tx, eventId, c, ordered, rows);
+    if (c.pooled) {
       await inventory.syncPools(tx, rows.map((r) => ({
         tenantId: r.tenantId, occurrenceId: r.occurrenceId,
         capacity: r.values.capacity.value as number | null, overbookingPct: r.values.overbooking.value as number,
@@ -192,6 +209,35 @@ export async function resolveEventOccurrences(tx: Tx, eventId: string, ids?: rea
     resolved += occs.length;
   }
   return resolved;
+}
+
+/**
+ * Prices and availability per (occurrence, offer). The occurrences are locked by the caller, and
+ * override writers lock the occurrence first, so the overrides read here stay current. Emits one
+ * price.changed per batch, naming the occurrences whose prices or availability changed.
+ */
+async function resolvePrices(
+  tx: Tx, eventId: string, c: ResolutionContext, ordered: readonly rules.RuleDef[],
+  occs: readonly { tenantId: string; occurrenceId: string; startLocal: string }[],
+): Promise<void> {
+  const ids = occs.map((o) => o.occurrenceId);
+  const [overrides, before] = await Promise.all([offerStore.loadOverrides(tx, ids), offerStore.loadEffectivePrices(tx, ids)]);
+  const out: offerStore.EffectivePriceRow[] = [];
+  const changed: string[] = [];
+  for (const o of occs) {
+    const { values } = rules.resolveTargets(targetInputs(c, overrides.get(o.occurrenceId)), o.startLocal, ordered);
+    let differs = false;
+    for (const [offerId, v] of values) {
+      out.push({ tenantId: o.tenantId, occurrenceId: o.occurrenceId, offerId, values: v });
+      const prev = before.get(o.occurrenceId)?.get(offerId);
+      if (!prev || !rules.sameResolved(prev.price, v.price) || !rules.sameResolved(prev.available, v.offerAvailable)) differs = true;
+    }
+    if (differs) changed.push(o.occurrenceId);
+  }
+  await offerStore.writeEffectivePrices(tx, out);
+  if (changed.length) {
+    await emit(tx, occs[0]!.tenantId, { type: "price.changed.v1", subject: `event/${eventId}`, data: { eventId, occurrenceIds: changed } });
+  }
 }
 
 /** Events with more occurrences than this are resolved by the worker after a rule or default change. */

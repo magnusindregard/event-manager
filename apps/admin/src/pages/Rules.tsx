@@ -14,8 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { type CatalogEvent, etagOf, isConflict, type Rule, type RuleChangeResult, unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
+import { formatMoney } from "../lib/money.js";
 import { describeConditions, describeEffects } from "../lib/rules.js";
-import { locationPath, useEventRules, useLocations, useTagLabels, useVocabularies } from "../queries.js";
+import { locationPath, offerName, useEventOffers, useEventRules, useLocations, useTagLabels, useVocabularies } from "../queries.js";
 import { RuleEditor, type RuleEditorMode } from "./schedule/RuleEditor.js";
 
 /** After a save: refresh now, and again shortly if the worker resolves the occurrences. */
@@ -26,6 +27,7 @@ export function useRuleRefresh(eventId: string) {
     const run = () => {
       void qc.invalidateQueries({ queryKey: ["rules", accountId, eventId] });
       void qc.invalidateQueries({ queryKey: ["occurrences", accountId, eventId] });
+      void qc.invalidateQueries({ queryKey: ["prices", accountId, eventId] });
       void qc.invalidateQueries({ queryKey: ["audit", accountId] });
     };
     run();
@@ -71,7 +73,11 @@ export function Rules({ event }: { event: CatalogEvent }) {
     onError,
   });
   const error = [toggle.error, remove.error].find((e) => e && !isConflict(e));
-  const names = { location: (id: string) => path(id) || "…", tag: (id: string) => tagLabels.get(id)?.text ?? "…" };
+  const offers = useEventOffers(event.id, event.admissionMode === "tickets").data ?? [];
+  const names = {
+    location: (id: string) => path(id) || "…", tag: (id: string) => tagLabels.get(id)?.text ?? "…",
+    offer: (id: string) => offerName(offers.find((o) => o.id === id), i18n.language), money: (minor: number) => formatMoney(minor, i18n.language),
+  };
 
   return (
     <div className="space-y-4">

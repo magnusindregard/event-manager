@@ -9,7 +9,7 @@ import { startTestDatabase, type TestDatabase } from "../src/testing.js";
 
 type Ids = {
   tenantA: string; tenantB: string; user: string; event: string;
-  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string;
+  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string; vatClass: string; offer: string;
 };
 type Fixture = (c: pg.ClientBase, tenantId: string, ids: Ids) => Promise<void>;
 
@@ -93,9 +93,22 @@ const fixtures: Record<string, Fixture> = {
       [t, ids.registration]).then(() => {}),
   "registration.data_key": (c, t) =>
     c.query(`insert into registration.data_key (tenant_id, wrapped, master_key_id) values ($1, '\\x00', 'k1')`, [t]).then(() => {}),
+  "offers.vat_class": (c, t, ids) =>
+    c.query(`insert into offers.vat_class (id, tenant_id, code, label, rate_pct) values ($1, $2, 'exempt', 'Exempt', 0)`, [ids.vatClass, t]).then(() => {}),
+  "offers.offer": (c, t, ids) =>
+    c.query(`insert into offers.offer (id, tenant_id, event_id, code, vat_class_id, default_price) values ($1, $2, $3, 'adult', $4, 45000)`,
+      [ids.offer, t, ids.catalogEvent, ids.vatClass]).then(() => {}),
+  "offers.offer_translation": (c, t, ids) =>
+    c.query(`insert into offers.offer_translation (tenant_id, offer_id, locale, name) values ($1, $2, 'nb', 'Voksen')`, [t, ids.offer]).then(() => {}),
+  "offers.offer_override": (c, t, ids) =>
+    c.query(`insert into offers.offer_override (tenant_id, offer_id, occurrence_id, amount) values ($1, $2, $3, 40000)`,
+      [t, ids.offer, ids.occurrence]).then(() => {}),
+  "offers.effective_price": (c, t, ids) =>
+    c.query(`insert into offers.effective_price (tenant_id, occurrence_id, offer_id, amount, amount_source, available, available_source)
+              values ($1, $2, $3, 40000, 'override', true, 'default')`, [t, ids.occurrence, ids.offer]).then(() => {}),
 };
 
-const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID() });
+const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID(), vatClass: randomUUID(), offer: randomUUID() });
 
 let db: TestDatabase;
 let admin: pg.Client;

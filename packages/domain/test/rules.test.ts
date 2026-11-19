@@ -10,6 +10,8 @@ const LOC_B = "0190a000-0000-7000-8000-00000000000b";
 const TAG_1 = "0190a000-0000-7000-8000-000000000001";
 const TAG_2 = "0190a000-0000-7000-8000-000000000002";
 const TAG_3 = "0190a000-0000-7000-8000-000000000003";
+const OFFER_A = "0190a000-0000-7000-8000-0000000000fa";
+const OFFER_B = "0190a000-0000-7000-8000-0000000000fb";
 
 const rule = (id: string, over: Partial<rules.RuleDef> = {}): rules.RuleDef => ({
   id, name: id, priority: 0, active: true, conditions: any, effects: [{ type: "location", targetRef: null, value: LOC_A }], ...over,
@@ -57,12 +59,29 @@ describe("effects", () => {
   it("validates values per effect type", () => {
     expect(rules.normalizeEffects([{ type: "tags", value: { add: [TAG_2, TAG_2] } }])).toEqual([{ type: "tags", targetRef: null, value: { add: [TAG_2], remove: [] } }]);
     expect(() => rules.normalizeEffects([])).toThrow(/at least one/);
-    expect(() => rules.normalizeEffects([{ type: "price", value: 100 }])).toThrow(/Unknown effect type/);
+    expect(() => rules.normalizeEffects([{ type: "discount", value: 100 }])).toThrow(/Unknown effect type/);
     expect(() => rules.normalizeEffects([{ type: "location", value: "rooftop" }])).toThrow(/location id/);
     expect(() => rules.normalizeEffects([{ type: "externalUrl", value: "ftp://x" }])).toThrow(/http/);
     expect(() => rules.normalizeEffects([{ type: "location", targetRef: "offer-1", value: LOC_A }])).toThrow(/no targetRef/);
     expect(() => rules.normalizeEffects([{ type: "location", value: LOC_A }, { type: "location", value: LOC_B }])).toThrow(/already has/);
     expect(() => rules.normalizeEffects([{ type: "tags", value: { add: [TAG_1], remove: [TAG_1] } }])).toThrow(/both/);
+  });
+
+  it("validates targeted effects: an offer id and a value per type (docs/ticketing.md)", () => {
+    expect(rules.normalizeEffects([{ type: "price", targetRef: OFFER_A.toUpperCase(), value: { amount: 45000 } }]))
+      .toEqual([{ type: "price", targetRef: OFFER_A, value: { amount: 45000 } }]);
+    expect(() => rules.normalizeEffects([{ type: "price", value: { amount: 1 } }])).toThrow(/needs a targetRef/);
+    expect(() => rules.normalizeEffects([{ type: "price", targetRef: "adult", value: { amount: 1 } }])).toThrow(/offer id/);
+    expect(() => rules.normalizeEffects([{ type: "price", targetRef: OFFER_A, value: 100 }])).toThrow(/amount/);
+    expect(() => rules.normalizeEffects([{ type: "price", targetRef: OFFER_A, value: { amount: 1.5 } }])).toThrow(/whole amount/);
+    expect(() => rules.normalizeEffects([{ type: "offerAvailable", targetRef: OFFER_A, value: "no" }])).toThrow(/true or false/);
+    // One effect per (type, target); several targets in one rule are fine.
+    expect(() => rules.normalizeEffects([
+      { type: "price", targetRef: OFFER_A, value: { amount: 1 } }, { type: "price", targetRef: OFFER_A, value: { amount: 2 } },
+    ])).toThrow(/for this target/);
+    expect(rules.normalizeEffects([
+      { type: "price", targetRef: OFFER_A, value: { amount: 1 } }, { type: "price", targetRef: OFFER_B, value: { amount: 2 } },
+    ])).toHaveLength(2);
   });
 
   it("treats tag ids case-insensitively (#43)", () => {
@@ -75,7 +94,8 @@ describe("effects", () => {
 
   it("lists referenced locations and tags", () => {
     const effects = rules.normalizeEffects([{ type: "location", value: LOC_A }, { type: "tags", value: { add: [TAG_2], remove: [TAG_1] } }]);
-    expect(rules.effectRefs(effects)).toEqual({ locations: [LOC_A], tags: [TAG_2, TAG_1] });
+    expect(rules.effectRefs(effects)).toEqual({ locations: [LOC_A], tags: [TAG_2, TAG_1], offers: [] });
+    expect(rules.effectRefs(rules.normalizeEffects([{ type: "offerAvailable", targetRef: OFFER_A, value: false }])).offers).toEqual([OFFER_A]);
   });
 });
 
@@ -106,7 +126,33 @@ describe("resolution", () => {
     const newer = rule("0190a000-0000-7000-8000-0000000000r2", { effects: [{ type: "location", targetRef: null, value: LOC_B }] });
     const r = rules.resolve(at("2027-06-02T19:00:00"), rules.ordered([newer, older]));
     expect(r.values.location.ruleId).toBe(older.id);
-    expect(r.ties).toEqual([{ field: "location", ruleIds: [older.id, newer.id] }]);
+    expect(r.ties).toEqual([{ field: "location", targetRef: null, ruleIds: [older.id, newer.id] }]);
+  });
+
+  it("resolves targeted fields per offer: override → rule for that offer → the offer's default", () => {
+    const targets = (overrides: Record<string, Partial<rules.TargetValues>> = {}) => [
+      { ref: OFFER_A, defaults: { price: 45000, offerAvailable: true }, overrides: overrides[OFFER_A] ?? {} },
+      { ref: OFFER_B, defaults: { price: 25000, offerAvailable: true }, overrides: overrides[OFFER_B] ?? {} },
+    ];
+    const weekend = rule("0190a000-0000-7000-8000-0000000000r1", {
+      conditions: { ...any, weekdays: [6, 7] },
+      effects: [{ type: "price", targetRef: OFFER_A, value: { amount: 50000 } }, { type: "offerAvailable", targetRef: OFFER_B, value: false }],
+    });
+    const tie = rule("0190a000-0000-7000-8000-0000000000r2", { effects: [{ type: "price", targetRef: OFFER_A, value: { amount: 1 } }] });
+    const sat = rules.resolveTargets(targets(), "2027-02-13T19:30:00", rules.ordered([weekend, tie]));
+    expect(sat.values.get(OFFER_A)).toEqual({
+      price: { value: 50000, source: "rule", ruleId: weekend.id }, offerAvailable: { value: true, source: "default", ruleId: null },
+    });
+    expect(sat.values.get(OFFER_B)!.offerAvailable).toEqual({ value: false, source: "rule", ruleId: weekend.id });
+    expect(sat.ties).toEqual([{ field: "price", targetRef: OFFER_A, ruleIds: [weekend.id, tie.id] }]);
+
+    const fri = rules.resolveTargets(targets(), "2027-02-12T19:30:00", rules.ordered([weekend]));
+    expect(fri.values.get(OFFER_A)!.price).toEqual({ value: 45000, source: "default", ruleId: null });
+
+    const overridden = rules.resolveTargets(targets({ [OFFER_A]: { price: 40000 } }), "2027-02-13T19:30:00", rules.ordered([weekend]));
+    expect(overridden.values.get(OFFER_A)!.price).toEqual({ value: 40000, source: "override", ruleId: null });
+    // Untargeted resolution ignores targeted effects.
+    expect(rules.resolve(at("2027-02-13T19:30:00"), rules.ordered([weekend])).values.location.source).toBe("default");
   });
 
   it("tags rules add to and remove from the event's tags", () => {
@@ -133,7 +179,7 @@ describe("preview", () => {
       ruleId: candidate.id,
     });
     expect(p.counts).toEqual({ matched: 3, changed: 1, overridden: 1, conflicts: 1 });
-    expect(p.changes).toEqual([{ occurrenceId: "a", startUtc: expect.any(Date), fields: [{ field: "location", from: { value: null, source: "default", ruleId: null }, to: { value: LOC_A, source: "rule", ruleId: candidate.id } }] }]);
-    expect(p.conflicts).toEqual([{ occurrenceId: "b", startUtc: expect.any(Date), field: "location", ruleIds: [existing.id, candidate.id] }]);
+    expect(p.changes).toEqual([{ occurrenceId: "a", startUtc: expect.any(Date), fields: [{ field: "location", targetRef: null, from: { value: null, source: "default", ruleId: null }, to: { value: LOC_A, source: "rule", ruleId: candidate.id } }] }]);
+    expect(p.conflicts).toEqual([{ occurrenceId: "b", startUtc: expect.any(Date), field: "location", targetRef: null, ruleIds: [existing.id, candidate.id] }]);
   });
 });

@@ -1,22 +1,24 @@
-import type { EffectiveField } from "@event-manager/db";
+import type { EffectiveField, TargetedField } from "@event-manager/db";
 import { DomainError } from "../shared/index.js";
 
 // Effect-type registry (docs/mvp.md, "Occurrence rules"). A rule effect is generic
 // (effectType, targetRef, value); its type's handler validates the value, says which
 // effective field it sets, which catalog entities it references, and how it turns the
-// event default into the effective value. Later types (capacity, price with targetRef =
-// offer) are added here and plug into the same resolver, preview and admin.
+// event default into the effective value. Targeted types (price, offerAvailable) set a field
+// per target: their targetRef names it (an offer), and they resolve per (field, targetRef).
 
 export interface EffectRefs {
   locations?: string[];
   tags?: string[];
+  offers?: string[];
 }
 
 export interface EffectType<V = unknown> {
   type: string;
-  field: EffectiveField;
-  /** Whether the effect needs a targetRef. None of the MVP types do. */
+  field: EffectiveField | TargetedField;
+  /** Whether the effect needs a targetRef, and what kind of entity it names. */
   targeted: boolean;
+  target?: "offer";
   /** Returns the canonical value, or throws validation_failed. */
   validate(value: unknown, path: string): V;
   refs(value: V): EffectRefs;
@@ -104,12 +106,56 @@ const intIn = (type: string, field: EffectiveField, min: number, max: number, me
   apply: (v) => v,
 });
 
+const offerTarget = (ref: string, path: string) => {
+  if (!UUID_RE.test(ref)) throw invalid(path, "Must be an offer id");
+  return ref.toLowerCase();
+};
+
+/** The offer's price at matching occurrences, in minor units including VAT (docs/ticketing.md). */
+const price: EffectType<{ amount: number }> = {
+  type: "price",
+  field: "price",
+  targeted: true,
+  target: "offer",
+  validate(value, path) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) throw invalid(path, "Must be { amount }");
+    const extra = Object.keys(value).filter((k) => k !== "amount");
+    if (extra.length) throw invalid(path, `Unknown property ${extra[0]}`);
+    const amount = (value as { amount?: unknown }).amount;
+    if (typeof amount !== "number" || !Number.isInteger(amount) || amount < 0 || amount > 100_000_000) {
+      throw invalid(`${path}.amount`, "Must be a whole amount in minor units, 0–100000000");
+    }
+    return { amount };
+  },
+  refs: () => ({}),
+  apply: (v) => v.amount,
+};
+
+/** false takes the offer off sale at matching occurrences. */
+const offerAvailable: EffectType<boolean> = {
+  type: "offerAvailable",
+  field: "offerAvailable",
+  targeted: true,
+  target: "offer",
+  validate(value, path) {
+    if (typeof value !== "boolean") throw invalid(path, "Must be true or false");
+    return value;
+  },
+  refs: () => ({}),
+  apply: (v) => v,
+};
+
+/** Validates and normalizes a targetRef for the effect type. */
+export function validateTarget(t: EffectType, ref: string, path: string): string {
+  return t.target === "offer" ? offerTarget(ref, path) : ref;
+}
+
 /** Places per occurrence (docs/registration.md). */
 const capacity = intIn("capacity", "capacity", 0, 1_000_000, "Must be a whole number of places, 0–1000000");
 /** Overbooking in percent of capacity. */
 const overbooking = intIn("overbooking", "overbooking", 0, 100, "Must be a whole percentage, 0–100");
 
-const registry = new Map<string, EffectType>([location, tags, externalUrl, capacity, overbooking].map((t) => [t.type, t as EffectType]));
+const registry = new Map<string, EffectType>([location, tags, externalUrl, capacity, overbooking, price, offerAvailable].map((t) => [t.type, t as EffectType]));
 
 export const EFFECT_TYPES: readonly string[] = [...registry.keys()];
 
