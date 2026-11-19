@@ -328,7 +328,8 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
 
 /**
  * Pure: a ticketed occurrence's availability for a channel caller. Not on sale while none of
- * its offers is; sold out once no on-sale offer fits in the places left.
+ * its offers is; sold out once no on-sale offer's smallest purchase (places per unit × minimum
+ * per reservation) fits in the places left.
  */
 export function ticketAvailability(list: readonly PublicOffer[], pool: Pick<inventory.Pool, "bookableLimit" | "available"> | null): PublicTicketAvailability {
   const opens = list.map((o) => o.opensAt);
@@ -339,7 +340,8 @@ export function ticketAvailability(list: readonly PublicOffer[], pool: Pick<inve
   let status: TicketAvailabilityStatus;
   if (!selling.length || !pool) status = "not_on_sale";
   else if (placesLeft === null) status = "available";
-  else if (!selling.some((o) => (o.placesPerUnit ?? 1) <= placesLeft)) status = "sold_out";
+  // An offer fits only if its smallest allowed purchase does.
+  else if (!selling.some((o) => (o.placesPerUnit ?? 1) * (o.minPerReservation ?? 1) <= placesLeft)) status = "sold_out";
   else status = placesLeft <= fewLeftThreshold(pool.bookableLimit!) ? "few_left" : "available";
   return { status, opensAt, closesAt, placesLeft };
 }

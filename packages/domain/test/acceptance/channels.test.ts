@@ -211,12 +211,16 @@ describe("channel callers", () => {
     expect((await publicOcc(event.id, START, web.id)).availability).toMatchObject({ status: "not_on_sale" });
   });
 
-  it("a family ticket that no longer fits does not keep the occurrence on sale", () => {
+  it("an offer whose smallest purchase no longer fits does not keep the occurrence on sale", () => {
     const base = { id: "x", code: "x", name: "x", description: null, price: { amount: 1, currency: "NOK", vatIncluded: true as const }, opensAt: null, closesAt: START.toISOString() };
     const family = { ...base, onSale: true, placesPerUnit: 4 };
     expect(catalog.ticketAvailability([family], { bookableLimit: 100, available: 3 }).status).toBe("sold_out");
     expect(catalog.ticketAvailability([family, { ...base, onSale: true, placesPerUnit: 1 }], { bookableLimit: 100, available: 3 }).status).toBe("few_left");
     expect(catalog.ticketAvailability([family], { bookableLimit: null, available: null })).toMatchObject({ status: "available", placesLeft: null });
+    // Review on #80: four places a unit and at least two units need 8 places, so 7 is sold out.
+    const pairs = { ...family, minPerReservation: 2 };
+    expect(catalog.ticketAvailability([pairs], { bookableLimit: 100, available: 7 }).status).toBe("sold_out");
+    expect(catalog.ticketAvailability([pairs], { bookableLimit: 100, available: 8 }).status).toBe("few_left");
   });
 });
 
