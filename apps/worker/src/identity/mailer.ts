@@ -27,6 +27,38 @@ export interface Mailer {
   send(msg: Mail): Promise<SentMail>;
 }
 
+/**
+ * The mail service refused the message. Permanent when sending it again cannot help (an
+ * invalid or inactive recipient, an account restriction, a bad token): the task records the
+ * failure and stops instead of retrying for half an hour while the send looks stuck (#72).
+ * Network errors, rate limits and 5xx are not MailErrors, or not permanent, and are retried.
+ */
+export class MailError extends Error {
+  constructor(message: string, readonly status: number, readonly permanent: boolean) {
+    super(message);
+    this.name = "MailError";
+  }
+}
+
+export const isPermanentMailError = (e: unknown): e is MailError => e instanceof MailError && e.permanent;
+
+/** 4xx other than timeouts and rate limits: the same request fails the same way again. */
+export const isPermanentStatus = (status: number) => status >= 400 && status < 500 && status !== 408 && status !== 429;
+
+/**
+ * Sends, or gives up on a permanent rejection: logs it and resolves null, so the job ends
+ * instead of retrying. Anything else throws, and graphile-worker retries the job.
+ */
+export async function sendOrGiveUp(mailer: Mailer, msg: Mail, logError: (line: string) => void, what: string): Promise<SentMail | null> {
+  try {
+    return await mailer.send(msg);
+  } catch (e) {
+    if (!isPermanentMailError(e)) throw e;
+    logError(`${what}: rejected by the mail service, not retried: ${e.message}`);
+    return null;
+  }
+}
+
 export class PostmarkMailer implements Mailer {
   constructor(private readonly cfg: { token: string; from: string; stream?: string }) {}
 
@@ -47,7 +79,7 @@ export class PostmarkMailer implements Mailer {
         MessageStream: this.cfg.stream ?? "outbound",
       }),
     });
-    if (!res.ok) throw new Error(`Postmark → ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    if (!res.ok) throw new MailError(`Postmark → ${res.status}: ${(await res.text()).slice(0, 300)}`, res.status, isPermanentStatus(res.status));
     const body = (await res.json().catch(() => ({}))) as { MessageID?: unknown };
     return { messageId: typeof body.MessageID === "string" ? body.MessageID : null };
   }

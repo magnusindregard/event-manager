@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { type Db, sql, type Tx, withTenant } from "@event-manager/db";
 import { catalog, registration } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
+import { sendOrGiveUp } from "./identity/mailer.js";
 import { type RegistrationEmailDeps, registrationEmail } from "./registration-email.js";
 
 // Notices to attendees when their occurrence moves, is cancelled or is restored
@@ -154,7 +155,8 @@ export function occurrenceNoticeTask(db: Db, deps: RegistrationEmailDeps): Task 
     }
     const qrPng = prepared.admission ? (await QRCode.toBuffer(prepared.admission, { type: "png", width: 400, margin: 1, errorCorrectionLevel: "M" })).toString("base64") : null;
     const mail = registrationEmail({ kind: prepared.kind, message: prepared.message, manageUrl: `${base}/m/${prepared.manage}`, qrPng });
-    await deps.mailer.send({ to: prepared.message.registration.email, ...mail });
-    helpers.logger.info(`registration ${payload.registrationId}: ${prepared.kind} notice sent`);
+    const what = `registration ${payload.registrationId}: ${prepared.kind} notice`;
+    if (!(await sendOrGiveUp(deps.mailer, { to: prepared.message.registration.email, ...mail }, (l) => helpers.logger.error(l), what))) return;
+    helpers.logger.info(`${what} sent`);
   };
 }

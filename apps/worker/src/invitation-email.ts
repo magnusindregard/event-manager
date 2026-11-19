@@ -2,7 +2,7 @@ import type { Task } from "graphile-worker";
 import { type Db, sql, withTenant } from "@event-manager/db";
 import { registration } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
-import type { Mail } from "./identity/mailer.js";
+import { isPermanentMailError, type Mail } from "./identity/mailer.js";
 import { esc, formatWhen, type RegistrationEmailDeps } from "./registration-email.js";
 
 // Guest invitations and reminders (docs/registration.md, "Email"). Staff ask for a batch;
@@ -106,9 +106,17 @@ export function invitationEmailTask(db: Db, deps: RegistrationEmailDeps): Task {
     try {
       sent = await deps.mailer.send({ to: message.invitation.email, ...mail, metadata: { tenantId, sendId } });
     } catch (e) {
-      // Out of retries: mark the send failed, so the guest list shows it and staff can send again.
+      const detail = e instanceof Error ? e.message : String(e);
+      // Refused for good (invalid recipient, account restriction): mark the send failed now
+      // instead of retrying, so the guest list shows it and staff can fix it and send again.
+      if (isPermanentMailError(e)) {
+        await withTenant(db, { tenantId }, (tx) => registration.recordNotSent(tx, sendId, `mail_rejected: ${detail}`));
+        helpers.logger.error(`invitation send ${sendId}: rejected by the mail service, not retried: ${detail}`);
+        return;
+      }
+      // Out of retries: the same, after the last attempt.
       if (helpers.job.attempts >= helpers.job.max_attempts) {
-        await withTenant(db, { tenantId }, (tx) => registration.recordNotSent(tx, sendId, `mail_error: ${e instanceof Error ? e.message : String(e)}`));
+        await withTenant(db, { tenantId }, (tx) => registration.recordNotSent(tx, sendId, `mail_error: ${detail}`));
       }
       throw e;
     }

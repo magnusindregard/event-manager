@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { type Db, sql, type Tx, withTenant } from "@event-manager/db";
 import { registration } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
+import { sendOrGiveUp } from "./identity/mailer.js";
 import { type RegistrationEmailDeps, registrationEmail } from "./registration-email.js";
 
 // Reminder before the event (docs/registration.md, "Closed event", step 6): when the event
@@ -89,14 +90,20 @@ export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => D
     }
     const qrPng = prepared.admission ? (await QRCode.toBuffer(prepared.admission, { type: "png", width: 400, margin: 1, errorCorrectionLevel: "M" })).toString("base64") : null;
     const mail = registrationEmail({ kind: "reminder", message: prepared.message, manageUrl: `${base}/m/${prepared.manage}`, qrPng });
-    // Claimed first, so two runs never both send; released again if sending fails, so the retry sends.
+    // Claimed first, so two runs never both send; released again if sending fails, so a retry
+    // sends. A permanent rejection is released too, but not retried.
     const mine = await withTenant(db, { tenantId }, (tx) => registration.markReminded(tx, registrationId, now));
     if (!mine) return;
+    let sent;
     try {
-      await deps.mailer.send({ to: prepared.message.registration.email, ...mail });
+      sent = await sendOrGiveUp(deps.mailer, { to: prepared.message.registration.email, ...mail }, (l) => helpers.logger.error(l), `registration ${registrationId}: reminder`);
     } catch (e) {
       await withTenant(db, { tenantId }, (tx) => registration.unmarkReminded(tx, registrationId, now));
       throw e;
+    }
+    if (!sent) {
+      await withTenant(db, { tenantId }, (tx) => registration.unmarkReminded(tx, registrationId, now));
+      return;
     }
     helpers.logger.info(`registration ${registrationId}: reminder sent`);
   };
