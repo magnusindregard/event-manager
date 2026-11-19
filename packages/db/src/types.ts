@@ -141,11 +141,13 @@ export interface IdempotencyKeyTable {
 
 export type LocationKind = "venue" | "space";
 export type EventStatus = "draft" | "published" | "cancelled" | "archived";
-export type AdmissionMode = "none" | "external" | "registration";
+export type AdmissionMode = "none" | "external" | "registration" | "tickets";
 export type AccessPolicy = "open" | "invite_only";
 export type OccurrenceStatus = "scheduled" | "cancelled";
 export type ValueSource = "default" | "rule" | "override";
 export type EffectiveField = "location" | "tags" | "externalUrl" | "capacity" | "overbooking";
+/** Fields resolved per target, e.g. per offer (docs/ticketing.md, "Prices"). */
+export type TargetedField = "price" | "offerAvailable";
 
 export interface LocationTable {
   id: string;
@@ -447,6 +449,66 @@ export interface RuleEffectTable {
   value: Json;
 }
 
+export type OfferStatus = "active" | "archived";
+
+export interface VatClassTable {
+  id: string;
+  tenant_id: string;
+  code: string;
+  label: string;
+  /** numeric(5,2); pg returns it as a string. */
+  rate_pct: ColumnType<string, string | number, string | number>;
+  archived_at: Timestamp | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface OfferTable {
+  id: string;
+  tenant_id: string;
+  event_id: string;
+  code: string;
+  vat_class_id: string;
+  sort_order: Generated<number>;
+  status: Generated<OfferStatus>;
+  places_per_unit: Generated<number>;
+  min_per_reservation: Generated<number>;
+  max_per_reservation: Generated<number>;
+  default_price: number;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface OfferTranslationTable {
+  tenant_id: string;
+  offer_id: string;
+  locale: string;
+  name: string;
+  description: string | null;
+}
+
+export interface OfferOverrideTable {
+  tenant_id: string;
+  offer_id: string;
+  occurrence_id: string;
+  amount: number | null;
+  available: boolean | null;
+}
+
+export interface EffectivePriceTable {
+  tenant_id: string;
+  occurrence_id: string;
+  offer_id: string;
+  amount: number;
+  amount_source: ValueSource;
+  amount_rule_id: string | null;
+  available: boolean;
+  available_source: ValueSource;
+  available_rule_id: string | null;
+}
+
 export interface DB {
   "tenancy.tag_vocabulary": TagVocabularyTable;
   "tenancy.tag": TagTable;
@@ -473,6 +535,11 @@ export interface DB {
   "registration.sensitive_answer": SensitiveAnswerTable;
   "registration.data_key": DataKeyTable;
   "admission.admission": AdmissionTable;
+  "offers.vat_class": VatClassTable;
+  "offers.offer": OfferTable;
+  "offers.offer_translation": OfferTranslationTable;
+  "offers.offer_override": OfferOverrideTable;
+  "offers.effective_price": EffectivePriceTable;
   "tenancy.account": AccountTable;
   "tenancy.user": UserTable;
   "tenancy.membership": MembershipTable;

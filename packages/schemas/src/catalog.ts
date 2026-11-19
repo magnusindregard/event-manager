@@ -61,7 +61,9 @@ export const TagPatch = Type.Object(
 );
 
 export const EventStatus = Type.Union([Type.Literal("draft"), Type.Literal("published"), Type.Literal("cancelled"), Type.Literal("archived")]);
-export const AdmissionMode = Type.Union([Type.Literal("none"), Type.Literal("external"), Type.Literal("registration")]);
+export const AdmissionMode = Type.Union([Type.Literal("none"), Type.Literal("external"), Type.Literal("registration"), Type.Literal("tickets")], {
+  description: "tickets: offers sold through the account's sales channels; capacity and overbooking in registration apply",
+});
 export const AccessPolicy = Type.Union([Type.Literal("open"), Type.Literal("invite_only")]);
 
 const settingsFields = {
@@ -77,7 +79,7 @@ const settingsFields = {
   waitlistCutoffMin: Type.Integer({ minimum: 0, maximum: 20160, description: "No waitlist offers this many minutes before start" }),
   reminderMinBefore: Nullable(Type.Integer({ minimum: 60, maximum: 20160, description: "Email confirmed attendees a reminder this many minutes before each occurrence; null: no reminder" })),
 };
-export const RegistrationSettings = Type.Object(settingsFields, { description: "Used when admissionMode is registration" });
+export const RegistrationSettings = Type.Object(settingsFields, { description: "Used when admissionMode is registration; capacity and overbookingPct also when it is tickets" });
 const RegistrationSettingsInput = Type.Partial(Type.Object(settingsFields, { additionalProperties: false }), { additionalProperties: false });
 
 export const Pool = Type.Object({
@@ -303,8 +305,8 @@ export const RuleConditionsInput = Type.Object(
   { additionalProperties: false },
 );
 
-// Input effects have no targetRef: none of the MVP types targets anything. Responses carry
-// targetRef (null) so per-offer types (price, capacity) can add it without a breaking change.
+// Untargeted effects take no targetRef; responses carry it as null. Per-offer effects (price,
+// offerAvailable) name the offer in targetRef.
 const effectBodies = {
   location: [Uuid, "Sets the location"],
   tags: [
@@ -322,8 +324,20 @@ const effectIn = <K extends keyof typeof effectBodies>(type: K) =>
   Type.Object({ type: Type.Literal(type), value: effectBodies[type][0] }, { additionalProperties: false, description: effectBodies[type][1] });
 const effectOut = <K extends keyof typeof effectBodies>(type: K) =>
   Type.Object({ type: Type.Literal(type), targetRef: Type.Optional(Type.Null()), value: effectBodies[type][0] }, { description: effectBodies[type][1] });
-export const RuleEffectInput = Type.Union([effectIn("location"), effectIn("tags"), effectIn("externalUrl"), effectIn("capacity"), effectIn("overbooking")]);
-export const RuleEffect = Type.Union([effectOut("location"), effectOut("tags"), effectOut("externalUrl"), effectOut("capacity"), effectOut("overbooking")]);
+const targetedBodies = {
+  price: [Type.Object({ amount: Type.Integer({ minimum: 0, maximum: 100000000, description: "Minor units (øre), VAT included" }) }, { additionalProperties: false }), "Sets the offer's price"],
+  offerAvailable: [Type.Boolean(), "false takes the offer off sale; true puts it back on sale"],
+} as const;
+const targetedIn = <K extends keyof typeof targetedBodies>(type: K) =>
+  Type.Object({ type: Type.Literal(type), targetRef: Uuid, value: targetedBodies[type][0] }, { additionalProperties: false, description: `${targetedBodies[type][1]}. targetRef: the offer id` });
+const targetedOut = <K extends keyof typeof targetedBodies>(type: K) =>
+  Type.Object({ type: Type.Literal(type), targetRef: Uuid, value: targetedBodies[type][0] }, { description: `${targetedBodies[type][1]}. targetRef: the offer id` });
+export const RuleEffectInput = Type.Union([
+  effectIn("location"), effectIn("tags"), effectIn("externalUrl"), effectIn("capacity"), effectIn("overbooking"), targetedIn("price"), targetedIn("offerAvailable"),
+]);
+export const RuleEffect = Type.Union([
+  effectOut("location"), effectOut("tags"), effectOut("externalUrl"), effectOut("capacity"), effectOut("overbooking"), targetedOut("price"), targetedOut("offerAvailable"),
+]);
 
 export const Rule = Type.Object({
   id: Uuid,
@@ -358,7 +372,11 @@ export const RulePatch = Type.Object(
   { additionalProperties: false, minProperties: 1 },
 );
 
-const EffectiveField = Type.Union([Type.Literal("location"), Type.Literal("tags"), Type.Literal("externalUrl"), Type.Literal("capacity"), Type.Literal("overbooking")]);
+const EffectiveField = Type.Union([
+  Type.Literal("location"), Type.Literal("tags"), Type.Literal("externalUrl"), Type.Literal("capacity"), Type.Literal("overbooking"),
+  Type.Literal("price"), Type.Literal("offerAvailable"),
+], { description: "price and offerAvailable are per offer (targetRef). New fields may be added" });
+const TargetRef = Nullable(Type.String({ format: "uuid", description: "The offer of a price or offerAvailable field; null otherwise" }));
 const ResolvedAny = Type.Object({ value: Type.Unknown(), source: ValueSource, ruleId: Nullable(Uuid) });
 export const RulePreview = Type.Object(
   {
@@ -371,9 +389,9 @@ export const RulePreview = Type.Object(
     changes: Type.Array(Type.Object({
       occurrenceId: Uuid,
       startUtc: DateTime,
-      fields: Type.Array(Type.Object({ field: EffectiveField, from: ResolvedAny, to: ResolvedAny })),
+      fields: Type.Array(Type.Object({ field: EffectiveField, targetRef: TargetRef, from: ResolvedAny, to: ResolvedAny })),
     })),
-    conflicts: Type.Array(Type.Object({ occurrenceId: Uuid, startUtc: DateTime, field: EffectiveField, ruleIds: Type.Array(Uuid, { description: "The winner first" }) })),
+    conflicts: Type.Array(Type.Object({ occurrenceId: Uuid, startUtc: DateTime, field: EffectiveField, targetRef: TargetRef, ruleIds: Type.Array(Uuid, { description: "The winner first" }) })),
   },
   { description: "What the change does to the event's occurrences. Lists hold at most 200 items; counts are exact." },
 );

@@ -21,7 +21,7 @@ const isPayload = (p: unknown): p is ResolvePayload =>
 
 export const queueResolution: InternalHandler = {
   name: "resolver",
-  types: ["rule.changed.v1", "event.changed.v1"],
+  types: ["rule.changed.v1", "event.changed.v1", "offer.changed.v1"],
   async handle(tx, event, log) {
     const data = event.data as { eventId?: unknown; resolution?: unknown };
     if (data.resolution !== "queued" || typeof data.eventId !== "string") return;

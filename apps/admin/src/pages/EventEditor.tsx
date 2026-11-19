@@ -27,6 +27,8 @@ import { Audit } from "./Audit.js";
 import { eventTitle, statusVariant } from "./Events.js";
 import { Occurrences } from "./Occurrences.js";
 import { Rules } from "./Rules.js";
+import { Offers } from "./offers/Offers.js";
+import { PriceGrid } from "./offers/PriceGrid.js";
 import { GuestList } from "./guests/GuestList.js";
 import { FormBuilder } from "./registration/FormBuilder.js";
 
@@ -134,6 +136,8 @@ function toBody(f: Form, before: CatalogEvent | null) {
     admissionMode: f.admission,
     externalUrl: f.admission === "external" ? f.externalUrl.trim() || null : before?.externalUrl ?? null,
     ...(f.admission === "registration" ? { registration: regBody(f.reg) } : {}),
+    // Ticketed events have places too; the rest of the registration settings do not apply.
+    ...(f.admission === "tickets" ? { registration: { capacity: regBody(f.reg).capacity, overbookingPct: regBody(f.reg).overbookingPct } } : {}),
     tagIds: f.tagIds,
     externalRefs: Object.fromEntries(f.refs.filter((r) => r.key.trim()).map((r) => [r.key.trim(), r.value])),
     translations,
@@ -249,6 +253,8 @@ export function EventEditor() {
             <TabsTrigger value="details">{t("events.tabs.details")}</TabsTrigger>
             <TabsTrigger value="occurrences">{t("events.tabs.occurrences")}</TabsTrigger>
             <TabsTrigger value="rules">{t("events.tabs.rules")}</TabsTrigger>
+            {event?.admissionMode === "tickets" && <TabsTrigger value="offers">{t("events.tabs.offers")}</TabsTrigger>}
+            {event?.admissionMode === "tickets" && <TabsTrigger value="prices">{t("events.tabs.prices")}</TabsTrigger>}
             {event?.admissionMode === "registration" && <TabsTrigger value="form">{t("events.tabs.form")}</TabsTrigger>}
             {event?.admissionMode === "registration" && can("registrations.read") && <TabsTrigger value="guests">{t("events.tabs.guests")}</TabsTrigger>}
             <TabsTrigger value="audit">{t("events.tabs.audit")}</TabsTrigger>
@@ -262,6 +268,16 @@ export function EventEditor() {
           <TabsContent value="rules" className="pt-4">
             <Rules event={event!} />
           </TabsContent>
+          {event?.admissionMode === "tickets" && (
+            <TabsContent value="offers" className="pt-4">
+              <Offers event={event} />
+            </TabsContent>
+          )}
+          {event?.admissionMode === "tickets" && (
+            <TabsContent value="prices" className="pt-4">
+              <PriceGrid event={event} />
+            </TabsContent>
+          )}
           {event?.admissionMode === "registration" && (
             <TabsContent value="form" className="pt-4">
               <FormBuilder event={event} />
@@ -439,7 +455,7 @@ function EventDetails({ event, etag, handle }: { event: CatalogEvent | null; eta
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(["none", "external", "registration"] as const).map((m) => <SelectItem key={m} value={m}>{t(`events.admissionModes.${m}`)}</SelectItem>)}
+              {(["none", "external", "registration", "tickets"] as const).map((m) => <SelectItem key={m} value={m}>{t(`events.admissionModes.${m}`)}</SelectItem>)}
             </SelectContent>
           </Select>
         </Field>
@@ -449,6 +465,7 @@ function EventDetails({ event, etag, handle }: { event: CatalogEvent | null; eta
           </Field>
         )}
         {form.admission === "registration" && <RegistrationFields reg={form.reg} onChange={(reg) => set("reg", reg)} errField={errField} />}
+        {form.admission === "tickets" && <TicketFields reg={form.reg} onChange={(reg) => set("reg", reg)} errField={errField} />}
       </section>
 
       <section className="space-y-2">
@@ -476,6 +493,24 @@ function EventDetails({ event, etag, handle }: { event: CatalogEvent | null; eta
         onReload={() => void qc.invalidateQueries({ queryKey: ["event", accountId, event?.id] })}
       />
     </form>
+  );
+}
+
+/** Places for ticketed events; offers and prices are on their own tabs. */
+function TicketFields({ reg, onChange, errField }: { reg: Reg; onChange: (r: Reg) => void; errField: string | undefined }) {
+  const { t } = useTranslation();
+  const limit = reg.capacity.trim() === "" ? null : Math.floor((Number(reg.capacity) * (100 + Number(reg.overbookingPct || 0))) / 100);
+  return (
+    <div className="grid gap-4 rounded-md border p-4 sm:grid-cols-2">
+      <p className="text-xs text-muted-foreground sm:col-span-2">{t("events.tickets.hint")}</p>
+      <Field label={t("events.reg.capacity")} htmlFor="capacity" hint={t("events.reg.capacityHint")}>
+        <Input id="capacity" type="number" min={0} max={1000000} value={reg.capacity} placeholder={t("events.reg.unlimited")}
+          onChange={(e) => onChange({ ...reg, capacity: e.target.value })} aria-invalid={errField === "registration.capacity"} />
+      </Field>
+      <Field label={t("events.reg.overbooking")} htmlFor="overbooking" hint={limit === null ? undefined : t("events.tickets.sellableLimit", { limit })}>
+        <Input id="overbooking" type="number" min={0} max={100} value={reg.overbookingPct} onChange={(e) => onChange({ ...reg, overbookingPct: e.target.value })} />
+      </Field>
+    </div>
   );
 }
 

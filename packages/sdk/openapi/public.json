@@ -166,6 +166,7 @@
                           "tags",
                           "admission",
                           "availability",
+                          "offers",
                           "event"
                         ],
                         "properties": {
@@ -347,6 +348,21 @@
                                     "description": "Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links"
                                   }
                                 }
+                              },
+                              {
+                                "type": "object",
+                                "required": [
+                                  "mode"
+                                ],
+                                "properties": {
+                                  "mode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "tickets"
+                                    ]
+                                  }
+                                },
+                                "description": "Tickets are sold through the account's own web shop and box office; offers lists what is for sale"
                               }
                             ],
                             "description": "How to get in. More modes (registration, tickets) are added later without changing these."
@@ -415,6 +431,69 @@
                                 "description": "Places for registration occurrences, without exact numbers. Null for other admission modes"
                               }
                             ]
+                          },
+                          "offers": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "code",
+                                "name",
+                                "description",
+                                "price",
+                                "onSale"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "code": {
+                                  "type": "string",
+                                  "description": "Stable offer code, e.g. adult"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "price": {
+                                  "type": "object",
+                                  "required": [
+                                    "amount",
+                                    "currency",
+                                    "vatIncluded"
+                                  ],
+                                  "properties": {
+                                    "amount": {
+                                      "type": "integer",
+                                      "description": "Minor units (øre), VAT included"
+                                    },
+                                    "currency": {
+                                      "type": "string",
+                                      "description": "ISO 4217, e.g. NOK"
+                                    },
+                                    "vatIncluded": {
+                                      "type": "boolean",
+                                      "enum": [
+                                        true
+                                      ]
+                                    }
+                                  }
+                                },
+                                "onSale": {
+                                  "type": "boolean",
+                                  "description": "False when the occurrence is cancelled or has started"
+                                }
+                              },
+                              "description": "A ticket type at this occurrence, in display order. Offers taken off sale here are left out"
+                            },
+                            "description": "Ticketed occurrences only; empty otherwise"
                           },
                           "event": {
                             "type": "object",
@@ -1303,7 +1382,8 @@
                               "location",
                               "tags",
                               "admission",
-                              "availability"
+                              "availability",
+                              "offers"
                             ],
                             "properties": {
                               "id": {
@@ -1484,6 +1564,21 @@
                                         "description": "Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links"
                                       }
                                     }
+                                  },
+                                  {
+                                    "type": "object",
+                                    "required": [
+                                      "mode"
+                                    ],
+                                    "properties": {
+                                      "mode": {
+                                        "type": "string",
+                                        "enum": [
+                                          "tickets"
+                                        ]
+                                      }
+                                    },
+                                    "description": "Tickets are sold through the account's own web shop and box office; offers lists what is for sale"
                                   }
                                 ],
                                 "description": "How to get in. More modes (registration, tickets) are added later without changing these."
@@ -1552,6 +1647,69 @@
                                     "description": "Places for registration occurrences, without exact numbers. Null for other admission modes"
                                   }
                                 ]
+                              },
+                              "offers": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "code",
+                                    "name",
+                                    "description",
+                                    "price",
+                                    "onSale"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid"
+                                    },
+                                    "code": {
+                                      "type": "string",
+                                      "description": "Stable offer code, e.g. adult"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "description": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "price": {
+                                      "type": "object",
+                                      "required": [
+                                        "amount",
+                                        "currency",
+                                        "vatIncluded"
+                                      ],
+                                      "properties": {
+                                        "amount": {
+                                          "type": "integer",
+                                          "description": "Minor units (øre), VAT included"
+                                        },
+                                        "currency": {
+                                          "type": "string",
+                                          "description": "ISO 4217, e.g. NOK"
+                                        },
+                                        "vatIncluded": {
+                                          "type": "boolean",
+                                          "enum": [
+                                            true
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "onSale": {
+                                      "type": "boolean",
+                                      "description": "False when the occurrence is cancelled or has started"
+                                    }
+                                  },
+                                  "description": "A ticket type at this occurrence, in display order. Offers taken off sale here are left out"
+                                },
+                                "description": "Ticketed occurrences only; empty otherwise"
                               }
                             }
                           }

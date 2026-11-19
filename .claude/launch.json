@@ -369,6 +369,37 @@
         "--strictPort"
       ],
       "port": 5195
+    },
+    {
+      "name": "api-t1",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3060",
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_t1",
+        "CORS_ORIGINS=http://localhost:5200",
+        "pnpm",
+        "--filter",
+        "@event-manager/api",
+        "dev"
+      ],
+      "port": 3060
+    },
+    {
+      "name": "admin-t1",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_AUTH_MODE=dev",
+        "VITE_API_BASE_URL=http://localhost:3060",
+        "pnpm",
+        "--filter",
+        "@event-manager/admin",
+        "exec",
+        "vite",
+        "--port",
+        "5200",
+        "--strictPort"
+      ],
+      "port": 5200
     }
   ]
 }

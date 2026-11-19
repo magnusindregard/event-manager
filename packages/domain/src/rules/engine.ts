@@ -1,6 +1,6 @@
-import type { EffectiveField, LocalDateTime, ValueSource } from "@event-manager/db";
+import type { EffectiveField, LocalDateTime, TargetedField, ValueSource } from "@event-manager/db";
 import { DomainError } from "../shared/index.js";
-import { type EffectRefs, effectType } from "./effects.js";
+import { type EffectRefs, effectType, validateTarget } from "./effects.js";
 
 // The rule engine, pure (docs/implementation-plan.md, "Rules"). Matching happens on an
 // occurrence's local start in the event's timezone. Resolution per occurrence and field:
@@ -46,9 +46,23 @@ export type FieldValues = Record<EffectiveField, unknown>;
 export type ResolvedFields = Record<EffectiveField, Resolved>;
 export const FIELDS: readonly EffectiveField[] = ["location", "tags", "externalUrl", "capacity", "overbooking"];
 
+/** Fields resolved per target (an offer): price and offerAvailable (docs/ticketing.md). */
+export const TARGETED_FIELDS: readonly TargetedField[] = ["price", "offerAvailable"];
+export type TargetValues = Record<TargetedField, unknown>;
+export type ResolvedTarget = Record<TargetedField, Resolved>;
+
+/** One target (an offer) as an occurrence resolves it: its defaults and the occurrence's overrides. */
+export interface TargetInput {
+  ref: string;
+  defaults: TargetValues;
+  overrides: Partial<TargetValues>;
+}
+
 /** Two or more rules of the same priority set the same field on one occurrence. */
 export interface Tie {
-  field: EffectiveField;
+  field: EffectiveField | TargetedField;
+  /** The target of a targeted field; null otherwise. */
+  targetRef: string | null;
   /** The winner first. */
   ruleIds: string[];
 }
@@ -111,10 +125,11 @@ export function normalizeEffects(input: readonly EffectInput[]): Effect[] {
   const seen = new Set<string>();
   return input.map((e, i) => {
     const t = effectType(e.type);
-    const targetRef = e.targetRef ?? null;
-    if (t.targeted !== (targetRef !== null)) throw invalid(`effects.${i}.targetRef`, t.targeted ? "This effect needs a targetRef" : "This effect takes no targetRef");
+    const raw = e.targetRef ?? null;
+    if (t.targeted !== (raw !== null)) throw invalid(`effects.${i}.targetRef`, t.targeted ? "This effect needs a targetRef" : "This effect takes no targetRef");
+    const targetRef = raw === null ? null : validateTarget(t, raw, `effects.${i}.targetRef`);
     const key = `${e.type}\u0000${targetRef ?? ""}`;
-    if (seen.has(key)) throw invalid(`effects.${i}`, `The rule already has a ${e.type} effect`);
+    if (seen.has(key)) throw invalid(`effects.${i}`, targetRef ? `The rule already has a ${e.type} effect for this target` : `The rule already has a ${e.type} effect`);
     seen.add(key);
     return { type: e.type, targetRef, value: t.validate(e.value, `effects.${i}.value`) };
   });
@@ -122,13 +137,15 @@ export function normalizeEffects(input: readonly EffectInput[]): Effect[] {
 
 /** Catalog entities the effects point at, for the caller to check. */
 export function effectRefs(effects: readonly Effect[]): Required<EffectRefs> {
-  const out = { locations: new Set<string>(), tags: new Set<string>() };
+  const out = { locations: new Set<string>(), tags: new Set<string>(), offers: new Set<string>() };
   for (const e of effects) {
-    const r = effectType(e.type).refs(e.value);
+    const t = effectType(e.type);
+    const r = t.refs(e.value);
     r.locations?.forEach((x) => out.locations.add(x));
     r.tags?.forEach((x) => out.tags.add(x));
+    if (t.target === "offer" && e.targetRef) out.offers.add(e.targetRef);
   }
-  return { locations: [...out.locations], tags: [...out.tags] };
+  return { locations: [...out.locations], tags: [...out.tags], offers: [...out.offers] };
 }
 
 /** Active rules in resolution order: priority high to low, then oldest (lowest UUIDv7) first. */
@@ -163,9 +180,44 @@ export function resolve(input: ResolveInput, rules: readonly RuleDef[]): { value
       continue;
     }
     const tied = setting.filter((r) => r.priority === winner.priority);
-    if (tied.length > 1) ties.push({ field, ruleIds: tied.map((r) => r.id) });
+    if (tied.length > 1) ties.push({ field, targetRef: null, ruleIds: tied.map((r) => r.id) });
     const effect = winner.effects.find((e) => effectType(e.type).field === field)!;
     values[field] = { value: effectType(effect.type).apply(effect.value, input.defaults[field]), source: "rule", ruleId: winner.id };
+  }
+  return { values, ties };
+}
+
+/**
+ * Resolves the targeted fields of one occurrence, per target: override → highest-priority
+ * matching rule with an effect on (field, target) → the target's default. `rules` must be
+ * ordered, as for resolve().
+ */
+export function resolveTargets(
+  targets: readonly TargetInput[], startLocal: LocalDateTime, rules: readonly RuleDef[],
+): { values: Map<string, ResolvedTarget>; ties: Tie[] } {
+  const matching = rules.filter((r) => r.effects.some((e) => e.targetRef !== null) && matches(r.conditions, startLocal));
+  const values = new Map<string, ResolvedTarget>();
+  const ties: Tie[] = [];
+  for (const target of targets) {
+    const out = {} as ResolvedTarget;
+    for (const field of TARGETED_FIELDS) {
+      if (field in target.overrides) {
+        out[field] = { value: target.overrides[field], source: "override", ruleId: null };
+        continue;
+      }
+      const sets = (e: Effect) => e.targetRef === target.ref && effectType(e.type).field === field;
+      const setting = matching.filter((r) => r.effects.some(sets));
+      const winner = setting[0];
+      if (!winner) {
+        out[field] = { value: target.defaults[field], source: "default", ruleId: null };
+        continue;
+      }
+      const tied = setting.filter((r) => r.priority === winner.priority);
+      if (tied.length > 1) ties.push({ field, targetRef: target.ref, ruleIds: tied.map((r) => r.id) });
+      const effect = winner.effects.find(sets)!;
+      out[field] = { value: effectType(effect.type).apply(effect.value, target.defaults[field]), source: "rule", ruleId: winner.id };
+    }
+    values.set(target.ref, out);
   }
   return { values, ties };
 }

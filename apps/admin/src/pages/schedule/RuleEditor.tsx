@@ -16,7 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { type CatalogEvent, etagOf, isConflict, type Rule, type RuleChangeResult, unwrap } from "../../api.js";
 import { useApp } from "../../AppContext.js";
 import { type Conditions, type Effect, ISO_WEEKDAYS, isoWeekdayNames, NO_CONDITIONS } from "../../lib/rules.js";
-import { locationPath, useLocations, useTagLabels, useVocabularies } from "../../queries.js";
+import { formatMoney, moneyInput, parseMoney } from "../../lib/money.js";
+import { locationPath, offerName, useEventOffers, useLocations, useTagLabels, useVocabularies } from "../../queries.js";
 
 /** Create a rule (optionally from the occurrence filter), or edit one. */
 export type RuleEditorMode = { kind: "create"; conditions?: Conditions } | { kind: "edit"; rule: Rule };
@@ -31,11 +32,13 @@ type Draft = {
   link: { on: boolean; url: string };
   capacity: { on: boolean; value: string };
   overbooking: { on: boolean; value: string };
+  /** Per offer: a price (in kroner, as typed) and availability. */
+  offers: Record<string, { price: { on: boolean; value: string }; available: { on: boolean; value: boolean } }>;
 };
 
 const wholeIn = (v: string, max: number) => /^\d+$/.test(v.trim()) && Number(v) <= max;
 
-function initial(mode: RuleEditorMode): Draft {
+function initial(mode: RuleEditorMode, language: string): Draft {
   const effects = mode.kind === "edit" ? mode.rule.effects : [];
   const find = <T extends Effect["type"]>(type: T) => effects.find((e) => e.type === type) as Extract<Rule["effects"][number], { type: T }> | undefined;
   const loc = find("location");
@@ -53,6 +56,13 @@ function initial(mode: RuleEditorMode): Draft {
     link: { on: !!link, url: link?.value ?? "" },
     capacity: { on: !!capacity, value: capacity ? String(capacity.value) : "" },
     overbooking: { on: !!overbooking, value: overbooking ? String(overbooking.value) : "" },
+    offers: effects.reduce<Draft["offers"]>((out, e) => {
+      if (e.type !== "price" && e.type !== "offerAvailable") return out;
+      const o = out[e.targetRef] ?? { price: { on: false, value: "" }, available: { on: false, value: false } };
+      if (e.type === "price") o.price = { on: true, value: moneyInput(e.value.amount, language) };
+      else o.available = { on: true, value: e.value };
+      return { ...out, [e.targetRef]: o };
+    }, {}),
   };
 }
 
@@ -63,6 +73,11 @@ function effectsOf(d: Draft): Effect[] {
   if (d.link.on && /^https?:\/\/\S+$/.test(d.link.url.trim())) out.push({ type: "externalUrl", value: d.link.url.trim() });
   if (d.capacity.on && wholeIn(d.capacity.value, 1_000_000)) out.push({ type: "capacity", value: Number(d.capacity.value) });
   if (d.overbooking.on && wholeIn(d.overbooking.value, 100)) out.push({ type: "overbooking", value: Number(d.overbooking.value) });
+  for (const [targetRef, o] of Object.entries(d.offers)) {
+    const amount = parseMoney(o.price.value);
+    if (o.price.on && amount !== null) out.push({ type: "price", targetRef, value: { amount } });
+    if (o.available.on) out.push({ type: "offerAvailable", targetRef, value: o.available.value });
+  }
   return out;
 }
 
@@ -110,7 +125,13 @@ function EditorBody({ event, rules, mode, onSaved, onConflict }: {
 }) {
   const { t, i18n } = useTranslation();
   const { api, accountId } = useApp();
-  const [d, setD] = useState<Draft>(() => initial(mode));
+  const [d, setD] = useState<Draft>(() => initial(mode, i18n.language));
+  const ticketed = event.admissionMode === "tickets";
+  const allOffers = useEventOffers(event.id, ticketed).data ?? [];
+  // Archived offers stay editable on rules that already have them.
+  const offers = allOffers.filter((o) => o.status === "active" || o.id in d.offers);
+  const offerDraft = (id: string) => d.offers[id] ?? { price: { on: false, value: "" }, available: { on: false, value: false } };
+  const setOffer = (id: string, patch: Partial<Draft["offers"][string]>) => setD({ ...d, offers: { ...d.offers, [id]: { ...offerDraft(id), ...patch } } });
   const names = isoWeekdayNames(i18n.language);
   const path = locationPath(useLocations(true).data);
   const tagLabels = useTagLabels(useVocabularies().data);
@@ -121,7 +142,8 @@ function EditorBody({ event, rules, mode, onSaved, onConflict }: {
   const c = d.conditions;
   const valid =
     body.name.length > 0 && body.effects.length > 0 && Number.isInteger(d.priority) && d.priority >= -1000 && d.priority <= 1000 &&
-    (!c.dateFrom || !c.dateTo || c.dateFrom <= c.dateTo) && (!c.startTimeFrom || c.startTimeFrom !== c.startTimeTo);
+    (!c.dateFrom || !c.dateTo || c.dateFrom <= c.dateTo) && (!c.startTimeFrom || c.startTimeFrom !== c.startTimeTo) &&
+    Object.values(d.offers).every((o) => !o.price.on || parseMoney(o.price.value) !== null);
 
   const send = async (dryRun: boolean) => {
     if (mode.kind === "create") {
@@ -155,7 +177,9 @@ function EditorBody({ event, rules, mode, onSaved, onConflict }: {
   const fmt = (iso: string) => formatInZone(iso, event.timezone, i18n.language);
   const show = (field: string, v: { value: unknown; source: string; ruleId: string | null }) => {
     const value =
-      field === "location" ? (v.value ? path(v.value as string) : "—")
+      field === "price" ? formatMoney(v.value as number, i18n.language)
+      : field === "offerAvailable" ? (v.value ? t("prices.onSale") : t("prices.offSale"))
+      : field === "location" ? (v.value ? path(v.value as string) : "—")
       : field === "tags" ? ((v.value as string[]).map((x) => tagLabels.get(x)?.text ?? "…").join(", ") || "—")
       : ((v.value as string | null)?.replace(/^https?:\/\//, "") ?? "—");
     return v.source === "rule" ? `${value} (${ruleName(v.ruleId)})` : value;
@@ -279,6 +303,44 @@ function EditorBody({ event, rules, mode, onSaved, onConflict }: {
           ))}
         </fieldset>
 
+        {ticketed && offers.length > 0 && (
+          <fieldset className="grid gap-3">
+            <legend className="mb-1 text-sm font-medium">{t("rules.offers")}</legend>
+            {offers.map((o) => {
+              const od = offerDraft(o.id);
+              const name = offerName(o, i18n.language);
+              const bad = od.price.on && parseMoney(od.price.value) === null;
+              return (
+                <div key={o.id} className="grid gap-2 rounded-md border p-3">
+                  <span className="text-sm font-medium">{name} <span className="font-normal text-muted-foreground">· {formatMoney(o.defaultPrice, i18n.language)}</span></span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <Checkbox id={`rule-price-${o.id}`} checked={od.price.on} onCheckedChange={(v) => setOffer(o.id, { price: { ...od.price, on: v === true } })} />
+                      <Label htmlFor={`rule-price-${o.id}`}>{t("rules.setPrice")}</Label>
+                    </div>
+                    {od.price.on && (
+                      <Input id={`rule-price-value-${o.id}`} inputMode="decimal" className="w-32" aria-label={`${t("rules.setPrice")}: ${name}`} aria-invalid={bad}
+                        value={od.price.value} placeholder={moneyInput(o.defaultPrice, i18n.language)} onChange={(e) => setOffer(o.id, { price: { on: true, value: e.target.value } })} />
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <Checkbox id={`rule-avail-${o.id}`} checked={od.available.on} onCheckedChange={(v) => setOffer(o.id, { available: { ...od.available, on: v === true } })} />
+                      <Label htmlFor={`rule-avail-${o.id}`}>{t("rules.setAvailable")}</Label>
+                    </div>
+                    {od.available.on && (
+                      <div className="flex items-center gap-2">
+                        <Switch id={`rule-avail-value-${o.id}`} checked={od.available.value} onCheckedChange={(v) => setOffer(o.id, { available: { on: true, value: v } })} />
+                        <Label htmlFor={`rule-avail-value-${o.id}`}>{od.available.value ? t("prices.onSale") : t("prices.offSale")}</Label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </fieldset>
+        )}
+
         <section aria-live="polite" className="grid gap-2 rounded-md border p-3">
           <h3 className="text-sm font-medium">{t("series.preview.title")}</h3>
           {!valid ? (
@@ -297,8 +359,8 @@ function EditorBody({ event, rules, mode, onSaved, onConflict }: {
                     <li key={ch.occurrenceId}>
                       <span className="font-medium">{fmt(ch.startUtc)}</span>
                       {ch.fields.map((f) => (
-                        <span key={f.field} className="block pl-3 text-muted-foreground">
-                          {t(`rules.field.${f.field}`)}: {show(f.field, f.from)} → {show(f.field, f.to)}
+                        <span key={`${f.field}:${f.targetRef ?? ""}`} className="block pl-3 text-muted-foreground">
+                          {t(`rules.field.${f.field}`)}{f.targetRef && ` (${offerName(allOffers.find((o) => o.id === f.targetRef), i18n.language)})`}: {show(f.field, f.from)} → {show(f.field, f.to)}
                         </span>
                       ))}
                     </li>

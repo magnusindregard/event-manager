@@ -16,7 +16,7 @@ export const EnabledRole = Type.Union([Type.Literal("owner"), Type.Literal("even
 });
 export const Permission = Type.Union([
   Type.Literal("account.write"), Type.Literal("members.manage"), Type.Literal("content.write"), Type.Literal("content.read"), Type.Literal("audit.read"),
-  Type.Literal("registrations.read"), Type.Literal("registrations.write"), Type.Literal("registrations.sensitive"),
+  Type.Literal("registrations.read"), Type.Literal("registrations.write"), Type.Literal("registrations.sensitive"), Type.Literal("offers.write"),
 ]);
 
 /** RFC 9457 problem details with a stable reason code. */
@@ -138,3 +138,4 @@ export * from "./public.js";
 export * from "./attendee.js";
 export * from "./registration.js";
 export * from "./invitations.js";
+export * from "./offers.js";

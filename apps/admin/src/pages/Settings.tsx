@@ -15,6 +15,7 @@ import { useApp } from "../AppContext.js";
 import { useAccount } from "../queries.js";
 import { ApiKeys } from "./settings/ApiKeys.js";
 import { TagVocabularies } from "./settings/TagVocabularies.js";
+import { VatClasses } from "./settings/VatClasses.js";
 
 const TIMEZONES: string[] = (() => {
   try {
@@ -168,6 +169,7 @@ export function Settings() {
       </div>
 
       <TagVocabularies canEdit={canEdit} />
+      <VatClasses canEdit={canEdit} />
       {canEdit && <ApiKeys />}
 
       <ConflictDialog open={conflict} onOpenChange={setConflict} onReload={() => void query.refetch()} />
