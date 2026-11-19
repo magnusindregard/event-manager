@@ -56,6 +56,11 @@ export function targetOverrides(overrides: Map<string, OfferOverride> | undefine
   return out;
 }
 
+/** Removes every offer override of an occurrence, e.g. when it is reattached to its series. */
+export async function clearOverrides(tx: Tx, occurrenceId: string): Promise<void> {
+  await tx.deleteFrom("offers.offer_override").where("occurrence_id", "=", occurrenceId).execute();
+}
+
 export interface EffectivePrice {
   price: rules.Resolved<number>;
   available: rules.Resolved<boolean>;

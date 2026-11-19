@@ -193,6 +193,37 @@ describe("offers", () => {
   });
 });
 
+describe("overrides on series occurrences", () => {
+  it("detach the occurrence, so regeneration keeps it and its price, and reattaching clears them", async () => {
+    const now = new Date("2027-01-01T00:00:00Z");
+    const event = await run((tx) => catalog.createEvent(tx, ctx, { translations: title("Serie"), admissionMode: "tickets" }));
+    const created = await run((tx) => catalog.createSeries(tx, ctx, event.id, { rrule: "FREQ=DAILY;COUNT=3", dtstartLocal: "2027-03-01T19:00" }, { now }));
+    const adult = (await run((tx) => offers.createOffer(tx, ctx, event.id, { translations: name("Voksen"), vatClassId: exempt.id, defaultPrice: 45000 }))).offer!;
+    const occs = await run((tx) => catalog.listOccurrences(tx, { eventId: event.id, limit: 10 }));
+    const third = occs[2]!;
+    expect(third.detached).toBe(false);
+
+    await run((tx) => offers.setOverride(tx, ctx, adult.id, third.id, { amount: 40000 }));
+    const priced = await run((tx) => catalog.getOccurrence(tx, third.id));
+    expect(priced).toMatchObject({ detached: true, version: third.version + 1 });
+
+    // Shortening the series to two occurrences reports a conflict instead of deleting the third.
+    const shortened = await run((tx) => catalog.updateSeries(tx, ctx, created.series!.id, created.series!.version, { rrule: "FREQ=DAILY;COUNT=2" }, { now }));
+    expect(shortened.changes.counts).toMatchObject({ deleted: 0, conflicts: 1 });
+    expect(cell(await run((tx) => offers.priceGrid(tx, event.id, { limit: 10 })), third.id, adult.id).price).toMatchObject({ value: 40000, source: "override" });
+
+    // Another occurrence: reattaching removes its offer overrides with the rest.
+    const second = occs[1]!;
+    await run((tx) => offers.setOverride(tx, ctx, adult.id, second.id, { available: false }));
+    const detached = await run((tx) => catalog.getOccurrence(tx, second.id));
+    const reattached = await run((tx) => catalog.reattachOccurrence(tx, ctx, second.id, detached.version));
+    expect(reattached.detached).toBe(false);
+    expect(cell(await run((tx) => offers.priceGrid(tx, event.id, { limit: 10 })), second.id, adult.id)).toMatchObject({
+      available: { value: true, source: "default" }, override: null,
+    });
+  });
+});
+
 describe("VAT classes", () => {
   it("keep their rate once an offer uses them", async () => {
     const reduced = await run((tx) => offers.createVatClass(tx, ctx, { code: "reduced", label: "Redusert", ratePct: 12 }));

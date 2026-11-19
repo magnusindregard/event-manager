@@ -1,4 +1,4 @@
-import { type OccurrenceStatus, type Tx } from "@event-manager/db";
+import { type OccurrenceStatus, sql, type Tx } from "@event-manager/db";
 import * as catalog from "../catalog/index.js";
 import { type ActorContext, DomainError } from "../shared/index.js";
 import { assertCan, recordAudit } from "../tenancy/index.js";
@@ -82,7 +82,7 @@ export async function setOverride(tx: Tx, ctx: ActorContext, offerId: string, oc
   // Share lock on the event, as schedule changes take it: offer and rule changes (for update) wait.
   const event = await tx.selectFrom("catalog.event").select("status").where("id", "=", offer.eventId).forShare().executeTakeFirstOrThrow();
   if (event.status === "archived") throw new DomainError("conflict", "The event is archived");
-  const occ = await tx.selectFrom("catalog.occurrence").select(["id", "event_id"]).where("id", "=", occurrenceId).forUpdate().executeTakeFirst();
+  const occ = await tx.selectFrom("catalog.occurrence").select(["id", "event_id", "series_id"]).where("id", "=", occurrenceId).forUpdate().executeTakeFirst();
   if (!occ || occ.event_id !== offer.eventId) throw new DomainError("not_found", "Occurrence not found for this offer's event");
   if (input.amount != null && (!Number.isInteger(input.amount) || input.amount < 0 || input.amount > MAX_PRICE)) {
     throw new DomainError("validation_failed", `Must be a whole amount in minor units, 0–${MAX_PRICE}`, { field: "amount" });
@@ -103,6 +103,12 @@ export async function setOverride(tx: Tx, ctx: ActorContext, offerId: string, oc
       .execute();
   }
   if (before.amount !== after.amount || before.available !== after.available) {
+    // A hand-priced series occurrence is a hand edit like any other override: detach it, so
+    // regeneration keeps it (and reports a conflict) instead of moving or deleting it.
+    // The version moves so stale copies of the occurrence fail their If-Match.
+    if (occ.series_id !== null) {
+      await tx.updateTable("catalog.occurrence").set({ detached: true, conflict: false, version: sql<number>`version + 1` }).where("id", "=", occurrenceId).execute();
+    }
     await catalog.resolveEventOccurrences(tx, offer.eventId, [occurrenceId]);
     await recordAudit(tx, ctx, {
       action: "offer.override_set", entityType: "occurrence", entityId: occurrenceId,
