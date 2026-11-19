@@ -56,6 +56,12 @@ export function targetOverrides(overrides: Map<string, OfferOverride> | undefine
   return out;
 }
 
+/** Whether the occurrence has any offer override. */
+export async function hasOverrides(tx: Tx, occurrenceId: string): Promise<boolean> {
+  const row = await tx.selectFrom("offers.offer_override").select("offer_id").where("occurrence_id", "=", occurrenceId).limit(1).executeTakeFirst();
+  return row !== undefined;
+}
+
 /** Removes every offer override of an occurrence, e.g. when it is reattached to its series. */
 export async function clearOverrides(tx: Tx, occurrenceId: string): Promise<void> {
   await tx.deleteFrom("offers.offer_override").where("occurrence_id", "=", occurrenceId).execute();

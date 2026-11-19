@@ -216,11 +216,19 @@ describe("overrides on series occurrences", () => {
     const second = occs[1]!;
     await run((tx) => offers.setOverride(tx, ctx, adult.id, second.id, { available: false }));
     const detached = await run((tx) => catalog.getOccurrence(tx, second.id));
+    // Clearing them takes offers.write, as setOverride does: an editor cannot reattach it.
+    await expect(run((tx) => catalog.reattachOccurrence(tx, editor, second.id, detached.version), editor)).rejects.toMatchObject({ code: "forbidden" });
     const reattached = await run((tx) => catalog.reattachOccurrence(tx, ctx, second.id, detached.version));
     expect(reattached.detached).toBe(false);
     expect(cell(await run((tx) => offers.priceGrid(tx, event.id, { limit: 10 })), second.id, adult.id)).toMatchObject({
       available: { value: true, source: "default" }, override: null,
     });
+
+    // Without offer overrides, editors reattach as before.
+    const first = occs[0]!;
+    const moved = await run((tx) => catalog.updateOccurrence(tx, editor, first.id, first.version, { startUtc: new Date("2027-03-01T19:00:00Z") }), editor);
+    expect(moved.detached).toBe(true);
+    expect((await run((tx) => catalog.reattachOccurrence(tx, editor, first.id, moved.version), editor)).detached).toBe(false);
   });
 });
 

@@ -360,6 +360,9 @@ export async function reattachOccurrence(tx: Tx, ctx: ActorContext, id: string, 
   assertCan(ctx, "content.write");
   const before = await lockedOccurrence(tx, id);
   if (!before.seriesId || !before.recurrenceIdLocal) throw new DomainError("conflict", "Only series occurrences can be reattached");
+  // Reattaching clears offer overrides, which are offer settings: content-only staff may still
+  // reattach occurrences without them.
+  if (await offers.hasOverrides(tx, id)) assertCan(ctx, "offers.write");
   const s = await tx.selectFrom("catalog.series").select(["rrule", "dtstart_local", "duration_min", "timezone", "exdates"]).where("id", "=", before.seriesId).executeTakeFirstOrThrow();
   const def = { rrule: s.rrule, dtstartLocal: s.dtstart_local, durationMin: s.duration_min, timezone: s.timezone, exdates: s.exdates };
   if (!isSlot(def, before.recurrenceIdLocal)) throw new DomainError("conflict", "The series no longer has this occurrence's slot");
