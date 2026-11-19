@@ -161,15 +161,20 @@ export interface operations {
                                 mode: "tickets";
                             };
                             availability: null | {
-                                /** @description waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added */
-                                status: "available" | "few_left" | "full" | "waitlist" | "closed";
+                                /** @description Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets (channel keys only): sold_out: no on-sale offer's smallest purchase fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added */
+                                status: "available" | "few_left" | "full" | "waitlist" | "closed" | "sold_out" | "not_on_sale";
                                 /**
                                  * Format: date-time
-                                 * @description Null: open as soon as the event is published
+                                 * @description Null: open as soon as the event is published. Tickets: the earliest sales window opening of the offers
                                  */
                                 opensAt: string | null;
-                                /** Format: date-time */
+                                /**
+                                 * Format: date-time
+                                 * @description Tickets: the latest sales window closing of the offers
+                                 */
                                 closesAt: string;
+                                /** @description Ticketed occurrences with a channel key only: places left; null without a limit */
+                                placesLeft?: number | null;
                             };
                             /** @description Ticketed occurrences only; empty otherwise */
                             offers: {
@@ -187,8 +192,26 @@ export interface operations {
                                     /** @enum {boolean} */
                                     vatIncluded: true;
                                 };
-                                /** @description False when the occurrence is cancelled or has started */
+                                /** @description False when the occurrence is cancelled or outside the sales window. Channel keys: also when the channel has no SKU for the offer */
                                 onSale: boolean;
+                                /**
+                                 * Format: date-time
+                                 * @description Sales window here. Null: on sale as soon as the event is published
+                                 */
+                                opensAt: string | null;
+                                /**
+                                 * Format: date-time
+                                 * @description End of the sales window, at the start at the latest
+                                 */
+                                closesAt: string;
+                                /** @description Channel keys only: the channel's product for this offer; null: none mapped, so not on sale */
+                                sku?: string | null;
+                                /** @description Channel keys only */
+                                placesPerUnit?: number;
+                                /** @description Channel keys only */
+                                minPerReservation?: number;
+                                /** @description Channel keys only */
+                                maxPerReservation?: number;
                             }[];
                             event: {
                                 /** Format: uuid */
@@ -510,15 +533,20 @@ export interface operations {
                                     mode: "tickets";
                                 };
                                 availability: null | {
-                                    /** @description waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added */
-                                    status: "available" | "few_left" | "full" | "waitlist" | "closed";
+                                    /** @description Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets (channel keys only): sold_out: no on-sale offer's smallest purchase fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added */
+                                    status: "available" | "few_left" | "full" | "waitlist" | "closed" | "sold_out" | "not_on_sale";
                                     /**
                                      * Format: date-time
-                                     * @description Null: open as soon as the event is published
+                                     * @description Null: open as soon as the event is published. Tickets: the earliest sales window opening of the offers
                                      */
                                     opensAt: string | null;
-                                    /** Format: date-time */
+                                    /**
+                                     * Format: date-time
+                                     * @description Tickets: the latest sales window closing of the offers
+                                     */
                                     closesAt: string;
+                                    /** @description Ticketed occurrences with a channel key only: places left; null without a limit */
+                                    placesLeft?: number | null;
                                 };
                                 /** @description Ticketed occurrences only; empty otherwise */
                                 offers: {
@@ -536,8 +564,26 @@ export interface operations {
                                         /** @enum {boolean} */
                                         vatIncluded: true;
                                     };
-                                    /** @description False when the occurrence is cancelled or has started */
+                                    /** @description False when the occurrence is cancelled or outside the sales window. Channel keys: also when the channel has no SKU for the offer */
                                     onSale: boolean;
+                                    /**
+                                     * Format: date-time
+                                     * @description Sales window here. Null: on sale as soon as the event is published
+                                     */
+                                    opensAt: string | null;
+                                    /**
+                                     * Format: date-time
+                                     * @description End of the sales window, at the start at the latest
+                                     */
+                                    closesAt: string;
+                                    /** @description Channel keys only: the channel's product for this offer; null: none mapped, so not on sale */
+                                    sku?: string | null;
+                                    /** @description Channel keys only */
+                                    placesPerUnit?: number;
+                                    /** @description Channel keys only */
+                                    minPerReservation?: number;
+                                    /** @description Channel keys only */
+                                    maxPerReservation?: number;
                                 }[];
                             }[];
                         };

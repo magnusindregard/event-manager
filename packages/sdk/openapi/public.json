@@ -17,6 +17,11 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Preview token (prv_…). Server-side only; also returns draft events; never cached."
+      },
+      "channelKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Sales channel key (sk_…). Server-side only; offers are limited to the channel's, with SKUs and limits, and ticketed occurrences show exact places left; never cached."
       }
     },
     "schemas": {}
@@ -134,6 +139,9 @@
           },
           {
             "previewToken": []
+          },
+          {
+            "channelKey": []
           }
         ],
         "responses": {
@@ -411,9 +419,21 @@
                                         "enum": [
                                           "closed"
                                         ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "sold_out"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "not_on_sale"
+                                        ]
                                       }
                                     ],
-                                    "description": "waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added"
+                                    "description": "Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets (channel keys only): sold_out: no on-sale offer's smallest purchase fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added"
                                   },
                                   "opensAt": {
                                     "type": [
@@ -421,14 +441,22 @@
                                       "null"
                                     ],
                                     "format": "date-time",
-                                    "description": "Null: open as soon as the event is published"
+                                    "description": "Null: open as soon as the event is published. Tickets: the earliest sales window opening of the offers"
                                   },
                                   "closesAt": {
                                     "type": "string",
-                                    "format": "date-time"
+                                    "format": "date-time",
+                                    "description": "Tickets: the latest sales window closing of the offers"
+                                  },
+                                  "placesLeft": {
+                                    "type": [
+                                      "integer",
+                                      "null"
+                                    ],
+                                    "description": "Ticketed occurrences with a channel key only: places left; null without a limit"
                                   }
                                 },
-                                "description": "Places for registration occurrences, without exact numbers. Null for other admission modes"
+                                "description": "Registration occurrences: places without exact numbers. Ticketed occurrences, with a channel key only (docs/ticketing.md): exact places left. Null otherwise"
                               }
                             ]
                           },
@@ -442,7 +470,9 @@
                                 "name",
                                 "description",
                                 "price",
-                                "onSale"
+                                "onSale",
+                                "opensAt",
+                                "closesAt"
                               ],
                               "properties": {
                                 "id": {
@@ -488,7 +518,39 @@
                                 },
                                 "onSale": {
                                   "type": "boolean",
-                                  "description": "False when the occurrence is cancelled or has started"
+                                  "description": "False when the occurrence is cancelled or outside the sales window. Channel keys: also when the channel has no SKU for the offer"
+                                },
+                                "opensAt": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "format": "date-time",
+                                  "description": "Sales window here. Null: on sale as soon as the event is published"
+                                },
+                                "closesAt": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "description": "End of the sales window, at the start at the latest"
+                                },
+                                "sku": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Channel keys only: the channel's product for this offer; null: none mapped, so not on sale"
+                                },
+                                "placesPerUnit": {
+                                  "type": "integer",
+                                  "description": "Channel keys only"
+                                },
+                                "minPerReservation": {
+                                  "type": "integer",
+                                  "description": "Channel keys only"
+                                },
+                                "maxPerReservation": {
+                                  "type": "integer",
+                                  "description": "Channel keys only"
                                 }
                               },
                               "description": "A ticket type at this occurrence, in display order. Offers taken off sale here are left out"
@@ -854,6 +916,9 @@
           },
           {
             "previewToken": []
+          },
+          {
+            "channelKey": []
           }
         ],
         "responses": {
@@ -1231,6 +1296,9 @@
           },
           {
             "previewToken": []
+          },
+          {
+            "channelKey": []
           }
         ],
         "responses": {
@@ -1627,9 +1695,21 @@
                                             "enum": [
                                               "closed"
                                             ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "sold_out"
+                                            ]
+                                          },
+                                          {
+                                            "type": "string",
+                                            "enum": [
+                                              "not_on_sale"
+                                            ]
                                           }
                                         ],
-                                        "description": "waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. New statuses may be added"
+                                        "description": "Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets (channel keys only): sold_out: no on-sale offer's smallest purchase fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added"
                                       },
                                       "opensAt": {
                                         "type": [
@@ -1637,14 +1717,22 @@
                                           "null"
                                         ],
                                         "format": "date-time",
-                                        "description": "Null: open as soon as the event is published"
+                                        "description": "Null: open as soon as the event is published. Tickets: the earliest sales window opening of the offers"
                                       },
                                       "closesAt": {
                                         "type": "string",
-                                        "format": "date-time"
+                                        "format": "date-time",
+                                        "description": "Tickets: the latest sales window closing of the offers"
+                                      },
+                                      "placesLeft": {
+                                        "type": [
+                                          "integer",
+                                          "null"
+                                        ],
+                                        "description": "Ticketed occurrences with a channel key only: places left; null without a limit"
                                       }
                                     },
-                                    "description": "Places for registration occurrences, without exact numbers. Null for other admission modes"
+                                    "description": "Registration occurrences: places without exact numbers. Ticketed occurrences, with a channel key only (docs/ticketing.md): exact places left. Null otherwise"
                                   }
                                 ]
                               },
@@ -1658,7 +1746,9 @@
                                     "name",
                                     "description",
                                     "price",
-                                    "onSale"
+                                    "onSale",
+                                    "opensAt",
+                                    "closesAt"
                                   ],
                                   "properties": {
                                     "id": {
@@ -1704,7 +1794,39 @@
                                     },
                                     "onSale": {
                                       "type": "boolean",
-                                      "description": "False when the occurrence is cancelled or has started"
+                                      "description": "False when the occurrence is cancelled or outside the sales window. Channel keys: also when the channel has no SKU for the offer"
+                                    },
+                                    "opensAt": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "format": "date-time",
+                                      "description": "Sales window here. Null: on sale as soon as the event is published"
+                                    },
+                                    "closesAt": {
+                                      "type": "string",
+                                      "format": "date-time",
+                                      "description": "End of the sales window, at the start at the latest"
+                                    },
+                                    "sku": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "description": "Channel keys only: the channel's product for this offer; null: none mapped, so not on sale"
+                                    },
+                                    "placesPerUnit": {
+                                      "type": "integer",
+                                      "description": "Channel keys only"
+                                    },
+                                    "minPerReservation": {
+                                      "type": "integer",
+                                      "description": "Channel keys only"
+                                    },
+                                    "maxPerReservation": {
+                                      "type": "integer",
+                                      "description": "Channel keys only"
                                     }
                                   },
                                   "description": "A ticket type at this occurrence, in display order. Offers taken off sale here are left out"
@@ -1973,6 +2095,9 @@
           },
           {
             "previewToken": []
+          },
+          {
+            "channelKey": []
           }
         ],
         "responses": {

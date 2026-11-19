@@ -2,7 +2,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Db, withTenant } from "@event-manager/db";
 import { startTestDatabase, type TestDatabase } from "@event-manager/db/testing";
-import { type ActorContext, catalog, tenancy } from "@event-manager/domain";
+import { type ActorContext, catalog, offers, tenancy } from "@event-manager/domain";
 import { buildPublicApp } from "../src/app.js";
 
 let tdb: TestDatabase;
@@ -238,6 +238,48 @@ describe("/public/v1", () => {
     const res = await get(`/public/v1/occurrences?key=${key}&locale=en`);
     const occ = res.body.items.find((o: { id: string }) => o.id === ids.upper);
     expect(occ.tags.map((t: { key: string }) => t.key).sort()).toEqual(["added", "kept"]);
+  });
+
+  it("channel keys see their channel's offers with SKUs and places left, uncached, and stop with their channel", async () => {
+    const c = await bootstrap("pub-tickets");
+    const setup = await withTenant(db, c, async (tx) => {
+      const vat = await offers.createVatClass(tx, c, { code: "exempt", label: "Fritatt", ratePct: 0 });
+      const web = await offers.createChannel(tx, c, { code: "web", name: "Nett", kind: "ecom" });
+      const pos = await offers.createChannel(tx, c, { code: "pos", name: "Luke", kind: "pos" });
+      await offers.setSkuMapping(tx, c, vat.id, web.id, "TICKET-VAT0");
+      let ev = await catalog.createEvent(tx, c, { slug: "hamlet", translations: { nb: { title: "Hamlet" } }, admissionMode: "tickets", registration: { capacity: 40 } });
+      await offers.createOffer(tx, c, ev.id, { translations: { nb: { name: "Voksen" } }, vatClassId: vat.id, defaultPrice: 45000 });
+      await offers.createOffer(tx, c, ev.id, { translations: { nb: { name: "Luke" } }, vatClassId: vat.id, defaultPrice: 40000, channelIds: [pos.id] });
+      ev = await catalog.transitionEvent(tx, c, ev.id, ev.version, "publish");
+      const occ = await catalog.createOccurrence(tx, c, ev.id, { startUtc: inDays(7) });
+      return {
+        web, occ,
+        pk: (await tenancy.createApiKey(tx, c, "publishable", "site")).secret,
+        sk: (await offers.createChannelKey(tx, c, web.id, "Shopify")).secret,
+      };
+    });
+    const url = `/public/v1/occurrences?event=hamlet`;
+
+    const anon = await get(`${url}&key=${setup.pk}`);
+    expect(anon.body.items[0].offers.map((o: { code: string }) => o.code)).toEqual(["voksen", "luke"]);
+    expect(anon.body.items[0].offers[0]).not.toHaveProperty("sku");
+    expect(anon.body.items[0].availability).toBeNull();
+
+    const viaWeb = await get(url, { authorization: `Bearer ${setup.sk}` });
+    expect(viaWeb.status).toBe(200);
+    expect(viaWeb.headers["cache-control"]).toBe("private, no-store");
+    const occ = viaWeb.body.items[0];
+    expect(occ.offers).toEqual([expect.objectContaining({ code: "voksen", sku: "TICKET-VAT0", onSale: true, placesPerUnit: 1, minPerReservation: 1, maxPerReservation: 20 })]);
+    expect(occ.availability).toMatchObject({ status: "available", placesLeft: 40 });
+
+    // A channel key is not a preview token: no drafts, and it cannot be passed as ?key=.
+    expect((await get(`${url}&key=${setup.sk}`)).status).toBe(401);
+    expect((await get(url, { authorization: "Bearer sk_nope" })).body.code).toBe("invalid_channel_key");
+
+    // Deactivating the channel stops the key at once, despite the key cache.
+    await withTenant(db, c, (tx) => offers.updateChannel(tx, c, setup.web.id, setup.web.version, { active: false }));
+    const stopped = await get(url, { authorization: `Bearer ${setup.sk}` });
+    expect(stopped).toMatchObject({ status: 401, body: { code: "channel_inactive" } });
   });
 
   it("rate-limits per key", async () => {

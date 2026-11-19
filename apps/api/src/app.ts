@@ -9,6 +9,7 @@ import { problemPlugin } from "./plugins/problem.js";
 import { accountRoutes } from "./routes/account.js";
 import { apiKeyRoutes } from "./routes/api-keys.js";
 import { catalogRoutes } from "./routes/catalog.js";
+import { channelRoutes } from "./routes/channels.js";
 import { meRoutes } from "./routes/me.js";
 import { offerRoutes } from "./routes/offers.js";
 import { invitationRoutes } from "./routes/invitations.js";
@@ -69,6 +70,7 @@ export async function buildApp(deps: AppDeps) {
       await v1.register(accountRoutes);
       await v1.register(catalogRoutes);
       await v1.register(offerRoutes);
+      await v1.register(channelRoutes);
       await v1.register(apiKeyRoutes);
       await v1.register(registrationRoutes);
       await v1.register(invitationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });

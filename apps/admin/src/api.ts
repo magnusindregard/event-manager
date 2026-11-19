@@ -80,3 +80,6 @@ export type OfferCreate = Body<"/v1/events/{id}/offers", "post">;
 export type OfferPatch = Body<"/v1/offers/{id}", "patch">;
 export type PriceGrid = Json<"/v1/events/{id}/prices", "get">;
 export type PriceCell = Json<"/v1/offers/{id}/occurrences/{occurrenceId}/override", "put">;
+export type SalesChannel = Json<"/v1/sales-channels", "get">["items"][number];
+export type ChannelKey = Json<"/v1/sales-channels/{id}/keys", "get">["items"][number];
+export type SkuMapping = Json<"/v1/sku-mappings", "get">["items"][number];

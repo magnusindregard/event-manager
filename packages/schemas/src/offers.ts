@@ -1,8 +1,9 @@
 import { type Static, Type } from "typebox";
 import { Nullable } from "./nullable.js";
 
-// Admin API (/v1) schemas for ticketing milestone 1 (docs/ticketing.md): VAT classes, offers,
-// overrides per (offer, occurrence) and the price grid.
+// Admin API (/v1) schemas for ticketing (docs/ticketing.md): VAT classes, offers, overrides per
+// (offer, occurrence) and the price grid (milestone 1); sales channels, channel keys, the SKU
+// mapping and sales windows (milestone 2).
 
 const Uuid = Type.String({ format: "uuid" });
 const DateTime = Type.String({ format: "date-time" });
@@ -45,12 +46,27 @@ export const Offer = Type.Object({
   minPerReservation: Type.Integer(),
   maxPerReservation: Type.Integer(),
   defaultPrice: Amount,
+  onSaleMinBefore: Nullable(Type.Integer({ description: "On sale this many minutes before each occurrence's start" })),
+  onSaleAt: Nullable(Type.String({ format: "date-time", description: "On sale from this time. Neither this nor onSaleMinBefore: on sale once the event is published" })),
+  offSaleMinBefore: Nullable(Type.Integer({ description: "Off sale this many minutes before each occurrence's start" })),
+  offSaleAt: Nullable(Type.String({ format: "date-time", description: "Off sale from this time. Neither this nor offSaleMinBefore: until the start. Sales never run past the start" })),
+  channelIds: Type.Array(Uuid, { description: "Sales channels that may sell the offer" }),
+  channelsWithoutSku: Type.Array(Uuid, { description: "Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet" }),
   translations: Type.Record(Type.String(), OfferTranslationOut),
   version: Type.Integer(),
   createdAt: DateTime,
   updatedAt: DateTime,
 });
 export type Offer = Static<typeof Offer>;
+
+const Minutes = Type.Integer({ minimum: 0, maximum: 525600 });
+const windowFields = {
+  onSaleMinBefore: Type.Optional(Nullable(Minutes)),
+  onSaleAt: Type.Optional(Nullable(DateTime)),
+  offSaleMinBefore: Type.Optional(Nullable(Minutes)),
+  offSaleAt: Type.Optional(Nullable(DateTime)),
+};
+const ChannelIds = Type.Array(Uuid, { uniqueItems: true, maxItems: 50 });
 
 const offerFields = {
   code: Type.Optional(Code),
@@ -60,9 +76,10 @@ const offerFields = {
   minPerReservation: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000, default: 1 })),
   maxPerReservation: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000, default: 20 })),
   defaultPrice: Amount,
+  ...windowFields,
 };
 export const OfferCreate = Type.Object(
-  { ...offerFields, translations: Type.Record(LocaleKey, OfferTranslation, { minProperties: 1 }) },
+  { ...offerFields, channelIds: Type.Optional(Type.Array(Uuid, { ...ChannelIds, description: "Left out: every active channel" })), translations: Type.Record(LocaleKey, OfferTranslation, { minProperties: 1 }) },
   { additionalProperties: false },
 );
 export const OfferPatch = Type.Object(
@@ -75,6 +92,8 @@ export const OfferPatch = Type.Object(
     minPerReservation: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000 })),
     maxPerReservation: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000 })),
     defaultPrice: Type.Optional(Amount),
+    ...windowFields,
+    channelIds: Type.Optional(Type.Array(Uuid, { ...ChannelIds, description: "Replaces the offer's channels" })),
     translations: Type.Optional(Type.Record(LocaleKey, Nullable(OfferTranslation), { description: "Per locale: replaces the translation, or null removes it" })),
   },
   { additionalProperties: false, minProperties: 1 },
@@ -123,3 +142,38 @@ export const PriceGrid = Type.Object({
   items: Type.Array(PriceRow),
   nextCursor: Nullable(Type.String()),
 });
+
+// ── Sales channels, keys and SKUs (milestone 2) ────────────────────────────────
+const ChannelKind = Type.Union([Type.Literal("ecom"), Type.Literal("pos")]);
+export const SalesChannel = Type.Object({
+  id: Uuid,
+  code: Type.String({ description: "Stable, e.g. web or pos" }),
+  name: Type.String(),
+  kind: ChannelKind,
+  holdMinutes: Type.Integer({ description: "How long a reservation holds its places; extend brings it to at most 60 minutes in total" }),
+  sendTickets: Type.Boolean({ description: "The platform emails the tickets on confirm when a buyer email is given" }),
+  active: Type.Boolean({ description: "Inactive channels' keys stop working and their offers are off sale there" }),
+  version: Type.Integer(),
+  createdAt: DateTime,
+  updatedAt: DateTime,
+});
+const HoldMinutes = Type.Integer({ minimum: 1, maximum: 60 });
+const ChannelName = Type.String({ minLength: 1, maxLength: 200 });
+export const SalesChannelCreate = Type.Object(
+  { code: Code, name: ChannelName, kind: ChannelKind, holdMinutes: Type.Optional(HoldMinutes), sendTickets: Type.Optional(Type.Boolean()) },
+  { additionalProperties: false },
+);
+export const SalesChannelPatch = Type.Object(
+  { name: Type.Optional(ChannelName), holdMinutes: Type.Optional(HoldMinutes), sendTickets: Type.Optional(Type.Boolean()), active: Type.Optional(Type.Boolean()) },
+  { additionalProperties: false, minProperties: 1 },
+);
+
+export const ChannelKey = Type.Object({ id: Uuid, channelId: Uuid, prefix: Type.String(), label: Type.String(), createdAt: DateTime, revokedAt: Nullable(DateTime) });
+export const ChannelKeyCreate = Type.Object({ label: Type.String({ minLength: 1, maxLength: 100 }) }, { additionalProperties: false });
+export const ChannelKeyCreated = Type.Object({
+  ...ChannelKey.properties,
+  secret: Type.String({ description: "The full key (sk_…), for the channel's connector. Server-side only. Shown once; only a hash is stored." }),
+});
+
+export const SkuMapping = Type.Object({ vatClassId: Uuid, channelId: Uuid, externalSku: Type.String({ description: "The shop's product for a ticket line" }), updatedAt: DateTime });
+export const SkuMappingInput = Type.Object({ externalSku: Type.String({ minLength: 1, maxLength: 100 }) }, { additionalProperties: false });

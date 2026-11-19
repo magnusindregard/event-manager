@@ -5,7 +5,7 @@ import swagger from "@fastify/swagger";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { type Db, sql, type Tx, withTenant } from "@event-manager/db";
-import { catalog, tenancy } from "@event-manager/domain";
+import { catalog, offers, tenancy } from "@event-manager/domain";
 import { Problem, PublicEventDetail, PublicEventPage, PublicLocations, PublicOccurrencePage } from "@event-manager/schemas";
 import { RateLimiter } from "./rate-limit.js";
 
@@ -14,7 +14,9 @@ import { RateLimiter } from "./rate-limit.js";
 // Caching rule: Azure Front Door does not vary its cache on request headers, so the
 // publishable key travels in the query string (?key=pk_…) and the cache key includes the
 // full query string. Two tenants' keys therefore never share a cached response. Preview
-// tokens (Authorization: Bearer prv_…) read drafts and are never cached.
+// tokens (Authorization: Bearer prv_…) read drafts and are never cached. Channel keys
+// (Authorization: Bearer sk_…, docs/ticketing.md) see their channel's offers with SKUs and exact
+// places left, and are never cached either.
 
 export interface PublicAppDeps {
   db: Db;
@@ -27,7 +29,7 @@ export interface PublicAppDeps {
 
 declare module "fastify" {
   interface FastifyRequest {
-    publicAccess?: { tenantId: string; preview: boolean; keyId: string };
+    publicAccess?: { tenantId: string; preview: boolean; channelId: string | null; keyId: string };
   }
 }
 
@@ -72,7 +74,7 @@ const Common = {
 const DateTime = Type.String({ format: "date-time" });
 const Uuid = Type.String({ format: "uuid" });
 const errors = { 400: Problem, 401: Problem, 429: Problem };
-const security: Record<string, string[]>[] = [{ publishableKey: [] }, { previewToken: [] }];
+const security: Record<string, string[]>[] = [{ publishableKey: [] }, { previewToken: [] }, { channelKey: [] }];
 
 export async function buildPublicApp(deps: PublicAppDeps) {
   const app = Fastify({
@@ -93,6 +95,10 @@ export async function buildPublicApp(deps: PublicAppDeps) {
         securitySchemes: {
           publishableKey: { type: "apiKey", in: "query", name: "key", description: "Publishable key. Safe to use in browsers." },
           previewToken: { type: "http", scheme: "bearer", description: "Preview token (prv_…). Server-side only; also returns draft events; never cached." },
+          channelKey: {
+            type: "http", scheme: "bearer",
+            description: "Sales channel key (sk_…). Server-side only; offers are limited to the channel's, with SKUs and limits, and ticketed occurrences show exact places left; never cached.",
+          },
         },
       },
     },
@@ -123,7 +129,7 @@ export async function buildPublicApp(deps: PublicAppDeps) {
 
   // Key lookups are cached per replica; a revoked key stops working within KEY_TTL_MS.
   const keys = new Map<string, { access: tenancy.VerifiedApiKey | null; until: number }>();
-  const resolveKey = async (token: string, kind: "publishable" | "preview") => {
+  const resolveKey = async (token: string, kind: "publishable" | "preview" | "channel") => {
     const cacheKey = `${kind}:${token}`;
     const hit = keys.get(cacheKey);
     if (hit && hit.until > Date.now()) return hit.access;
@@ -139,7 +145,11 @@ export async function buildPublicApp(deps: PublicAppDeps) {
     const key = (req.query as { key?: string }).key;
     let access: tenancy.VerifiedApiKey | null;
     let id: string;
-    if (auth?.startsWith("Bearer ")) {
+    if (auth?.startsWith("Bearer sk_")) {
+      id = auth.slice(7).trim();
+      access = await resolveKey(id, "channel");
+      if (!access) throw new PublicProblem(401, "invalid_channel_key", "Unknown or revoked channel key");
+    } else if (auth?.startsWith("Bearer ")) {
       id = auth.slice(7).trim();
       access = await resolveKey(id, "preview");
       if (!access) throw new PublicProblem(401, "invalid_preview_token", "Unknown or revoked preview token");
@@ -152,13 +162,13 @@ export async function buildPublicApp(deps: PublicAppDeps) {
     }
     const wait = limiter.take(id);
     if (wait > 0) throw new PublicProblem(429, "rate_limited", "Too many requests for this key", { "retry-after": String(Math.ceil(wait)) });
-    req.publicAccess = { tenantId: access.tenantId, preview: access.kind === "preview", keyId: id.slice(0, 16) };
+    req.publicAccess = { tenantId: access.tenantId, preview: access.kind === "preview", channelId: access.channelId, keyId: id.slice(0, 16) };
   };
 
   // Cache headers and conditional GET for every successful public response.
   app.addHook("onSend", async (req, reply, payload) => {
     if (!req.publicAccess || reply.statusCode !== 200 || typeof payload !== "string") return payload;
-    if (req.publicAccess.preview) {
+    if (req.publicAccess.preview || req.publicAccess.channelId) {
       reply.header("cache-control", "private, no-store");
       return payload;
     }
@@ -171,8 +181,14 @@ export async function buildPublicApp(deps: PublicAppDeps) {
     return payload;
   });
 
-  const read = <T>(req: FastifyRequest, fn: (tx: Tx, opts: { preview: boolean; attendeeUrl?: string }) => Promise<T>) =>
-    withTenant(deps.db, { tenantId: req.publicAccess!.tenantId }, (tx) => fn(tx, { preview: req.publicAccess!.preview, attendeeUrl: deps.attendeeUrl }));
+  const read = <T>(req: FastifyRequest, fn: (tx: Tx, opts: { preview: boolean; attendeeUrl?: string; channelId?: string }) => Promise<T>) => {
+    const access = req.publicAccess!;
+    return withTenant(deps.db, { tenantId: access.tenantId }, async (tx) => {
+      // Checked per request, so deactivating a channel stops its keys at once.
+      if (access.channelId && !(await offers.activeChannel(tx, access.channelId))) throw new PublicProblem(401, "channel_inactive", "The key's sales channel is inactive");
+      return fn(tx, { preview: access.preview, attendeeUrl: deps.attendeeUrl, channelId: access.channelId ?? undefined });
+    });
+  };
 
   await app.register(
     async (plain) => {

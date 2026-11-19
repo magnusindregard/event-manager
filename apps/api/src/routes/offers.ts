@@ -10,7 +10,8 @@ import { decodeCursor, isTimeCursor, page } from "../plugins/cursor.js";
 import { expectedVersion, setEtag } from "../plugins/etag.js";
 import { idempotent } from "../plugins/idempotency.js";
 
-// Ticketing milestone 1 (docs/ticketing.md): VAT classes, offers, prices per occurrence.
+// Ticketing milestones 1 and 2 (docs/ticketing.md): VAT classes, offers with their channels and
+// sales windows, prices per occurrence. Channels and SKUs are in channels.ts.
 
 const accountScoped = { security: [{ bearer: [], accountId: [] }] };
 const errors = { 400: Problem, 401: Problem, 403: Problem, 404: Problem };
@@ -22,7 +23,9 @@ const IdParams = Type.Object({ id: Uuid });
 
 const iso = (d: Date) => d.toISOString();
 const vatDto = (v: offers.VatClass) => ({ ...v, updatedAt: iso(v.updatedAt) });
-const offerDto = (o: offers.Offer) => ({ ...o, createdAt: iso(o.createdAt), updatedAt: iso(o.updatedAt) });
+const offerDto = (o: offers.Offer) => ({
+  ...o, onSaleAt: o.onSaleAt ? iso(o.onSaleAt) : null, offSaleAt: o.offSaleAt ? iso(o.offSaleAt) : null, createdAt: iso(o.createdAt), updatedAt: iso(o.updatedAt),
+});
 const resultDto = (r: offers.OfferChangeResult) => ({ offer: r.offer ? offerDto(r.offer) : null, resolution: r.resolution });
 
 export const offerRoutes: FastifyPluginAsyncTypebox = async (app) => {
