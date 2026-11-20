@@ -34,10 +34,20 @@ export interface Offer extends SalesWindowSettings {
   channelIds: string[];
   /** Of channelIds: those where the offer's VAT class has no SKU, so it cannot be sold there yet. */
   channelsWithoutSku: string[];
+  /** User groups that may buy the offer (docs/user-groups.md); empty: everyone the event admits. */
+  accessGroupIds: string[];
+  /** The offer's own prices per user group; groups not listed pay the general price. */
+  groupPrices: GroupPrice[];
   translations: Record<string, OfferTranslation>;
   version: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface GroupPrice {
+  groupId: string;
+  /** Minor units, VAT included. */
+  amount: number;
 }
 
 export interface OfferInput extends SalesWindowPatch {
@@ -50,6 +60,9 @@ export interface OfferInput extends SalesWindowPatch {
   defaultPrice: number;
   /** Left out on create: every active channel. */
   channelIds?: string[];
+  accessGroupIds?: string[];
+  /** Replaces the offer's group prices. */
+  groupPrices?: GroupPrice[];
   translations: Record<string, { name: string; description?: string | null }>;
 }
 
@@ -82,11 +95,14 @@ type Row = {
 async function hydrate(tx: Tx, rows: Row[]): Promise<Offer[]> {
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.id);
-  const [translations, channels, skus] = await Promise.all([
+  const [translations, channels, skus, access, groupPrices] = await Promise.all([
     tx.selectFrom("offers.offer_translation").selectAll().where("offer_id", "in", ids).execute(),
     tx.selectFrom("offers.offer_channel as oc").innerJoin("offers.sales_channel as c", "c.id", "oc.channel_id")
       .select(["oc.offer_id", "oc.channel_id"]).where("oc.offer_id", "in", ids).orderBy("c.code").execute(),
     tx.selectFrom("offers.sku_mapping").select(["vat_class_id", "channel_id"]).execute(),
+    tx.selectFrom("offers.offer_access_group").select(["offer_id", "group_id"]).where("offer_id", "in", ids).execute(),
+    tx.selectFrom("offers.offer_group_price as gp").innerJoin("catalog.user_group as g", "g.id", "gp.group_id")
+      .select(["gp.offer_id", "gp.group_id", "gp.amount"]).where("gp.offer_id", "in", ids).orderBy("g.sort_order").orderBy("g.code").execute(),
   ]);
   const hasSku = new Set(skus.map((m) => `${m.vat_class_id}|${m.channel_id}`));
   return rows.map((r) => {
@@ -108,6 +124,8 @@ async function hydrate(tx: Tx, rows: Row[]): Promise<Offer[]> {
     offSaleAt: r.off_sale_at,
     channelIds,
     channelsWithoutSku: channelIds.filter((c) => !hasSku.has(`${r.vat_class_id}|${c}`)),
+    accessGroupIds: access.filter((a) => a.offer_id === r.id).map((a) => a.group_id).sort(),
+    groupPrices: groupPrices.filter((g) => g.offer_id === r.id).map((g) => ({ groupId: g.group_id, amount: g.amount })),
     translations: Object.fromEntries(translations.filter((t) => t.offer_id === r.id).map((t) => [t.locale, { name: t.name, description: t.description }])),
     version: r.version,
     createdAt: r.created_at,
@@ -192,6 +210,32 @@ async function writeChannels(tx: Tx, tenantId: string, offerId: string, channelI
   }
 }
 
+async function writeAccess(tx: Tx, tenantId: string, offerId: string, groupIds: string[]) {
+  await tx.deleteFrom("offers.offer_access_group").where("offer_id", "=", offerId).execute();
+  if (groupIds.length) {
+    await tx.insertInto("offers.offer_access_group").values(groupIds.map((group_id) => ({ tenant_id: tenantId, offer_id: offerId, group_id }))).execute();
+  }
+}
+
+/** Checks group prices: known groups, each once, active unless the offer already priced them. */
+async function checkGroupPrices(tx: Tx, prices: GroupPrice[], kept: readonly GroupPrice[] = []): Promise<GroupPrice[]> {
+  prices.forEach((p, i) => int(`groupPrices.${i}.amount`, p.amount, 0, MAX_PRICE));
+  const ids = prices.map((p) => p.groupId);
+  if (new Set(ids).size !== ids.length) throw invalid("groupPrices", "Each user group once");
+  await catalog.assertUsableGroups(tx, ids, kept.map((k) => k.groupId), "groupPrices");
+  return [...prices].sort((a, b) => a.groupId.localeCompare(b.groupId));
+}
+
+async function writeGroupPrices(tx: Tx, tenantId: string, offerId: string, prices: GroupPrice[]) {
+  await tx.deleteFrom("offers.offer_group_price").where("offer_id", "=", offerId).execute();
+  if (prices.length) {
+    await tx.insertInto("offers.offer_group_price").values(prices.map((p) => ({ tenant_id: tenantId, offer_id: offerId, group_id: p.groupId, amount: p.amount }))).execute();
+  }
+}
+
+const samePrices = (a: readonly GroupPrice[], b: readonly GroupPrice[]) =>
+  JSON.stringify([...a].sort((x, y) => x.groupId.localeCompare(y.groupId))) === JSON.stringify([...b].sort((x, y) => x.groupId.localeCompare(y.groupId)));
+
 const windowColumns = (w: SalesWindowSettings) => ({
   on_sale_min_before: w.onSaleMinBefore, on_sale_at: w.onSaleAt, off_sale_min_before: w.offSaleMinBefore, off_sale_at: w.offSaleAt,
 });
@@ -232,6 +276,8 @@ async function insertOffer(tx: Tx, ctx: ActorContext, eventId: string, input: Of
   const channelIds = input.channelIds
     ? await checkChannels(tx, input.channelIds)
     : (await tx.selectFrom("offers.sales_channel").select("id").where("active", "=", true).execute()).map((r) => r.id);
+  const accessGroupIds = await catalog.assertUsableGroups(tx, input.accessGroupIds ?? []);
+  const groupPrices = await checkGroupPrices(tx, input.groupPrices ?? []);
 
   const id = newId();
   const code = input.code ?? (await uniqueCode(tx, eventId, codeFrom(defaultName)));
@@ -246,6 +292,8 @@ async function insertOffer(tx: Tx, ctx: ActorContext, eventId: string, input: Of
     .catch(codeConflict);
   await writeTranslations(tx, ctx.tenantId, id, input.translations);
   await writeChannels(tx, ctx.tenantId, id, channelIds);
+  if (accessGroupIds.length) await writeAccess(tx, ctx.tenantId, id, accessGroupIds);
+  if (groupPrices.length) await writeGroupPrices(tx, ctx.tenantId, id, groupPrices);
   return id;
 }
 
@@ -287,6 +335,8 @@ export async function updateOffer(tx: Tx, ctx: ActorContext, id: string, expecte
   if (patch.vatClassId !== undefined && patch.vatClassId !== before.vatClassId) await assertUsableVatClass(tx, patch.vatClassId);
   const window = applyWindowPatch(before, patch);
   const channelIds = patch.channelIds ? await checkChannels(tx, patch.channelIds, before.channelIds) : undefined;
+  const accessGroupIds = patch.accessGroupIds ? await catalog.assertUsableGroups(tx, patch.accessGroupIds, before.accessGroupIds) : undefined;
+  const groupPrices = patch.groupPrices ? await checkGroupPrices(tx, patch.groupPrices, before.groupPrices) : undefined;
 
   const res = await tx
     .updateTable("offers.offer")
@@ -309,16 +359,20 @@ export async function updateOffer(tx: Tx, ctx: ActorContext, id: string, expecte
   if (!res.numUpdatedRows) throw new DomainError("version_conflict", "Offer was changed by someone else", { currentVersion: before.version });
   if (patch.translations) await writeTranslations(tx, ctx.tenantId, id, patch.translations);
   if (channelIds) await writeChannels(tx, ctx.tenantId, id, channelIds);
+  if (accessGroupIds) await writeAccess(tx, ctx.tenantId, id, accessGroupIds);
+  if (groupPrices) await writeGroupPrices(tx, ctx.tenantId, id, groupPrices);
 
   const offer = await getOffer(tx, id);
-  const { translations: _t, channelIds: _c, onSaleMinBefore: _a, onSaleAt: _b, offSaleMinBefore: _d, offSaleAt: _e, ...rest } = patch;
+  const { translations: _t, channelIds: _c, accessGroupIds: _g, groupPrices: _p, onSaleMinBefore: _a, onSaleAt: _b, offSaleMinBefore: _d, offSaleAt: _e, ...rest } = patch;
   const diff = diffFields(before as unknown as Record<string, unknown>, rest as Record<string, unknown>);
   for (const k of ["onSaleMinBefore", "onSaleAt", "offSaleMinBefore", "offSaleAt"] as const) {
     if (String(before[k]) !== String(offer[k])) diff[k] = { from: before[k], to: offer[k] };
   }
   if (channelIds && [...before.channelIds].sort().join() !== [...offer.channelIds].sort().join()) diff.channelIds = { from: before.channelIds, to: offer.channelIds };
+  if (accessGroupIds && before.accessGroupIds.join() !== offer.accessGroupIds.join()) diff.accessGroupIds = { from: before.accessGroupIds, to: offer.accessGroupIds };
+  if (groupPrices && !samePrices(before.groupPrices, offer.groupPrices)) diff.groupPrices = { from: before.groupPrices, to: offer.groupPrices };
   if (patch.translations) diff.translations = { from: before.translations, to: offer.translations };
-  const resolution = await changed(tx, ctx, offer.eventId, id, "updated", "defaultPrice" in diff, { code: offer.code, ...diff });
+  const resolution = await changed(tx, ctx, offer.eventId, id, "updated", "defaultPrice" in diff || "groupPrices" in diff, { code: offer.code, ...diff });
   return { offer, resolution };
 }
 
@@ -350,7 +404,7 @@ export async function deleteOffer(tx: Tx, ctx: ActorContext, id: string, expecte
 
 /**
  * Copies the active offers of another event: names, VAT class, limits, default prices, sales
- * window and channels (docs/ticketing.md, decision 3); inactive channels are left behind. Offers whose code the event already has are skipped.
+ * window, channels, user groups and group prices (docs/ticketing.md, decision 3); inactive channels and archived groups are left behind. Offers whose code the event already has are skipped.
  */
 export async function copyOffers(tx: Tx, ctx: ActorContext, eventId: string, fromEventId: string): Promise<{ created: Offer[]; skipped: string[]; resolution: OfferChangeResult["resolution"] }> {
   assertCan(ctx, "offers.write");
@@ -361,6 +415,7 @@ export async function copyOffers(tx: Tx, ctx: ActorContext, eventId: string, fro
   const account = await getAccount(tx);
   const existing = new Set((await listOffers(tx, eventId)).map((o) => o.code));
   const activeChannels = new Set((await tx.selectFrom("offers.sales_channel").select("id").where("active", "=", true).execute()).map((r) => r.id));
+  const activeGroups = new Set((await tx.selectFrom("catalog.user_group").select("id").where("archived_at", "is", null).execute()).map((r) => r.id));
   const created: string[] = [];
   const skipped: string[] = [];
   for (const o of (await listOffers(tx, fromEventId)).filter((x) => x.status === "active")) {
@@ -375,6 +430,8 @@ export async function copyOffers(tx: Tx, ctx: ActorContext, eventId: string, fro
       maxPerReservation: o.maxPerReservation, defaultPrice: o.defaultPrice, translations,
       onSaleMinBefore: o.onSaleMinBefore, onSaleAt: o.onSaleAt, offSaleMinBefore: o.offSaleMinBefore, offSaleAt: o.offSaleAt,
       channelIds: o.channelIds.filter((c) => activeChannels.has(c)),
+      accessGroupIds: o.accessGroupIds.filter((g) => activeGroups.has(g)),
+      groupPrices: o.groupPrices.filter((g) => activeGroups.has(g.groupId)),
     }, account.locales, account.defaultLocale));
   }
   let resolution: OfferChangeResult["resolution"] = "none";

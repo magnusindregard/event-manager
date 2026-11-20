@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { catalog, offers } from "@event-manager/domain";
 import {
-  Offer, OfferChangeResult, OfferCopy, OfferCopyResult, OfferCreate, OfferOverrideInput, OfferPatch, PriceCell, PriceGrid, Problem, Uuid, VatClass,
+  GroupCell, GroupOverrideInput, Offer, OfferChangeResult, OfferCopy, OfferCopyResult, OfferCreate, OfferOverrideInput, OfferPatch, PriceCell, PriceGrid, Problem, Uuid, VatClass,
   VatClassCreate, VatClassPatch,
 } from "@event-manager/schemas";
 import { inTenant } from "../plugins/context.js";
@@ -169,16 +169,17 @@ export const offerRoutes: FastifyPluginAsyncTypebox = async (app) => {
           to: Type.Optional(Type.String({ format: "date-time" })),
           cursor: Type.Optional(Type.String()),
           limit: Type.Integer({ minimum: 1, maximum: 500, default: 100 }),
+          groupId: Type.Optional(Type.String({ format: "uuid", description: "Also show what this user group pays in each cell (docs/user-groups.md)" })),
         }),
-        response: { 200: PriceGrid, ...errors },
+        response: { 200: PriceGrid, ...errors, 422: Problem },
       },
     },
     async (req) => {
-      const { cursor, limit, from, to } = req.query;
+      const { cursor, limit, from, to, groupId } = req.query;
       const c = decodeCursor(cursor, isTimeCursor);
       const grid = await inTenant(app, req, (tx) => offers.priceGrid(tx, req.params.id, {
         from: from ? new Date(from) : undefined, to: to ? new Date(to) : undefined, limit: limit + 1,
-        after: c ? { startUtc: new Date(c.s), id: c.id } : undefined,
+        after: c ? { startUtc: new Date(c.s), id: c.id } : undefined, groupId,
       }));
       const p = page(grid.rows, limit, (r) => ({ s: r.startUtc.toISOString(), id: r.occurrenceId }));
       return {
@@ -211,5 +212,31 @@ export const offerRoutes: FastifyPluginAsyncTypebox = async (app) => {
       },
     },
     async (req) => inTenant(app, req, (tx, ctx) => offers.setOverride(tx, ctx, req.params.id, req.params.occurrenceId, { amount: null, available: null })),
+  );
+
+  // ── Group prices per occurrence (docs/user-groups.md) ─────────────────────────
+  const GroupParams = Type.Object({ id: Uuid, occurrenceId: Uuid, groupId: Uuid });
+  app.put(
+    "/offers/:id/occurrences/:occurrenceId/groups/:groupId/override",
+    {
+      schema: {
+        operationId: "setGroupOverride", tags: ["offers"], ...accountScoped,
+        summary: "Set one user group's price for the offer at one occurrence; it wins over rules and the offer's group price",
+        params: GroupParams, body: GroupOverrideInput, response: { 200: GroupCell, ...writeErrors },
+      },
+    },
+    async (req) => inTenant(app, req, (tx, ctx) => offers.setGroupOverride(tx, ctx, req.params.id, req.params.occurrenceId, req.params.groupId, req.body.amount)),
+  );
+
+  app.delete(
+    "/offers/:id/occurrences/:occurrenceId/groups/:groupId/override",
+    {
+      schema: {
+        operationId: "clearGroupOverride", tags: ["offers"], ...accountScoped,
+        summary: "Remove one user group's override at one occurrence; its price comes from rules, its group price or the general price again",
+        params: GroupParams, response: { 200: GroupCell, ...writeErrors },
+      },
+    },
+    async (req) => inTenant(app, req, (tx, ctx) => offers.setGroupOverride(tx, ctx, req.params.id, req.params.occurrenceId, req.params.groupId, null)),
   );
 };

@@ -41,7 +41,7 @@ const isoOrNull = (d: Date | null) => (d ? iso(d) : null);
 /** The reservation as the API returns it, to channels and to staff. */
 export const reservationDto = (attendeeUrl: string) => (r: sales.Reservation) => ({
   id: r.id, channelId: r.channelId, status: r.status, expiresAt: iso(r.expiresAt), extendLimitAt: iso(r.extendLimitAt),
-  externalRef: r.externalRef, externalOrderRef: r.externalOrderRef, locale: r.locale, buyer: r.buyer,
+  externalRef: r.externalRef, externalOrderRef: r.externalOrderRef, locale: r.locale, group: r.group, buyer: r.buyer,
   lines: r.lines.map((l) => ({ ...l, occurrenceStartUtc: iso(l.occurrenceStartUtc) })),
   total: r.total,
   tickets: r.tickets.map((t) => ({
@@ -95,7 +95,9 @@ export const reservationRoutes: FastifyPluginAsyncTypebox<{ attendeeUrl: string 
       schema: {
         operationId: "createReservation", tags: ["reservations"], ...channelScoped,
         summary: "Hold places for all lines or none, priced and frozen in snapshots. With confirm: true and externalOrderRef, also confirm (POS walk-up)",
-        description: "Reasons: sold_out (with occurrenceId and placesLeft), not_on_sale, offer_unavailable, channel_not_allowed, no_sku, quantity_out_of_range",
+        description:
+          "Reasons: sold_out (with occurrenceId and placesLeft), not_on_sale, offer_unavailable, channel_not_allowed, no_sku, quantity_out_of_range, " +
+          "unknown_group (no active user group has the code), group_required (the event or offer is for some user groups only), group_not_allowed (not for the buyer's group)",
         headers: idempotencyHeader, body: ReservationCreate, response: { 201: Reservation, ...writeErrors },
       },
     },

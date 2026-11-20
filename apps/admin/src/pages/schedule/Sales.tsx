@@ -17,6 +17,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiProblem, type CatalogEvent, type Occurrence, type OccurrenceSales, type SalesReservation, unwrap } from "../../api.js";
 import { useApp } from "../../AppContext.js";
+import { useUserGroups } from "../../queries.js";
 import { formatMoney } from "../../lib/money.js";
 
 type Show = "confirmed" | "held" | "ended";
@@ -74,6 +75,11 @@ export function Sales({ event, occurrence, label, onClose }: { event: CatalogEve
   const rows = all.filter((r) => (show === "ended" ? r.status === "cancelled" || r.status === "expired" : r.status === show));
   const count = (s: Show) => all.filter((r) => (s === "ended" ? r.status === "cancelled" || r.status === "expired" : r.status === s)).length;
   const offerName = new Map((data?.offers ?? []).map((o) => [o.offerId, o.name]));
+  const userGroups = useUserGroups().data ?? [];
+  const groupName = (code: string) => {
+    const g = userGroups.find((x) => x.code === code);
+    return g ? (g.names[i18n.language] ?? Object.values(g.names)[0] ?? code) : code;
+  };
   const when = (iso: string) => new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: event.timezone }).format(new Date(iso));
   const sold = (data?.offers ?? []).reduce((s, o) => ({ units: s.units + o.sold, revenue: s.revenue + o.revenue }), { units: 0, revenue: 0 });
 
@@ -181,7 +187,15 @@ export function Sales({ event, occurrence, label, onClose }: { event: CatalogEve
                 <tbody>
                   {(data?.offers ?? []).map((o) => (
                     <tr key={o.offerId} className="border-b last:border-0">
-                      <td className="px-3 py-2">{o.name}</td>
+                      <td className="px-3 py-2">
+                        {o.name}
+                        {/* Per user group, when any group bought (docs/user-groups.md). */}
+                        {o.byGroup.some((g) => g.group !== null) && (
+                          <span className="block text-xs text-muted-foreground">
+                            {o.byGroup.map((g) => `${g.group === null ? t("sales.noGroup") : groupName(g.group)}: ${g.sold} · ${money(g.revenue)}`).join(", ")}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-right tabular-nums">{o.held}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{o.sold}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{o.cancelled}</td>

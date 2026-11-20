@@ -28,7 +28,7 @@ async function hydrate(tx: Tx, rows: Row[]): Promise<Rule[]> {
   if (rows.length === 0) return [];
   const effects = await tx
     .selectFrom("rules.rule_effect")
-    .select(["rule_id", "effect_type", "target_ref", "value"])
+    .select(["rule_id", "effect_type", "target_ref", "target_group", "value"])
     .where("rule_id", "in", rows.map((r) => r.id))
     .orderBy("effect_type")
     .execute();
@@ -45,7 +45,7 @@ async function hydrate(tx: Tx, rows: Row[]): Promise<Rule[]> {
       startTimeFrom: hhmm(r.start_time_from),
       startTimeTo: hhmm(r.start_time_to),
     },
-    effects: effects.filter((e) => e.rule_id === r.id).map((e) => ({ type: e.effect_type, targetRef: e.target_ref, value: e.value })),
+    effects: effects.filter((e) => e.rule_id === r.id).map((e) => ({ type: e.effect_type, targetRef: e.target_ref, ...(e.target_group ? { targetGroup: e.target_group } : {}), value: e.value })),
     version: r.version,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -86,7 +86,7 @@ async function writeEffects(tx: Tx, tenantId: string, ruleId: string, effects: r
   await tx.deleteFrom("rules.rule_effect").where("rule_id", "=", ruleId).execute();
   await tx
     .insertInto("rules.rule_effect")
-    .values(effects.map((e) => ({ id: newId(), tenant_id: tenantId, rule_id: ruleId, effect_type: e.type, target_ref: e.targetRef, value: JSON.stringify(e.value) })))
+    .values(effects.map((e) => ({ id: newId(), tenant_id: tenantId, rule_id: ruleId, effect_type: e.type, target_ref: e.targetRef, target_group: e.targetGroup ?? null, value: JSON.stringify(e.value) })))
     .execute();
 }
 

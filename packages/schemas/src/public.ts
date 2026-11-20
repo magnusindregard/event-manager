@@ -67,6 +67,14 @@ export const PublicAvailability = Type.Object(
   },
 );
 
+export const PublicAccess = Type.Object(
+  { groups: Type.Array(Type.Object({ code: Type.String({ description: "The user group's stable code, as the frontend knows it" }), name: Type.String() })) },
+  {
+    description:
+      "User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it",
+  },
+);
+
 export const PublicOffer = Type.Object(
   {
     id: Uuid,
@@ -81,6 +89,14 @@ export const PublicOffer = Type.Object(
     onSale: Type.Boolean({ description: "False when the occurrence is cancelled or outside the sales window. Channel keys: also when the channel has no SKU for the offer" }),
     opensAt: Nullable(Type.String({ format: "date-time", description: "Sales window here. Null: on sale as soon as the event is published" })),
     closesAt: Type.String({ format: "date-time", description: "End of the sales window, at the start at the latest" }),
+    access: PublicAccess,
+    groupPrices: Type.Array(
+      Type.Object({
+        group: Type.String({ description: "The user group's code" }),
+        price: Type.Object({ amount: Type.Integer({ description: "Minor units (øre), VAT included" }), currency: Type.String(), vatIncluded: Type.Literal(true) }),
+      }),
+      { description: "User groups with a price of their own at this occurrence that may buy the offer (docs/user-groups.md). Other groups pay price" },
+    ),
     sku: Type.Optional(Nullable(Type.String({ description: "Channel keys only: the channel's product for this offer; null: none mapped, so not on sale" }))),
     placesPerUnit: Type.Optional(Type.Integer({ description: "Channel keys only" })),
     minPerReservation: Type.Optional(Type.Integer({ description: "Channel keys only" })),
@@ -99,6 +115,7 @@ const eventSummaryFields = {
   image: Nullable(Type.Object({ url: Type.String(), alt: Nullable(Type.String()) })),
   timezone: Type.String({ description: "IANA timezone for displaying times" }),
   externalRefs: Type.Record(Type.String(), Type.String()),
+  access: PublicAccess,
 };
 export const PublicEventSummary = Type.Object(eventSummaryFields);
 

@@ -134,9 +134,9 @@ describe("staff: the sales view and cancelling from the admin", () => {
     const view = await run((tx) => sales.occurrenceSales(tx, as("finance"), occ.id, at(1)));
     expect(view.pool).toMatchObject({ taken: 3, held: 3 });
     expect(view.offers).toEqual([
-      { offerId: adult.id, code: "voksen", name: "Voksen", held: 3, sold: 2, cancelled: 0, places: 2, revenue: 90000 },
-      { offerId: child.id, code: "barn", name: "Barn", held: 0, sold: 1, cancelled: 0, places: 1, revenue: 20000 },
-      { offerId: family.id, code: "familie", name: "Familie", held: 0, sold: 0, cancelled: 0, places: 0, revenue: 0 },
+      { offerId: adult.id, code: "voksen", name: "Voksen", held: 3, sold: 2, cancelled: 0, places: 2, revenue: 90000, byGroup: [{ group: null, sold: 2, revenue: 90000 }] },
+      { offerId: child.id, code: "barn", name: "Barn", held: 0, sold: 1, cancelled: 0, places: 1, revenue: 20000, byGroup: [{ group: null, sold: 1, revenue: 20000 }] },
+      { offerId: family.id, code: "familie", name: "Familie", held: 0, sold: 0, cancelled: 0, places: 0, revenue: 0, byGroup: [] },
     ]);
     expect(view.reservations.map((r) => [r.status, r.externalRef, r.externalOrderRef])).toEqual([["held", "cart-9", null], ["confirmed", null, "ORDER-V"]]);
     expect(view.reservations[1]).toMatchObject({

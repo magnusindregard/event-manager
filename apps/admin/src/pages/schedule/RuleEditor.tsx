@@ -17,7 +17,7 @@ import { type CatalogEvent, etagOf, isConflict, type Rule, type RuleChangeResult
 import { useApp } from "../../AppContext.js";
 import { type Conditions, type Effect, ISO_WEEKDAYS, isoWeekdayNames, NO_CONDITIONS } from "../../lib/rules.js";
 import { formatMoney, moneyInput, parseMoney } from "../../lib/money.js";
-import { locationPath, offerName, useEventOffers, useLocations, useTagLabels, useVocabularies } from "../../queries.js";
+import { locationPath, offerName, useEventOffers, useLocations, useTagLabels, useVocabularies, useUserGroups } from "../../queries.js";
 
 /** Create a rule (optionally from the occurrence filter), or edit one. */
 export type RuleEditorMode = { kind: "create"; conditions?: Conditions } | { kind: "edit"; rule: Rule };
@@ -32,9 +32,11 @@ type Draft = {
   link: { on: boolean; url: string };
   capacity: { on: boolean; value: string };
   overbooking: { on: boolean; value: string };
-  /** Per offer: a price (in kroner, as typed) and availability. */
-  offers: Record<string, { price: { on: boolean; value: string }; available: { on: boolean; value: boolean } }>;
+  /** Per offer: a price (in kroner, as typed) and availability, and prices per user group (docs/user-groups.md). */
+  offers: Record<string, OfferDraft>;
 };
+type OfferDraft = { price: { on: boolean; value: string }; available: { on: boolean; value: boolean }; groups: Record<string, { on: boolean; value: string }> };
+const emptyOffer = (): OfferDraft => ({ price: { on: false, value: "" }, available: { on: false, value: false }, groups: {} });
 
 const wholeIn = (v: string, max: number) => /^\d+$/.test(v.trim()) && Number(v) <= max;
 
@@ -58,8 +60,9 @@ function initial(mode: RuleEditorMode, language: string): Draft {
     overbooking: { on: !!overbooking, value: overbooking ? String(overbooking.value) : "" },
     offers: effects.reduce<Draft["offers"]>((out, e) => {
       if (e.type !== "price" && e.type !== "offerAvailable") return out;
-      const o = out[e.targetRef] ?? { price: { on: false, value: "" }, available: { on: false, value: false } };
-      if (e.type === "price") o.price = { on: true, value: moneyInput(e.value.amount, language) };
+      const o = out[e.targetRef] ?? emptyOffer();
+      if (e.type === "price" && e.targetGroup) o.groups = { ...o.groups, [e.targetGroup]: { on: true, value: moneyInput(e.value.amount, language) } };
+      else if (e.type === "price") o.price = { on: true, value: moneyInput(e.value.amount, language) };
       else o.available = { on: true, value: e.value };
       return { ...out, [e.targetRef]: o };
     }, {}),
@@ -77,6 +80,10 @@ function effectsOf(d: Draft): Effect[] {
     const amount = parseMoney(o.price.value);
     if (o.price.on && amount !== null) out.push({ type: "price", targetRef, value: { amount } });
     if (o.available.on) out.push({ type: "offerAvailable", targetRef, value: o.available.value });
+    for (const [targetGroup, g] of Object.entries(o.groups)) {
+      const groupAmount = parseMoney(g.value);
+      if (g.on && groupAmount !== null) out.push({ type: "price", targetRef, targetGroup, value: { amount: groupAmount } });
+    }
   }
   return out;
 }
@@ -130,7 +137,14 @@ function EditorBody({ event, rules, mode, onSaved, onConflict }: {
   const allOffers = useEventOffers(event.id, ticketed).data ?? [];
   // Archived offers stay editable on rules that already have them.
   const offers = allOffers.filter((o) => o.status === "active" || o.id in d.offers);
-  const offerDraft = (id: string) => d.offers[id] ?? { price: { on: false, value: "" }, available: { on: false, value: false } };
+  const offerDraft = (id: string) => d.offers[id] ?? emptyOffer();
+  const allGroups = useUserGroups().data ?? [];
+  // Archived groups stay editable on rules that already price them.
+  const groupsFor = (od: OfferDraft) => allGroups.filter((g) => !g.archived || g.id in od.groups);
+  const groupName = (id: string | null) => {
+    const g = allGroups.find((x) => x.id === id);
+    return g ? (g.names[i18n.language] ?? Object.values(g.names)[0] ?? g.code) : "";
+  };
   const setOffer = (id: string, patch: Partial<Draft["offers"][string]>) => setD({ ...d, offers: { ...d.offers, [id]: { ...offerDraft(id), ...patch } } });
   const names = isoWeekdayNames(i18n.language);
   const path = locationPath(useLocations(true).data);
@@ -143,7 +157,7 @@ function EditorBody({ event, rules, mode, onSaved, onConflict }: {
   const valid =
     body.name.length > 0 && body.effects.length > 0 && Number.isInteger(d.priority) && d.priority >= -1000 && d.priority <= 1000 &&
     (!c.dateFrom || !c.dateTo || c.dateFrom <= c.dateTo) && (!c.startTimeFrom || c.startTimeFrom !== c.startTimeTo) &&
-    Object.values(d.offers).every((o) => !o.price.on || parseMoney(o.price.value) !== null);
+    Object.values(d.offers).every((o) => (!o.price.on || parseMoney(o.price.value) !== null) && Object.values(o.groups).every((g) => !g.on || parseMoney(g.value) !== null));
 
   const send = async (dryRun: boolean) => {
     if (mode.kind === "create") {
@@ -323,6 +337,23 @@ function EditorBody({ event, rules, mode, onSaved, onConflict }: {
                         value={od.price.value} placeholder={moneyInput(o.defaultPrice, i18n.language)} onChange={(e) => setOffer(o.id, { price: { on: true, value: e.target.value } })} />
                     )}
                   </div>
+                  {groupsFor(od).map((g) => {
+                    const gd = od.groups[g.id] ?? { on: false, value: "" };
+                    const gName = groupName(g.id);
+                    const setGroup = (v: { on: boolean; value: string }) => setOffer(o.id, { groups: { ...od.groups, [g.id]: v } });
+                    return (
+                      <div key={g.id} className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <Checkbox id={`rule-group-${o.id}-${g.id}`} checked={gd.on} onCheckedChange={(v) => setGroup({ ...gd, on: v === true })} />
+                          <Label htmlFor={`rule-group-${o.id}-${g.id}`}>{t("rules.setGroupPrice", { group: gName })}</Label>
+                        </div>
+                        {gd.on && (
+                          <Input inputMode="decimal" className="w-32" aria-label={`${t("rules.setGroupPrice", { group: gName })}: ${name}`} aria-invalid={parseMoney(gd.value) === null}
+                            value={gd.value} onChange={(e) => setGroup({ on: true, value: e.target.value })} />
+                        )}
+                      </div>
+                    );
+                  })}
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2">
                       <Checkbox id={`rule-avail-${o.id}`} checked={od.available.on} onCheckedChange={(v) => setOffer(o.id, { available: { ...od.available, on: v === true } })} />
@@ -359,8 +390,8 @@ function EditorBody({ event, rules, mode, onSaved, onConflict }: {
                     <li key={ch.occurrenceId}>
                       <span className="font-medium">{fmt(ch.startUtc)}</span>
                       {ch.fields.map((f) => (
-                        <span key={`${f.field}:${f.targetRef ?? ""}`} className="block pl-3 text-muted-foreground">
-                          {t(`rules.field.${f.field}`)}{f.targetRef && ` (${offerName(allOffers.find((o) => o.id === f.targetRef), i18n.language)})`}: {show(f.field, f.from)} → {show(f.field, f.to)}
+                        <span key={`${f.field}:${f.targetRef ?? ""}:${f.group ?? ""}`} className="block pl-3 text-muted-foreground">
+                          {t(`rules.field.${f.field}`)}{f.targetRef && ` (${offerName(allOffers.find((o) => o.id === f.targetRef), i18n.language)}${f.group ? `, ${groupName(f.group)}` : ""})`}: {show(f.field, f.from)} → {show(f.field, f.to)}
                         </span>
                       ))}
                     </li>

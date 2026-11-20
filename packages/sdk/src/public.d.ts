@@ -89,6 +89,8 @@ export interface operations {
             query: {
                 /** @description Falls back to the account's default locale */
                 locale?: string;
+                /** @description A user group's code (docs/user-groups.md): prices are that group's and offers it may not buy are left out. A view of public data, not access control; the reservations API enforces access */
+                group?: string;
                 /** @description Default: now. Occurrences still running at this time are included. */
                 from?: string;
                 to?: string;
@@ -204,6 +206,26 @@ export interface operations {
                                  * @description End of the sales window, at the start at the latest
                                  */
                                 closesAt: string;
+                                /** @description User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it */
+                                access: {
+                                    groups: {
+                                        /** @description The user group's stable code, as the frontend knows it */
+                                        code: string;
+                                        name: string;
+                                    }[];
+                                };
+                                /** @description User groups with a price of their own at this occurrence that may buy the offer (docs/user-groups.md). Other groups pay price */
+                                groupPrices: {
+                                    /** @description The user group's code */
+                                    group: string;
+                                    price: {
+                                        /** @description Minor units (øre), VAT included */
+                                        amount: number;
+                                        currency: string;
+                                        /** @enum {boolean} */
+                                        vatIncluded: true;
+                                    };
+                                }[];
                                 /** @description Channel keys only: the channel's product for this offer; null: none mapped, so not on sale */
                                 sku?: string | null;
                                 /** @description Channel keys only */
@@ -231,6 +253,14 @@ export interface operations {
                                 timezone: string;
                                 externalRefs: {
                                     [key: string]: string;
+                                };
+                                /** @description User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it */
+                                access: {
+                                    groups: {
+                                        /** @description The user group's stable code, as the frontend knows it */
+                                        code: string;
+                                        name: string;
+                                    }[];
                                 };
                             };
                         }[];
@@ -354,6 +384,14 @@ export interface operations {
                             externalRefs: {
                                 [key: string]: string;
                             };
+                            /** @description User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it */
+                            access: {
+                                groups: {
+                                    /** @description The user group's stable code, as the frontend knows it */
+                                    code: string;
+                                    name: string;
+                                }[];
+                            };
                             tags: {
                                 /** Format: uuid */
                                 id: string;
@@ -442,6 +480,8 @@ export interface operations {
             query?: {
                 /** @description Falls back to the account's default locale */
                 locale?: string;
+                /** @description A user group's code (docs/user-groups.md): prices are that group's and offers it may not buy are left out. A view of public data, not access control; the reservations API enforces access */
+                group?: string;
                 occurrencesFrom?: string;
                 occurrencesTo?: string;
             };
@@ -479,6 +519,14 @@ export interface operations {
                             timezone: string;
                             externalRefs: {
                                 [key: string]: string;
+                            };
+                            /** @description User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it */
+                            access: {
+                                groups: {
+                                    /** @description The user group's stable code, as the frontend knows it */
+                                    code: string;
+                                    name: string;
+                                }[];
                             };
                             tags: {
                                 /** Format: uuid */
@@ -576,6 +624,26 @@ export interface operations {
                                      * @description End of the sales window, at the start at the latest
                                      */
                                     closesAt: string;
+                                    /** @description User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it */
+                                    access: {
+                                        groups: {
+                                            /** @description The user group's stable code, as the frontend knows it */
+                                            code: string;
+                                            name: string;
+                                        }[];
+                                    };
+                                    /** @description User groups with a price of their own at this occurrence that may buy the offer (docs/user-groups.md). Other groups pay price */
+                                    groupPrices: {
+                                        /** @description The user group's code */
+                                        group: string;
+                                        price: {
+                                            /** @description Minor units (øre), VAT included */
+                                            amount: number;
+                                            currency: string;
+                                            /** @enum {boolean} */
+                                            vatIncluded: true;
+                                        };
+                                    }[];
                                     /** @description Channel keys only: the channel's product for this offer; null: none mapped, so not on sale */
                                     sku?: string | null;
                                     /** @description Channel keys only */

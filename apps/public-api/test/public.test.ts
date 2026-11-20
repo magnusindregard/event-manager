@@ -12,6 +12,7 @@ let app: Awaited<ReturnType<typeof buildPublicApp>>;
 let keyA: string;
 let keyB: string;
 let previewA: string;
+let ctxA: ActorContext;
 const ids: Record<string, string> = {};
 
 const DAY = 86_400_000;
@@ -41,6 +42,7 @@ beforeAll(async () => {
   app = await buildPublicApp({ db, rateLimit: { capacity: 1000, refillPerSecond: 1000 } });
 
   const a = await bootstrap("pub-a");
+  ctxA = a;
   const b = await bootstrap("pub-b");
 
   await withTenant(db, a, async (tx) => {
@@ -281,6 +283,37 @@ describe("/public/v1", () => {
     await withTenant(db, c, (tx) => offers.updateChannel(tx, c, setup.web.id, setup.web.version, { active: false }));
     const stopped = await get(url, { authorization: `Bearer ${setup.sk}` });
     expect(stopped).toMatchObject({ status: 401, body: { code: "channel_inactive" } });
+  });
+
+  it("flags events restricted to user groups and keeps them cacheable (docs/user-groups.md)", async () => {
+    const a = ctxA;
+    await withTenant(db, a, async (tx) => {
+      const member = await catalog.createUserGroup(tx, a, { code: "member", names: { nb: "Medlem", en: "Member" } });
+      const ev = await catalog.createEvent(tx, a, { slug: "members-evening", translations: { nb: { title: "Medlemskveld" } }, accessGroupIds: [member.id] });
+      await catalog.transitionEvent(tx, a, ev.id, ev.version, "publish");
+      await catalog.createOccurrence(tx, a, ev.id, { startUtc: inDays(4) });
+    });
+    const list = await get(`/public/v1/events?key=${keyA}&locale=en`);
+    expect(list.headers["cache-control"]).toBe("public, max-age=0, s-maxage=30, stale-while-revalidate=300");
+    const items = list.body.items as { slug: string; access: { groups: { code: string; name: string }[] } }[];
+    expect(items.find((e) => e.slug === "members-evening")?.access).toEqual({ groups: [{ code: "member", name: "Member" }] });
+    expect(items.find((e) => e.slug === "guided-tour")?.access).toEqual({ groups: [] });
+    const occs = await get(`/public/v1/occurrences?key=${keyA}&event=members-evening`);
+    expect(occs.body.items[0].event.access.groups).toEqual([{ code: "member", name: "Medlem" }]);
+  });
+
+  it("serves one group's view with ?group=, cached separately, and refuses unknown codes", async () => {
+    const plain = await get(`/public/v1/occurrences?key=${keyA}`);
+    const grouped = await get(`/public/v1/occurrences?key=${keyA}&group=member`);
+    expect(grouped.status).toBe(200);
+    expect(grouped.headers["cache-control"]).toBe("public, max-age=0, s-maxage=30, stale-while-revalidate=300");
+    expect(grouped.body.items.length).toBeGreaterThan(0);
+    expect(grouped.headers.etag).toBeTruthy();
+    expect(plain.headers.etag).toBeTruthy();
+    const unknown = await get(`/public/v1/occurrences?key=${keyA}&group=nobody`);
+    expect(unknown).toMatchObject({ status: 400, body: { code: "unknown_group" } });
+    expect(unknown.headers["cache-control"]).toBe("no-store");
+    expect((await get(`/public/v1/events/guided-tour?key=${keyA}&group=nobody`)).status).toBe(400);
   });
 
   it("rate-limits per key", async () => {

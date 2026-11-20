@@ -49,6 +49,8 @@ export interface ReserveInput {
   confirm?: boolean;
   externalOrderRef?: string;
   buyer?: BuyerInput | null;
+  /** The buyer's user group by code (docs/user-groups.md), asserted by the connector. */
+  group?: string | null;
 }
 
 export interface ConfirmInput {
@@ -83,6 +85,8 @@ export interface ReservationLine {
   occurrenceStartUtc: Date;
   timezone: string;
   locationName: string | null;
+  /** The user group's code the line was sold under. */
+  group: string | null;
   signature: string | null;
 }
 
@@ -114,6 +118,8 @@ export interface Reservation {
   externalRef: string | null;
   externalOrderRef: string | null;
   locale: string;
+  /** The buyer's user group (its code). */
+  group: string | null;
   buyer: { name: string | null; email: string | null; locale: string | null } | null;
   lines: ReservationLine[];
   total: { amount: number; currency: string };
@@ -136,12 +142,12 @@ const invalid = (field: string, message: string) => new DomainError("validation_
 
 const columns = [
   "id", "channel_id", "status", "expires_at", "external_ref", "external_order_ref", "locale", "buyer_name", "buyer_email", "buyer_locale",
-  "confirmed_at", "cancelled_at", "anonymised_at", "version", "created_at", "updated_at",
+  "confirmed_at", "cancelled_at", "anonymised_at", "group_id", "group_code", "version", "created_at", "updated_at",
 ] as const;
 type Row = {
   id: string; channel_id: string; status: ReservationStatus; expires_at: Date; external_ref: string | null; external_order_ref: string | null; locale: string;
   buyer_name: string | null; buyer_email: string | null; buyer_locale: string | null; confirmed_at: Date | null; cancelled_at: Date | null;
-  anonymised_at: Date | null; version: number; created_at: Date; updated_at: Date;
+  anonymised_at: Date | null; group_id: string | null; group_code: string | null; version: number; created_at: Date; updated_at: Date;
 };
 
 /** Pure: held past its expiry reads as expired. */
@@ -189,7 +195,7 @@ interface Sellable {
  * the line index, so the shop can point at the line. Used on reserve and again on extend.
  */
 async function sellable(
-  tx: Tx, channelId: string, line: { occurrenceId: string; offerId: string }, index: number, now: Date,
+  tx: Tx, channelId: string, line: { occurrenceId: string; offerId: string }, index: number, now: Date, group: catalog.GroupRef | null,
   cache: { offers: Map<string, offers.Offer | null>; targets: Map<string, catalog.RegistrationTarget | null>; skus: Map<string, string> },
 ): Promise<Sellable> {
   const details = { line: index, occurrenceId: line.occurrenceId, offerId: line.offerId };
@@ -204,6 +210,12 @@ async function sellable(
   if (!offer.channelIds.includes(channelId)) throw new DomainError("channel_not_allowed", "The offer is not sold in this channel", details);
   const sku = cache.skus.get(offer.vatClassId);
   if (!sku) throw new DomainError("no_sku", "The channel has no SKU for the offer's VAT class", details);
+  // Access (docs/user-groups.md): the event's and the offer's lists, each empty or holding the buyer's group.
+  for (const [list, what] of [[target.event.accessGroupIds, "event"], [offer.accessGroupIds, "offer"]] as const) {
+    if (catalog.admits(list.map((id) => ({ id })), group?.id ?? null)) continue;
+    if (!group) throw new DomainError("group_required", `The ${what} is for some user groups only; give the buyer's group`, { ...details, groups: await groupCodes(tx, list) });
+    throw new DomainError("group_not_allowed", `The ${what} is not for this user group`, { ...details, group: group.code, groups: await groupCodes(tx, list) });
+  }
   const e = target.event;
   if (e.admissionMode !== "tickets" || e.status !== "published" || target.occurrence.status !== "scheduled" || !target.pool) {
     throw new DomainError("not_on_sale", "The occurrence is not on sale", details);
@@ -214,7 +226,22 @@ async function sellable(
   if (!offers.windowOpen(w, now)) {
     throw new DomainError("not_on_sale", "The offer is not on sale now", { ...details, opensAt: w.opensAt?.toISOString() ?? null, closesAt: w.closesAt.toISOString() });
   }
-  return { offer, target, sku, unitPrice: price.price.value };
+  // The buyer's group pays its own price where one applies (docs/user-groups.md), else the general one.
+  const own = group ? (await offers.loadGroupPrices(tx, [target.occurrence.id])).get(target.occurrence.id)?.get(offer.id)?.get(group.id) : undefined;
+  return { offer, target, sku, unitPrice: own?.value ?? price.price.value };
+}
+
+async function groupCodes(tx: Tx, ids: readonly string[]): Promise<string[]> {
+  if (!ids.length) return [];
+  return (await tx.selectFrom("catalog.user_group").select("code").where("id", "in", [...ids]).orderBy("sort_order").orderBy("code").execute()).map((g) => g.code);
+}
+
+/** The buyer's group by code: active, in this account. Throws unknown_group. */
+async function buyerGroup(tx: Tx, code: string | null | undefined): Promise<catalog.GroupRef | null> {
+  if (code === undefined || code === null) return null;
+  const g = typeof code === "string" ? await catalog.groupByCode(tx, code) : null;
+  if (!g) throw new DomainError("unknown_group", "No active user group has this code", { field: "group", group: code });
+  return g;
 }
 
 async function skusOf(tx: Tx, channelId: string): Promise<Map<string, string>> {
@@ -272,6 +299,7 @@ export async function reserve(tx: Tx, caller: ChannelCaller, input: ReserveInput
   const externalOrderRef = input.confirm ? ref("externalOrderRef", input.externalOrderRef, true) : null;
   const locale = await registration.pickLocale(tx, input.locale);
   const account = await getAccount(tx);
+  const group = await buyerGroup(tx, input.group);
 
   // Lock first, then read what to freeze: hand edits and regeneration lock occurrences for
   // update, so one committed before this is seen below and one started after waits for us.
@@ -279,7 +307,7 @@ export async function reserve(tx: Tx, caller: ChannelCaller, input: ReserveInput
   const cache = await newCache(tx, channel.id);
   const priced = [];
   for (const [i, l] of lines.entries()) {
-    const s = await sellable(tx, channel.id, l, i, now, cache);
+    const s = await sellable(tx, channel.id, l, i, now, group, cache);
     if (l.quantity < s.offer.minPerReservation || l.quantity > s.offer.maxPerReservation) {
       throw new DomainError("quantity_out_of_range", `Buy ${s.offer.minPerReservation}–${s.offer.maxPerReservation} of this offer`, {
         line: i, occurrenceId: l.occurrenceId, offerId: l.offerId, min: s.offer.minPerReservation, max: s.offer.maxPerReservation,
@@ -291,7 +319,7 @@ export async function reserve(tx: Tx, caller: ChannelCaller, input: ReserveInput
 
   const id = newId();
   const expiresAt = new Date(now.getTime() + channel.holdMinutes * MIN);
-  await tx.insertInto("sales.reservation").values({ id, tenant_id: caller.tenantId, channel_id: channel.id, status: "held", expires_at: expiresAt, external_ref: externalRef, locale, created_at: now }).execute();
+  await tx.insertInto("sales.reservation").values({ id, tenant_id: caller.tenantId, channel_id: channel.id, status: "held", expires_at: expiresAt, external_ref: externalRef, locale, group_id: group?.id ?? null, group_code: group?.code ?? null, created_at: now }).execute();
 
   // Places per occurrence, held per pool in id order, all or none.
   const places = new Map<string, number>();
@@ -322,7 +350,7 @@ export async function reserve(tx: Tx, caller: ChannelCaller, input: ReserveInput
       quantity: p.input.quantity, places_per_unit: p.offer.placesPerUnit, offer_code: p.offer.code, unit_price: p.unitPrice, currency: catalog.CURRENCY,
       vat_class_code: v.code, vat_rate_pct: v.ratePct, external_sku: p.sku,
       line_name: lineName(offerName(p.offer), title(p.target), shortWhen(locale, tz, p.target.occurrence.startUtc), location),
-      occurrence_start_utc: p.target.occurrence.startUtc, timezone: tz, location_name: location,
+      occurrence_start_utc: p.target.occurrence.startUtc, timezone: tz, location_name: location, group_code: group?.code ?? null,
     };
   })).execute();
 
@@ -330,7 +358,7 @@ export async function reserve(tx: Tx, caller: ChannelCaller, input: ReserveInput
   await emit(tx, caller.tenantId, {
     type: "reservation.held.v1", subject: `reservation/${id}`,
     data: {
-      reservationId: id, channelId: channel.id, expiresAt: expiresAt.toISOString(), total: { amount: total, currency: catalog.CURRENCY },
+      reservationId: id, channelId: channel.id, group: group?.code ?? null, expiresAt: expiresAt.toISOString(), total: { amount: total, currency: catalog.CURRENCY },
       lines: priced.map((p) => ({ occurrenceId: p.input.occurrenceId, offerId: p.offer.id, quantity: p.input.quantity, unitPrice: p.unitPrice })),
     },
   });
@@ -366,7 +394,7 @@ async function view(tx: Tx, caller: Reader, id: string, now: Date): Promise<Rese
   const lines: ReservationLine[] = lineRows.map((l) => ({
     id: l.id, lineNo: l.line_no, occurrenceId: l.occurrence_id, offerId: l.offer_id, offerCode: l.offer_code, quantity: l.quantity, placesPerUnit: l.places_per_unit,
     unitPrice: l.unit_price, amount: l.unit_price * l.quantity, currency: l.currency, vatClassCode: l.vat_class_code, vatRatePct: Number(l.vat_rate_pct),
-    externalSku: l.external_sku, name: l.line_name, occurrenceStartUtc: l.occurrence_start_utc, timezone: l.timezone, locationName: l.location_name, signature: null,
+    externalSku: l.external_sku, name: l.line_name, occurrenceStartUtc: l.occurrence_start_utc, timezone: l.timezone, locationName: l.location_name, group: l.group_code, signature: null,
   }));
   const key = caller.signingKey;
   if (key) for (const l of lines) l.signature = sign(key, lineSignatureText(id, l));
@@ -384,7 +412,7 @@ async function view(tx: Tx, caller: Reader, id: string, now: Date): Promise<Rese
   const res: Reservation = {
     id: r.id, channelId: r.channel_id, status: effectiveStatus({ status: r.status, expiresAt: r.expires_at }, now), expiresAt: r.expires_at,
     extendLimitAt: new Date(r.created_at.getTime() + MAX_HOLD_MINUTES * MIN),
-    externalRef: r.external_ref, externalOrderRef: r.external_order_ref, locale: r.locale,
+    externalRef: r.external_ref, externalOrderRef: r.external_order_ref, locale: r.locale, group: r.group_code,
     buyer: r.buyer_name || r.buyer_email || r.buyer_locale ? { name: r.buyer_name, email: r.buyer_email, locale: r.buyer_locale } : null,
     lines, total: { amount: lines.reduce((s, l) => s + l.amount, 0), currency: lines[0]?.currency ?? catalog.CURRENCY }, tickets,
     confirmedAt: r.confirmed_at, cancelledAt: r.cancelled_at, anonymisedAt: r.anonymised_at, version: r.version, createdAt: r.created_at, updatedAt: r.updated_at, signature: null,
@@ -415,7 +443,9 @@ export async function extendReservation(tx: Tx, caller: ChannelCaller, id: strin
 
   const lines = await tx.selectFrom("sales.reservation_line").select(["line_no", "occurrence_id", "offer_id"]).where("reservation_id", "=", id).orderBy("line_no").execute();
   const cache = await newCache(tx, channel.id);
-  for (const l of lines) await sellable(tx, channel.id, { occurrenceId: l.occurrence_id, offerId: l.offer_id }, l.line_no - 1, now, cache);
+  // The group must still be active, and still admitted where the lines are.
+  const group = await buyerGroup(tx, row.group_code);
+  for (const l of lines) await sellable(tx, channel.id, { occurrenceId: l.occurrence_id, offerId: l.offer_id }, l.line_no - 1, now, group, cache);
   for (const h of holds) {
     if (!(await inventory.extendHold(tx, h.hold_id, expiresAt))) throw new DomainError("expired", "The reservation has expired");
   }

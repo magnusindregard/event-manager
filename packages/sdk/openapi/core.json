@@ -8053,6 +8053,7 @@
                           "externalRefs",
                           "translations",
                           "tagIds",
+                          "accessGroupIds",
                           "version",
                           "createdAt",
                           "updatedAt",
@@ -8287,6 +8288,14 @@
                               "type": "string",
                               "format": "uuid"
                             }
+                          },
+                          "accessGroupIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "description": "User groups that may attend; empty: everyone"
                           },
                           "version": {
                             "type": "integer"
@@ -8729,6 +8738,16 @@
                     "uniqueItems": true,
                     "maxItems": 100
                   },
+                  "accessGroupIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "uniqueItems": true,
+                    "maxItems": 50,
+                    "description": "Only these user groups may attend; empty: everyone. Replaces the list"
+                  },
                   "translations": {
                     "type": "object",
                     "minProperties": 1,
@@ -8813,6 +8832,7 @@
                     "externalRefs",
                     "translations",
                     "tagIds",
+                    "accessGroupIds",
                     "version",
                     "createdAt",
                     "updatedAt"
@@ -9045,6 +9065,14 @@
                         "type": "string",
                         "format": "uuid"
                       }
+                    },
+                    "accessGroupIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "description": "User groups that may attend; empty: everyone"
                     },
                     "version": {
                       "type": "integer"
@@ -9556,6 +9584,7 @@
                     "externalRefs",
                     "translations",
                     "tagIds",
+                    "accessGroupIds",
                     "version",
                     "createdAt",
                     "updatedAt"
@@ -9788,6 +9817,14 @@
                         "type": "string",
                         "format": "uuid"
                       }
+                    },
+                    "accessGroupIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "description": "User groups that may attend; empty: everyone"
                     },
                     "version": {
                       "type": "integer"
@@ -10204,6 +10241,16 @@
                     "uniqueItems": true,
                     "maxItems": 100
                   },
+                  "accessGroupIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "uniqueItems": true,
+                    "maxItems": 50,
+                    "description": "Only these user groups may attend; empty: everyone. Replaces the list"
+                  },
                   "translations": {
                     "type": "object",
                     "description": "Per locale: replaces the translation, or null removes it",
@@ -10294,6 +10341,7 @@
                     "externalRefs",
                     "translations",
                     "tagIds",
+                    "accessGroupIds",
                     "version",
                     "createdAt",
                     "updatedAt"
@@ -10526,6 +10574,14 @@
                         "type": "string",
                         "format": "uuid"
                       }
+                    },
+                    "accessGroupIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "description": "User groups that may attend; empty: everyone"
                     },
                     "version": {
                       "type": "integer"
@@ -11038,6 +11094,7 @@
                     "externalRefs",
                     "translations",
                     "tagIds",
+                    "accessGroupIds",
                     "version",
                     "createdAt",
                     "updatedAt"
@@ -11270,6 +11327,14 @@
                         "type": "string",
                         "format": "uuid"
                       }
+                    },
+                    "accessGroupIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "description": "User groups that may attend; empty: everyone"
                     },
                     "version": {
                       "type": "integer"
@@ -11782,6 +11847,7 @@
                     "externalRefs",
                     "translations",
                     "tagIds",
+                    "accessGroupIds",
                     "version",
                     "createdAt",
                     "updatedAt"
@@ -12014,6 +12080,14 @@
                         "type": "string",
                         "format": "uuid"
                       }
+                    },
+                    "accessGroupIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "description": "User groups that may attend; empty: everyone"
                     },
                     "version": {
                       "type": "integer"
@@ -12526,6 +12600,7 @@
                     "externalRefs",
                     "translations",
                     "tagIds",
+                    "accessGroupIds",
                     "version",
                     "createdAt",
                     "updatedAt"
@@ -12758,6 +12833,14 @@
                         "type": "string",
                         "format": "uuid"
                       }
+                    },
+                    "accessGroupIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "description": "User groups that may attend; empty: everyone"
                     },
                     "version": {
                       "type": "integer"
@@ -13270,6 +13353,7 @@
                     "externalRefs",
                     "translations",
                     "tagIds",
+                    "accessGroupIds",
                     "version",
                     "createdAt",
                     "updatedAt"
@@ -13502,6 +13586,14 @@
                         "type": "string",
                         "format": "uuid"
                       }
+                    },
+                    "accessGroupIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "description": "User groups that may attend; empty: everyone"
                     },
                     "version": {
                       "type": "integer"
@@ -20118,6 +20210,14 @@
                                       "type": "string",
                                       "format": "uuid"
                                     },
+                                    "targetGroup": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "format": "uuid",
+                                      "description": "A user group: the effect sets that group's price only. Null or left out: everyone's price"
+                                    },
                                     "value": {
                                       "type": "object",
                                       "required": [
@@ -20134,7 +20234,7 @@
                                       "additionalProperties": false
                                     }
                                   },
-                                  "description": "Sets the offer's price. targetRef: the offer id"
+                                  "description": "Sets the offer's price. targetRef: the offer id; targetGroup: a user group, for its price only"
                                 },
                                 {
                                   "type": "object",
@@ -20659,6 +20759,14 @@
                               "type": "string",
                               "format": "uuid"
                             },
+                            "targetGroup": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "format": "uuid",
+                              "description": "A user group: the effect sets that group's price only. Null or left out: everyone's price"
+                            },
                             "value": {
                               "type": "object",
                               "required": [
@@ -20676,7 +20784,7 @@
                             }
                           },
                           "additionalProperties": false,
-                          "description": "Sets the offer's price. targetRef: the offer id"
+                          "description": "Sets the offer's price. targetRef: the offer id; targetGroup: a user group, for its price only"
                         },
                         {
                           "type": "object",
@@ -21039,6 +21147,14 @@
                                         "type": "string",
                                         "format": "uuid"
                                       },
+                                      "targetGroup": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ],
+                                        "format": "uuid",
+                                        "description": "A user group: the effect sets that group's price only. Null or left out: everyone's price"
+                                      },
                                       "value": {
                                         "type": "object",
                                         "required": [
@@ -21055,7 +21171,7 @@
                                         "additionalProperties": false
                                       }
                                     },
-                                    "description": "Sets the offer's price. targetRef: the offer id"
+                                    "description": "Sets the offer's price. targetRef: the offer id; targetGroup: a user group, for its price only"
                                   },
                                   {
                                     "type": "object",
@@ -21159,6 +21275,7 @@
                                   "required": [
                                     "field",
                                     "targetRef",
+                                    "group",
                                     "from",
                                     "to"
                                   ],
@@ -21217,6 +21334,14 @@
                                       ],
                                       "format": "uuid",
                                       "description": "The offer of a price or offerAvailable field; null otherwise"
+                                    },
+                                    "group": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "format": "uuid",
+                                      "description": "The user group of a group price; null otherwise. A group without a price of its own shows the general price"
                                     },
                                     "from": {
                                       "type": "object",
@@ -21313,6 +21438,7 @@
                               "startUtc",
                               "field",
                               "targetRef",
+                              "group",
                               "ruleIds"
                             ],
                             "properties": {
@@ -21378,6 +21504,14 @@
                                 ],
                                 "format": "uuid",
                                 "description": "The offer of a price or offerAvailable field; null otherwise"
+                              },
+                              "group": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uuid",
+                                "description": "The user group of a group price; null otherwise. A group without a price of its own shows the general price"
                               },
                               "ruleIds": {
                                 "type": "array",
@@ -21708,6 +21842,14 @@
                                         "type": "string",
                                         "format": "uuid"
                                       },
+                                      "targetGroup": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ],
+                                        "format": "uuid",
+                                        "description": "A user group: the effect sets that group's price only. Null or left out: everyone's price"
+                                      },
                                       "value": {
                                         "type": "object",
                                         "required": [
@@ -21724,7 +21866,7 @@
                                         "additionalProperties": false
                                       }
                                     },
-                                    "description": "Sets the offer's price. targetRef: the offer id"
+                                    "description": "Sets the offer's price. targetRef: the offer id; targetGroup: a user group, for its price only"
                                   },
                                   {
                                     "type": "object",
@@ -21828,6 +21970,7 @@
                                   "required": [
                                     "field",
                                     "targetRef",
+                                    "group",
                                     "from",
                                     "to"
                                   ],
@@ -21886,6 +22029,14 @@
                                       ],
                                       "format": "uuid",
                                       "description": "The offer of a price or offerAvailable field; null otherwise"
+                                    },
+                                    "group": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "format": "uuid",
+                                      "description": "The user group of a group price; null otherwise. A group without a price of its own shows the general price"
                                     },
                                     "from": {
                                       "type": "object",
@@ -21982,6 +22133,7 @@
                               "startUtc",
                               "field",
                               "targetRef",
+                              "group",
                               "ruleIds"
                             ],
                             "properties": {
@@ -22047,6 +22199,14 @@
                                 ],
                                 "format": "uuid",
                                 "description": "The offer of a price or offerAvailable field; null otherwise"
+                              },
+                              "group": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uuid",
+                                "description": "The user group of a group price; null otherwise. A group without a price of its own shows the general price"
                               },
                               "ruleIds": {
                                 "type": "array",
@@ -22839,6 +22999,14 @@
                                 "type": "string",
                                 "format": "uuid"
                               },
+                              "targetGroup": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uuid",
+                                "description": "A user group: the effect sets that group's price only. Null or left out: everyone's price"
+                              },
                               "value": {
                                 "type": "object",
                                 "required": [
@@ -22855,7 +23023,7 @@
                                 "additionalProperties": false
                               }
                             },
-                            "description": "Sets the offer's price. targetRef: the offer id"
+                            "description": "Sets the offer's price. targetRef: the offer id; targetGroup: a user group, for its price only"
                           },
                           {
                             "type": "object",
@@ -23372,6 +23540,14 @@
                               "type": "string",
                               "format": "uuid"
                             },
+                            "targetGroup": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "format": "uuid",
+                              "description": "A user group: the effect sets that group's price only. Null or left out: everyone's price"
+                            },
                             "value": {
                               "type": "object",
                               "required": [
@@ -23389,7 +23565,7 @@
                             }
                           },
                           "additionalProperties": false,
-                          "description": "Sets the offer's price. targetRef: the offer id"
+                          "description": "Sets the offer's price. targetRef: the offer id; targetGroup: a user group, for its price only"
                         },
                         {
                           "type": "object",
@@ -23742,6 +23918,14 @@
                                         "type": "string",
                                         "format": "uuid"
                                       },
+                                      "targetGroup": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ],
+                                        "format": "uuid",
+                                        "description": "A user group: the effect sets that group's price only. Null or left out: everyone's price"
+                                      },
                                       "value": {
                                         "type": "object",
                                         "required": [
@@ -23758,7 +23942,7 @@
                                         "additionalProperties": false
                                       }
                                     },
-                                    "description": "Sets the offer's price. targetRef: the offer id"
+                                    "description": "Sets the offer's price. targetRef: the offer id; targetGroup: a user group, for its price only"
                                   },
                                   {
                                     "type": "object",
@@ -23862,6 +24046,7 @@
                                   "required": [
                                     "field",
                                     "targetRef",
+                                    "group",
                                     "from",
                                     "to"
                                   ],
@@ -23920,6 +24105,14 @@
                                       ],
                                       "format": "uuid",
                                       "description": "The offer of a price or offerAvailable field; null otherwise"
+                                    },
+                                    "group": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "format": "uuid",
+                                      "description": "The user group of a group price; null otherwise. A group without a price of its own shows the general price"
                                     },
                                     "from": {
                                       "type": "object",
@@ -24016,6 +24209,7 @@
                               "startUtc",
                               "field",
                               "targetRef",
+                              "group",
                               "ruleIds"
                             ],
                             "properties": {
@@ -24081,6 +24275,14 @@
                                 ],
                                 "format": "uuid",
                                 "description": "The offer of a price or offerAvailable field; null otherwise"
+                              },
+                              "group": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uuid",
+                                "description": "The user group of a group price; null otherwise. A group without a price of its own shows the general price"
                               },
                               "ruleIds": {
                                 "type": "array",
@@ -24895,6 +25097,14 @@
                                         "type": "string",
                                         "format": "uuid"
                                       },
+                                      "targetGroup": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ],
+                                        "format": "uuid",
+                                        "description": "A user group: the effect sets that group's price only. Null or left out: everyone's price"
+                                      },
                                       "value": {
                                         "type": "object",
                                         "required": [
@@ -24911,7 +25121,7 @@
                                         "additionalProperties": false
                                       }
                                     },
-                                    "description": "Sets the offer's price. targetRef: the offer id"
+                                    "description": "Sets the offer's price. targetRef: the offer id; targetGroup: a user group, for its price only"
                                   },
                                   {
                                     "type": "object",
@@ -25015,6 +25225,7 @@
                                   "required": [
                                     "field",
                                     "targetRef",
+                                    "group",
                                     "from",
                                     "to"
                                   ],
@@ -25073,6 +25284,14 @@
                                       ],
                                       "format": "uuid",
                                       "description": "The offer of a price or offerAvailable field; null otherwise"
+                                    },
+                                    "group": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ],
+                                      "format": "uuid",
+                                      "description": "The user group of a group price; null otherwise. A group without a price of its own shows the general price"
                                     },
                                     "from": {
                                       "type": "object",
@@ -25169,6 +25388,7 @@
                               "startUtc",
                               "field",
                               "targetRef",
+                              "group",
                               "ruleIds"
                             ],
                             "properties": {
@@ -25234,6 +25454,14 @@
                                 ],
                                 "format": "uuid",
                                 "description": "The offer of a price or offerAvailable field; null otherwise"
+                              },
+                              "group": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ],
+                                "format": "uuid",
+                                "description": "The user group of a group price; null otherwise. A group without a price of its own shows the general price"
                               },
                               "ruleIds": {
                                 "type": "array",
@@ -31347,6 +31575,8 @@
                           "offSaleAt",
                           "channelIds",
                           "channelsWithoutSku",
+                          "accessGroupIds",
+                          "groupPrices",
                           "translations",
                           "version",
                           "createdAt",
@@ -31449,6 +31679,37 @@
                               "format": "uuid"
                             },
                             "description": "Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet"
+                          },
+                          "accessGroupIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "description": "User groups that may buy the offer; empty: everyone the event admits"
+                          },
+                          "groupPrices": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "groupId",
+                                "amount"
+                              ],
+                              "properties": {
+                                "groupId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "amount": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 100000000,
+                                  "description": "Minor units (øre), VAT included"
+                                }
+                              }
+                            },
+                            "description": "The offer's own prices per user group; groups not listed pay the general price"
                           },
                           "translations": {
                             "type": "object",
@@ -31801,6 +32062,41 @@
                     ],
                     "format": "date-time"
                   },
+                  "accessGroupIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "uniqueItems": true,
+                    "maxItems": 50,
+                    "description": "Only these user groups may buy the offer; empty: everyone the event admits. Replaces the list"
+                  },
+                  "groupPrices": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "groupId",
+                        "amount"
+                      ],
+                      "properties": {
+                        "groupId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "amount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000000,
+                          "description": "Minor units (øre), VAT included"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "maxItems": 50,
+                    "description": "The offer's own price per user group; groups not listed pay the general price. Replaces the list"
+                  },
                   "channelIds": {
                     "type": "array",
                     "items": {
@@ -31905,6 +32201,8 @@
                             "offSaleAt",
                             "channelIds",
                             "channelsWithoutSku",
+                            "accessGroupIds",
+                            "groupPrices",
                             "translations",
                             "version",
                             "createdAt",
@@ -32007,6 +32305,37 @@
                                 "format": "uuid"
                               },
                               "description": "Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet"
+                            },
+                            "accessGroupIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "description": "User groups that may buy the offer; empty: everyone the event admits"
+                            },
+                            "groupPrices": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "groupId",
+                                  "amount"
+                                ],
+                                "properties": {
+                                  "groupId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "amount": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000000,
+                                    "description": "Minor units (øre), VAT included"
+                                  }
+                                }
+                              },
+                              "description": "The offer's own prices per user group; groups not listed pay the general price"
                             },
                             "translations": {
                               "type": "object",
@@ -32613,6 +32942,8 @@
                           "offSaleAt",
                           "channelIds",
                           "channelsWithoutSku",
+                          "accessGroupIds",
+                          "groupPrices",
                           "translations",
                           "version",
                           "createdAt",
@@ -32715,6 +33046,37 @@
                               "format": "uuid"
                             },
                             "description": "Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet"
+                          },
+                          "accessGroupIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "description": "User groups that may buy the offer; empty: everyone the event admits"
+                          },
+                          "groupPrices": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "groupId",
+                                "amount"
+                              ],
+                              "properties": {
+                                "groupId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "amount": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 100000000,
+                                  "description": "Minor units (øre), VAT included"
+                                }
+                              }
+                            },
+                            "description": "The offer's own prices per user group; groups not listed pay the general price"
                           },
                           "translations": {
                             "type": "object",
@@ -33284,6 +33646,8 @@
                     "offSaleAt",
                     "channelIds",
                     "channelsWithoutSku",
+                    "accessGroupIds",
+                    "groupPrices",
                     "translations",
                     "version",
                     "createdAt",
@@ -33386,6 +33750,37 @@
                         "format": "uuid"
                       },
                       "description": "Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet"
+                    },
+                    "accessGroupIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "description": "User groups that may buy the offer; empty: everyone the event admits"
+                    },
+                    "groupPrices": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "groupId",
+                          "amount"
+                        ],
+                        "properties": {
+                          "groupId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "amount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000000,
+                            "description": "Minor units (øre), VAT included"
+                          }
+                        }
+                      },
+                      "description": "The offer's own prices per user group; groups not listed pay the general price"
                     },
                     "translations": {
                       "type": "object",
@@ -33753,6 +34148,41 @@
                     "maxItems": 50,
                     "description": "Replaces the offer's channels"
                   },
+                  "accessGroupIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "uniqueItems": true,
+                    "maxItems": 50,
+                    "description": "Only these user groups may buy the offer; empty: everyone the event admits. Replaces the list"
+                  },
+                  "groupPrices": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "groupId",
+                        "amount"
+                      ],
+                      "properties": {
+                        "groupId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "amount": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000000,
+                          "description": "Minor units (øre), VAT included"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "maxItems": 50,
+                    "description": "The offer's own price per user group; groups not listed pay the general price. Replaces the list"
+                  },
                   "translations": {
                     "type": "object",
                     "description": "Per locale: replaces the translation, or null removes it",
@@ -33844,6 +34274,8 @@
                             "offSaleAt",
                             "channelIds",
                             "channelsWithoutSku",
+                            "accessGroupIds",
+                            "groupPrices",
                             "translations",
                             "version",
                             "createdAt",
@@ -33946,6 +34378,37 @@
                                 "format": "uuid"
                               },
                               "description": "Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet"
+                            },
+                            "accessGroupIds": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "description": "User groups that may buy the offer; empty: everyone the event admits"
+                            },
+                            "groupPrices": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "groupId",
+                                  "amount"
+                                ],
+                                "properties": {
+                                  "groupId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "amount": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000000,
+                                    "description": "Minor units (øre), VAT included"
+                                  }
+                                }
+                              },
+                              "description": "The offer's own prices per user group; groups not listed pay the general price"
                             },
                             "translations": {
                               "type": "object",
@@ -34990,6 +35453,16 @@
               "type": "string",
               "format": "uuid"
             },
+            "in": "query",
+            "name": "groupId",
+            "required": false,
+            "description": "Also show what this user group pays in each cell (docs/user-groups.md)"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "in": "path",
             "name": "id",
             "required": true
@@ -35035,6 +35508,8 @@
                           "offSaleAt",
                           "channelIds",
                           "channelsWithoutSku",
+                          "accessGroupIds",
+                          "groupPrices",
                           "translations",
                           "version",
                           "createdAt",
@@ -35137,6 +35612,37 @@
                               "format": "uuid"
                             },
                             "description": "Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet"
+                          },
+                          "accessGroupIds": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "description": "User groups that may buy the offer; empty: everyone the event admits"
+                          },
+                          "groupPrices": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "groupId",
+                                "amount"
+                              ],
+                              "properties": {
+                                "groupId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "amount": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 100000000,
+                                  "description": "Minor units (øre), VAT included"
+                                }
+                              }
+                            },
+                            "description": "The offer's own prices per user group; groups not listed pay the general price"
                           },
                           "translations": {
                             "type": "object",
@@ -35341,6 +35847,76 @@
                                       }
                                     }
                                   ]
+                                },
+                                "group": {
+                                  "type": "object",
+                                  "required": [
+                                    "groupId",
+                                    "price",
+                                    "inherited",
+                                    "override"
+                                  ],
+                                  "properties": {
+                                    "groupId": {
+                                      "type": "string",
+                                      "format": "uuid"
+                                    },
+                                    "price": {
+                                      "type": "object",
+                                      "required": [
+                                        "value",
+                                        "source",
+                                        "ruleId"
+                                      ],
+                                      "properties": {
+                                        "value": {
+                                          "type": "integer"
+                                        },
+                                        "source": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "enum": [
+                                                "default"
+                                              ]
+                                            },
+                                            {
+                                              "type": "string",
+                                              "enum": [
+                                                "rule"
+                                              ]
+                                            },
+                                            {
+                                              "type": "string",
+                                              "enum": [
+                                                "override"
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        "ruleId": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ],
+                                          "format": "uuid"
+                                        }
+                                      },
+                                      "description": "What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source"
+                                    },
+                                    "inherited": {
+                                      "type": "boolean",
+                                      "description": "No group setting applies here, so the group pays the general price"
+                                    },
+                                    "override": {
+                                      "type": [
+                                        "integer",
+                                        "null"
+                                      ],
+                                      "description": "The group override here, if any"
+                                    }
+                                  },
+                                  "description": "With groupId: what that user group pays (docs/user-groups.md)"
                                 }
                               },
                               "description": "One offer at one occurrence: effective price and availability with their source"
@@ -35530,6 +36106,62 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Default Response",
             "content": {
               "application/json": {
@@ -35782,6 +36414,76 @@
                           }
                         }
                       ]
+                    },
+                    "group": {
+                      "type": "object",
+                      "required": [
+                        "groupId",
+                        "price",
+                        "inherited",
+                        "override"
+                      ],
+                      "properties": {
+                        "groupId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "price": {
+                          "type": "object",
+                          "required": [
+                            "value",
+                            "source",
+                            "ruleId"
+                          ],
+                          "properties": {
+                            "value": {
+                              "type": "integer"
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "default"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "rule"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "override"
+                                  ]
+                                }
+                              ]
+                            },
+                            "ruleId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "format": "uuid"
+                            }
+                          },
+                          "description": "What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source"
+                        },
+                        "inherited": {
+                          "type": "boolean",
+                          "description": "No group setting applies here, so the group pays the general price"
+                        },
+                        "override": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "description": "The group override here, if any"
+                        }
+                      },
+                      "description": "With groupId: what that user group pays (docs/user-groups.md)"
                     }
                   },
                   "description": "One offer at one occurrence: effective price and availability with their source"
@@ -36402,9 +37104,2672 @@
                           }
                         }
                       ]
+                    },
+                    "group": {
+                      "type": "object",
+                      "required": [
+                        "groupId",
+                        "price",
+                        "inherited",
+                        "override"
+                      ],
+                      "properties": {
+                        "groupId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "price": {
+                          "type": "object",
+                          "required": [
+                            "value",
+                            "source",
+                            "ruleId"
+                          ],
+                          "properties": {
+                            "value": {
+                              "type": "integer"
+                            },
+                            "source": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "default"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "rule"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "override"
+                                  ]
+                                }
+                              ]
+                            },
+                            "ruleId": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "format": "uuid"
+                            }
+                          },
+                          "description": "What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source"
+                        },
+                        "inherited": {
+                          "type": "boolean",
+                          "description": "No group setting applies here, so the group pays the general price"
+                        },
+                        "override": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "description": "The group override here, if any"
+                        }
+                      },
+                      "description": "With groupId: what that user group pays (docs/user-groups.md)"
                     }
                   },
                   "description": "One offer at one occurrence: effective price and availability with their source"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/offers/{id}/occurrences/{occurrenceId}/groups/{groupId}/override": {
+      "put": {
+        "operationId": "setGroupOverride",
+        "summary": "Set one user group's price for the offer at one occurrence; it wins over rules and the offer's group price",
+        "tags": [
+          "offers"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000,
+                    "description": "Minor units, VAT included"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "occurrenceId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "groupId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "With groupId: what that user group pays (docs/user-groups.md)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "groupId",
+                    "price",
+                    "inherited",
+                    "override"
+                  ],
+                  "properties": {
+                    "groupId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "price": {
+                      "type": "object",
+                      "required": [
+                        "value",
+                        "source",
+                        "ruleId"
+                      ],
+                      "properties": {
+                        "value": {
+                          "type": "integer"
+                        },
+                        "source": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "default"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "rule"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "override"
+                              ]
+                            }
+                          ]
+                        },
+                        "ruleId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        }
+                      },
+                      "description": "What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source"
+                    },
+                    "inherited": {
+                      "type": "boolean",
+                      "description": "No group setting applies here, so the group pays the general price"
+                    },
+                    "override": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "The group override here, if any"
+                    }
+                  },
+                  "description": "With groupId: what that user group pays (docs/user-groups.md)"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "clearGroupOverride",
+        "summary": "Remove one user group's override at one occurrence; its price comes from rules, its group price or the general price again",
+        "tags": [
+          "offers"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "occurrenceId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "groupId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "With groupId: what that user group pays (docs/user-groups.md)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "groupId",
+                    "price",
+                    "inherited",
+                    "override"
+                  ],
+                  "properties": {
+                    "groupId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "price": {
+                      "type": "object",
+                      "required": [
+                        "value",
+                        "source",
+                        "ruleId"
+                      ],
+                      "properties": {
+                        "value": {
+                          "type": "integer"
+                        },
+                        "source": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "default"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "rule"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "override"
+                              ]
+                            }
+                          ]
+                        },
+                        "ruleId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "format": "uuid"
+                        }
+                      },
+                      "description": "What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source"
+                    },
+                    "inherited": {
+                      "type": "boolean",
+                      "description": "No group setting applies here, so the group pays the general price"
+                    },
+                    "override": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "The group override here, if any"
+                    }
+                  },
+                  "description": "With groupId: what that user group pays (docs/user-groups.md)"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/user-groups": {
+      "get": {
+        "operationId": "listUserGroups",
+        "summary": "The account's user groups, in display order",
+        "tags": [
+          "groups"
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "code",
+                          "names",
+                          "sortOrder",
+                          "archived",
+                          "usedBy",
+                          "version",
+                          "updatedAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "names": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "sortOrder": {
+                            "type": "integer"
+                          },
+                          "archived": {
+                            "type": "boolean"
+                          },
+                          "usedBy": {
+                            "type": "integer",
+                            "description": "Events and offers restricted to the group; it cannot be archived while this is above 0"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createUserGroup",
+        "summary": "Owner only. At most 50 per account",
+        "tags": [
+          "groups"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code",
+                  "names"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$",
+                    "description": "Stable; the frontend and the connector use it. Cannot change"
+                  },
+                  "names": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "maxProperties": 20,
+                    "description": "Name per locale",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "sortOrder": {
+                    "type": "integer",
+                    "minimum": -10000,
+                    "maximum": 10000
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false,
+            "description": "Makes the POST safe to retry for 24 hours"
+          }
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "code",
+                    "names",
+                    "sortOrder",
+                    "archived",
+                    "usedBy",
+                    "version",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "names": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "sortOrder": {
+                      "type": "integer"
+                    },
+                    "archived": {
+                      "type": "boolean"
+                    },
+                    "usedBy": {
+                      "type": "integer",
+                      "description": "Events and offers restricted to the group; it cannot be archived while this is above 0"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/user-groups/{id}": {
+      "patch": {
+        "operationId": "updateUserGroup",
+        "summary": "Rename, reorder, archive or restore a user group (owner). A group events or offers are restricted to cannot be archived. Requires If-Match.",
+        "tags": [
+          "groups"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "names": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "maxProperties": 20,
+                    "description": "Name per locale",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    }
+                  },
+                  "sortOrder": {
+                    "type": "integer",
+                    "minimum": -10000,
+                    "maximum": 10000
+                  },
+                  "archived": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false,
+                "minProperties": 1
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "code",
+                    "names",
+                    "sortOrder",
+                    "archived",
+                    "usedBy",
+                    "version",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "names": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "sortOrder": {
+                      "type": "integer"
+                    },
+                    "archived": {
+                      "type": "boolean"
+                    },
+                    "usedBy": {
+                      "type": "integer",
+                      "description": "Events and offers restricted to the group; it cannot be archived while this is above 0"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
                 }
               }
             }
@@ -53701,7 +57066,7 @@
         "tags": [
           "reservations"
         ],
-        "description": "Reasons: sold_out (with occurrenceId and placesLeft), not_on_sale, offer_unavailable, channel_not_allowed, no_sku, quantity_out_of_range",
+        "description": "Reasons: sold_out (with occurrenceId and placesLeft), not_on_sale, offer_unavailable, channel_not_allowed, no_sku, quantity_out_of_range, unknown_group (no active user group has the code), group_required (the event or offer is for some user groups only), group_not_allowed (not for the buyer's group)",
         "requestBody": {
           "required": true,
           "content": {
@@ -53797,6 +57162,14 @@
                         "description": "Optional, for the ticket page; personal data"
                       }
                     ]
+                  },
+                  "group": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$",
+                    "description": "The buyer's user group, by code (docs/user-groups.md). The connector asserts it after its own sign-in; events and offers restricted to groups need it"
                   }
                 },
                 "additionalProperties": false
@@ -53838,6 +57211,7 @@
                     "externalRef",
                     "externalOrderRef",
                     "locale",
+                    "group",
                     "buyer",
                     "lines",
                     "total",
@@ -53914,6 +57288,13 @@
                       "type": "string",
                       "description": "Language of the line names"
                     },
+                    "group": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The buyer's user group (its code), as the connector gave it on reserve"
+                    },
                     "buyer": {
                       "anyOf": [
                         {
@@ -53971,6 +57352,7 @@
                           "occurrenceStartUtc",
                           "timezone",
                           "locationName",
+                          "group",
                           "signature"
                         ],
                         "properties": {
@@ -54040,12 +57422,19 @@
                               "null"
                             ]
                           },
+                          "group": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The user group's code the line was sold under, frozen at reserve time"
+                          },
                           "signature": {
                             "type": [
                               "string",
                               "null"
                             ],
-                            "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                            "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                           }
                         }
                       }
@@ -54219,7 +57608,7 @@
                         "string",
                         "null"
                       ],
-                      "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                      "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                     }
                   }
                 }
@@ -54660,6 +58049,7 @@
                     "externalRef",
                     "externalOrderRef",
                     "locale",
+                    "group",
                     "buyer",
                     "lines",
                     "total",
@@ -54736,6 +58126,13 @@
                       "type": "string",
                       "description": "Language of the line names"
                     },
+                    "group": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The buyer's user group (its code), as the connector gave it on reserve"
+                    },
                     "buyer": {
                       "anyOf": [
                         {
@@ -54793,6 +58190,7 @@
                           "occurrenceStartUtc",
                           "timezone",
                           "locationName",
+                          "group",
                           "signature"
                         ],
                         "properties": {
@@ -54862,12 +58260,19 @@
                               "null"
                             ]
                           },
+                          "group": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The user group's code the line was sold under, frozen at reserve time"
+                          },
                           "signature": {
                             "type": [
                               "string",
                               "null"
                             ],
-                            "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                            "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                           }
                         }
                       }
@@ -55041,7 +58446,7 @@
                         "string",
                         "null"
                       ],
-                      "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                      "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                     }
                   }
                 }
@@ -55345,6 +58750,7 @@
                     "externalRef",
                     "externalOrderRef",
                     "locale",
+                    "group",
                     "buyer",
                     "lines",
                     "total",
@@ -55421,6 +58827,13 @@
                       "type": "string",
                       "description": "Language of the line names"
                     },
+                    "group": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The buyer's user group (its code), as the connector gave it on reserve"
+                    },
                     "buyer": {
                       "anyOf": [
                         {
@@ -55478,6 +58891,7 @@
                           "occurrenceStartUtc",
                           "timezone",
                           "locationName",
+                          "group",
                           "signature"
                         ],
                         "properties": {
@@ -55547,12 +58961,19 @@
                               "null"
                             ]
                           },
+                          "group": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The user group's code the line was sold under, frozen at reserve time"
+                          },
                           "signature": {
                             "type": [
                               "string",
                               "null"
                             ],
-                            "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                            "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                           }
                         }
                       }
@@ -55726,7 +59147,7 @@
                         "string",
                         "null"
                       ],
-                      "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                      "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                     }
                   }
                 }
@@ -56235,6 +59656,7 @@
                     "externalRef",
                     "externalOrderRef",
                     "locale",
+                    "group",
                     "buyer",
                     "lines",
                     "total",
@@ -56311,6 +59733,13 @@
                       "type": "string",
                       "description": "Language of the line names"
                     },
+                    "group": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The buyer's user group (its code), as the connector gave it on reserve"
+                    },
                     "buyer": {
                       "anyOf": [
                         {
@@ -56368,6 +59797,7 @@
                           "occurrenceStartUtc",
                           "timezone",
                           "locationName",
+                          "group",
                           "signature"
                         ],
                         "properties": {
@@ -56437,12 +59867,19 @@
                               "null"
                             ]
                           },
+                          "group": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The user group's code the line was sold under, frozen at reserve time"
+                          },
                           "signature": {
                             "type": [
                               "string",
                               "null"
                             ],
-                            "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                            "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                           }
                         }
                       }
@@ -56616,7 +60053,7 @@
                         "string",
                         "null"
                       ],
-                      "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                      "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                     }
                   }
                 }
@@ -57102,6 +60539,7 @@
                     "externalRef",
                     "externalOrderRef",
                     "locale",
+                    "group",
                     "buyer",
                     "lines",
                     "total",
@@ -57178,6 +60616,13 @@
                       "type": "string",
                       "description": "Language of the line names"
                     },
+                    "group": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The buyer's user group (its code), as the connector gave it on reserve"
+                    },
                     "buyer": {
                       "anyOf": [
                         {
@@ -57235,6 +60680,7 @@
                           "occurrenceStartUtc",
                           "timezone",
                           "locationName",
+                          "group",
                           "signature"
                         ],
                         "properties": {
@@ -57304,12 +60750,19 @@
                               "null"
                             ]
                           },
+                          "group": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The user group's code the line was sold under, frozen at reserve time"
+                          },
                           "signature": {
                             "type": [
                               "string",
                               "null"
                             ],
-                            "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                            "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                           }
                         }
                       }
@@ -57483,7 +60936,7 @@
                         "string",
                         "null"
                       ],
-                      "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                      "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                     }
                   }
                 }
@@ -57979,7 +61432,8 @@
                           "sold",
                           "cancelled",
                           "places",
-                          "revenue"
+                          "revenue",
+                          "byGroup"
                         ],
                         "properties": {
                           "offerId": {
@@ -58011,6 +61465,33 @@
                           "revenue": {
                             "type": "integer",
                             "description": "Sum of the valid tickets' prices, minor units VAT included"
+                          },
+                          "byGroup": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "group",
+                                "sold",
+                                "revenue"
+                              ],
+                              "properties": {
+                                "group": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The user group's code; null: sold without a group"
+                                },
+                                "sold": {
+                                  "type": "integer"
+                                },
+                                "revenue": {
+                                  "type": "integer"
+                                }
+                              }
+                            },
+                            "description": "Valid tickets and revenue per user group they were sold to; only groups that sold"
                           }
                         }
                       },
@@ -58026,6 +61507,7 @@
                           "status",
                           "externalRef",
                           "externalOrderRef",
+                          "group",
                           "buyer",
                           "anonymisedAt",
                           "lines",
@@ -58102,6 +61584,13 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "group": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The buyer's user group (its code)"
                           },
                           "buyer": {
                             "anyOf": [
@@ -58594,6 +62083,7 @@
                     "externalRef",
                     "externalOrderRef",
                     "locale",
+                    "group",
                     "buyer",
                     "lines",
                     "total",
@@ -58670,6 +62160,13 @@
                       "type": "string",
                       "description": "Language of the line names"
                     },
+                    "group": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The buyer's user group (its code), as the connector gave it on reserve"
+                    },
                     "buyer": {
                       "anyOf": [
                         {
@@ -58727,6 +62224,7 @@
                           "occurrenceStartUtc",
                           "timezone",
                           "locationName",
+                          "group",
                           "signature"
                         ],
                         "properties": {
@@ -58796,12 +62294,19 @@
                               "null"
                             ]
                           },
+                          "group": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The user group's code the line was sold under, frozen at reserve time"
+                          },
                           "signature": {
                             "type": [
                               "string",
                               "null"
                             ],
-                            "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                            "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                           }
                         }
                       }
@@ -58975,7 +62480,7 @@
                         "string",
                         "null"
                       ],
-                      "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                      "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                     }
                   }
                 }
@@ -59283,6 +62788,7 @@
                     "externalRef",
                     "externalOrderRef",
                     "locale",
+                    "group",
                     "buyer",
                     "lines",
                     "total",
@@ -59359,6 +62865,13 @@
                       "type": "string",
                       "description": "Language of the line names"
                     },
+                    "group": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The buyer's user group (its code), as the connector gave it on reserve"
+                    },
                     "buyer": {
                       "anyOf": [
                         {
@@ -59416,6 +62929,7 @@
                           "occurrenceStartUtc",
                           "timezone",
                           "locationName",
+                          "group",
                           "signature"
                         ],
                         "properties": {
@@ -59485,12 +62999,19 @@
                               "null"
                             ]
                           },
+                          "group": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The user group's code the line was sold under, frozen at reserve time"
+                          },
                           "signature": {
                             "type": [
                               "string",
                               "null"
                             ],
-                            "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                            "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                           }
                         }
                       }
@@ -59664,7 +63185,7 @@
                         "string",
                         "null"
                       ],
-                      "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                      "description": "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
                     }
                   }
                 }

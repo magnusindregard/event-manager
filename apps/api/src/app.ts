@@ -12,6 +12,7 @@ import { catalogRoutes } from "./routes/catalog.js";
 import { channelRoutes } from "./routes/channels.js";
 import { meRoutes } from "./routes/me.js";
 import { offerRoutes } from "./routes/offers.js";
+import { userGroupRoutes } from "./routes/user-groups.js";
 import { invitationRoutes } from "./routes/invitations.js";
 import { postmarkWebhookRoutes } from "./routes/postmark-webhook.js";
 import { registrationRoutes } from "./routes/registrations.js";
@@ -88,6 +89,7 @@ export async function buildApp(deps: AppDeps) {
       await v1.register(accountRoutes);
       await v1.register(catalogRoutes);
       await v1.register(offerRoutes);
+      await v1.register(userGroupRoutes);
       await v1.register(channelRoutes);
       await v1.register(apiKeyRoutes);
       await v1.register(registrationRoutes);

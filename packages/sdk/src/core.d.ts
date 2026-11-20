@@ -605,6 +605,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/offers/{id}/occurrences/{occurrenceId}/groups/{groupId}/override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set one user group's price for the offer at one occurrence; it wins over rules and the offer's group price */
+        put: operations["setGroupOverride"];
+        post?: never;
+        /** Remove one user group's override at one occurrence; its price comes from rules, its group price or the general price again */
+        delete: operations["clearGroupOverride"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/user-groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The account's user groups, in display order */
+        get: operations["listUserGroups"];
+        put?: never;
+        /** Owner only. At most 50 per account */
+        post: operations["createUserGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/user-groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename, reorder, archive or restore a user group (owner). A group events or offers are restricted to cannot be archived. Requires If-Match. */
+        patch: operations["updateUserGroup"];
+        trace?: never;
+    };
     "/v1/sales-channels": {
         parameters: {
             query?: never;
@@ -1061,7 +1114,7 @@ export interface paths {
         put?: never;
         /**
          * Hold places for all lines or none, priced and frozen in snapshots. With confirm: true and externalOrderRef, also confirm (POS walk-up)
-         * @description Reasons: sold_out (with occurrenceId and placesLeft), not_on_sale, offer_unavailable, channel_not_allowed, no_sku, quantity_out_of_range
+         * @description Reasons: sold_out (with occurrenceId and placesLeft), not_on_sale, offer_unavailable, channel_not_allowed, no_sku, quantity_out_of_range, unknown_group (no active user group has the code), group_required (the event or offer is for some user groups only), group_not_allowed (not for the buyer's group)
          */
         post: operations["createReservation"];
         delete?: never;
@@ -4221,6 +4274,8 @@ export interface operations {
                                 };
                             };
                             tagIds: string[];
+                            /** @description User groups that may attend; empty: everyone */
+                            accessGroupIds: string[];
                             version: number;
                             /** Format: date-time */
                             createdAt: string;
@@ -4377,6 +4432,8 @@ export interface operations {
                         [key: string]: string;
                     };
                     tagIds?: string[];
+                    /** @description Only these user groups may attend; empty: everyone. Replaces the list */
+                    accessGroupIds?: string[];
                     translations: {
                         [key: string]: {
                             title: string;
@@ -4442,6 +4499,8 @@ export interface operations {
                             };
                         };
                         tagIds: string[];
+                        /** @description User groups that may attend; empty: everyone */
+                        accessGroupIds: string[];
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -4700,6 +4759,8 @@ export interface operations {
                             };
                         };
                         tagIds: string[];
+                        /** @description User groups that may attend; empty: everyone */
+                        accessGroupIds: string[];
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -4850,6 +4911,8 @@ export interface operations {
                         [key: string]: string;
                     };
                     tagIds?: string[];
+                    /** @description Only these user groups may attend; empty: everyone. Replaces the list */
+                    accessGroupIds?: string[];
                     /** @description Per locale: replaces the translation, or null removes it */
                     translations?: {
                         [key: string]: null | {
@@ -4916,6 +4979,8 @@ export interface operations {
                             };
                         };
                         tagIds: string[];
+                        /** @description User groups that may attend; empty: everyone */
+                        accessGroupIds: string[];
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -5174,6 +5239,8 @@ export interface operations {
                             };
                         };
                         tagIds: string[];
+                        /** @description User groups that may attend; empty: everyone */
+                        accessGroupIds: string[];
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -5432,6 +5499,8 @@ export interface operations {
                             };
                         };
                         tagIds: string[];
+                        /** @description User groups that may attend; empty: everyone */
+                        accessGroupIds: string[];
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -5690,6 +5759,8 @@ export interface operations {
                             };
                         };
                         tagIds: string[];
+                        /** @description User groups that may attend; empty: everyone */
+                        accessGroupIds: string[];
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -5948,6 +6019,8 @@ export interface operations {
                             };
                         };
                         tagIds: string[];
+                        /** @description User groups that may attend; empty: everyone */
+                        accessGroupIds: string[];
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -8043,6 +8116,11 @@ export interface operations {
                                 type: "price";
                                 /** Format: uuid */
                                 targetRef: string;
+                                /**
+                                 * Format: uuid
+                                 * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                                 */
+                                targetGroup?: string | null;
                                 value: {
                                     /** @description Minor units (øre), VAT included */
                                     amount: number;
@@ -8232,6 +8310,11 @@ export interface operations {
                         type: "price";
                         /** Format: uuid */
                         targetRef: string;
+                        /**
+                         * Format: uuid
+                         * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                         */
+                        targetGroup?: string | null;
                         value: {
                             /** @description Minor units (øre), VAT included */
                             amount: number;
@@ -8321,6 +8404,11 @@ export interface operations {
                                 type: "price";
                                 /** Format: uuid */
                                 targetRef: string;
+                                /**
+                                 * Format: uuid
+                                 * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                                 */
+                                targetGroup?: string | null;
                                 value: {
                                     /** @description Minor units (øre), VAT included */
                                     amount: number;
@@ -8363,6 +8451,11 @@ export interface operations {
                                      * @description The offer of a price or offerAvailable field; null otherwise
                                      */
                                     targetRef: string | null;
+                                    /**
+                                     * Format: uuid
+                                     * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                     */
+                                    group: string | null;
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -8389,6 +8482,11 @@ export interface operations {
                                  * @description The offer of a price or offerAvailable field; null otherwise
                                  */
                                 targetRef: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                 */
+                                group: string | null;
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -8472,6 +8570,11 @@ export interface operations {
                                 type: "price";
                                 /** Format: uuid */
                                 targetRef: string;
+                                /**
+                                 * Format: uuid
+                                 * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                                 */
+                                targetGroup?: string | null;
                                 value: {
                                     /** @description Minor units (øre), VAT included */
                                     amount: number;
@@ -8514,6 +8617,11 @@ export interface operations {
                                      * @description The offer of a price or offerAvailable field; null otherwise
                                      */
                                     targetRef: string | null;
+                                    /**
+                                     * Format: uuid
+                                     * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                     */
+                                    group: string | null;
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -8540,6 +8648,11 @@ export interface operations {
                                  * @description The offer of a price or offerAvailable field; null otherwise
                                  */
                                 targetRef: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                 */
+                                group: string | null;
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -8819,6 +8932,11 @@ export interface operations {
                             type: "price";
                             /** Format: uuid */
                             targetRef: string;
+                            /**
+                             * Format: uuid
+                             * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                             */
+                            targetGroup?: string | null;
                             value: {
                                 /** @description Minor units (øre), VAT included */
                                 amount: number;
@@ -9020,6 +9138,11 @@ export interface operations {
                                 type: "price";
                                 /** Format: uuid */
                                 targetRef: string;
+                                /**
+                                 * Format: uuid
+                                 * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                                 */
+                                targetGroup?: string | null;
                                 value: {
                                     /** @description Minor units (øre), VAT included */
                                     amount: number;
@@ -9062,6 +9185,11 @@ export interface operations {
                                      * @description The offer of a price or offerAvailable field; null otherwise
                                      */
                                     targetRef: string | null;
+                                    /**
+                                     * Format: uuid
+                                     * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                     */
+                                    group: string | null;
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -9088,6 +9216,11 @@ export interface operations {
                                  * @description The offer of a price or offerAvailable field; null otherwise
                                  */
                                 targetRef: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                 */
+                                group: string | null;
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -9354,6 +9487,11 @@ export interface operations {
                         type: "price";
                         /** Format: uuid */
                         targetRef: string;
+                        /**
+                         * Format: uuid
+                         * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                         */
+                        targetGroup?: string | null;
                         value: {
                             /** @description Minor units (øre), VAT included */
                             amount: number;
@@ -9443,6 +9581,11 @@ export interface operations {
                                 type: "price";
                                 /** Format: uuid */
                                 targetRef: string;
+                                /**
+                                 * Format: uuid
+                                 * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                                 */
+                                targetGroup?: string | null;
                                 value: {
                                     /** @description Minor units (øre), VAT included */
                                     amount: number;
@@ -9485,6 +9628,11 @@ export interface operations {
                                      * @description The offer of a price or offerAvailable field; null otherwise
                                      */
                                     targetRef: string | null;
+                                    /**
+                                     * Format: uuid
+                                     * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                     */
+                                    group: string | null;
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -9511,6 +9659,11 @@ export interface operations {
                                  * @description The offer of a price or offerAvailable field; null otherwise
                                  */
                                 targetRef: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                 */
+                                group: string | null;
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -11882,6 +12035,15 @@ export interface operations {
                             channelIds: string[];
                             /** @description Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet */
                             channelsWithoutSku: string[];
+                            /** @description User groups that may buy the offer; empty: everyone the event admits */
+                            accessGroupIds: string[];
+                            /** @description The offer's own prices per user group; groups not listed pay the general price */
+                            groupPrices: {
+                                /** Format: uuid */
+                                groupId: string;
+                                /** @description Minor units (øre), VAT included */
+                                amount: number;
+                            }[];
                             translations: {
                                 [key: string]: {
                                     name: string;
@@ -12024,6 +12186,15 @@ export interface operations {
                     offSaleMinBefore?: number | null;
                     /** Format: date-time */
                     offSaleAt?: string | null;
+                    /** @description Only these user groups may buy the offer; empty: everyone the event admits. Replaces the list */
+                    accessGroupIds?: string[];
+                    /** @description The offer's own price per user group; groups not listed pay the general price. Replaces the list */
+                    groupPrices?: {
+                        /** Format: uuid */
+                        groupId: string;
+                        /** @description Minor units (øre), VAT included */
+                        amount: number;
+                    }[];
                     /** @description Left out: every active channel */
                     channelIds?: string[];
                     translations: {
@@ -12078,6 +12249,15 @@ export interface operations {
                             channelIds: string[];
                             /** @description Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet */
                             channelsWithoutSku: string[];
+                            /** @description User groups that may buy the offer; empty: everyone the event admits */
+                            accessGroupIds: string[];
+                            /** @description The offer's own prices per user group; groups not listed pay the general price */
+                            groupPrices: {
+                                /** Format: uuid */
+                                groupId: string;
+                                /** @description Minor units (øre), VAT included */
+                                amount: number;
+                            }[];
                             translations: {
                                 [key: string]: {
                                     name: string;
@@ -12344,6 +12524,15 @@ export interface operations {
                             channelIds: string[];
                             /** @description Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet */
                             channelsWithoutSku: string[];
+                            /** @description User groups that may buy the offer; empty: everyone the event admits */
+                            accessGroupIds: string[];
+                            /** @description The offer's own prices per user group; groups not listed pay the general price */
+                            groupPrices: {
+                                /** Format: uuid */
+                                groupId: string;
+                                /** @description Minor units (øre), VAT included */
+                                amount: number;
+                            }[];
                             translations: {
                                 [key: string]: {
                                     name: string;
@@ -12601,6 +12790,15 @@ export interface operations {
                         channelIds: string[];
                         /** @description Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet */
                         channelsWithoutSku: string[];
+                        /** @description User groups that may buy the offer; empty: everyone the event admits */
+                        accessGroupIds: string[];
+                        /** @description The offer's own prices per user group; groups not listed pay the general price */
+                        groupPrices: {
+                            /** Format: uuid */
+                            groupId: string;
+                            /** @description Minor units (øre), VAT included */
+                            amount: number;
+                        }[];
                         translations: {
                             [key: string]: {
                                 name: string;
@@ -12943,6 +13141,15 @@ export interface operations {
                     offSaleAt?: string | null;
                     /** @description Replaces the offer's channels */
                     channelIds?: string[];
+                    /** @description Only these user groups may buy the offer; empty: everyone the event admits. Replaces the list */
+                    accessGroupIds?: string[];
+                    /** @description The offer's own price per user group; groups not listed pay the general price. Replaces the list */
+                    groupPrices?: {
+                        /** Format: uuid */
+                        groupId: string;
+                        /** @description Minor units (øre), VAT included */
+                        amount: number;
+                    }[];
                     /** @description Per locale: replaces the translation, or null removes it */
                     translations?: {
                         [key: string]: null | {
@@ -12996,6 +13203,15 @@ export interface operations {
                             channelIds: string[];
                             /** @description Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet */
                             channelsWithoutSku: string[];
+                            /** @description User groups that may buy the offer; empty: everyone the event admits */
+                            accessGroupIds: string[];
+                            /** @description The offer's own prices per user group; groups not listed pay the general price */
+                            groupPrices: {
+                                /** Format: uuid */
+                                groupId: string;
+                                /** @description Minor units (øre), VAT included */
+                                amount: number;
+                            }[];
                             translations: {
                                 [key: string]: {
                                     name: string;
@@ -13206,6 +13422,8 @@ export interface operations {
                 to?: string;
                 cursor?: string;
                 limit: number;
+                /** @description Also show what this user group pays in each cell (docs/user-groups.md) */
+                groupId?: string;
             };
             header?: never;
             path: {
@@ -13257,6 +13475,15 @@ export interface operations {
                             channelIds: string[];
                             /** @description Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet */
                             channelsWithoutSku: string[];
+                            /** @description User groups that may buy the offer; empty: everyone the event admits */
+                            accessGroupIds: string[];
+                            /** @description The offer's own prices per user group; groups not listed pay the general price */
+                            groupPrices: {
+                                /** Format: uuid */
+                                groupId: string;
+                                /** @description Minor units (øre), VAT included */
+                                amount: number;
+                            }[];
                             translations: {
                                 [key: string]: {
                                     name: string;
@@ -13298,6 +13525,22 @@ export interface operations {
                                     amount: number | null;
                                     /** @description false: off sale here; null inherits */
                                     available: boolean | null;
+                                };
+                                /** @description With groupId: what that user group pays (docs/user-groups.md) */
+                                group?: {
+                                    /** Format: uuid */
+                                    groupId: string;
+                                    /** @description What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source */
+                                    price: {
+                                        value: number;
+                                        source: "default" | "rule" | "override";
+                                        /** Format: uuid */
+                                        ruleId: string | null;
+                                    };
+                                    /** @description No group setting applies here, so the group pays the general price */
+                                    inherited: boolean;
+                                    /** @description The group override here, if any */
+                                    override: number | null;
                                 };
                             }[];
                         }[];
@@ -13397,6 +13640,29 @@ export interface operations {
                     };
                 };
             };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     setOfferOverride: {
@@ -13446,6 +13712,22 @@ export interface operations {
                             amount: number | null;
                             /** @description false: off sale here; null inherits */
                             available: boolean | null;
+                        };
+                        /** @description With groupId: what that user group pays (docs/user-groups.md) */
+                        group?: {
+                            /** Format: uuid */
+                            groupId: string;
+                            /** @description What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source */
+                            price: {
+                                value: number;
+                                source: "default" | "rule" | "override";
+                                /** Format: uuid */
+                                ruleId: string | null;
+                            };
+                            /** @description No group setting applies here, so the group pays the general price */
+                            inherited: boolean;
+                            /** @description The group override here, if any */
+                            override: number | null;
                         };
                     };
                 };
@@ -13675,6 +13957,1065 @@ export interface operations {
                             /** @description false: off sale here; null inherits */
                             available: boolean | null;
                         };
+                        /** @description With groupId: what that user group pays (docs/user-groups.md) */
+                        group?: {
+                            /** Format: uuid */
+                            groupId: string;
+                            /** @description What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source */
+                            price: {
+                                value: number;
+                                source: "default" | "rule" | "override";
+                                /** Format: uuid */
+                                ruleId: string | null;
+                            };
+                            /** @description No group setting applies here, so the group pays the general price */
+                            inherited: boolean;
+                            /** @description The group override here, if any */
+                            override: number | null;
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    setGroupOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                occurrenceId: string;
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Minor units, VAT included */
+                    amount: number;
+                };
+            };
+        };
+        responses: {
+            /** @description With groupId: what that user group pays (docs/user-groups.md) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        groupId: string;
+                        /** @description What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source */
+                        price: {
+                            value: number;
+                            source: "default" | "rule" | "override";
+                            /** Format: uuid */
+                            ruleId: string | null;
+                        };
+                        /** @description No group setting applies here, so the group pays the general price */
+                        inherited: boolean;
+                        /** @description The group override here, if any */
+                        override: number | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    clearGroupOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                occurrenceId: string;
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description With groupId: what that user group pays (docs/user-groups.md) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        groupId: string;
+                        /** @description What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source */
+                        price: {
+                            value: number;
+                            source: "default" | "rule" | "override";
+                            /** Format: uuid */
+                            ruleId: string | null;
+                        };
+                        /** @description No group setting applies here, so the group pays the general price */
+                        inherited: boolean;
+                        /** @description The group override here, if any */
+                        override: number | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    listUserGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            id: string;
+                            code: string;
+                            names: {
+                                [key: string]: string;
+                            };
+                            sortOrder: number;
+                            archived: boolean;
+                            /** @description Events and offers restricted to the group; it cannot be archived while this is above 0 */
+                            usedBy: number;
+                            version: number;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    createUserGroup: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Makes the POST safe to retry for 24 hours */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Stable; the frontend and the connector use it. Cannot change */
+                    code: string;
+                    /** @description Name per locale */
+                    names: {
+                        [key: string]: string;
+                    };
+                    sortOrder?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        code: string;
+                        names: {
+                            [key: string]: string;
+                        };
+                        sortOrder: number;
+                        archived: boolean;
+                        /** @description Events and offers restricted to the group; it cannot be archived while this is above 0 */
+                        usedBy: number;
+                        version: number;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    updateUserGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Name per locale */
+                    names?: {
+                        [key: string]: string;
+                    };
+                    sortOrder?: number;
+                    archived?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        code: string;
+                        names: {
+                            [key: string]: string;
+                        };
+                        sortOrder: number;
+                        archived: boolean;
+                        /** @description Events and offers restricted to the group; it cannot be archived while this is above 0 */
+                        usedBy: number;
+                        version: number;
+                        /** Format: date-time */
+                        updatedAt: string;
                     };
                 };
             };
@@ -20281,6 +21622,8 @@ export interface operations {
                         email?: string | null;
                         locale?: string | null;
                     };
+                    /** @description The buyer's user group, by code (docs/user-groups.md). The connector asserts it after its own sign-in; events and offers restricted to groups need it */
+                    group?: string | null;
                 };
             };
         };
@@ -20312,6 +21655,8 @@ export interface operations {
                         externalOrderRef: string | null;
                         /** @description Language of the line names */
                         locale: string;
+                        /** @description The buyer's user group (its code), as the connector gave it on reserve */
+                        group: string | null;
                         buyer: null | {
                             name: string | null;
                             email: string | null;
@@ -20344,7 +21689,9 @@ export interface operations {
                             occurrenceStartUtc: string;
                             timezone: string;
                             locationName: string | null;
-                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            /** @description The user group's code the line was sold under, frozen at reserve time */
+                            group: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                             signature: string | null;
                         }[];
                         total: {
@@ -20391,7 +21738,7 @@ export interface operations {
                         createdAt: string;
                         /** Format: date-time */
                         updatedAt: string;
-                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                         signature: string | null;
                     };
                 };
@@ -20597,6 +21944,8 @@ export interface operations {
                         externalOrderRef: string | null;
                         /** @description Language of the line names */
                         locale: string;
+                        /** @description The buyer's user group (its code), as the connector gave it on reserve */
+                        group: string | null;
                         buyer: null | {
                             name: string | null;
                             email: string | null;
@@ -20629,7 +21978,9 @@ export interface operations {
                             occurrenceStartUtc: string;
                             timezone: string;
                             locationName: string | null;
-                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            /** @description The user group's code the line was sold under, frozen at reserve time */
+                            group: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                             signature: string | null;
                         }[];
                         total: {
@@ -20676,7 +22027,7 @@ export interface operations {
                         createdAt: string;
                         /** Format: date-time */
                         updatedAt: string;
-                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                         signature: string | null;
                     };
                 };
@@ -20823,6 +22174,8 @@ export interface operations {
                         externalOrderRef: string | null;
                         /** @description Language of the line names */
                         locale: string;
+                        /** @description The buyer's user group (its code), as the connector gave it on reserve */
+                        group: string | null;
                         buyer: null | {
                             name: string | null;
                             email: string | null;
@@ -20855,7 +22208,9 @@ export interface operations {
                             occurrenceStartUtc: string;
                             timezone: string;
                             locationName: string | null;
-                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            /** @description The user group's code the line was sold under, frozen at reserve time */
+                            group: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                             signature: string | null;
                         }[];
                         total: {
@@ -20902,7 +22257,7 @@ export interface operations {
                         createdAt: string;
                         /** Format: date-time */
                         updatedAt: string;
-                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                         signature: string | null;
                     };
                 };
@@ -21122,6 +22477,8 @@ export interface operations {
                         externalOrderRef: string | null;
                         /** @description Language of the line names */
                         locale: string;
+                        /** @description The buyer's user group (its code), as the connector gave it on reserve */
+                        group: string | null;
                         buyer: null | {
                             name: string | null;
                             email: string | null;
@@ -21154,7 +22511,9 @@ export interface operations {
                             occurrenceStartUtc: string;
                             timezone: string;
                             locationName: string | null;
-                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            /** @description The user group's code the line was sold under, frozen at reserve time */
+                            group: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                             signature: string | null;
                         }[];
                         total: {
@@ -21201,7 +22560,7 @@ export interface operations {
                         createdAt: string;
                         /** Format: date-time */
                         updatedAt: string;
-                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                         signature: string | null;
                     };
                 };
@@ -21419,6 +22778,8 @@ export interface operations {
                         externalOrderRef: string | null;
                         /** @description Language of the line names */
                         locale: string;
+                        /** @description The buyer's user group (its code), as the connector gave it on reserve */
+                        group: string | null;
                         buyer: null | {
                             name: string | null;
                             email: string | null;
@@ -21451,7 +22812,9 @@ export interface operations {
                             occurrenceStartUtc: string;
                             timezone: string;
                             locationName: string | null;
-                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            /** @description The user group's code the line was sold under, frozen at reserve time */
+                            group: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                             signature: string | null;
                         }[];
                         total: {
@@ -21498,7 +22861,7 @@ export interface operations {
                         createdAt: string;
                         /** Format: date-time */
                         updatedAt: string;
-                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                         signature: string | null;
                     };
                 };
@@ -21709,6 +23072,13 @@ export interface operations {
                             places: number;
                             /** @description Sum of the valid tickets' prices, minor units VAT included */
                             revenue: number;
+                            /** @description Valid tickets and revenue per user group they were sold to; only groups that sold */
+                            byGroup: {
+                                /** @description The user group's code; null: sold without a group */
+                                group: string | null;
+                                sold: number;
+                                revenue: number;
+                            }[];
                         }[];
                         /** @description Newest first, at most 2,000 */
                         reservations: {
@@ -21724,6 +23094,8 @@ export interface operations {
                             status: "held" | "confirmed" | "cancelled" | "expired";
                             externalRef: string | null;
                             externalOrderRef: string | null;
+                            /** @description The buyer's user group (its code) */
+                            group: string | null;
                             buyer: null | {
                                 name: string | null;
                                 email: string | null;
@@ -21910,6 +23282,8 @@ export interface operations {
                         externalOrderRef: string | null;
                         /** @description Language of the line names */
                         locale: string;
+                        /** @description The buyer's user group (its code), as the connector gave it on reserve */
+                        group: string | null;
                         buyer: null | {
                             name: string | null;
                             email: string | null;
@@ -21942,7 +23316,9 @@ export interface operations {
                             occurrenceStartUtc: string;
                             timezone: string;
                             locationName: string | null;
-                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            /** @description The user group's code the line was sold under, frozen at reserve time */
+                            group: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                             signature: string | null;
                         }[];
                         total: {
@@ -21989,7 +23365,7 @@ export interface operations {
                         createdAt: string;
                         /** Format: date-time */
                         updatedAt: string;
-                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                         signature: string | null;
                     };
                 };
@@ -22135,6 +23511,8 @@ export interface operations {
                         externalOrderRef: string | null;
                         /** @description Language of the line names */
                         locale: string;
+                        /** @description The buyer's user group (its code), as the connector gave it on reserve */
+                        group: string | null;
                         buyer: null | {
                             name: string | null;
                             email: string | null;
@@ -22167,7 +23545,9 @@ export interface operations {
                             occurrenceStartUtc: string;
                             timezone: string;
                             locationName: string | null;
-                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            /** @description The user group's code the line was sold under, frozen at reserve time */
+                            group: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                             signature: string | null;
                         }[];
                         total: {
@@ -22214,7 +23594,7 @@ export interface operations {
                         createdAt: string;
                         /** Format: date-time */
                         updatedAt: string;
-                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        /** @description v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
                         signature: string | null;
                     };
                 };

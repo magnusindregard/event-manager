@@ -10,7 +10,7 @@ const LocaleKey = Type.String({ pattern: "^[a-z]{2,3}(-[A-Z]{2})?$" });
 const Ref = Type.String({ minLength: 1, maxLength: 200 });
 const Signature = Nullable(Type.String({
   description:
-    "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); " +
+    "v1.<base64url HMAC-SHA256>. The signed text's first element names its format (reservation_line.v2, reservation.v2). The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); " +
     "the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key",
 }));
 
@@ -45,6 +45,7 @@ export const ReservationLine = Type.Object({
   occurrenceStartUtc: DateTime,
   timezone: Type.String(),
   locationName: Nullable(Type.String()),
+  group: Nullable(Type.String({ description: "The user group's code the line was sold under, frozen at reserve time" })),
   signature: Signature,
 });
 
@@ -72,6 +73,7 @@ export const Reservation = Type.Object({
   externalRef: Nullable(Type.String()),
   externalOrderRef: Nullable(Type.String()),
   locale: Type.String({ description: "Language of the line names" }),
+  group: Nullable(Type.String({ description: "The buyer's user group (its code), as the connector gave it on reserve" })),
   buyer: Nullable(Type.Object({ name: Nullable(Type.String()), email: Nullable(Type.String()), locale: Nullable(Type.String()) })),
   lines: Type.Array(ReservationLine),
   total: Type.Object({ amount: Type.Integer({ description: "Minor units, VAT included" }), currency: Type.String() }),
@@ -96,6 +98,10 @@ export const ReservationCreate = Type.Object(
     confirm: Type.Optional(Type.Boolean({ description: "Confirm in the same call (a POS walk-up sale); needs externalOrderRef" })),
     externalOrderRef: Type.Optional(Ref),
     buyer: Type.Optional(Nullable(Buyer)),
+    group: Type.Optional(Nullable(Type.String({
+      pattern: "^[a-z0-9][a-z0-9_-]{0,62}$",
+      description: "The buyer's user group, by code (docs/user-groups.md). The connector asserts it after its own sign-in; events and offers restricted to groups need it",
+    }))),
   },
   { additionalProperties: false },
 );
@@ -138,6 +144,11 @@ export const OccurrenceSales = Type.Object({
     cancelled: Type.Integer(),
     places: Type.Integer({ description: "Places the valid tickets take" }),
     revenue: Type.Integer({ description: "Sum of the valid tickets' prices, minor units VAT included" }),
+    byGroup: Type.Array(Type.Object({
+      group: Nullable(Type.String({ description: "The user group's code; null: sold without a group" })),
+      sold: Type.Integer(),
+      revenue: Type.Integer(),
+    }), { description: "Valid tickets and revenue per user group they were sold to; only groups that sold" }),
   }), { description: "The event's active offers, and archived ones that sold here, in display order" }),
   reservations: Type.Array(Type.Object({
     id: Uuid,
@@ -145,6 +156,7 @@ export const OccurrenceSales = Type.Object({
     status: ReservationStatus,
     externalRef: Nullable(Type.String()),
     externalOrderRef: Nullable(Type.String()),
+    group: Nullable(Type.String({ description: "The buyer's user group (its code)" })),
     buyer: Nullable(Type.Object({ name: Nullable(Type.String()), email: Nullable(Type.String()), locale: Nullable(Type.String()) })),
     anonymisedAt: Nullable(DateTime),
     lines: Type.Array(Type.Object({

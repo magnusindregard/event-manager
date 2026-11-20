@@ -212,7 +212,7 @@ describe("channel callers", () => {
   });
 
   it("an offer whose smallest purchase no longer fits does not keep the occurrence on sale", () => {
-    const base = { id: "x", code: "x", name: "x", description: null, price: { amount: 1, currency: "NOK", vatIncluded: true as const }, opensAt: null, closesAt: START.toISOString() };
+    const base = { id: "x", code: "x", name: "x", description: null, price: { amount: 1, currency: "NOK", vatIncluded: true as const }, opensAt: null, closesAt: START.toISOString(), access: { groups: [] }, groupPrices: [] };
     const family = { ...base, onSale: true, placesPerUnit: 4 };
     expect(catalog.ticketAvailability([family], { bookableLimit: 100, available: 3 }).status).toBe("sold_out");
     expect(catalog.ticketAvailability([family, { ...base, onSale: true, placesPerUnit: 1 }], { bookableLimit: 100, available: 3 }).status).toBe("few_left");

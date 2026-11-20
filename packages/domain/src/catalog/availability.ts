@@ -77,8 +77,13 @@ export interface RegistrationTarget {
     status: EventStatus;
     timezone: string;
     admissionMode: AdmissionMode;
-    /** The occurrence's override, or the event's policy. */
+    /**
+     * The occurrence's override, or the event's policy. An event restricted to user groups is
+     * invite_only here: attendees cannot prove their group (docs/user-groups.md, "Registration").
+     */
     accessPolicy: AccessPolicy;
+    /** User groups the event is restricted to; empty: everyone. */
+    accessGroupIds: string[];
     guestAllowed: boolean;
     opensMinBefore: number | null;
     closesMinBefore: number;
@@ -105,10 +110,11 @@ export async function getRegistrationTarget(tx: Tx, occurrenceId: string): Promi
     .where("o.id", "=", occurrenceId)
     .executeTakeFirst();
   if (!row) throw notFound("Occurrence");
-  const [translations, eff, pool] = await Promise.all([
+  const [translations, eff, pool, access] = await Promise.all([
     tx.selectFrom("catalog.event_translation").selectAll().where("event_id", "=", row.event_id).execute(),
     loadEffectiveValues(tx, [row.id]),
     inventory.getPool(tx, row.id),
+    tx.selectFrom("catalog.event_access_group").select("group_id").where("event_id", "=", row.event_id).orderBy("group_id").execute(),
   ]);
   const locationId = eff.get(row.id)?.location?.value;
   let location: RegistrationTarget["location"] = null;
@@ -129,7 +135,8 @@ export async function getRegistrationTarget(tx: Tx, occurrenceId: string): Promi
       status: row.status,
       timezone: row.timezone,
       admissionMode: row.admission_mode,
-      accessPolicy: row.access_policy_override ?? row.access_policy,
+      accessPolicy: access.length ? "invite_only" : (row.access_policy_override ?? row.access_policy),
+      accessGroupIds: access.map((a) => a.group_id),
       guestAllowed: row.guest_allowed,
       opensMinBefore: row.registration_opens_min,
       closesMinBefore: row.registration_closes_min,

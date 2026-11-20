@@ -5,7 +5,7 @@ import swagger from "@fastify/swagger";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { type Db, sql, type Tx, withTenant } from "@event-manager/db";
-import { catalog, offers, tenancy } from "@event-manager/domain";
+import { catalog, DomainError, offers, tenancy } from "@event-manager/domain";
 import { Problem, PublicEventDetail, PublicEventPage, PublicLocations, PublicOccurrencePage } from "@event-manager/schemas";
 import { RateLimiter } from "./rate-limit.js";
 
@@ -66,6 +66,13 @@ function decode<T>(c: string | undefined, valid: (v: unknown) => v is T): T | un
 const isTimeCursor = (v: unknown): v is { s: string; id: string } =>
   typeof v === "object" && v !== null && typeof (v as { s?: unknown }).s === "string" && typeof (v as { id?: unknown }).id === "string" && !Number.isNaN(Date.parse((v as { s: string }).s));
 const isString = (v: unknown): v is string => typeof v === "string";
+
+const GroupView = {
+  group: Type.Optional(Type.String({
+    pattern: "^[a-z0-9][a-z0-9_-]{0,62}$",
+    description: "A user group's code (docs/user-groups.md): prices are that group's and offers it may not buy are left out. A view of public data, not access control; the reservations API enforces access",
+  })),
+};
 
 const Common = {
   key: Type.Optional(Type.String({ description: "Publishable key (pk_…). Required unless a preview token is sent." })),
@@ -187,6 +194,9 @@ export async function buildPublicApp(deps: PublicAppDeps) {
       // Checked per request, so deactivating a channel stops its keys at once.
       if (access.channelId && !(await offers.activeChannel(tx, access.channelId))) throw new PublicProblem(401, "channel_inactive", "The key's sales channel is inactive");
       return fn(tx, { preview: access.preview, attendeeUrl: deps.attendeeUrl, channelId: access.channelId ?? undefined });
+    }).catch((e: unknown) => {
+      if (e instanceof DomainError && e.code === "unknown_group") throw new PublicProblem(400, "unknown_group", "No active user group has this code");
+      throw e;
     });
   };
 
@@ -205,6 +215,7 @@ export async function buildPublicApp(deps: PublicAppDeps) {
             security,
             querystring: Type.Object({
               ...Common,
+              ...GroupView,
               from: Type.Optional(Type.String({ format: "date-time", description: "Default: now. Occurrences still running at this time are included." })),
               to: Type.Optional(DateTime),
               event: Type.Optional(Type.String({ description: "Event id or slug" })),
@@ -221,7 +232,7 @@ export async function buildPublicApp(deps: PublicAppDeps) {
           const q = req.query;
           const after = decode(q.cursor, isTimeCursor);
           const res = await read(req, (tx, o) =>
-            catalog.listPublicOccurrences(tx, { ...o, locale: q.locale }, {
+            catalog.listPublicOccurrences(tx, { ...o, locale: q.locale, group: q.group }, {
               from: q.from ? new Date(q.from) : new Date(),
               to: q.to ? new Date(q.to) : undefined,
               event: q.event,
@@ -286,6 +297,7 @@ export async function buildPublicApp(deps: PublicAppDeps) {
             params: Type.Object({ idOrSlug: Type.String({ maxLength: 120 }) }),
             querystring: Type.Object({
               ...Common,
+              ...GroupView,
               occurrencesFrom: Type.Optional(DateTime),
               occurrencesTo: Type.Optional(DateTime),
             }),
@@ -295,7 +307,7 @@ export async function buildPublicApp(deps: PublicAppDeps) {
         async (req) => {
           const q = req.query;
           const res = await read(req, (tx, o) =>
-            catalog.getPublicEvent(tx, { ...o, locale: q.locale }, req.params.idOrSlug, {
+            catalog.getPublicEvent(tx, { ...o, locale: q.locale, group: q.group }, req.params.idOrSlug, {
               from: q.occurrencesFrom ? new Date(q.occurrencesFrom) : new Date(),
               to: q.occurrencesTo ? new Date(q.occurrencesTo) : undefined,
               limit: 200,

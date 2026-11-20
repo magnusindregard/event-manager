@@ -81,9 +81,10 @@ describe("/v1/reservations", () => {
     const signingKey = createHash("sha256").update(a.key.slice(a.key.indexOf("_", 3) + 1)).digest();
     const line = r.body.lines[0];
     const text = JSON.stringify([
-      "reservation_line.v1", r.body.id, line.id, line.lineNo, line.occurrenceId, line.offerId, line.offerCode, line.quantity, line.placesPerUnit,
-      line.unitPrice, line.currency, line.vatClassCode, line.vatRatePct, line.externalSku, line.name, line.occurrenceStartUtc, line.timezone, line.locationName,
+      "reservation_line.v2", r.body.id, line.id, line.lineNo, line.occurrenceId, line.offerId, line.offerCode, line.quantity, line.placesPerUnit,
+      line.unitPrice, line.currency, line.vatClassCode, line.vatRatePct, line.externalSku, line.name, line.occurrenceStartUtc, line.timezone, line.locationName, line.group,
     ]);
+    expect(line.group).toBeNull();
     expect(line.signature).toBe(`v1.${createHmac("sha256", signingKey).update(text).digest("base64url")}`);
 
     // A lost response: the retry with the same key gets the same reservation, not a second hold.

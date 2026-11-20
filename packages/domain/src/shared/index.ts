@@ -25,7 +25,11 @@ export type ErrorCode =
   | "already_cancelled"
   | "already_confirmed"
   | "schedule_changed"
-  | "occurrence_started";
+  | "occurrence_started"
+  // User groups (docs/user-groups.md).
+  | "unknown_group"
+  | "group_required"
+  | "group_not_allowed";
 
 const statusFor: Record<ErrorCode, number> = {
   not_found: 404,
@@ -52,6 +56,9 @@ const statusFor: Record<ErrorCode, number> = {
   occurrence_started: 409,
   already_confirmed: 409,
   schedule_changed: 409,
+  unknown_group: 422,
+  group_required: 403,
+  group_not_allowed: 403,
 };
 
 /** Domain errors carry a stable reason code that the API maps to RFC 9457 problem details. */

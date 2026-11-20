@@ -24,8 +24,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { type CatalogEvent, etagOf, isConflict, type Offer, unwrap } from "../../api.js";
 import { useApp } from "../../AppContext.js";
+import { GroupAccessField } from "../../components/group-access.js";
 import { formatMoney, moneyInput, parseMoney } from "../../lib/money.js";
-import { offerName, useAccount, useEventOffers, useSalesChannels, useSkuMappings, useVatClasses } from "../../queries.js";
+import { offerName, useAccount, useEventOffers, useSalesChannels, useSkuMappings, useUserGroups, useVatClasses } from "../../queries.js";
 import { eventTitle } from "../Events.js";
 
 /** After an offer change: refresh offers and prices now, and again if the worker resolves them. */
@@ -196,6 +197,9 @@ type Draft = {
   active: boolean;
   /** Null: untouched on a new offer, so the API gives it every active channel. */
   channelIds: string[] | null;
+  accessGroupIds: string[];
+  /** Per user group: its own price as typed; empty pays the general price. */
+  groupPrices: Record<string, string>;
   opens: WindowBound;
   closes: WindowBound;
   translations: Record<string, { name: string; description: string }>;
@@ -257,6 +261,8 @@ function OfferForm({ event, offer, onSaved, onConflict }: { event: CatalogEvent;
     max: String(offer?.maxPerReservation ?? 20),
     active: (offer?.status ?? "active") === "active",
     channelIds: offer?.channelIds ?? null,
+    accessGroupIds: offer?.accessGroupIds ?? [],
+    groupPrices: Object.fromEntries((offer?.groupPrices ?? []).map((g) => [g.groupId, moneyInput(g.amount, i18n.language)])),
     opens: bound(offer?.onSaleMinBefore, offer?.onSaleAt),
     closes: bound(offer?.offSaleMinBefore, offer?.offSaleAt),
     translations: Object.fromEntries((account?.locales ?? Object.keys(offer?.translations ?? {})).map((l) => [l, {
@@ -266,7 +272,9 @@ function OfferForm({ event, offer, onSaved, onConflict }: { event: CatalogEvent;
   const price = parseMoney(d.price);
   const defaultLocale = account?.defaultLocale ?? "nb";
   const valid = price !== null && !!d.vatClassId && whole(d.placesPerUnit, 1, 100) && whole(d.min, 1, 1000) && whole(d.max, 1, 1000) &&
-    Number(d.min) <= Number(d.max) && !!d.translations[defaultLocale]?.name.trim() && boundValid(d.opens) && boundValid(d.closes);
+    Number(d.min) <= Number(d.max) && !!d.translations[defaultLocale]?.name.trim() && boundValid(d.opens) && boundValid(d.closes) &&
+    Object.values(d.groupPrices).every((v) => v.trim() === "" || parseMoney(v) !== null);
+  const groups = (useUserGroups().data ?? []).filter((g) => !g.archived || g.id in d.groupPrices || d.accessGroupIds.includes(g.id));
   // New offers start with every active channel, as the API defaults them.
   const channelIds = d.channelIds ?? allChannels.filter((c) => c.active).map((c) => c.id);
   const channels = allChannels.filter((c) => c.active || channelIds.includes(c.id));
@@ -283,6 +291,8 @@ function OfferForm({ event, offer, onSaved, onConflict }: { event: CatalogEvent;
         vatClassId: d.vatClassId, defaultPrice: price!, placesPerUnit: Number(d.placesPerUnit), minPerReservation: Number(d.min), maxPerReservation: Number(d.max),
         ...(d.code.trim() ? { code: d.code.trim() } : {}),
         ...(d.channelIds ? { channelIds: d.channelIds } : {}),
+        accessGroupIds: d.accessGroupIds,
+        groupPrices: Object.entries(d.groupPrices).filter(([, v]) => v.trim() !== "").map(([groupId, v]) => ({ groupId, amount: parseMoney(v)! })),
         ...boundFields(d.opens, "onSaleMinBefore", "onSaleAt"),
         ...boundFields(d.closes, "offSaleMinBefore", "offSaleAt"),
       };
@@ -364,6 +374,25 @@ function OfferForm({ event, offer, onSaved, onConflict }: { event: CatalogEvent;
           ))}
           {channels.length === 0 && <p className="text-xs text-muted-foreground">{t("offers.noChannelsYet")}</p>}
         </fieldset>
+        {groups.length > 0 && (
+          <fieldset className="grid gap-2">
+            <legend className="mb-1 text-sm font-medium">{t("groups.prices")}</legend>
+            {groups.map((g) => {
+              const v = d.groupPrices[g.id] ?? "";
+              const gName = g.names[i18n.language] ?? Object.values(g.names)[0] ?? g.code;
+              return (
+                <div key={g.id} className="flex items-center gap-3">
+                  <Label htmlFor={`offer-group-${g.id}`} className="w-36 font-normal">{gName}</Label>
+                  <Input id={`offer-group-${g.id}`} inputMode="decimal" className="w-32" value={v} placeholder={d.price}
+                    aria-invalid={v.trim() !== "" && parseMoney(v) === null} onChange={(e) => setD({ ...d, groupPrices: { ...d.groupPrices, [g.id]: e.target.value } })} />
+                </div>
+              );
+            })}
+            <p className="text-xs text-muted-foreground">{t("groups.pricesHint")}</p>
+          </fieldset>
+        )}
+        <GroupAccessField id="offer-access" legend={t("groups.whoCanBuy")} everyone={t("groups.everyoneBuy")} hint={t("groups.whoCanBuyHint")}
+          value={d.accessGroupIds} onChange={(accessGroupIds) => setD({ ...d, accessGroupIds })} />
         <div className="grid gap-4 sm:grid-cols-2">
           <WindowField id="offer-opens" label={t("offers.opens")} none={t("offers.opensNone")} value={d.opens} onChange={(opens) => setD({ ...d, opens })} />
           <WindowField id="offer-closes" label={t("offers.closes")} none={t("offers.closesNone")} value={d.closes} onChange={(closes) => setD({ ...d, closes })} />

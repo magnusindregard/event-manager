@@ -143,3 +143,4 @@ export * from "./registration.js";
 export * from "./invitations.js";
 export * from "./offers.js";
 export * from "./sales.js";
+export * from "./groups.js";

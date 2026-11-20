@@ -40,11 +40,14 @@ export interface SignedLine {
   occurrenceStartUtc: Date;
   timezone: string;
   locationName: string | null;
+  /** The user group's code the line was sold under. */
+  group: string | null;
 }
 
 export interface SignedReservation {
   id: string;
   channelId: string;
+  group: string | null;
   status: string;
   expiresAt: Date;
   externalRef: string | null;
@@ -55,14 +58,14 @@ export interface SignedReservation {
 /** Pure: the text a line's signature covers. */
 export const lineSignatureText = (reservationId: string, l: SignedLine): string =>
   JSON.stringify([
-    "reservation_line.v1", reservationId, l.id, l.lineNo, l.occurrenceId, l.offerId, l.offerCode, l.quantity, l.placesPerUnit,
-    l.unitPrice, l.currency, l.vatClassCode, l.vatRatePct, l.externalSku, l.name, l.occurrenceStartUtc.toISOString(), l.timezone, l.locationName,
+    "reservation_line.v2", reservationId, l.id, l.lineNo, l.occurrenceId, l.offerId, l.offerCode, l.quantity, l.placesPerUnit,
+    l.unitPrice, l.currency, l.vatClassCode, l.vatRatePct, l.externalSku, l.name, l.occurrenceStartUtc.toISOString(), l.timezone, l.locationName, l.group,
   ]);
 
 /** Pure: the text a reservation's signature covers; it includes its lines' signatures in order. */
 export const reservationSignatureText = (r: SignedReservation, lineSignatures: readonly string[]): string =>
   JSON.stringify([
-    "reservation.v1", r.id, r.channelId, r.status, r.expiresAt.toISOString(), r.externalRef, r.externalOrderRef, r.total.amount, r.total.currency, lineSignatures,
+    "reservation.v2", r.id, r.channelId, r.status, r.expiresAt.toISOString(), r.externalRef, r.externalOrderRef, r.total.amount, r.total.currency, r.group, lineSignatures,
   ]);
 
 /** Pure: "v1." + base64url(HMAC-SHA256(key, text)). */

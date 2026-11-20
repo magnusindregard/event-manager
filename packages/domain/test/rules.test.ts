@@ -94,7 +94,7 @@ describe("effects", () => {
 
   it("lists referenced locations and tags", () => {
     const effects = rules.normalizeEffects([{ type: "location", value: LOC_A }, { type: "tags", value: { add: [TAG_2], remove: [TAG_1] } }]);
-    expect(rules.effectRefs(effects)).toEqual({ locations: [LOC_A], tags: [TAG_2, TAG_1], offers: [] });
+    expect(rules.effectRefs(effects)).toEqual({ locations: [LOC_A], tags: [TAG_2, TAG_1], offers: [], groups: [] });
     expect(rules.effectRefs(rules.normalizeEffects([{ type: "offerAvailable", targetRef: OFFER_A, value: false }])).offers).toEqual([OFFER_A]);
   });
 });
@@ -155,6 +155,56 @@ describe("resolution", () => {
     expect(rules.resolve(at("2027-02-13T19:30:00"), rules.ordered([weekend])).values.location.source).toBe("default");
   });
 
+  it("resolves group prices: group override → rule for that group → the offer's group price → none (the general price)", () => {
+    const MEMBER = "0190a000-0000-7000-8000-0000000000c1";
+    const SPONSOR = "0190a000-0000-7000-8000-0000000000c2";
+    const weekend = rule("0190a000-0000-7000-8000-0000000000r1", {
+      conditions: { ...any, weekdays: [6, 7] },
+      effects: [
+        { type: "price", targetRef: OFFER_A, value: { amount: 50000 } },
+        { type: "price", targetRef: OFFER_A, targetGroup: MEMBER, value: { amount: 40000 } },
+      ],
+    });
+    const inputs = (override?: number) => [
+      { ref: OFFER_A, group: MEMBER, groupDefault: 35000, override },
+      { ref: OFFER_A, group: SPONSOR, groupDefault: null },
+    ];
+    const ordered = rules.ordered([weekend]);
+    // Weekdays: the member's own price; sponsors have none, so they are left out.
+    const fri = rules.resolveGroupPrices(inputs(), "2027-02-12T19:30:00", ordered);
+    expect([...fri.values]).toEqual([[`${OFFER_A}|${MEMBER}`, { value: 35000, source: "default", ruleId: null }]]);
+    // Weekends: the rule's member effect wins over the member's own price.
+    const sat = rules.resolveGroupPrices(inputs(), "2027-02-13T19:30:00", ordered);
+    expect(sat.values.get(`${OFFER_A}|${MEMBER}`)).toEqual({ value: 40000, source: "rule", ruleId: weekend.id });
+    expect(sat.values.has(`${OFFER_A}|${SPONSOR}`)).toBe(false);
+    // A group override wins over everything.
+    expect(rules.resolveGroupPrices(inputs(30000), "2027-02-13T19:30:00", ordered).values.get(`${OFFER_A}|${MEMBER}`)).toEqual({ value: 30000, source: "override", ruleId: null });
+    // The general price ignores group effects.
+    const general = rules.resolveTargets([{ ref: OFFER_A, defaults: { price: 45000, offerAvailable: true }, overrides: {} }], "2027-02-13T19:30:00", ordered);
+    expect(general.values.get(OFFER_A)!.price).toEqual({ value: 50000, source: "rule", ruleId: weekend.id });
+    // Ties are reported per (offer, group).
+    const tie = rule("0190a000-0000-7000-8000-0000000000r2", { effects: [{ type: "price", targetRef: OFFER_A, targetGroup: MEMBER, value: { amount: 1 } }] });
+    expect(rules.resolveGroupPrices(inputs(), "2027-02-13T19:30:00", rules.ordered([weekend, tie])).ties)
+      .toEqual([{ field: "price", targetRef: OFFER_A, group: MEMBER, ruleIds: [weekend.id, tie.id] }]);
+    expect(rules.groupRuleTargets([weekend, tie])).toEqual([{ ref: OFFER_A, group: MEMBER }]);
+  });
+
+  it("takes a group only on price effects, and one effect per (offer, group)", () => {
+    const MEMBER = "0190a000-0000-7000-8000-0000000000c1";
+    const both = rules.normalizeEffects([
+      { type: "price", targetRef: OFFER_A, value: { amount: 1 } },
+      { type: "price", targetRef: OFFER_A, targetGroup: MEMBER.toUpperCase(), value: { amount: 2 } },
+    ]);
+    expect(both.map((e) => e.targetGroup ?? null)).toEqual([null, MEMBER]);
+    expect(() => rules.normalizeEffects([{ type: "offerAvailable", targetRef: OFFER_A, targetGroup: MEMBER, value: false }])).toThrow(DomainError);
+    expect(() => rules.normalizeEffects([
+      { type: "price", targetRef: OFFER_A, targetGroup: MEMBER, value: { amount: 1 } },
+      { type: "price", targetRef: OFFER_A, targetGroup: MEMBER, value: { amount: 2 } },
+    ])).toThrow(DomainError);
+    expect(() => rules.normalizeEffects([{ type: "price", targetRef: OFFER_A, targetGroup: "member", value: { amount: 1 } }])).toThrow(DomainError);
+    expect(rules.effectRefs(both).groups).toEqual([MEMBER]);
+  });
+
   it("tags rules add to and remove from the event's tags", () => {
     const late = rule("0190a000-0000-7000-8000-0000000000r1", { effects: [{ type: "tags", targetRef: null, value: { add: [TAG_3, TAG_2], remove: [TAG_1] } }] });
     expect(rules.resolve(at("2027-06-02T19:00:00"), [late]).values.tags).toEqual({ value: [TAG_2, TAG_3], source: "rule", ruleId: late.id });
@@ -179,7 +229,7 @@ describe("preview", () => {
       ruleId: candidate.id,
     });
     expect(p.counts).toEqual({ matched: 3, changed: 1, overridden: 1, conflicts: 1 });
-    expect(p.changes).toEqual([{ occurrenceId: "a", startUtc: expect.any(Date), fields: [{ field: "location", targetRef: null, from: { value: null, source: "default", ruleId: null }, to: { value: LOC_A, source: "rule", ruleId: candidate.id } }] }]);
-    expect(p.conflicts).toEqual([{ occurrenceId: "b", startUtc: expect.any(Date), field: "location", targetRef: null, ruleIds: [existing.id, candidate.id] }]);
+    expect(p.changes).toEqual([{ occurrenceId: "a", startUtc: expect.any(Date), fields: [{ field: "location", targetRef: null, group: null, from: { value: null, source: "default", ruleId: null }, to: { value: LOC_A, source: "rule", ruleId: candidate.id } }] }]);
+    expect(p.conflicts).toEqual([{ occurrenceId: "b", startUtc: expect.any(Date), field: "location", targetRef: null, group: null, ruleIds: [existing.id, candidate.id] }]);
   });
 });

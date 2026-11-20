@@ -119,6 +119,7 @@ export const Event = Type.Object({
   externalRefs: Type.Record(Type.String(), Type.String()),
   translations: Type.Record(Type.String(), TranslationOut),
   tagIds: Type.Array(Uuid),
+  accessGroupIds: Type.Array(Uuid, { description: "User groups that may attend; empty: everyone" }),
   version: Type.Integer(),
   createdAt: DateTime,
   updatedAt: DateTime,
@@ -137,6 +138,7 @@ const eventFields = {
   registration: Type.Optional(RegistrationSettingsInput),
   externalRefs: Type.Optional(ExternalRefs),
   tagIds: Type.Optional(Type.Array(Uuid, { uniqueItems: true, maxItems: 100 })),
+  accessGroupIds: Type.Optional(Type.Array(Uuid, { uniqueItems: true, maxItems: 50, description: "Only these user groups may attend; empty: everyone. Replaces the list" })),
 };
 
 export const EventCreate = Type.Object(
@@ -332,11 +334,21 @@ const targetedIn = <K extends keyof typeof targetedBodies>(type: K) =>
   Type.Object({ type: Type.Literal(type), targetRef: Uuid, value: targetedBodies[type][0] }, { additionalProperties: false, description: `${targetedBodies[type][1]}. targetRef: the offer id` });
 const targetedOut = <K extends keyof typeof targetedBodies>(type: K) =>
   Type.Object({ type: Type.Literal(type), targetRef: Uuid, value: targetedBodies[type][0] }, { description: `${targetedBodies[type][1]}. targetRef: the offer id` });
+// A price effect may name one user group (docs/user-groups.md); without one it sets everyone's price.
+const TargetGroup = Nullable(Type.String({ format: "uuid", description: "A user group: the effect sets that group's price only. Null or left out: everyone's price" }));
+const priceIn = Type.Object(
+  { type: Type.Literal("price"), targetRef: Uuid, targetGroup: Type.Optional(TargetGroup), value: targetedBodies.price[0] },
+  { additionalProperties: false, description: `${targetedBodies.price[1]}. targetRef: the offer id; targetGroup: a user group, for its price only` },
+);
+const priceOut = Type.Object(
+  { type: Type.Literal("price"), targetRef: Uuid, targetGroup: Type.Optional(TargetGroup), value: targetedBodies.price[0] },
+  { description: `${targetedBodies.price[1]}. targetRef: the offer id; targetGroup: a user group, for its price only` },
+);
 export const RuleEffectInput = Type.Union([
-  effectIn("location"), effectIn("tags"), effectIn("externalUrl"), effectIn("capacity"), effectIn("overbooking"), targetedIn("price"), targetedIn("offerAvailable"),
+  effectIn("location"), effectIn("tags"), effectIn("externalUrl"), effectIn("capacity"), effectIn("overbooking"), priceIn, targetedIn("offerAvailable"),
 ]);
 export const RuleEffect = Type.Union([
-  effectOut("location"), effectOut("tags"), effectOut("externalUrl"), effectOut("capacity"), effectOut("overbooking"), targetedOut("price"), targetedOut("offerAvailable"),
+  effectOut("location"), effectOut("tags"), effectOut("externalUrl"), effectOut("capacity"), effectOut("overbooking"), priceOut, targetedOut("offerAvailable"),
 ]);
 
 export const Rule = Type.Object({
@@ -377,6 +389,7 @@ const EffectiveField = Type.Union([
   Type.Literal("price"), Type.Literal("offerAvailable"),
 ], { description: "price and offerAvailable are per offer (targetRef). New fields may be added" });
 const TargetRef = Nullable(Type.String({ format: "uuid", description: "The offer of a price or offerAvailable field; null otherwise" }));
+const GroupRef = Nullable(Type.String({ format: "uuid", description: "The user group of a group price; null otherwise. A group without a price of its own shows the general price" }));
 const ResolvedAny = Type.Object({ value: Type.Unknown(), source: ValueSource, ruleId: Nullable(Uuid) });
 export const RulePreview = Type.Object(
   {
@@ -389,9 +402,9 @@ export const RulePreview = Type.Object(
     changes: Type.Array(Type.Object({
       occurrenceId: Uuid,
       startUtc: DateTime,
-      fields: Type.Array(Type.Object({ field: EffectiveField, targetRef: TargetRef, from: ResolvedAny, to: ResolvedAny })),
+      fields: Type.Array(Type.Object({ field: EffectiveField, targetRef: TargetRef, group: GroupRef, from: ResolvedAny, to: ResolvedAny })),
     })),
-    conflicts: Type.Array(Type.Object({ occurrenceId: Uuid, startUtc: DateTime, field: EffectiveField, targetRef: TargetRef, ruleIds: Type.Array(Uuid, { description: "The winner first" }) })),
+    conflicts: Type.Array(Type.Object({ occurrenceId: Uuid, startUtc: DateTime, field: EffectiveField, targetRef: TargetRef, group: GroupRef, ruleIds: Type.Array(Uuid, { description: "The winner first" }) })),
   },
   { description: "What the change does to the event's occurrences. Lists hold at most 200 items; counts are exact." },
 );
