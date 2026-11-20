@@ -32,6 +32,10 @@ param postmarkWebhook bool = false
 param sensitiveDataKeys bool = false
 @description('Admin URL in invitation emails. Defaults to where the admin is served (Front Door, or the storage static website without it).')
 param adminUrl string = ''
+@description('API scope MCP clients ask for at sign-in (docs/mcp.md), e.g. api://em-api-staging/access. Empty: none advertised.')
+param mcpScopes string = ''
+@description('Public base URL of the core API, named in the MCP sign-in metadata. Defaults to the admin URL behind Front Door (same host); without Front Door the API derives it from the request.')
+param apiPublicUrl string = ''
 @description('Postgres Entra admin principal type. Group is the runbook default; User lets one person administer a test environment where creating groups is not allowed.')
 @allowed(['Group', 'User'])
 param postgresAdminType string = 'Group'
@@ -178,6 +182,8 @@ module apps 'modules/apps.bicep' = if (deployApps) {
     sensitiveDataKeys: sensitiveDataKeys
     adminUrl: !empty(adminUrl) ? adminUrl : (deployFrontDoor ? '' : '${adminWebOrigin}/')
     corsOrigins: adminOrigin
+    mcpScopes: mcpScopes
+    publicUrl: !empty(apiPublicUrl) ? apiPublicUrl : (deployFrontDoor ? adminUrl : '')
   }
   dependsOn: [appAcrPull, migratorAcrPull, appVaultAccess]
 }

@@ -5,7 +5,7 @@ param publicApiHost string
 param adminHost string
 
 // One endpoint, routed per surface (ADR 0007, 0009):
-//   /v1/*         → core API, never cached
+//   /v1/*         → core API, never cached; also /mcp and its sign-in metadata (docs/mcp.md)
 //   /public/v1/*  → public API, cached; the cache key includes the full query string,
 //                   which carries the publishable key. Front Door does not vary on headers,
 //                   so tenant identity must never travel only in a header on this route.
@@ -86,7 +86,8 @@ resource apiRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2024-02-01' = {
   properties: {
     originGroup: { id: groups[0].id }
     // /webhooks/*: delivery reports from Postmark, which would otherwise fall through to the admin site.
-    patternsToMatch: ['/v1/*', '/webhooks/*']
+    // /mcp and /.well-known/oauth-protected-resource*: the MCP server and its RFC 9728 metadata (docs/mcp.md).
+    patternsToMatch: ['/v1/*', '/webhooks/*', '/mcp', '/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/*']
     supportedProtocols: ['Https']
     httpsRedirect: 'Enabled'
     forwardingProtocol: 'HttpsOnly'
