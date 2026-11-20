@@ -77,8 +77,9 @@ export async function buildApp(deps: AppDeps) {
   if (deps.corsOrigins?.length) {
     await app.register(cors, {
       origin: deps.corsOrigins,
-      allowedHeaders: ["authorization", "content-type", "account-id", "if-match", "idempotency-key"],
-      exposedHeaders: ["etag"],
+      // mcp-protocol-version: sent by MCP clients after initialize; www-authenticate: where they sign in.
+      allowedHeaders: ["authorization", "content-type", "account-id", "if-match", "idempotency-key", "mcp-protocol-version"],
+      exposedHeaders: ["etag", "www-authenticate"],
       methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
     });
   }

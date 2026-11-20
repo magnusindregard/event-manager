@@ -54,7 +54,7 @@ Every tool except `whoami` and `get_event_configuration` is one `/v1` operation:
 | `list_locations` · `list_tags` · `list_user_groups` · `list_vat_classes` | | Choices for the event's fields |
 | `create_event` | `createEvent` | Always a draft |
 | `update_event` | `updateEvent` | |
-| `publish_event` · `unpublish_event` · `cancel_event` | | Marked destructive: they change what the public sees |
+| `publish_event` · `unpublish_event` · `cancel_event` | | Change what the public sees |
 | `create_series` · `update_series` | | `dryRun: true` previews the dates |
 | `create_occurrence` · `update_occurrence` | | |
 | `create_offer` · `update_offer` | | Ticket types |
@@ -66,7 +66,8 @@ Conventions:
 - **Ids** are named for what they are (`eventId`, `seriesId`, `occurrenceId`, `offerId`, `ruleId`), not `id`.
 - **Changes take `version`**, the resource's version from the latest read, instead of `If-Match`. A stale version gives `version_conflict` with `details.currentVersion`.
 - **Creates take an optional `idempotencyKey`**: a retried call with the same key and arguments returns the first result instead of a duplicate.
-- Annotations: reads are `readOnlyHint`; publish, unpublish and cancel are `destructiveHint`.
+- Annotations: reads are `readOnlyHint`. Every update and status change is `destructiveHint` (it may overwrite, remove or hide something); only creates are additive.
+- Browser clients on an origin in `CORS_ORIGINS` may call `/mcp`; `mcp-protocol-version` is an allowed header and `www-authenticate` is exposed.
 
 Left out on purpose: deleting and archiving, price overrides per occurrence, bulk edits, members, API keys, sales channels, and everything about registrations, guests, reservations and sales. They can be added to the list in `apps/api/src/mcp/tools.ts`, one operation at a time.
 

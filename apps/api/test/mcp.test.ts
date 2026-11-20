@@ -49,7 +49,7 @@ async function rest(method: string, url: string, email: string, account: string,
 beforeAll(async () => {
   tdb = await startTestDatabase();
   db = createDb(tdb.appUrl);
-  app = await buildApp({ db, verifier: devVerifier(SECRET), mcp: { authorizationServers: ["https://login.example/tenant/v2.0"], scopes: ["api://em-api/access"] } });
+  app = await buildApp({ db, verifier: devVerifier(SECRET), corsOrigins: ["https://agent.example"], mcp: { authorizationServers: ["https://login.example/tenant/v2.0"], scopes: ["api://em-api/access"] } });
   base = await app.listen({ port: 0, host: "127.0.0.1" });
   A = (await tenancy.createAccount(db, { slug: "mcp-a", name: "Museum A", ownerEmail: "owner@a.test" })).id;
   B = (await tenancy.createAccount(db, { slug: "mcp-b", name: "Museum B", ownerEmail: "owner@b.test" })).id;
@@ -86,6 +86,30 @@ describe("MCP authentication", () => {
     await expect(client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers: { authorization: "Bearer nope" } } }))).rejects.toThrow();
   });
 
+  it("answers browser clients on an allowed origin with CORS headers", async () => {
+    const origin = "https://agent.example";
+    const preflight = await fetch(`${base}/mcp`, {
+      method: "OPTIONS",
+      headers: { origin, "access-control-request-method": "POST", "access-control-request-headers": "authorization,content-type,mcp-protocol-version" },
+    });
+    expect(preflight.status).toBeLessThan(300);
+    expect(preflight.headers.get("access-control-allow-origin")).toBe(origin);
+    expect(preflight.headers.get("access-control-allow-headers")).toContain("mcp-protocol-version");
+
+    const init = await fetch(`${base}/mcp`, {
+      method: "POST",
+      headers: { origin, authorization: `Bearer ${await token("owner@a.test")}`, "content-type": "application/json", accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "x", version: "1" } } }),
+    });
+    expect(init.status).toBe(200);
+    expect(init.headers.get("access-control-allow-origin")).toBe(origin);
+    expect(((await init.json()) as { result: { serverInfo: { name: string } } }).result.serverInfo.name).toBe("event-manager");
+
+    const refused = await fetch(`${base}/mcp`, { method: "POST", headers: { origin, "content-type": "application/json" }, body: "{}" });
+    expect(refused.status).toBe(401);
+    expect(refused.headers.get("access-control-expose-headers")).toContain("www-authenticate");
+  });
+
   it("is stateless: GET and DELETE are 405", async () => {
     const res = await fetch(`${base}/mcp`, { headers: { authorization: `Bearer ${await token("owner@a.test")}` } });
     expect(res.status).toBe(405);
@@ -111,6 +135,10 @@ describe("MCP catalogue", () => {
     const byName = Object.fromEntries(tools.map((t) => [t.name, t]));
     expect(byName.list_events!.annotations).toMatchObject({ readOnlyHint: true });
     expect(byName.publish_event!.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    // Only creates are additive; anything that may overwrite, remove or hide says so.
+    for (const t of tools.filter((x) => !x.annotations?.readOnlyHint)) {
+      expect(t.annotations?.destructiveHint, t.name).toBe(!t.name.startsWith("create_"));
+    }
     expect(byName.create_event!.inputSchema.required).toEqual(["translations"]);
     expect(Object.keys(byName.create_event!.inputSchema.properties!)).toContain("idempotencyKey");
     expect(byName.update_event!.inputSchema.required).toEqual(["eventId", "version"]);

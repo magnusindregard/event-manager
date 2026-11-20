@@ -15,7 +15,10 @@ export interface OperationTool {
   id?: string;
   /** The route requires If-Match: the tool takes the resource's `version` instead. */
   ifMatch?: boolean;
-  /** Changes what the public sees or is hard to undo; skills ask the human first. */
+  /**
+   * May overwrite, remove or hide something rather than only add (MCP destructiveHint): every
+   * update and status change. Only creates are additive. Skills ask the human first either way.
+   */
   destructive?: boolean;
   /** Repeating the call with the same arguments has no further effect. */
   idempotent?: boolean;
@@ -76,7 +79,7 @@ export const OPERATION_TOOLS: OperationTool[] = [
     description: "Creates an event as a draft, not visible to the public until published. Needs a title in at least one locale. Dates are added afterwards with create_series or create_occurrence; ticket types with create_offer. Pass an `idempotencyKey` so a retried call does not create a second event.",
   },
   {
-    name: "update_event", operationId: "updateEvent", kind: "write", id: "eventId", ifMatch: true, idempotent: true, title: "Change an event",
+    name: "update_event", operationId: "updateEvent", kind: "write", id: "eventId", ifMatch: true, destructive: true, idempotent: true, title: "Change an event",
     description: `Changes an event's details or configuration; only the fields given change. A translation given replaces that locale's translation, null removes it. tagIds and accessGroupIds replace the lists; registration merges per field.${VERSION_NOTE}`,
   },
   {
@@ -98,7 +101,7 @@ export const OPERATION_TOOLS: OperationTool[] = [
     description: "Adds recurring dates from an RFC 5545 RRULE and a first local start (wall time in the series' timezone, no offset). Call with dryRun=true first to see the dates it would create and show them to the human; then call again without it.",
   },
   {
-    name: "update_series", operationId: "updateSeries", kind: "write", id: "seriesId", ifMatch: true, title: "Change a recurring series",
+    name: "update_series", operationId: "updateSeries", kind: "write", id: "seriesId", ifMatch: true, destructive: true, title: "Change a recurring series",
     description: `Changes a series' rule, start, duration or timezone; its future occurrences are moved, added or removed. Call with dryRun=true first and show the changes, especially removed dates that may have registrations or tickets.${VERSION_NOTE}`,
   },
   {
@@ -106,7 +109,7 @@ export const OPERATION_TOOLS: OperationTool[] = [
     description: "Adds a one-off occurrence. startUtc and endUtc are UTC instants (with Z or an offset); endUtc defaults to start plus the event's default duration. Overrides (location, capacity, tags, external link) apply to this date only.",
   },
   {
-    name: "update_occurrence", operationId: "updateOccurrence", kind: "write", id: "occurrenceId", ifMatch: true, idempotent: true, title: "Change a single date",
+    name: "update_occurrence", operationId: "updateOccurrence", kind: "write", id: "occurrenceId", ifMatch: true, destructive: true, idempotent: true, title: "Change a single date",
     description: `Moves, cancels or overrides one occurrence. Changing its time or overrides detaches it from its series.${VERSION_NOTE}`,
   },
 
@@ -116,7 +119,7 @@ export const OPERATION_TOOLS: OperationTool[] = [
     description: "Adds an offer (ticket type, e.g. Adult, Child) to an event whose admissionMode is tickets. Needs a code, a VAT class, a default price in minor units including VAT (e.g. 15000 for NOK 150) and a name per locale. Pass an `idempotencyKey` so a retry does not add it twice.",
   },
   {
-    name: "update_offer", operationId: "updateOffer", kind: "write", id: "offerId", ifMatch: true, idempotent: true, title: "Change a ticket type",
+    name: "update_offer", operationId: "updateOffer", kind: "write", id: "offerId", ifMatch: true, destructive: true, idempotent: true, title: "Change a ticket type",
     description: `Changes an offer's price, limits, sales window, channels, group prices or names, or sets its status. A new default price is resolved for every occurrence.${VERSION_NOTE}`,
   },
   {
@@ -124,7 +127,7 @@ export const OPERATION_TOOLS: OperationTool[] = [
     description: "Adds a rule that changes capacity, prices or offer availability on matching occurrences (e.g. weekends, a date range, evenings). Call with dryRun=true first and show the human which dates change; then call again without it.",
   },
   {
-    name: "update_rule", operationId: "updateRule", kind: "write", id: "ruleId", ifMatch: true, title: "Change a rule",
+    name: "update_rule", operationId: "updateRule", kind: "write", id: "ruleId", ifMatch: true, destructive: true, title: "Change a rule",
     description: `Changes a rule's name, priority, conditions or effects, or turns it off. Call with dryRun=true first and show what changes.${VERSION_NOTE}`,
   },
 

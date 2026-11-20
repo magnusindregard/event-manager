@@ -141,6 +141,9 @@ export async function mcpPlugin(app: FastifyInstance, opts: McpOptions) {
     });
 
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+    // hijack() skips Fastify's reply, so headers set by hooks (CORS) are copied to the raw response;
+    // the SDK's writeHead merges them with its own.
+    for (const [name, value] of Object.entries(reply.getHeaders())) if (value !== undefined) reply.raw.setHeader(name, value);
     reply.hijack();
     reply.raw.on("close", () => {
       void transport.close();
