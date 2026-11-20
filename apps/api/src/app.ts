@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import swagger from "@fastify/swagger";
 import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { type Db, sql } from "@event-manager/db";
+import { Problem, problemMediaType, requireHeader } from "@event-manager/schemas";
 import type { TokenVerifier } from "./auth.js";
 import { contextPlugin } from "./plugins/context.js";
 import { problemPlugin } from "./plugins/problem.js";
@@ -32,6 +33,8 @@ export interface AppDeps {
 
 /** Operations whose request body may be left out. */
 const OPTIONAL_BODY = new Set(["cancelReservation", "extendReservation", "cancelTicketsAsStaff"]);
+/** Operations that refuse a request without an Idempotency-Key (428). */
+const IDEMPOTENCY_REQUIRED = new Set(["createReservation", "extendReservation", "confirmReservation", "cancelReservation"]);
 
 export async function buildApp(deps: AppDeps) {
   const app = Fastify({
@@ -52,7 +55,8 @@ export async function buildApp(deps: AppDeps) {
       },
     },
     // @fastify/swagger marks every body as required. These operations read a missing body as {}
-    // (emptyBody in routes/reservations.ts), so the spec says so too.
+    // (emptyBody in routes/reservations.ts), so the spec says so too. Errors are problem+json,
+    // and the reservations API's Idempotency-Key is required (packages/schemas/src/openapi.ts).
     transformObject: (doc) => {
       if (!("openapiObject" in doc)) return doc.swaggerObject;
       const openapiObject = doc.openapiObject;
@@ -61,7 +65,7 @@ export async function buildApp(deps: AppDeps) {
           if (op?.operationId && OPTIONAL_BODY.has(op.operationId) && op.requestBody) op.requestBody.required = false;
         }
       }
-      return openapiObject;
+      return requireHeader(problemMediaType(openapiObject, Problem), "idempotency-key", IDEMPOTENCY_REQUIRED);
     },
   });
   if (deps.corsOrigins?.length) {

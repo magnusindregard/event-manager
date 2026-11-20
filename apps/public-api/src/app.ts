@@ -6,7 +6,7 @@ import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { type Db, sql, type Tx, withTenant } from "@event-manager/db";
 import { catalog, DomainError, offers, tenancy } from "@event-manager/domain";
-import { Problem, PublicEventDetail, PublicEventPage, PublicLocations, PublicOccurrencePage } from "@event-manager/schemas";
+import { Problem, problemMediaType, PublicEventDetail, PublicEventPage, PublicLocations, PublicOccurrencePage } from "@event-manager/schemas";
 import { RateLimiter } from "./rate-limit.js";
 
 // /public/v1 – read-only, cached at the edge (ADR 0007, docs/implementation-plan.md).
@@ -109,6 +109,8 @@ export async function buildPublicApp(deps: PublicAppDeps) {
         },
       },
     },
+    // Errors are problem+json (packages/schemas/src/openapi.ts).
+    transformObject: (doc) => ("openapiObject" in doc ? problemMediaType(doc.openapiObject, Problem) : doc.swaggerObject),
   });
   await app.register(cors, { origin: deps.corsOrigins ?? "*", methods: ["GET", "HEAD"], allowedHeaders: ["authorization", "if-none-match"], exposedHeaders: ["etag"] });
 

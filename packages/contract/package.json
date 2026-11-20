@@ -1,0 +1,18 @@
+{
+  "name": "@event-manager/contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@event-manager/db": "workspace:*",
+    "@event-manager/domain": "workspace:*",
+    "@event-manager/sdk": "workspace:*",
+    "@testcontainers/postgresql": "^11.14.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
+  }
+}

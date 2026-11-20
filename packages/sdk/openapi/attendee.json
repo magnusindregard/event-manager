@@ -18,7 +18,57 @@
         "description": "The token from the guest's personal invitation link"
       }
     },
-    "schemas": {}
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string",
+            "description": "Stable reason code, e.g. version_conflict"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "path",
+                "message"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
   },
   "paths": {
     "/i/{token}": {
@@ -576,53 +626,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -632,53 +641,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -688,53 +656,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -744,53 +671,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -1006,53 +892,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -1062,53 +907,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -1118,53 +922,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -1174,53 +937,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -1230,53 +952,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -1286,53 +967,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -1342,53 +982,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -1925,53 +1524,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -1981,53 +1539,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2037,53 +1554,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2093,53 +1569,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2333,53 +1768,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2389,53 +1783,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2445,53 +1798,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2501,53 +1813,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2557,53 +1828,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2613,53 +1843,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2669,53 +1858,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2859,53 +2007,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2915,53 +2022,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -2971,53 +2037,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -3027,53 +2052,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -3083,53 +2067,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -3139,53 +2082,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -3195,53 +2097,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -3385,53 +2246,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -3441,53 +2261,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -3497,53 +2276,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -3553,53 +2291,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -3609,53 +2306,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -3665,53 +2321,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -3721,53 +2336,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -4185,53 +2759,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -4241,53 +2774,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -4297,53 +2789,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -4353,53 +2804,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -4607,53 +3017,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -4663,53 +3032,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -4719,53 +3047,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -4775,53 +3062,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -4831,53 +3077,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -4887,53 +3092,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -4943,53 +3107,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -5036,53 +3159,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -5092,53 +3174,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -5148,53 +3189,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -5204,53 +3204,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -5260,53 +3219,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -5316,53 +3234,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -5372,53 +3249,12 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "type",
-                    "title",
-                    "status",
-                    "code"
-                  ],
-                  "properties": {
-                    "type": {
-                      "type": "string"
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "status": {
-                      "type": "integer"
-                    },
-                    "code": {
-                      "type": "string",
-                      "description": "Stable reason code, e.g. version_conflict"
-                    },
-                    "detail": {
-                      "type": "string"
-                    },
-                    "instance": {
-                      "type": "string"
-                    },
-                    "errors": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "required": [
-                          "path",
-                          "message"
-                        ],
-                        "properties": {
-                          "path": {
-                            "type": "string"
-                          },
-                          "message": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  },
-                  "additionalProperties": true
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }

@@ -153,7 +153,7 @@ The hosted attendee app cannot know a user's group. A restricted registration ev
 
 ### For connectors
 
-Until the ticketing integration guide (ticketing milestone 5) is written, this is what a shop needs to know:
+The [integration guide](integration-guide.md#user-groups) covers this for connectors. In short:
 
 1. **Mirror your groups.** Create one user group per group your site has, with the code your site uses. Codes never change; a renamed group is a new one.
 2. **Show prices per visitor.** Read `/public/v1/occurrences?group=<code>` for a signed-in visitor, or read once without `group` and pick from `groupPrices`, falling back to `price`. Hide or lock events and offers whose `access.groups` the visitor is not in; that is a display decision, not a security one.

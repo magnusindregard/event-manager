@@ -6,6 +6,7 @@ Event management, registration (RSVP) and ticketing platform: events and recurri
 - MVP scope: [docs/mvp.md](docs/mvp.md)
 - Registration (guest invitations and RSVP), in progress: [docs/registration.md](docs/registration.md)
 - Ticketing (offers, prices, sales channels and reservations), in progress: [docs/ticketing.md](docs/ticketing.md)
+- Integration guide for web shops and POS (sales channel connectors): [docs/integration-guide.md](docs/integration-guide.md)
 - Backlog (unscheduled features): [docs/backlog.md](docs/backlog.md)
 - Architecture decisions: [docs/adr](docs/adr/README.md)
 - Implementation plan: [docs/implementation-plan.md](docs/implementation-plan.md)

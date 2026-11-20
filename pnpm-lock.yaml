@@ -306,6 +306,27 @@ importers:
         specifier: ^8.23.1
         version: 8.23.1
 
+  packages/contract:
+    devDependencies:
+      '@event-manager/db':
+        specifier: workspace:*
+        version: link:../db
+      '@event-manager/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@event-manager/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+      '@testcontainers/postgresql':
+        specifier: ^11.14.0
+        version: 11.14.0(bare-buffer@3.7.2)
+      ajv:
+        specifier: ^8.20.0
+        version: 8.20.0
+      ajv-formats:
+        specifier: ^3.0.1
+        version: 3.0.1(ajv@8.20.0)
+
   packages/db:
     dependencies:
       '@azure/identity':

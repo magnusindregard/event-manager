@@ -8,6 +8,11 @@
       "@event-manager/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./connector": {
+      "@event-manager/source": "./src/connector.ts",
+      "types": "./dist/connector.d.ts",
+      "default": "./dist/connector.js"
     }
   },
   "scripts": {

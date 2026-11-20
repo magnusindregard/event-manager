@@ -6,7 +6,7 @@ import { Type } from "typebox";
 import { type Db, sql } from "@event-manager/db";
 import { DomainError } from "@event-manager/domain";
 import {
-  AttendeeInvitationAccept, AttendeeInvitationView, AttendeeOccurrence, AttendeeRegistration, AttendeeRegistrationCreate, AttendeeRegistrationCreated, AttendeeRegistrationPatch, AttendeeRegistrationView, Problem,
+  AttendeeInvitationAccept, AttendeeInvitationView, AttendeeOccurrence, AttendeeRegistration, AttendeeRegistrationCreate, AttendeeRegistrationCreated, AttendeeRegistrationPatch, AttendeeRegistrationView, Problem, problemMediaType,
 } from "@event-manager/schemas";
 import { registerPages } from "./pages.js";
 import { RateLimiter } from "./rate-limit.js";
@@ -89,6 +89,8 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
         },
       },
     },
+    // Errors are problem+json (packages/schemas/src/openapi.ts).
+    transformObject: (doc) => ("openapiObject" in doc ? problemMediaType(doc.openapiObject, Problem) : doc.swaggerObject),
   });
 
   app.addHook("onRequest", async (req) => {

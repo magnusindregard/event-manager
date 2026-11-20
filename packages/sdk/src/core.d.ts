@@ -1257,7 +1257,23 @@ export interface paths {
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        Problem: {
+            type: string;
+            title: string;
+            status: number;
+            /** @description Stable reason code, e.g. version_conflict */
+            code: string;
+            detail?: string;
+            instance?: string;
+            errors?: {
+                path: string;
+                message: string;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;
@@ -1303,21 +1319,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -1367,21 +1370,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1390,21 +1380,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1413,21 +1390,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1436,21 +1400,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -1516,21 +1467,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1539,21 +1477,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1562,21 +1487,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1585,21 +1497,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1608,21 +1507,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1631,21 +1517,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1654,21 +1527,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -1723,21 +1583,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1746,21 +1593,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1769,21 +1603,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1792,21 +1613,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -1863,21 +1671,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1886,21 +1681,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1909,21 +1691,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1932,21 +1701,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1955,21 +1711,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -1978,21 +1721,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -2040,21 +1770,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2063,21 +1780,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2086,21 +1790,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2109,21 +1800,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -2152,21 +1830,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2175,21 +1840,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2198,21 +1850,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2221,21 +1860,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2244,21 +1870,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -2311,21 +1924,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2334,21 +1934,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2357,21 +1944,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2380,21 +1954,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -2443,21 +2004,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2466,21 +2014,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2489,21 +2024,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2512,21 +2034,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -2588,21 +2097,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2611,21 +2107,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2634,21 +2117,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2657,21 +2127,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2680,21 +2137,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2703,21 +2147,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2726,21 +2157,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2749,21 +2167,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -2810,21 +2215,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2833,21 +2225,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2856,21 +2235,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2879,21 +2245,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -2954,21 +2307,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -2977,21 +2317,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3000,21 +2327,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3023,21 +2337,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3046,21 +2347,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3069,21 +2357,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3092,21 +2367,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3115,21 +2377,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -3182,21 +2431,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3205,21 +2441,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3228,21 +2451,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3251,21 +2461,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -3326,21 +2523,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3349,21 +2533,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3372,21 +2543,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3395,21 +2553,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3418,21 +2563,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3441,21 +2573,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3464,21 +2583,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3487,21 +2593,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -3563,21 +2656,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3586,21 +2666,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3609,21 +2676,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3632,21 +2686,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3655,21 +2696,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3678,21 +2706,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3701,21 +2716,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3724,21 +2726,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -3791,21 +2780,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3814,21 +2790,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3837,21 +2800,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3860,21 +2810,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3883,21 +2820,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3906,21 +2830,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3929,21 +2840,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -3952,21 +2850,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -4019,21 +2904,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4042,21 +2914,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4065,21 +2924,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4088,21 +2934,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4111,21 +2944,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4134,21 +2954,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4157,21 +2964,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4180,21 +2974,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -4295,21 +3076,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4318,21 +3086,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4341,21 +3096,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4364,21 +3106,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -4515,21 +3244,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4538,21 +3254,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4561,21 +3264,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4584,21 +3274,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4607,21 +3284,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4630,21 +3294,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4653,21 +3304,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4676,21 +3314,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -4775,21 +3400,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4798,21 +3410,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4821,21 +3420,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -4844,21 +3430,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -4995,21 +3568,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5018,21 +3578,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5041,21 +3588,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5064,21 +3598,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5087,21 +3608,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5110,21 +3618,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5133,21 +3628,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5156,21 +3638,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -5255,21 +3724,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5278,21 +3734,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5301,21 +3744,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5324,21 +3754,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5347,21 +3764,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5370,21 +3774,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5393,21 +3784,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5416,21 +3794,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -5515,21 +3880,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5538,21 +3890,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5561,21 +3900,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5584,21 +3910,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5607,21 +3920,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5630,21 +3930,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5653,21 +3940,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5676,21 +3950,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -5775,21 +4036,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5798,21 +4046,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5821,21 +4056,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5844,21 +4066,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5867,21 +4076,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5890,21 +4086,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5913,21 +4096,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -5936,21 +4106,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -6035,21 +4192,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6058,21 +4202,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6081,21 +4212,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6104,21 +4222,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6127,21 +4232,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6150,21 +4242,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6173,21 +4252,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6196,21 +4262,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -6330,21 +4383,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6353,21 +4393,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6376,21 +4403,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6399,21 +4413,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -6545,21 +4546,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6568,21 +4556,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6591,21 +4566,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6614,21 +4576,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6637,21 +4586,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6660,21 +4596,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6683,21 +4606,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6706,21 +4616,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -6831,21 +4728,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6854,21 +4738,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6877,21 +4748,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6900,21 +4758,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -6943,21 +4788,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6966,21 +4798,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -6989,21 +4808,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7012,21 +4818,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7035,21 +4828,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7058,21 +4838,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7081,21 +4848,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7104,21 +4858,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -7253,21 +4994,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7276,21 +5004,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7299,21 +5014,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7322,21 +5024,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7345,21 +5034,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7368,21 +5044,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7391,21 +5054,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7414,21 +5064,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -7539,21 +5176,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7562,21 +5186,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7585,21 +5196,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7608,21 +5206,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7631,21 +5216,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7654,21 +5226,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7677,21 +5236,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7700,21 +5246,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -7851,21 +5384,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7874,21 +5394,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7897,21 +5404,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7920,21 +5414,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7943,21 +5424,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7966,21 +5434,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -7989,21 +5444,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -8012,21 +5454,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -8147,21 +5576,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -8170,21 +5586,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -8193,21 +5596,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -8216,21 +5606,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -8668,21 +6045,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -8691,21 +6055,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -8714,21 +6065,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -8737,21 +6075,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -8760,21 +6085,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -8783,21 +6095,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -8806,21 +6105,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -8829,21 +6115,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -8962,21 +6235,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -8985,21 +6245,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9008,21 +6255,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9031,21 +6265,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -9236,21 +6457,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9259,21 +6467,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9282,21 +6477,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9305,21 +6487,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9328,21 +6497,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9351,21 +6507,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9374,21 +6517,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9397,21 +6527,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -9679,21 +6796,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9702,21 +6806,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9725,21 +6816,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9748,21 +6826,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9771,21 +6836,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9794,21 +6846,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9817,21 +6856,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9840,21 +6866,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -9910,21 +6923,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9933,21 +6933,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9956,21 +6943,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -9979,21 +6953,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -10210,21 +7171,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10233,21 +7181,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10256,21 +7191,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10279,21 +7201,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10302,21 +7211,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10325,21 +7221,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10348,21 +7231,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10371,21 +7241,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -10439,21 +7296,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10462,21 +7306,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10485,21 +7316,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10508,21 +7326,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -10605,21 +7410,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10628,21 +7420,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10651,21 +7430,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10674,21 +7440,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10697,21 +7450,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10720,21 +7460,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10743,21 +7470,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10766,21 +7480,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -10909,21 +7610,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10932,21 +7620,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10955,21 +7630,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -10978,21 +7640,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11001,21 +7650,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11024,21 +7660,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11047,21 +7670,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11070,21 +7680,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -11218,21 +7815,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11241,21 +7825,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11264,21 +7835,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11287,21 +7845,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11310,21 +7855,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11333,21 +7865,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11356,21 +7875,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11379,21 +7885,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -11437,21 +7930,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11460,21 +7940,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11483,21 +7950,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11506,21 +7960,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -11574,21 +8015,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11597,21 +8025,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11620,21 +8035,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11643,21 +8045,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11666,21 +8055,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11689,21 +8065,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11712,21 +8075,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11735,21 +8085,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -11802,21 +8139,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11825,21 +8149,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11848,21 +8159,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11871,21 +8169,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11894,21 +8179,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11917,21 +8189,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11940,21 +8199,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -11963,21 +8209,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -12065,21 +8298,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12088,21 +8308,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12111,21 +8318,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12134,21 +8328,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -12281,21 +8462,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12304,21 +8472,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12327,21 +8482,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12350,21 +8492,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12373,21 +8502,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12396,21 +8512,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12419,21 +8522,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12442,21 +8532,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -12558,21 +8635,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12581,21 +8645,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12604,21 +8655,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12627,21 +8665,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12650,21 +8675,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12673,21 +8685,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12696,21 +8695,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12719,21 +8705,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -12819,21 +8792,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12842,21 +8802,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12865,21 +8812,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12888,21 +8822,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -12931,21 +8852,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12954,21 +8862,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -12977,21 +8872,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13000,21 +8882,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13023,21 +8892,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13046,21 +8902,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13069,21 +8912,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13092,21 +8922,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -13235,21 +9052,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13258,21 +9062,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13281,21 +9072,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13304,21 +9082,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13327,21 +9092,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13350,21 +9102,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13373,21 +9112,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13396,21 +9122,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -13554,21 +9267,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13577,21 +9277,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13600,21 +9287,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13623,21 +9297,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13646,21 +9307,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -13738,21 +9386,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13761,21 +9396,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13784,21 +9406,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13807,21 +9416,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13830,21 +9426,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13853,21 +9436,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13876,21 +9446,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -13899,21 +9456,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -13982,21 +9526,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14005,21 +9536,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14028,21 +9546,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14051,21 +9556,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14074,21 +9566,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14097,21 +9576,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14120,21 +9586,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14143,21 +9596,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -14211,21 +9651,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14234,21 +9661,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14257,21 +9671,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14280,21 +9681,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14303,21 +9691,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14326,21 +9701,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14349,21 +9711,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14372,21 +9721,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -14433,21 +9769,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14456,21 +9779,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14479,21 +9789,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14502,21 +9799,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14525,21 +9809,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14548,21 +9819,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14571,21 +9829,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14594,21 +9839,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -14653,21 +9885,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14676,21 +9895,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14699,21 +9905,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14722,21 +9915,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -14794,21 +9974,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14817,21 +9984,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14840,21 +9994,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14863,21 +10004,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14886,21 +10014,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14909,21 +10024,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14932,21 +10034,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -14955,21 +10044,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -15025,21 +10101,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15048,21 +10111,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15071,21 +10121,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15094,21 +10131,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15117,21 +10141,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15140,21 +10151,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15163,21 +10161,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15186,21 +10171,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -15249,21 +10221,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15272,21 +10231,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15295,21 +10241,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15318,21 +10251,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -15392,21 +10312,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15415,21 +10322,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15438,21 +10332,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15461,21 +10342,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15484,21 +10352,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15507,21 +10362,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15530,21 +10372,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15553,21 +10382,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -15616,21 +10432,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15639,21 +10442,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15662,21 +10452,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15685,21 +10462,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -15757,21 +10521,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15780,21 +10531,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15803,21 +10541,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15826,21 +10551,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15849,21 +10561,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15872,21 +10571,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15895,21 +10581,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15918,21 +10591,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -15976,21 +10636,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -15999,21 +10646,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16022,21 +10656,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16045,21 +10666,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -16109,21 +10717,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16132,21 +10727,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16155,21 +10737,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16178,21 +10747,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16201,21 +10757,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16224,21 +10767,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16247,21 +10777,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16270,21 +10787,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -16314,21 +10818,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16337,21 +10828,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16360,21 +10838,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16383,21 +10848,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -16437,21 +10889,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16460,21 +10899,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16483,21 +10909,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16506,21 +10919,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -16567,21 +10967,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16590,21 +10977,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16613,21 +10987,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16636,21 +10997,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16659,21 +11007,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16682,21 +11017,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16705,21 +11027,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16728,21 +11037,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -16772,21 +11068,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16795,21 +11078,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16818,21 +11088,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16841,21 +11098,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16864,21 +11108,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16887,21 +11118,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16910,21 +11128,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -16933,21 +11138,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -16988,21 +11180,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17011,21 +11190,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17034,21 +11200,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17057,21 +11210,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -17119,21 +11259,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17142,21 +11269,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17165,21 +11279,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17188,21 +11289,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -17231,21 +11319,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17254,21 +11329,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17277,21 +11339,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17300,21 +11349,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -17375,21 +11411,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17398,21 +11421,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17421,21 +11431,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17444,21 +11441,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -17551,21 +11535,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17574,21 +11545,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17597,21 +11555,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17620,21 +11565,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17643,21 +11575,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17666,21 +11585,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17689,21 +11595,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17712,21 +11605,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -17835,21 +11715,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17858,21 +11725,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17881,21 +11735,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -17904,21 +11745,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -18015,21 +11843,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18038,21 +11853,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18061,21 +11863,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18084,21 +11873,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18107,21 +11883,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18130,21 +11893,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18153,21 +11903,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18176,21 +11913,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -18280,21 +12004,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18303,21 +12014,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18326,21 +12024,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18349,21 +12034,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18372,21 +12044,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18395,21 +12054,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18418,21 +12064,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18441,21 +12074,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -18531,21 +12151,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18554,21 +12161,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18577,21 +12171,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18600,21 +12181,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18623,21 +12191,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18646,21 +12201,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18669,21 +12211,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18692,21 +12221,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -18769,21 +12285,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18792,21 +12295,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18815,21 +12305,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18838,21 +12315,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -18889,21 +12353,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/csv": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "text/csv": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18912,21 +12364,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/csv": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "text/csv": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18935,21 +12375,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/csv": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "text/csv": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -18958,21 +12386,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/csv": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "text/csv": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -19064,21 +12480,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19087,21 +12490,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19110,21 +12500,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19133,21 +12510,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -19233,21 +12597,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19256,21 +12607,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19279,21 +12617,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19302,21 +12627,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19325,21 +12637,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19348,21 +12647,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19371,21 +12657,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19394,21 +12667,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -19493,21 +12753,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19516,21 +12763,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19539,21 +12773,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19562,21 +12783,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19585,21 +12793,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19608,21 +12803,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19631,21 +12813,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19654,21 +12823,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -19708,21 +12864,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19731,21 +12874,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19754,21 +12884,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19777,21 +12894,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19800,21 +12904,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19823,21 +12914,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19846,21 +12924,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19869,21 +12934,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -19925,21 +12977,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19948,21 +12987,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19971,21 +12997,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -19994,21 +13007,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20017,21 +13017,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20040,21 +13027,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20063,21 +13037,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20086,21 +13047,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -20139,21 +13087,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20162,21 +13097,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20185,21 +13107,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20208,21 +13117,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20231,21 +13127,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20254,21 +13137,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20277,21 +13147,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20300,21 +13157,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -20347,21 +13191,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20370,21 +13201,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20393,21 +13211,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20416,21 +13221,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -20463,21 +13255,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20486,21 +13265,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20509,21 +13275,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20532,21 +13285,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20555,21 +13295,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20578,21 +13305,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20601,21 +13315,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20624,21 +13325,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -20671,21 +13359,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/csv": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "text/csv": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20694,21 +13370,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/csv": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "text/csv": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20717,21 +13381,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/csv": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "text/csv": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20740,21 +13392,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "text/csv": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "text/csv": components["schemas"]["Problem"];
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -20818,21 +13458,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20841,21 +13468,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20864,21 +13478,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20887,21 +13488,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20910,21 +13498,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20933,21 +13508,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20956,21 +13518,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -20979,21 +13528,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -21063,21 +13599,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21086,21 +13609,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21109,21 +13619,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21132,21 +13629,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21155,21 +13639,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21178,21 +13649,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21201,21 +13659,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21224,21 +13669,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -21299,21 +13731,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21322,21 +13741,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21345,21 +13751,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21368,21 +13761,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21391,21 +13771,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21414,21 +13781,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21437,21 +13791,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21460,21 +13801,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -21503,21 +13831,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21526,21 +13841,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21549,21 +13851,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21572,21 +13861,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -21594,9 +13870,9 @@ export interface operations {
     createReservation: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 /** @description Required. Makes the request safe to retry for 24 hours */
-                "idempotency-key"?: string;
+                "idempotency-key": string;
             };
             path?: never;
             cookie?: never;
@@ -21749,21 +14025,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21772,21 +14035,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21795,21 +14045,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21818,21 +14055,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21841,21 +14065,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21864,21 +14075,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -21887,21 +14085,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -22038,21 +14223,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22061,21 +14233,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22084,21 +14243,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22107,21 +14253,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -22129,9 +14262,9 @@ export interface operations {
     extendReservation: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 /** @description Required. Makes the request safe to retry for 24 hours */
-                "idempotency-key"?: string;
+                "idempotency-key": string;
             };
             path: {
                 id: string;
@@ -22268,21 +14401,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22291,21 +14411,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22314,21 +14421,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22337,21 +14431,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22360,21 +14441,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22383,21 +14451,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22406,21 +14461,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -22428,9 +14470,9 @@ export interface operations {
     confirmReservation: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 /** @description Required. Makes the request safe to retry for 24 hours */
-                "idempotency-key"?: string;
+                "idempotency-key": string;
             };
             path: {
                 id: string;
@@ -22571,21 +14613,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22594,21 +14623,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22617,21 +14633,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22640,21 +14643,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22663,21 +14653,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22686,21 +14663,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22709,21 +14673,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -22731,9 +14682,9 @@ export interface operations {
     cancelReservation: {
         parameters: {
             query?: never;
-            header?: {
+            header: {
                 /** @description Required. Makes the request safe to retry for 24 hours */
-                "idempotency-key"?: string;
+                "idempotency-key": string;
             };
             path: {
                 id: string;
@@ -22872,21 +14823,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22895,21 +14833,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22918,21 +14843,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22941,21 +14853,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22964,21 +14863,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -22987,21 +14873,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -23010,21 +14883,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -23156,21 +15016,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -23179,21 +15026,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -23202,21 +15036,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -23225,21 +15046,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -23376,21 +15184,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -23399,21 +15194,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -23422,21 +15204,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -23445,21 +15214,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
@@ -23605,21 +15361,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -23628,21 +15371,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -23651,21 +15381,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -23674,21 +15391,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -23697,21 +15401,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             /** @description Default Response */
@@ -23720,21 +15411,8 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        type: string;
-                        title: string;
-                        status: number;
-                        /** @description Stable reason code, e.g. version_conflict */
-                        code: string;
-                        detail?: string;
-                        instance?: string;
-                        errors?: {
-                            path: string;
-                            message: string;
-                        }[];
-                    } & {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
         };
