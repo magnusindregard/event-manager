@@ -100,7 +100,6 @@ describe("reserve and confirm", () => {
     const again = await run((tx) => sales.confirm(tx, webCaller, r.id, { externalOrderRef: "ORDER-1001" }, at(6)));
     expect(again.tickets.map((x) => x.id)).toEqual(confirmed.tickets.map((x) => x.id));
     await expect(run((tx) => sales.confirm(tx, webCaller, r.id, { externalOrderRef: "ORDER-2" }, at(6)))).rejects.toMatchObject({ code: "already_confirmed" });
-    await expect(run((tx) => sales.cancelReservation(tx, webCaller, r.id, at(6)))).rejects.toMatchObject({ code: "conflict" });
   });
 
   it("keeps the reserved price through confirm when the price changes meanwhile", async () => {
@@ -271,7 +270,7 @@ describe("expiry, extend and cancel", () => {
 
     // Cancelled, its lines still point at the occurrence: reattach keeps it detached, so
     // shortening the series reports a conflict instead of deleting a referenced occurrence.
-    await run((tx) => sales.cancelReservation(tx, webCaller, r2.id, at(2)));
+    await run((tx) => sales.cancelReservation(tx, webCaller, r2.id, {}, at(2)));
     const edited = await run((tx) => catalog.getOccurrence(tx, occ.id));
     expect((await run((tx) => catalog.reattachOccurrence(tx, ctx, occ.id, edited.version))).detached).toBe(true);
     const series = await run((tx) => catalog.getSeries(tx, created.series!.id));
@@ -283,10 +282,10 @@ describe("expiry, extend and cancel", () => {
   it("cancels a held reservation and releases its places", async () => {
     const { occ, adult } = await concert("cancel", 5);
     const r = await reserve(webCaller, { lines: [{ occurrenceId: occ.id, offerId: adult.id, quantity: 3 }] });
-    const c = await run((tx) => sales.cancelReservation(tx, webCaller, r.id, at(1)));
+    const c = await run((tx) => sales.cancelReservation(tx, webCaller, r.id, {}, at(1)));
     expect(c).toMatchObject({ status: "cancelled", cancelledAt: at(1) });
     expect(await pool(occ.id)).toMatchObject({ held: 0, available: 5 });
-    await expect(run((tx) => sales.cancelReservation(tx, webCaller, r.id, at(2)))).rejects.toMatchObject({ code: "already_cancelled" });
+    await expect(run((tx) => sales.cancelReservation(tx, webCaller, r.id, {}, at(2)))).rejects.toMatchObject({ code: "already_cancelled" });
     await expect(run((tx) => sales.confirm(tx, webCaller, r.id, { externalOrderRef: "X" }, at(2)))).rejects.toMatchObject({ code: "already_cancelled" });
   });
 });
@@ -316,10 +315,12 @@ describe("migration 0018", () => {
     await reserve(webCaller, { confirm: true, externalOrderRef: "RB-1", lines: [{ occurrenceId: occ.id, offerId: adult.id, quantity: 2 }] });
     const su = createDb(tdb.superuserUrl) as unknown as Parameters<(typeof migrations)[string]["up"]>[0];
     try {
+      await migrations["0019_after_sale"]!.down!(su);
       await migrations["0018_reservations"]!.down!(su);
       const left = await sql<{ n: number }>`select count(*)::int as n from admission.admission where registration_id is null`.execute(su);
       expect(left.rows).toEqual([{ n: 0 }]);
       await migrations["0018_reservations"]!.up(su);
+      await migrations["0019_after_sale"]!.up(su);
     } finally {
       await su.destroy();
     }

@@ -24,7 +24,8 @@ export type ErrorCode =
   | "expired_sold_out"
   | "already_cancelled"
   | "already_confirmed"
-  | "schedule_changed";
+  | "schedule_changed"
+  | "occurrence_started";
 
 const statusFor: Record<ErrorCode, number> = {
   not_found: 404,
@@ -48,6 +49,7 @@ const statusFor: Record<ErrorCode, number> = {
   extend_limit: 409,
   expired_sold_out: 409,
   already_cancelled: 409,
+  occurrence_started: 409,
   already_confirmed: 409,
   schedule_changed: 409,
 };

@@ -11,12 +11,15 @@ export const Role = Type.Union([
   Type.Literal("owner"), Type.Literal("editor"), Type.Literal("event_manager"),
   Type.Literal("box_office"), Type.Literal("door_staff"), Type.Literal("finance"),
 ]);
-export const EnabledRole = Type.Union([Type.Literal("owner"), Type.Literal("event_manager"), Type.Literal("editor")], {
-  description: "owner: everything. event_manager: content and guest data. editor: content only",
+export const EnabledRole = Type.Union([
+  Type.Literal("owner"), Type.Literal("event_manager"), Type.Literal("editor"), Type.Literal("box_office"), Type.Literal("finance"),
+], {
+  description: "owner: everything. event_manager: content, guest data and sales. editor: content only. box_office: guest lists and sales, reading content. finance: reading sales and content",
 });
 export const Permission = Type.Union([
   Type.Literal("account.write"), Type.Literal("members.manage"), Type.Literal("content.write"), Type.Literal("content.read"), Type.Literal("audit.read"),
   Type.Literal("registrations.read"), Type.Literal("registrations.write"), Type.Literal("registrations.sensitive"), Type.Literal("offers.write"),
+  Type.Literal("sales.read"), Type.Literal("sales.write"),
 ]);
 
 /** RFC 9457 problem details with a stable reason code. */

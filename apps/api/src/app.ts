@@ -16,6 +16,7 @@ import { invitationRoutes } from "./routes/invitations.js";
 import { postmarkWebhookRoutes } from "./routes/postmark-webhook.js";
 import { registrationRoutes } from "./routes/registrations.js";
 import { reservationRoutes } from "./routes/reservations.js";
+import { salesRoutes } from "./routes/sales.js";
 
 export interface AppDeps {
   db: Db;
@@ -77,6 +78,7 @@ export async function buildApp(deps: AppDeps) {
       await v1.register(registrationRoutes);
       await v1.register(invitationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
       await v1.register(reservationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
+      await v1.register(salesRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
       v1.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: "/v1" },

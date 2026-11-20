@@ -81,3 +81,10 @@ export async function ticketAdmissions(tx: Tx, ticketIds: readonly string[]): Pr
   }
   return out;
 }
+
+/** Cancelled tickets' admissions no longer admit anyone. */
+export async function voidTicketAdmissions(tx: Tx, ticketIds: readonly string[]): Promise<void> {
+  for (let i = 0; i < ticketIds.length; i += 1000) {
+    await tx.updateTable("admission.admission").set({ status: "void" }).where("ticket_id", "in", ticketIds.slice(i, i + 1000)).execute();
+  }
+}

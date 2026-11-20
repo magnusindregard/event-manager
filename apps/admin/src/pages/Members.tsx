@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
 
-type Role = "owner" | "event_manager" | "editor";
+type Role = "owner" | "event_manager" | "editor" | "box_office" | "finance";
 type SigninKind = "auto" | "work" | "local";
 
 export function Members() {
@@ -81,7 +81,7 @@ export function Members() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(["editor", "event_manager", "owner"] as const).map((r) => (
+                  {(["editor", "box_office", "finance", "event_manager", "owner"] as const).map((r) => (
                     <SelectItem key={r} value={r}>
                       <span className="grid">
                         <span>{roleLabel(r)}</span>

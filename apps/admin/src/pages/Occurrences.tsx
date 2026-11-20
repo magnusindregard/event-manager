@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, CalendarDays, CircleAlert, List, Pencil, Plus, Repeat, RotateCcw, SquarePen, Trash2, TriangleAlert, Undo2, Users, X } from "lucide-react";
+import { Ban, CalendarDays, CircleAlert, List, Pencil, Plus, Receipt, Repeat, RotateCcw, SquarePen, Trash2, TriangleAlert, Undo2, Users, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -31,6 +31,7 @@ import { RuleEditor, type RuleEditorMode } from "./schedule/RuleEditor.js";
 import { OccurrenceCalendar } from "./schedule/OccurrenceCalendar.js";
 import { type EditorMode, RecurrenceEditor } from "./schedule/RecurrenceEditor.js";
 import { Registrations } from "./schedule/Registrations.js";
+import { Sales } from "./schedule/Sales.js";
 
 type Draft = {
   occ: Occurrence | null;
@@ -68,6 +69,7 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [toDelete, setToDelete] = useState<Occurrence | null>(null);
   const [registrationsOf, setRegistrationsOf] = useState<Occurrence | null>(null);
+  const [salesOf, setSalesOf] = useState<Occurrence | null>(null);
   const [conflict, setConflict] = useState(false);
   const [editor, setEditor] = useState<EditorMode | null>(null);
   const [seriesToDelete, setSeriesToDelete] = useState<Series | null>(null);
@@ -364,6 +366,11 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
                 <Users />
               </Button>
             )}
+            {event.admissionMode === "tickets" && o.pool && can("sales.read") && (
+              <Button variant="ghost" size="icon" aria-label={t("sales.openFor", { when: label })} onClick={() => setSalesOf(o)}>
+                <Receipt />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" aria-label={`${t("common.edit")} ${label}`} disabled={archived} onClick={() => open(o)}>
               <Pencil />
             </Button>
@@ -482,6 +489,12 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         occurrence={registrationsOf && (query.data?.find((o) => o.id === registrationsOf.id) ?? registrationsOf)}
         label={registrationsOf ? fmt(registrationsOf.startUtc) : ""}
         onClose={() => setRegistrationsOf(null)}
+      />
+      <Sales
+        event={event}
+        occurrence={salesOf && (query.data?.find((o) => o.id === salesOf.id) ?? salesOf)}
+        label={salesOf ? fmt(salesOf.startUtc) : ""}
+        onClose={() => setSalesOf(null)}
       />
       <Sheet open={!!draft} onOpenChange={(o) => !o && setDraft(null)}>
         <SheetContent className="sm:max-w-md">

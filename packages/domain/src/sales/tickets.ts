@@ -77,3 +77,59 @@ export async function overdueReservations(tx: Tx, now: Date = new Date(), limit 
   const rows = await tx.selectFrom("sales.reservation").select("id").where("status", "=", "held").where("expires_at", "<=", now).orderBy("expires_at").orderBy("id").limit(limit).execute();
   return rows.map((r) => r.id);
 }
+
+export interface TicketsMessage {
+  reservationId: string;
+  externalOrderRef: string | null;
+  /** Where to send the tickets. */
+  email: string;
+  locale: string;
+  accountName: string;
+  /** Valid tickets, in line order, each with its links and what it is for. */
+  tickets: {
+    id: string;
+    lineName: string;
+    partySize: number;
+    ticketToken: string;
+    admissionToken: string;
+    title: string;
+    target: catalog.RegistrationTarget;
+  }[];
+}
+
+/**
+ * What the tickets email for a confirmed reservation needs, or null when no email is due: the
+ * channel does not send tickets, there is no buyer email, or nothing valid is left to send.
+ */
+export async function ticketsMessage(tx: Tx, reservationId: string): Promise<TicketsMessage | null> {
+  const r = await tx.selectFrom("sales.reservation as r").innerJoin("offers.sales_channel as c", "c.id", "r.channel_id")
+    .select(["r.id", "r.status", "r.external_order_ref", "r.buyer_email", "r.buyer_locale", "r.locale", "c.send_tickets"])
+    .where("r.id", "=", reservationId).executeTakeFirst();
+  if (!r || r.status !== "confirmed" || !r.send_tickets || !r.buyer_email) return null;
+  const rows = await tx.selectFrom("sales.ticket as t").innerJoin("sales.reservation_line as l", "l.id", "t.line_id")
+    .select(["t.id", "t.occurrence_id", "t.token_version", "l.line_name", "l.places_per_unit"])
+    .where("t.reservation_id", "=", reservationId).where("t.status", "=", "valid")
+    .orderBy("l.line_no").orderBy("t.created_at").orderBy("t.id").execute();
+  if (!rows.length) return null;
+  const account = await getAccount(tx);
+  const locale = r.buyer_locale && account.locales.includes(r.buyer_locale) ? r.buyer_locale : account.locales.includes(r.locale) ? r.locale : account.defaultLocale;
+  const targets = new Map<string, catalog.RegistrationTarget>();
+  for (const id of new Set(rows.map((t) => t.occurrence_id))) targets.set(id, await catalog.getRegistrationTarget(tx, id));
+  const admissions = await admission.ticketAdmissions(tx, rows.map((t) => t.id));
+  const tenantId = account.id;
+  const tickets = [];
+  for (const t of rows) {
+    const target = targets.get(t.occurrence_id)!;
+    const a = admissions.get(t.id)!;
+    if (a.status !== "valid") continue;
+    tickets.push({
+      id: t.id, lineName: t.line_name, partySize: t.places_per_unit,
+      ticketToken: await registration.issueToken(tx, tenantId, "ticket", t.id, t.token_version),
+      admissionToken: await registration.issueToken(tx, tenantId, "admission", a.id, t.token_version),
+      title: target.event.translations[locale]?.title ?? target.event.translations[account.defaultLocale]?.title ?? target.event.slug,
+      target,
+    });
+  }
+  if (!tickets.length) return null;
+  return { reservationId: r.id, externalOrderRef: r.external_order_ref, email: r.buyer_email, locale, accountName: account.name, tickets };
+}

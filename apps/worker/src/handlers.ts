@@ -5,6 +5,7 @@ import { queueOccurrenceNotices } from "./occurrence-notice.js";
 import { enqueueProvisioning } from "./provision.js";
 import { queueRegistrationEmail } from "./registration-email.js";
 import { queueReminders } from "./reminder.js";
+import { queueTicketsEmail } from "./tickets-email.js";
 import { queueResolution } from "./resolver.js";
 import { queueWaitlistWork } from "./waitlist.js";
 
@@ -35,4 +36,4 @@ export const auditTrailHandler: InternalHandler = {
   },
 };
 
-export const defaultHandlers: InternalHandler[] = [auditTrailHandler, enqueueProvisioning, queueResolution, queueRegistrationEmail, queueOccurrenceNotices, queueInvitationEmails, queueReminders, queueWaitlistWork];
+export const defaultHandlers: InternalHandler[] = [auditTrailHandler, enqueueProvisioning, queueResolution, queueRegistrationEmail, queueOccurrenceNotices, queueInvitationEmails, queueReminders, queueWaitlistWork, queueTicketsEmail];

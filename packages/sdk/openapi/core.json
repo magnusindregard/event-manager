@@ -192,6 +192,18 @@
                                   "enum": [
                                     "offers.write"
                                   ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "sales.read"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "sales.write"
+                                  ]
                                 }
                               ]
                             }
@@ -1665,9 +1677,21 @@
                         "enum": [
                           "editor"
                         ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "box_office"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "finance"
+                        ]
                       }
                     ],
-                    "description": "owner: everything. event_manager: content and guest data. editor: content only"
+                    "description": "owner: everything. event_manager: content, guest data and sales. editor: content only. box_office: guest lists and sales, reading content. finance: reading sales and content"
                   },
                   "signinKind": {
                     "anyOf": [
@@ -53820,6 +53844,7 @@
                     "tickets",
                     "confirmedAt",
                     "cancelledAt",
+                    "anonymisedAt",
                     "version",
                     "createdAt",
                     "updatedAt",
@@ -54053,6 +54078,9 @@
                           "status",
                           "admissionId",
                           "partySize",
+                          "cancelledAt",
+                          "cancelledBy",
+                          "externalRefundRef",
                           "url",
                           "qr"
                         ],
@@ -54097,6 +54125,44 @@
                             "type": "integer",
                             "description": "People the ticket admits: the offer's places per unit"
                           },
+                          "cancelledAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "cancelledBy": {
+                            "anyOf": [
+                              {
+                                "type": "null"
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "channel"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "staff"
+                                    ]
+                                  }
+                                ],
+                                "description": "Who cancelled the ticket: the channel (a refund) or staff in the admin"
+                              }
+                            ]
+                          },
+                          "externalRefundRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The channel's refund reference given on cancel"
+                          },
                           "url": {
                             "type": [
                               "string",
@@ -54128,6 +54194,14 @@
                         "null"
                       ],
                       "format": "date-time"
+                    },
+                    "anonymisedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "When retention removed the buyer, as for registrations; the lines and references stay"
                     },
                     "version": {
                       "type": "integer"
@@ -54592,6 +54666,7 @@
                     "tickets",
                     "confirmedAt",
                     "cancelledAt",
+                    "anonymisedAt",
                     "version",
                     "createdAt",
                     "updatedAt",
@@ -54825,6 +54900,9 @@
                           "status",
                           "admissionId",
                           "partySize",
+                          "cancelledAt",
+                          "cancelledBy",
+                          "externalRefundRef",
                           "url",
                           "qr"
                         ],
@@ -54869,6 +54947,44 @@
                             "type": "integer",
                             "description": "People the ticket admits: the offer's places per unit"
                           },
+                          "cancelledAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "cancelledBy": {
+                            "anyOf": [
+                              {
+                                "type": "null"
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "channel"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "staff"
+                                    ]
+                                  }
+                                ],
+                                "description": "Who cancelled the ticket: the channel (a refund) or staff in the admin"
+                              }
+                            ]
+                          },
+                          "externalRefundRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The channel's refund reference given on cancel"
+                          },
                           "url": {
                             "type": [
                               "string",
@@ -54900,6 +55016,14 @@
                         "null"
                       ],
                       "format": "date-time"
+                    },
+                    "anonymisedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "When retention removed the buyer, as for registrations; the lines and references stay"
                     },
                     "version": {
                       "type": "integer"
@@ -55227,6 +55351,7 @@
                     "tickets",
                     "confirmedAt",
                     "cancelledAt",
+                    "anonymisedAt",
                     "version",
                     "createdAt",
                     "updatedAt",
@@ -55460,6 +55585,9 @@
                           "status",
                           "admissionId",
                           "partySize",
+                          "cancelledAt",
+                          "cancelledBy",
+                          "externalRefundRef",
                           "url",
                           "qr"
                         ],
@@ -55504,6 +55632,44 @@
                             "type": "integer",
                             "description": "People the ticket admits: the offer's places per unit"
                           },
+                          "cancelledAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "cancelledBy": {
+                            "anyOf": [
+                              {
+                                "type": "null"
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "channel"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "staff"
+                                    ]
+                                  }
+                                ],
+                                "description": "Who cancelled the ticket: the channel (a refund) or staff in the admin"
+                              }
+                            ]
+                          },
+                          "externalRefundRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The channel's refund reference given on cancel"
+                          },
                           "url": {
                             "type": [
                               "string",
@@ -55535,6 +55701,14 @@
                         "null"
                       ],
                       "format": "date-time"
+                    },
+                    "anonymisedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "When retention removed the buyer, as for registrations; the lines and references stay"
                     },
                     "version": {
                       "type": "integer"
@@ -56067,6 +56241,7 @@
                     "tickets",
                     "confirmedAt",
                     "cancelledAt",
+                    "anonymisedAt",
                     "version",
                     "createdAt",
                     "updatedAt",
@@ -56300,6 +56475,9 @@
                           "status",
                           "admissionId",
                           "partySize",
+                          "cancelledAt",
+                          "cancelledBy",
+                          "externalRefundRef",
                           "url",
                           "qr"
                         ],
@@ -56344,6 +56522,44 @@
                             "type": "integer",
                             "description": "People the ticket admits: the offer's places per unit"
                           },
+                          "cancelledAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "cancelledBy": {
+                            "anyOf": [
+                              {
+                                "type": "null"
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "channel"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "staff"
+                                    ]
+                                  }
+                                ],
+                                "description": "Who cancelled the ticket: the channel (a refund) or staff in the admin"
+                              }
+                            ]
+                          },
+                          "externalRefundRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The channel's refund reference given on cancel"
+                          },
                           "url": {
                             "type": [
                               "string",
@@ -56375,6 +56591,14 @@
                         "null"
                       ],
                       "format": "date-time"
+                    },
+                    "anonymisedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "When retention removed the buyer, as for registrations; the lines and references stay"
                     },
                     "version": {
                       "type": "integer"
@@ -56797,11 +57021,44 @@
     "/v1/reservations/{id}/cancel": {
       "post": {
         "operationId": "cancelReservation",
-        "summary": "Release a held reservation's places. Cancelling confirmed tickets is not supported yet",
+        "summary": "Held: release the places. Confirmed: cancel all tickets, or those listed, void their admissions and put the places back on sale, recording the refund",
         "tags": [
           "reservations"
         ],
-        "description": "Reasons: already_cancelled; conflict for a confirmed reservation",
+        "description": "Once no valid ticket is left the reservation is cancelled. Reasons: already_cancelled (with ticketIds for listed tickets cancelled before), occurrence_started (a listed ticket's occurrence has begun, unless it was cancelled)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ticketIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "minItems": 1,
+                    "maxItems": 1000,
+                    "uniqueItems": true,
+                    "description": "Confirmed reservations: the tickets to cancel. Left out: all valid tickets. Held reservations take no tickets"
+                  },
+                  "externalRefundRef": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Confirmed reservations: the channel's refund, stored on each cancelled ticket"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "schema": {
@@ -56851,6 +57108,7 @@
                     "tickets",
                     "confirmedAt",
                     "cancelledAt",
+                    "anonymisedAt",
                     "version",
                     "createdAt",
                     "updatedAt",
@@ -57084,6 +57342,9 @@
                           "status",
                           "admissionId",
                           "partySize",
+                          "cancelledAt",
+                          "cancelledBy",
+                          "externalRefundRef",
                           "url",
                           "qr"
                         ],
@@ -57128,6 +57389,44 @@
                             "type": "integer",
                             "description": "People the ticket admits: the offer's places per unit"
                           },
+                          "cancelledAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "cancelledBy": {
+                            "anyOf": [
+                              {
+                                "type": "null"
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "channel"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "staff"
+                                    ]
+                                  }
+                                ],
+                                "description": "Who cancelled the ticket: the channel (a refund) or staff in the admin"
+                              }
+                            ]
+                          },
+                          "externalRefundRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The channel's refund reference given on cancel"
+                          },
                           "url": {
                             "type": [
                               "string",
@@ -57159,6 +57458,14 @@
                         "null"
                       ],
                       "format": "date-time"
+                    },
+                    "anonymisedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "When retention removed the buyer, as for registrations; the lines and references stay"
                     },
                     "version": {
                       "type": "integer"
@@ -57520,6 +57827,2131 @@
             }
           },
           "428": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/occurrences/{id}/sales": {
+      "get": {
+        "operationId": "getOccurrenceSales",
+        "summary": "Held and sold per offer, and the reservations with lines at the occurrence, newest first. Needs sales.read (buyers are personal data)",
+        "tags": [
+          "sales"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "occurrenceId",
+                    "pool",
+                    "currency",
+                    "offers",
+                    "reservations"
+                  ],
+                  "properties": {
+                    "occurrenceId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "pool": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "bookableLimit",
+                            "taken",
+                            "held",
+                            "available"
+                          ],
+                          "properties": {
+                            "bookableLimit": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            },
+                            "taken": {
+                              "type": "integer"
+                            },
+                            "held": {
+                              "type": "integer"
+                            },
+                            "available": {
+                              "type": [
+                                "integer",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "offers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "offerId",
+                          "code",
+                          "name",
+                          "held",
+                          "sold",
+                          "cancelled",
+                          "places",
+                          "revenue"
+                        ],
+                        "properties": {
+                          "offerId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "In the account's default locale"
+                          },
+                          "held": {
+                            "type": "integer",
+                            "description": "Units in held reservations that have not expired"
+                          },
+                          "sold": {
+                            "type": "integer",
+                            "description": "Valid tickets"
+                          },
+                          "cancelled": {
+                            "type": "integer"
+                          },
+                          "places": {
+                            "type": "integer",
+                            "description": "Places the valid tickets take"
+                          },
+                          "revenue": {
+                            "type": "integer",
+                            "description": "Sum of the valid tickets' prices, minor units VAT included"
+                          }
+                        }
+                      },
+                      "description": "The event's active offers, and archived ones that sold here, in display order"
+                    },
+                    "reservations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "channel",
+                          "status",
+                          "externalRef",
+                          "externalOrderRef",
+                          "buyer",
+                          "anonymisedAt",
+                          "lines",
+                          "tickets",
+                          "total",
+                          "otherOccurrences",
+                          "expiresAt",
+                          "confirmedAt",
+                          "cancelledAt",
+                          "createdAt"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "channel": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "code",
+                              "name"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              "code": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "held"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "confirmed"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "cancelled"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "expired"
+                                ]
+                              }
+                            ],
+                            "description": "held past expiresAt reads as expired. An expired reservation can still be confirmed while its places are free"
+                          },
+                          "externalRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "externalOrderRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "buyer": {
+                            "anyOf": [
+                              {
+                                "type": "null"
+                              },
+                              {
+                                "type": "object",
+                                "required": [
+                                  "name",
+                                  "email",
+                                  "locale"
+                                ],
+                                "properties": {
+                                  "name": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "email": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "locale": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                }
+                              }
+                            ]
+                          },
+                          "anonymisedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "lines": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "lineNo",
+                                "offerId",
+                                "offerCode",
+                                "name",
+                                "quantity",
+                                "unitPrice",
+                                "amount"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "lineNo": {
+                                  "type": "integer"
+                                },
+                                "offerId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "offerCode": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "quantity": {
+                                  "type": "integer"
+                                },
+                                "unitPrice": {
+                                  "type": "integer"
+                                },
+                                "amount": {
+                                  "type": "integer"
+                                }
+                              }
+                            },
+                            "description": "Lines at this occurrence"
+                          },
+                          "tickets": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "id",
+                                "lineId",
+                                "offerId",
+                                "status",
+                                "partySize",
+                                "cancelledAt",
+                                "cancelledBy",
+                                "externalRefundRef"
+                              ],
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "lineId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "offerId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "status": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "valid"
+                                      ]
+                                    },
+                                    {
+                                      "type": "string",
+                                      "enum": [
+                                        "cancelled"
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "partySize": {
+                                  "type": "integer"
+                                },
+                                "cancelledAt": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "format": "date-time"
+                                },
+                                "cancelledBy": {
+                                  "anyOf": [
+                                    {
+                                      "type": "null"
+                                    },
+                                    {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "channel"
+                                          ]
+                                        },
+                                        {
+                                          "type": "string",
+                                          "enum": [
+                                            "staff"
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "externalRefundRef": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              }
+                            },
+                            "description": "Tickets at this occurrence"
+                          },
+                          "total": {
+                            "type": "object",
+                            "required": [
+                              "amount",
+                              "currency"
+                            ],
+                            "properties": {
+                              "amount": {
+                                "type": "integer",
+                                "description": "Minor units, VAT included"
+                              },
+                              "currency": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "otherOccurrences": {
+                            "type": "boolean",
+                            "description": "The reservation also has lines at other occurrences"
+                          },
+                          "expiresAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "confirmedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "cancelledAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      },
+                      "description": "Newest first, at most 2,000"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sales/reservations/{id}": {
+      "get": {
+        "operationId": "getReservationAsStaff",
+        "summary": "A reservation of any channel, with its tickets and their links. Needs sales.read",
+        "tags": [
+          "sales"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "channelId",
+                    "status",
+                    "expiresAt",
+                    "extendLimitAt",
+                    "externalRef",
+                    "externalOrderRef",
+                    "locale",
+                    "buyer",
+                    "lines",
+                    "total",
+                    "tickets",
+                    "confirmedAt",
+                    "cancelledAt",
+                    "anonymisedAt",
+                    "version",
+                    "createdAt",
+                    "updatedAt",
+                    "signature"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "channelId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "held"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "confirmed"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "cancelled"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "expired"
+                          ]
+                        }
+                      ],
+                      "description": "held past expiresAt reads as expired. An expired reservation can still be confirmed while its places are free"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "While held: when the places are released"
+                    },
+                    "extendLimitAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "The latest expiresAt that extend can reach"
+                    },
+                    "externalRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "externalOrderRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "locale": {
+                      "type": "string",
+                      "description": "Language of the line names"
+                    },
+                    "buyer": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "name",
+                            "email",
+                            "locale"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "email": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "locale": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "lineNo",
+                          "occurrenceId",
+                          "offerId",
+                          "offerCode",
+                          "quantity",
+                          "placesPerUnit",
+                          "unitPrice",
+                          "amount",
+                          "currency",
+                          "vatClassCode",
+                          "vatRatePct",
+                          "externalSku",
+                          "name",
+                          "occurrenceStartUtc",
+                          "timezone",
+                          "locationName",
+                          "signature"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "lineNo": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "occurrenceId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "offerId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "offerCode": {
+                            "type": "string"
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "placesPerUnit": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "unitPrice": {
+                            "type": "integer",
+                            "description": "Minor units (øre), VAT included, frozen at reserve time"
+                          },
+                          "amount": {
+                            "type": "integer",
+                            "description": "unitPrice × quantity"
+                          },
+                          "currency": {
+                            "type": "string",
+                            "description": "ISO 4217, e.g. NOK"
+                          },
+                          "vatClassCode": {
+                            "type": "string"
+                          },
+                          "vatRatePct": {
+                            "type": "number"
+                          },
+                          "externalSku": {
+                            "type": "string",
+                            "description": "The channel's product for this line"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Line name for the receipt, e.g. \"Adult – Hamlet, Sat 13 Feb 19:30, Main stage\""
+                          },
+                          "occurrenceStartUtc": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "timezone": {
+                            "type": "string"
+                          },
+                          "locationName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "signature": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "object",
+                      "required": [
+                        "amount",
+                        "currency"
+                      ],
+                      "properties": {
+                        "amount": {
+                          "type": "integer",
+                          "description": "Minor units, VAT included"
+                        },
+                        "currency": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "tickets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "lineId",
+                          "occurrenceId",
+                          "offerId",
+                          "status",
+                          "admissionId",
+                          "partySize",
+                          "cancelledAt",
+                          "cancelledBy",
+                          "externalRefundRef",
+                          "url",
+                          "qr"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "lineId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "occurrenceId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "offerId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "valid"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "cancelled"
+                                ]
+                              }
+                            ]
+                          },
+                          "admissionId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "partySize": {
+                            "type": "integer",
+                            "description": "People the ticket admits: the offer's places per unit"
+                          },
+                          "cancelledAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "cancelledBy": {
+                            "anyOf": [
+                              {
+                                "type": "null"
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "channel"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "staff"
+                                    ]
+                                  }
+                                ],
+                                "description": "Who cancelled the ticket: the channel (a refund) or staff in the admin"
+                              }
+                            ]
+                          },
+                          "externalRefundRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The channel's refund reference given on cancel"
+                          },
+                          "url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The ticket page with its QR code; null once cancelled"
+                          },
+                          "qr": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The QR code's payload (a signed admission token); null once cancelled"
+                          }
+                        }
+                      },
+                      "description": "Once confirmed: one per unit, in line order"
+                    },
+                    "confirmedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "cancelledAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "anonymisedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "When retention removed the buyer, as for registrations; the lines and references stay"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "signature": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sales/reservations/{id}/cancel": {
+      "post": {
+        "operationId": "cancelTicketsAsStaff",
+        "summary": "Cancel a confirmed reservation's tickets, all or those listed: their admissions are voided and the places go back on sale. Needs sales.write",
+        "tags": [
+          "sales"
+        ],
+        "description": "The channel is not told yet (webhooks arrive with epic #9); refunds stay in the channel. Reasons: already_cancelled, occurrence_started, conflict (not confirmed)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ticketIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "minItems": 1,
+                    "maxItems": 1000,
+                    "uniqueItems": true,
+                    "description": "Confirmed reservations: the tickets to cancel. Left out: all valid tickets. Held reservations take no tickets"
+                  },
+                  "externalRefundRef": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Confirmed reservations: the channel's refund, stored on each cancelled ticket"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "channelId",
+                    "status",
+                    "expiresAt",
+                    "extendLimitAt",
+                    "externalRef",
+                    "externalOrderRef",
+                    "locale",
+                    "buyer",
+                    "lines",
+                    "total",
+                    "tickets",
+                    "confirmedAt",
+                    "cancelledAt",
+                    "anonymisedAt",
+                    "version",
+                    "createdAt",
+                    "updatedAt",
+                    "signature"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "channelId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "held"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "confirmed"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "cancelled"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "expired"
+                          ]
+                        }
+                      ],
+                      "description": "held past expiresAt reads as expired. An expired reservation can still be confirmed while its places are free"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "While held: when the places are released"
+                    },
+                    "extendLimitAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "The latest expiresAt that extend can reach"
+                    },
+                    "externalRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "externalOrderRef": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "locale": {
+                      "type": "string",
+                      "description": "Language of the line names"
+                    },
+                    "buyer": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "name",
+                            "email",
+                            "locale"
+                          ],
+                          "properties": {
+                            "name": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "email": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "locale": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "lines": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "lineNo",
+                          "occurrenceId",
+                          "offerId",
+                          "offerCode",
+                          "quantity",
+                          "placesPerUnit",
+                          "unitPrice",
+                          "amount",
+                          "currency",
+                          "vatClassCode",
+                          "vatRatePct",
+                          "externalSku",
+                          "name",
+                          "occurrenceStartUtc",
+                          "timezone",
+                          "locationName",
+                          "signature"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "lineNo": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "occurrenceId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "offerId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "offerCode": {
+                            "type": "string"
+                          },
+                          "quantity": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "placesPerUnit": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "unitPrice": {
+                            "type": "integer",
+                            "description": "Minor units (øre), VAT included, frozen at reserve time"
+                          },
+                          "amount": {
+                            "type": "integer",
+                            "description": "unitPrice × quantity"
+                          },
+                          "currency": {
+                            "type": "string",
+                            "description": "ISO 4217, e.g. NOK"
+                          },
+                          "vatClassCode": {
+                            "type": "string"
+                          },
+                          "vatRatePct": {
+                            "type": "number"
+                          },
+                          "externalSku": {
+                            "type": "string",
+                            "description": "The channel's product for this line"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Line name for the receipt, e.g. \"Adult – Hamlet, Sat 13 Feb 19:30, Main stage\""
+                          },
+                          "occurrenceStartUtc": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "timezone": {
+                            "type": "string"
+                          },
+                          "locationName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "signature": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                          }
+                        }
+                      }
+                    },
+                    "total": {
+                      "type": "object",
+                      "required": [
+                        "amount",
+                        "currency"
+                      ],
+                      "properties": {
+                        "amount": {
+                          "type": "integer",
+                          "description": "Minor units, VAT included"
+                        },
+                        "currency": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "tickets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "lineId",
+                          "occurrenceId",
+                          "offerId",
+                          "status",
+                          "admissionId",
+                          "partySize",
+                          "cancelledAt",
+                          "cancelledBy",
+                          "externalRefundRef",
+                          "url",
+                          "qr"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "lineId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "occurrenceId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "offerId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "valid"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "cancelled"
+                                ]
+                              }
+                            ]
+                          },
+                          "admissionId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "partySize": {
+                            "type": "integer",
+                            "description": "People the ticket admits: the offer's places per unit"
+                          },
+                          "cancelledAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "cancelledBy": {
+                            "anyOf": [
+                              {
+                                "type": "null"
+                              },
+                              {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "channel"
+                                    ]
+                                  },
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "staff"
+                                    ]
+                                  }
+                                ],
+                                "description": "Who cancelled the ticket: the channel (a refund) or staff in the admin"
+                              }
+                            ]
+                          },
+                          "externalRefundRef": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The channel's refund reference given on cancel"
+                          },
+                          "url": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The ticket page with its QR code; null once cancelled"
+                          },
+                          "qr": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The QR code's payload (a signed admission token); null once cancelled"
+                          }
+                        }
+                      },
+                      "description": "Once confirmed: one per unit, in line order"
+                    },
+                    "confirmedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "cancelledAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "anonymisedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "When retention removed the buyer, as for registrations; the lines and references stay"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "signature": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "Stable reason code, e.g. version_conflict"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "path",
+                          "message"
+                        ],
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "422": {
             "description": "Default Response",
             "content": {
               "application/json": {

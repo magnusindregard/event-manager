@@ -330,9 +330,9 @@ export async function bulkUpdateOccurrences(
 export async function deleteOccurrence(tx: Tx, ctx: ActorContext, id: string, expectedVersion: number): Promise<void> {
   assertCan(ctx, "content.write");
   const before = await lockedOccurrence(tx, id);
-  // Registrations reference the occurrence without cascade (foreign key violation 23503).
+  // Registrations and reservation lines reference the occurrence without cascade (foreign key violation 23503).
   const res = await tx.deleteFrom("catalog.occurrence").where("id", "=", id).where("version", "=", expectedVersion).executeTakeFirst().catch((e: unknown) => {
-    if (pgCode(e) === "23503") throw new DomainError("conflict", "The occurrence has registrations; cancel it instead", { occurrenceId: id });
+    if (pgCode(e) === "23503") throw new DomainError("conflict", "The occurrence has registrations or tickets; cancel it instead", { occurrenceId: id });
     throw e;
   });
   if (!res.numDeletedRows) throw versionConflict("Occurrence", before.version);

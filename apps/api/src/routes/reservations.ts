@@ -4,7 +4,7 @@ import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { type Tx, withTenant } from "@event-manager/db";
 import { sales, tenancy } from "@event-manager/domain";
-import { Problem, Reservation, ReservationConfirm, ReservationCreate, ReservationExtend, Uuid } from "@event-manager/schemas";
+import { Problem, Reservation, ReservationCancel, ReservationConfirm, ReservationCreate, ReservationExtend, Uuid } from "@event-manager/schemas";
 import { AuthError } from "../auth.js";
 import { idempotent } from "../plugins/idempotency.js";
 
@@ -32,6 +32,27 @@ const KEY_TTL_MS = 60_000;
 
 const iso = (d: Date) => d.toISOString();
 
+/** A POST without a body reads as {}, so optional bodies (cancel, extend) may be left out. */
+export const emptyBody = async (req: FastifyRequest) => {
+  if (req.body === undefined || req.body === null) req.body = {};
+};
+const isoOrNull = (d: Date | null) => (d ? iso(d) : null);
+
+/** The reservation as the API returns it, to channels and to staff. */
+export const reservationDto = (attendeeUrl: string) => (r: sales.Reservation) => ({
+  id: r.id, channelId: r.channelId, status: r.status, expiresAt: iso(r.expiresAt), extendLimitAt: iso(r.extendLimitAt),
+  externalRef: r.externalRef, externalOrderRef: r.externalOrderRef, locale: r.locale, buyer: r.buyer,
+  lines: r.lines.map((l) => ({ ...l, occurrenceStartUtc: iso(l.occurrenceStartUtc) })),
+  total: r.total,
+  tickets: r.tickets.map((t) => ({
+    id: t.id, lineId: t.lineId, occurrenceId: t.occurrenceId, offerId: t.offerId, status: t.status, admissionId: t.admissionId, partySize: t.partySize,
+    cancelledAt: isoOrNull(t.cancelledAt), cancelledBy: t.cancelledBy, externalRefundRef: t.externalRefundRef,
+    url: t.ticketToken ? `${attendeeUrl}/t/${t.ticketToken}` : null, qr: t.admissionToken,
+  })),
+  confirmedAt: isoOrNull(r.confirmedAt), cancelledAt: isoOrNull(r.cancelledAt), anonymisedAt: isoOrNull(r.anonymisedAt),
+  version: r.version, createdAt: iso(r.createdAt), updatedAt: iso(r.updatedAt), signature: r.signature,
+});
+
 export const reservationRoutes: FastifyPluginAsyncTypebox<{ attendeeUrl: string }> = async (app, opts) => {
   const attendeeUrl = opts.attendeeUrl.replace(/\/+$/, "");
   // Key lookups are cached per replica; a revoked key stops working within KEY_TTL_MS. Whether
@@ -56,18 +77,7 @@ export const reservationRoutes: FastifyPluginAsyncTypebox<{ attendeeUrl: string 
   const inChannel = <T>(req: FastifyRequest, fn: (tx: Tx, caller: sales.ChannelCaller) => Promise<T>) =>
     withTenant(app.db, { tenantId: req.channel!.tenantId }, (tx) => fn(tx, req.channel!));
 
-  const dto = (r: sales.Reservation) => ({
-    id: r.id, channelId: r.channelId, status: r.status, expiresAt: iso(r.expiresAt), extendLimitAt: iso(r.extendLimitAt),
-    externalRef: r.externalRef, externalOrderRef: r.externalOrderRef, locale: r.locale, buyer: r.buyer,
-    lines: r.lines.map((l) => ({ ...l, occurrenceStartUtc: iso(l.occurrenceStartUtc) })),
-    total: r.total,
-    tickets: r.tickets.map((t) => ({
-      id: t.id, lineId: t.lineId, occurrenceId: t.occurrenceId, offerId: t.offerId, status: t.status, admissionId: t.admissionId, partySize: t.partySize,
-      url: t.ticketToken ? `${attendeeUrl}/t/${t.ticketToken}` : null, qr: t.admissionToken,
-    })),
-    confirmedAt: r.confirmedAt ? iso(r.confirmedAt) : null, cancelledAt: r.cancelledAt ? iso(r.cancelledAt) : null,
-    version: r.version, createdAt: iso(r.createdAt), updatedAt: iso(r.updatedAt), signature: r.signature,
-  });
+  const dto = reservationDto(attendeeUrl);
 
   /** Runs a write once per Idempotency-Key; a retry returns the reservation as it is now. */
   const write = (req: FastifyRequest, status: number, fn: (tx: Tx, caller: sales.ChannelCaller) => Promise<sales.Reservation>) =>
@@ -118,6 +128,7 @@ export const reservationRoutes: FastifyPluginAsyncTypebox<{ attendeeUrl: string 
         description: "Reasons: expired, extend_limit, and the reserve reasons for a line no longer on sale",
         params: IdParams, headers: idempotencyHeader, body: ReservationExtend, response: { 200: Reservation, ...writeErrors },
       },
+      preValidation: emptyBody,
     },
     async (req, reply) => {
       const r = await write(req, 200, (tx, caller) => sales.extendReservation(tx, caller, req.params.id, req.body ?? {}));
@@ -146,13 +157,14 @@ export const reservationRoutes: FastifyPluginAsyncTypebox<{ attendeeUrl: string 
     {
       schema: {
         operationId: "cancelReservation", tags: ["reservations"], ...channelScoped,
-        summary: "Release a held reservation's places. Cancelling confirmed tickets is not supported yet",
-        description: "Reasons: already_cancelled; conflict for a confirmed reservation",
-        params: IdParams, headers: idempotencyHeader, response: { 200: Reservation, ...writeErrors },
+        summary: "Held: release the places. Confirmed: cancel all tickets, or those listed, void their admissions and put the places back on sale, recording the refund",
+        description: "Once no valid ticket is left the reservation is cancelled. Reasons: already_cancelled (with ticketIds for listed tickets cancelled before), occurrence_started (a listed ticket's occurrence has begun, unless it was cancelled)",
+        params: IdParams, headers: idempotencyHeader, body: ReservationCancel, response: { 200: Reservation, ...writeErrors },
       },
+      preValidation: emptyBody,
     },
     async (req, reply) => {
-      const r = await write(req, 200, (tx, caller) => sales.cancelReservation(tx, caller, req.params.id));
+      const r = await write(req, 200, (tx, caller) => sales.cancelReservation(tx, caller, req.params.id, req.body ?? {}));
       return reply.status(r.status).header("cache-control", "no-store").send(r.body as never);
     },
   );
