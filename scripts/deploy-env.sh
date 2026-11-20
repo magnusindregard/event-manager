@@ -127,8 +127,15 @@ for i in $(seq 1 12); do
 done
 code=$(curl -s -o /dev/null -w '%{http_code}' "https://$host/v1/me")
 [ "$code" = "401" ] || { echo "Expected 401 from /v1/me, got $code" >&2; exit 1; }
-# The public API answers without a key only with 401 key_required.
-code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 "https://${FRONT_DOOR:-$PUBLIC_HOST}/public/v1/occurrences")
+# The public API answers without a key only with 401 key_required. It scales to zero in staging
+# and its new revision may still be starting, so retry until it answers (curl prints 000 and
+# exits 28 on a timeout; `|| true` keeps set -e from ending the script there).
+for i in $(seq 1 12); do
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://${FRONT_DOOR:-$PUBLIC_HOST}/public/v1/occurrences" || true)
+  [ "$code" != "000" ] && break
+  [ "$i" = 12 ] && { echo "Public API did not answer" >&2; exit 1; }
+  sleep 5
+done
 [ "$code" = "401" ] || { echo "Expected 401 from /public/v1/occurrences without a key, got $code" >&2; exit 1; }
 # The attendee app answers its health check (it scales to zero in staging, so allow a cold start).
 for i in $(seq 1 12); do
