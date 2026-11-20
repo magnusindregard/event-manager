@@ -242,6 +242,23 @@ describe("acceptance: group prices (milestone 2)", () => {
     expect(await run((tx) => offers.setGroupOverride(tx, ctx, adult.id, sat.id, sponsor.id, null))).toMatchObject({ inherited: true, price: { value: 60000, source: "override" } });
   });
 
+  it("handles ids in any casing when setting and clearing overrides (review on #84)", async () => {
+    const { event, sat, adult } = await priced("group-override-case");
+    const up = (id: string) => id.toUpperCase();
+    await run((tx) => offers.setGroupOverride(tx, ctx, up(adult.id), up(sat.id), up(member.id), 25000));
+    expect((await cell(event.id, member.id, sat.id)).group!.price.value).toBe(25000);
+    // Clearing with uppercase ids resolves again: the member price comes back.
+    const cleared = await run((tx) => offers.setGroupOverride(tx, ctx, up(adult.id), up(sat.id), up(member.id), null));
+    expect(cleared).toMatchObject({ price: { value: 35000, source: "default" }, override: null, inherited: false });
+    expect((await cell(event.id, member.id, sat.id)).group!.price.value).toBe(35000);
+    // The grid matches an uppercase group id too.
+    expect((await cell(event.id, up(member.id), sat.id)).group).toMatchObject({ groupId: member.id, inherited: false });
+    // And the general override.
+    await run((tx) => offers.setOverride(tx, ctx, up(adult.id), up(sat.id), { amount: 60000 }));
+    const general = await run((tx) => offers.setOverride(tx, ctx, up(adult.id), up(sat.id), { amount: null }));
+    expect(general).toMatchObject({ price: { value: 50000, source: "rule" }, override: null });
+  });
+
   it("removing a group price makes the group pay the general price again; offer writers only", async () => {
     const { event, fri, adult } = await priced("group-remove");
     const editor = { ...ctx, roles: ["editor" as const] };

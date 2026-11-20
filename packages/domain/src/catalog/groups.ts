@@ -154,7 +154,8 @@ export async function updateUserGroup(tx: Tx, ctx: ActorContext, id: string, exp
  * had them) and unique. Locks them for share so none can be archived under the restriction.
  */
 export async function assertUsableGroups(tx: Tx, ids: string[], keep: string[] = [], field = "accessGroupIds"): Promise<string[]> {
-  const unique = [...new Set(ids)];
+  // Lowercase, as Postgres returns UUIDs, so callers can compare with stored lists.
+  const unique = [...new Set(ids.map((id) => id.toLowerCase()))];
   if (unique.length === 0) return [];
   const rows = await tx.selectFrom("catalog.user_group").select(["id", "archived_at"]).where("id", "in", unique).orderBy("id").forShare().execute();
   if (rows.length !== unique.length) throw invalid(field, "Unknown user group");

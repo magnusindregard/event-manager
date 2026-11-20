@@ -65,7 +65,8 @@ export async function priceGrid(tx: Tx, eventId: string, f: PriceGridFilter): Pr
   const occs = await q.execute();
   const ids = occs.map((o) => o.id);
   const [offers, prices, overrides] = await Promise.all([listOffers(tx, eventId), loadEffectivePrices(tx, ids), loadOverrides(tx, ids)]);
-  const groupId = f.groupId;
+  // UUIDs as Postgres returns them (lowercase), so map lookups below match whatever casing the caller sent.
+  const groupId = f.groupId?.toLowerCase();
   if (groupId) {
     const known = await tx.selectFrom("catalog.user_group").select("id").where("id", "=", groupId).executeTakeFirst();
     if (!known) throw new DomainError("validation_failed", "Unknown user group", { field: "groupId" });
@@ -106,7 +107,10 @@ export interface OverrideInput {
  * Sets or clears an override for one offer at one occurrence, then resolves that occurrence.
  * Lock order as for schedule changes: event (share), then the occurrence.
  */
-export async function setOverride(tx: Tx, ctx: ActorContext, offerId: string, occurrenceId: string, input: OverrideInput): Promise<PriceCell> {
+export async function setOverride(tx: Tx, ctx: ActorContext, rawOfferId: string, rawOccurrenceId: string, input: OverrideInput): Promise<PriceCell> {
+  // Lowercase, as Postgres returns UUIDs: the before/after comparison below reads stored rows by these keys.
+  const offerId = rawOfferId.toLowerCase();
+  const occurrenceId = rawOccurrenceId.toLowerCase();
   assertCan(ctx, "offers.write");
   const offer = await getOffer(tx, offerId);
   // Share lock on the event, as schedule changes take it: offer and rule changes (for update) wait.
@@ -155,8 +159,13 @@ export async function setOverride(tx: Tx, ctx: ActorContext, offerId: string, oc
  * then resolves that occurrence. Lock order as for setOverride.
  */
 export async function setGroupOverride(
-  tx: Tx, ctx: ActorContext, offerId: string, occurrenceId: string, groupId: string, amount: number | null,
+  tx: Tx, ctx: ActorContext, rawOfferId: string, rawOccurrenceId: string, rawGroupId: string, amount: number | null,
 ): Promise<GroupCell> {
+  // Lowercase, as Postgres returns UUIDs: otherwise an uppercase id misses the stored override,
+  // the change looks like a no-op and the occurrence is not resolved again (review on #84).
+  const offerId = rawOfferId.toLowerCase();
+  const occurrenceId = rawOccurrenceId.toLowerCase();
+  const groupId = rawGroupId.toLowerCase();
   assertCan(ctx, "offers.write");
   const offer = await getOffer(tx, offerId);
   const event = await tx.selectFrom("catalog.event").select("status").where("id", "=", offer.eventId).forShare().executeTakeFirstOrThrow();
