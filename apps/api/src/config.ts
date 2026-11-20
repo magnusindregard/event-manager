@@ -7,6 +7,7 @@ export interface Config {
   production: boolean;
   attendeeUrl: string;
   postmarkWebhook: { user: string; password: string } | null;
+  mcp: { authorizationServers: string[]; scopes: string[]; publicUrl?: string };
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -17,6 +18,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const devAuthSecret = env.AUTH_DEV_SECRET || null;
   if (production && devAuthSecret) throw new Error("AUTH_DEV_SECRET must not be set in production");
   if (!oidc && !devAuthSecret) throw new Error("Configure OIDC_ISSUER + OIDC_AUDIENCE (or AUTH_DEV_SECRET locally)");
+  const publicUrl = env.PUBLIC_URL || undefined;
   return {
     port: Number(env.PORT ?? 3000),
     databaseUrl,
@@ -29,5 +31,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     postmarkWebhook: env.POSTMARK_WEBHOOK_AUTH?.includes(":")
       ? { user: env.POSTMARK_WEBHOOK_AUTH.slice(0, env.POSTMARK_WEBHOOK_AUTH.indexOf(":")), password: env.POSTMARK_WEBHOOK_AUTH.slice(env.POSTMARK_WEBHOOK_AUTH.indexOf(":") + 1) }
       : null,
+    // MCP clients sign in at the staff IdP (docs/mcp.md). MCP_OAUTH_SCOPES: the API scope, e.g. api://em-api/access.
+    mcp: {
+      authorizationServers: oidc ? [oidc.issuer] : [],
+      scopes: (env.MCP_OAUTH_SCOPES ?? "").split(/[\s,]+/).filter(Boolean),
+      ...(publicUrl ? { publicUrl } : {}),
+    },
   };
 }

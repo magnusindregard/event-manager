@@ -7,6 +7,7 @@ Event management, registration (RSVP) and ticketing platform: events and recurri
 - Registration (guest invitations and RSVP), in progress: [docs/registration.md](docs/registration.md)
 - Ticketing (offers, prices, sales channels and reservations), in progress: [docs/ticketing.md](docs/ticketing.md)
 - Integration guide for web shops and POS (sales channel connectors): [docs/integration-guide.md](docs/integration-guide.md)
+- MCP server for agents (find, create and configure events) and its companion skills: [docs/mcp.md](docs/mcp.md)
 - Backlog (unscheduled features): [docs/backlog.md](docs/backlog.md)
 - Architecture decisions: [docs/adr](docs/adr/README.md)
 - Implementation plan: [docs/implementation-plan.md](docs/implementation-plan.md)
@@ -55,7 +56,7 @@ The publishable key goes in `?key=` (the edge cache keys on the query string); a
 ## Layout
 
 ```
-apps/api          core API (/v1), Fastify
+apps/api          core API (/v1) and the MCP server (/mcp, skills/), Fastify
 apps/public-api   /public/v1, read-only, edge-cached
 apps/attendee     hosted attendee pages (/r, /i, /m, /t) and the attendee API (/attendee/v1)
 apps/worker       graphile-worker: outbox dispatch, invitation provisioning, rule resolution, series horizon, registration emails, retention, reservation sweeper

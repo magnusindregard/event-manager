@@ -19,5 +19,6 @@ Short records of significant decisions: context, decision, consequences. One fil
 | [0013](0013-admin-ui-library.md) | Admin UI: MUI + MUI X Community, no commercial licences | Superseded by 0015 |
 | [0014](0014-infrastructure-as-code.md) | Bicep, deployed from GitHub Actions | Accepted |
 | [0015](0015-admin-ui-shadcn.md) | Admin UI: shadcn/ui on Tailwind, TanStack Table for grids | Accepted |
+| [0016](0016-mcp-in-core-api.md) | MCP server inside the core API; tools are curated /v1 operations | Accepted |
 
 Architecture diagrams: FigJam board "Event-Management".
