@@ -268,6 +268,16 @@ describe("expiry, extend and cancel", () => {
       code: "schedule_changed", details: { occurrenceId: occ.id, reservedStartUtc: occ.startUtc.toISOString() },
     });
     expect((await run((tx) => sales.getReservation(tx, webCaller, r2.id, at(1)))).status).toBe("held");
+
+    // Cancelled, its lines still point at the occurrence: reattach keeps it detached, so
+    // shortening the series reports a conflict instead of deleting a referenced occurrence.
+    await run((tx) => sales.cancelReservation(tx, webCaller, r2.id, at(2)));
+    const edited = await run((tx) => catalog.getOccurrence(tx, occ.id));
+    expect((await run((tx) => catalog.reattachOccurrence(tx, ctx, occ.id, edited.version))).detached).toBe(true);
+    const series = await run((tx) => catalog.getSeries(tx, created.series!.id));
+    const shortened = await run((tx) => catalog.updateSeries(tx, ctx, series.id, series.version, { rrule: "FREQ=DAILY;COUNT=1" }, { now: NOW }));
+    expect(shortened.changes.counts).toMatchObject({ deleted: 0 });
+    expect((await run((tx) => catalog.getOccurrence(tx, occ.id))).id).toBe(occ.id);
   });
 
   it("cancels a held reservation and releases its places", async () => {

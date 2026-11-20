@@ -261,6 +261,9 @@ export async function reserve(tx: Tx, caller: ChannelCaller, input: ReserveInput
   const locale = await registration.pickLocale(tx, input.locale);
   const account = await getAccount(tx);
 
+  // Lock first, then read what to freeze: hand edits and regeneration lock occurrences for
+  // update, so one committed before this is seen below and one started after waits for us.
+  const pools = await lockOccurrences(tx, lines.map((l) => l.occurrenceId));
   const cache = await newCache(tx, channel.id);
   const priced = [];
   for (const [i, l] of lines.entries()) {
@@ -281,7 +284,6 @@ export async function reserve(tx: Tx, caller: ChannelCaller, input: ReserveInput
   // Places per occurrence, held per pool in id order, all or none.
   const places = new Map<string, number>();
   for (const p of priced) places.set(p.input.occurrenceId, (places.get(p.input.occurrenceId) ?? 0) + p.input.quantity * p.offer.placesPerUnit);
-  const pools = await lockOccurrences(tx, [...places.keys()]);
   for (const occurrenceId of [...places.keys()].sort((a, b) => pools.get(a)!.localeCompare(pools.get(b)!))) {
     const n = places.get(occurrenceId)!;
     const holdId = await inventory.placeHold(tx, caller.tenantId, occurrenceId, n, expiresAt);
