@@ -23072,6 +23072,13 @@ export interface operations {
                             places: number;
                             /** @description Sum of the valid tickets' prices, minor units VAT included */
                             revenue: number;
+                            /** @description Valid tickets and revenue per user group they were sold to; only groups that sold */
+                            byGroup: {
+                                /** @description The user group's code; null: sold without a group */
+                                group: string | null;
+                                sold: number;
+                                revenue: number;
+                            }[];
                         }[];
                         /** @description Newest first, at most 2,000 */
                         reservations: {
@@ -23087,6 +23094,8 @@ export interface operations {
                             status: "held" | "confirmed" | "cancelled" | "expired";
                             externalRef: string | null;
                             externalOrderRef: string | null;
+                            /** @description The buyer's user group (its code) */
+                            group: string | null;
                             buyer: null | {
                                 name: string | null;
                                 email: string | null;

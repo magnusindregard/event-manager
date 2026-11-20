@@ -22,6 +22,8 @@ export interface OfferSales {
   places: number;
   /** Sum of the valid tickets' unit prices, minor units VAT included. */
   revenue: number;
+  /** Valid tickets and revenue per user group they were sold to (docs/user-groups.md); group null: no group. Only groups that sold. */
+  byGroup: { group: string | null; sold: number; revenue: number }[];
 }
 
 export interface SalesTicket {
@@ -41,6 +43,8 @@ export interface SalesReservation {
   status: ReservationStatus;
   externalRef: string | null;
   externalOrderRef: string | null;
+  /** The buyer's user group (its code). */
+  group: string | null;
   buyer: { name: string | null; email: string | null; locale: string | null } | null;
   anonymisedAt: Date | null;
   /** Lines at this occurrence only; a reservation may span occurrences. */
@@ -87,7 +91,7 @@ export async function occurrenceSales(tx: Tx, ctx: ActorContext, occurrenceId: s
     .innerJoin("offers.sales_channel as c", "c.id", "r.channel_id")
     .select([
       "r.id", "r.status", "r.expires_at", "r.external_ref", "r.external_order_ref", "r.buyer_name", "r.buyer_email", "r.buyer_locale", "r.anonymised_at",
-      "r.confirmed_at", "r.cancelled_at", "r.created_at", "c.id as channel_id", "c.code as channel_code", "c.name as channel_name",
+      "r.confirmed_at", "r.cancelled_at", "r.created_at", "r.group_code", "c.id as channel_id", "c.code as channel_code", "c.name as channel_name",
     ])
     .where("r.id", "in", (eb) => eb.selectFrom("sales.reservation_line").select("reservation_id").where("occurrence_id", "=", occurrenceId))
     .orderBy("r.created_at", "desc").orderBy("r.id", "desc").limit(limit)
@@ -99,7 +103,7 @@ export async function occurrenceSales(tx: Tx, ctx: ActorContext, occurrenceId: s
         .where("occurrence_id", "=", occurrenceId).where("reservation_id", "in", ids).orderBy("line_no").execute()
       : Promise.resolve([]),
     tx.selectFrom("sales.ticket as t").innerJoin("sales.reservation_line as l", "l.id", "t.line_id")
-      .select(["t.id", "t.reservation_id", "t.line_id", "t.offer_id", "t.status", "t.cancelled_at", "t.cancelled_by", "t.external_refund_ref", "l.places_per_unit", "l.unit_price"])
+      .select(["t.id", "t.reservation_id", "t.line_id", "t.offer_id", "t.status", "t.cancelled_at", "t.cancelled_by", "t.external_refund_ref", "l.places_per_unit", "l.unit_price", "l.group_code"])
       .where("t.occurrence_id", "=", occurrenceId).orderBy("l.line_no").orderBy("t.created_at").orderBy("t.id").execute(),
     ids.length
       ? tx.selectFrom("sales.reservation_line").select("reservation_id").distinct().where("reservation_id", "in", ids).where("occurrence_id", "<>", occurrenceId).execute()
@@ -120,7 +124,7 @@ export async function occurrenceSales(tx: Tx, ctx: ActorContext, occurrenceId: s
   const offers = new Map<string, OfferSales & { status: string; names: Map<string, string> }>();
   for (const o of offerRows) {
     let x = offers.get(o.id);
-    if (!x) offers.set(o.id, x = { offerId: o.id, code: o.code, name: o.code, held: 0, sold: 0, cancelled: 0, places: 0, revenue: 0, status: o.status, names: new Map() });
+    if (!x) offers.set(o.id, x = { offerId: o.id, code: o.code, name: o.code, held: 0, sold: 0, cancelled: 0, places: 0, revenue: 0, byGroup: [], status: o.status, names: new Map() });
     if (o.locale && o.name) x.names.set(o.locale, o.name);
   }
   for (const x of offers.values()) x.name = x.names.get(account.defaultLocale) ?? [...x.names.values()][0] ?? x.code;
@@ -133,6 +137,10 @@ export async function occurrenceSales(tx: Tx, ctx: ActorContext, occurrenceId: s
       x.sold++;
       x.places += t.places_per_unit;
       x.revenue += t.unit_price;
+      let g = x.byGroup.find((b) => b.group === t.group_code);
+      if (!g) x.byGroup.push(g = { group: t.group_code, sold: 0, revenue: 0 });
+      g.sold++;
+      g.revenue += t.unit_price;
     } else x.cancelled++;
   }
 
@@ -154,6 +162,7 @@ export async function occurrenceSales(tx: Tx, ctx: ActorContext, occurrenceId: s
         status: status.get(r.id)!,
         externalRef: r.external_ref,
         externalOrderRef: r.external_order_ref,
+        group: r.group_code,
         buyer: r.buyer_name || r.buyer_email || r.buyer_locale ? { name: r.buyer_name, email: r.buyer_email, locale: r.buyer_locale } : null,
         anonymisedAt: r.anonymised_at,
         lines: ls.map((l) => ({ id: l.id, lineNo: l.line_no, offerId: l.offer_id, offerCode: l.offer_code, name: l.line_name, quantity: l.quantity, unitPrice: l.unit_price, amount: l.unit_price * l.quantity })),

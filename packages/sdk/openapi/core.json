@@ -61432,7 +61432,8 @@
                           "sold",
                           "cancelled",
                           "places",
-                          "revenue"
+                          "revenue",
+                          "byGroup"
                         ],
                         "properties": {
                           "offerId": {
@@ -61464,6 +61465,33 @@
                           "revenue": {
                             "type": "integer",
                             "description": "Sum of the valid tickets' prices, minor units VAT included"
+                          },
+                          "byGroup": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "required": [
+                                "group",
+                                "sold",
+                                "revenue"
+                              ],
+                              "properties": {
+                                "group": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "The user group's code; null: sold without a group"
+                                },
+                                "sold": {
+                                  "type": "integer"
+                                },
+                                "revenue": {
+                                  "type": "integer"
+                                }
+                              }
+                            },
+                            "description": "Valid tickets and revenue per user group they were sold to; only groups that sold"
                           }
                         }
                       },
@@ -61479,6 +61507,7 @@
                           "status",
                           "externalRef",
                           "externalOrderRef",
+                          "group",
                           "buyer",
                           "anonymisedAt",
                           "lines",
@@ -61555,6 +61584,13 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "group": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "The buyer's user group (its code)"
                           },
                           "buyer": {
                             "anyOf": [

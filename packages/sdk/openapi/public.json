@@ -48,6 +48,16 @@
           {
             "schema": {
               "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$"
+            },
+            "in": "query",
+            "name": "group",
+            "required": false,
+            "description": "A user group's code (docs/user-groups.md): prices are that group's and offers it may not buy are left out. A view of public data, not access control; the reservations API enforces access"
+          },
+          {
+            "schema": {
+              "type": "string",
               "format": "date-time"
             },
             "in": "query",
@@ -473,7 +483,8 @@
                                 "onSale",
                                 "opensAt",
                                 "closesAt",
-                                "access"
+                                "access",
+                                "groupPrices"
                               ],
                               "properties": {
                                 "id": {
@@ -561,6 +572,46 @@
                                     }
                                   },
                                   "description": "User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it"
+                                },
+                                "groupPrices": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "required": [
+                                      "group",
+                                      "price"
+                                    ],
+                                    "properties": {
+                                      "group": {
+                                        "type": "string",
+                                        "description": "The user group's code"
+                                      },
+                                      "price": {
+                                        "type": "object",
+                                        "required": [
+                                          "amount",
+                                          "currency",
+                                          "vatIncluded"
+                                        ],
+                                        "properties": {
+                                          "amount": {
+                                            "type": "integer",
+                                            "description": "Minor units (øre), VAT included"
+                                          },
+                                          "currency": {
+                                            "type": "string"
+                                          },
+                                          "vatIncluded": {
+                                            "type": "boolean",
+                                            "enum": [
+                                              true
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "description": "User groups with a price of their own at this occurrence that may buy the offer (docs/user-groups.md). Other groups pay price"
                                 },
                                 "sku": {
                                   "type": [
@@ -1352,6 +1403,16 @@
           {
             "schema": {
               "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$"
+            },
+            "in": "query",
+            "name": "group",
+            "required": false,
+            "description": "A user group's code (docs/user-groups.md): prices are that group's and offers it may not buy are left out. A view of public data, not access control; the reservations API enforces access"
+          },
+          {
+            "schema": {
+              "type": "string",
               "format": "date-time"
             },
             "in": "query",
@@ -1865,7 +1926,8 @@
                                     "onSale",
                                     "opensAt",
                                     "closesAt",
-                                    "access"
+                                    "access",
+                                    "groupPrices"
                                   ],
                                   "properties": {
                                     "id": {
@@ -1953,6 +2015,46 @@
                                         }
                                       },
                                       "description": "User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it"
+                                    },
+                                    "groupPrices": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "required": [
+                                          "group",
+                                          "price"
+                                        ],
+                                        "properties": {
+                                          "group": {
+                                            "type": "string",
+                                            "description": "The user group's code"
+                                          },
+                                          "price": {
+                                            "type": "object",
+                                            "required": [
+                                              "amount",
+                                              "currency",
+                                              "vatIncluded"
+                                            ],
+                                            "properties": {
+                                              "amount": {
+                                                "type": "integer",
+                                                "description": "Minor units (øre), VAT included"
+                                              },
+                                              "currency": {
+                                                "type": "string"
+                                              },
+                                              "vatIncluded": {
+                                                "type": "boolean",
+                                                "enum": [
+                                                  true
+                                                ]
+                                              }
+                                            }
+                                          }
+                                        }
+                                      },
+                                      "description": "User groups with a price of their own at this occurrence that may buy the offer (docs/user-groups.md). Other groups pay price"
                                     },
                                     "sku": {
                                       "type": [

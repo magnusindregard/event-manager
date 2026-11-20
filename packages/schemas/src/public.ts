@@ -90,6 +90,13 @@ export const PublicOffer = Type.Object(
     opensAt: Nullable(Type.String({ format: "date-time", description: "Sales window here. Null: on sale as soon as the event is published" })),
     closesAt: Type.String({ format: "date-time", description: "End of the sales window, at the start at the latest" }),
     access: PublicAccess,
+    groupPrices: Type.Array(
+      Type.Object({
+        group: Type.String({ description: "The user group's code" }),
+        price: Type.Object({ amount: Type.Integer({ description: "Minor units (øre), VAT included" }), currency: Type.String(), vatIncluded: Type.Literal(true) }),
+      }),
+      { description: "User groups with a price of their own at this occurrence that may buy the offer (docs/user-groups.md). Other groups pay price" },
+    ),
     sku: Type.Optional(Nullable(Type.String({ description: "Channel keys only: the channel's product for this offer; null: none mapped, so not on sale" }))),
     placesPerUnit: Type.Optional(Type.Integer({ description: "Channel keys only" })),
     minPerReservation: Type.Optional(Type.Integer({ description: "Channel keys only" })),

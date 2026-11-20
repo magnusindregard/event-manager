@@ -302,6 +302,20 @@ describe("/public/v1", () => {
     expect(occs.body.items[0].event.access.groups).toEqual([{ code: "member", name: "Medlem" }]);
   });
 
+  it("serves one group's view with ?group=, cached separately, and refuses unknown codes", async () => {
+    const plain = await get(`/public/v1/occurrences?key=${keyA}`);
+    const grouped = await get(`/public/v1/occurrences?key=${keyA}&group=member`);
+    expect(grouped.status).toBe(200);
+    expect(grouped.headers["cache-control"]).toBe("public, max-age=0, s-maxage=30, stale-while-revalidate=300");
+    expect(grouped.body.items.length).toBeGreaterThan(0);
+    expect(grouped.headers.etag).toBeTruthy();
+    expect(plain.headers.etag).toBeTruthy();
+    const unknown = await get(`/public/v1/occurrences?key=${keyA}&group=nobody`);
+    expect(unknown).toMatchObject({ status: 400, body: { code: "unknown_group" } });
+    expect(unknown.headers["cache-control"]).toBe("no-store");
+    expect((await get(`/public/v1/events/guided-tour?key=${keyA}&group=nobody`)).status).toBe(400);
+  });
+
   it("rate-limits per key", async () => {
     const small = await buildPublicApp({ db, rateLimit: { capacity: 2, refillPerSecond: 0.01 } });
     const url = `/public/v1/locations?key=${keyB}`;

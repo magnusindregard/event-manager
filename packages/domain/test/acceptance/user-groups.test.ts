@@ -262,6 +262,76 @@ describe("acceptance: group prices (milestone 2)", () => {
   });
 });
 
+describe("acceptance: group prices out (milestone 3)", () => {
+  const SAT = new Date("2027-02-13T18:30:00Z");
+  /** Published: Adult 450 with Member 350, and a members-only early bird at 300. Saturday, so the weekend rule gives everyone else 500. */
+  async function onSale(slug: string) {
+    const event = await run((tx) => catalog.createEvent(tx, ctx, { slug, translations: title("Konsert"), admissionMode: "tickets", registration: { capacity: 100 } }));
+    const occ = await run((tx) => catalog.createOccurrence(tx, ctx, event.id, { startUtc: SAT }));
+    const adult = await run(async (tx) => (await offers.createOffer(tx, ctx, event.id, {
+      translations: name("Voksen"), vatClassId: exempt.id, defaultPrice: 45000, groupPrices: [{ groupId: member.id, amount: 35000 }],
+    })).offer!);
+    const early = await run(async (tx) => (await offers.createOffer(tx, ctx, event.id, {
+      code: "early", translations: name("Tidlig"), vatClassId: exempt.id, defaultPrice: 30000, accessGroupIds: [member.id],
+    })).offer!);
+    await run((tx) => catalog.createRule(tx, ctx, event.id, { name: "Helg", conditions: { weekdays: [6, 7] }, effects: [{ type: "price", targetRef: adult.id, value: { amount: 50000 } }] }));
+    await run(async (tx) => catalog.transitionEvent(tx, ctx, event.id, (await catalog.getEvent(tx, event.id)).version, "publish"));
+    return { event, occ, adult, early };
+  }
+  const view = (eventId: string, group?: string) =>
+    run(async (tx) => (await catalog.listPublicOccurrences(tx, { preview: false, now: NOW, group }, { event: eventId, from: NOW, limit: 10 })).items[0]!);
+
+  it("lists each offer's group prices for everyone, and ?group= gives that group's view", async () => {
+    const { event } = await onSale("public-groups");
+    const all = await view(event.id);
+    expect(all.offers.map((o) => [o.code, o.price.amount, o.groupPrices])).toEqual([
+      ["voksen", 50000, [{ group: "member", price: { amount: 35000, currency: "NOK", vatIncluded: true } }]],
+      ["early", 30000, []],
+    ]);
+    const members = await view(event.id, "member");
+    expect(members.offers.map((o) => [o.code, o.price.amount])).toEqual([["voksen", 35000], ["early", 30000]]);
+    // Sponsors have no price of their own and may not buy the early bird.
+    const sponsors = await view(event.id, "sponsor");
+    expect(sponsors.offers.map((o) => [o.code, o.price.amount])).toEqual([["voksen", 50000]]);
+    expect(await code(view(event.id, "nobody"))).toBe("unknown_group");
+  });
+
+  it("leaves a group's price out where the group may not buy, and counts availability over what the group can buy", async () => {
+    const { event, adult } = await onSale("public-groups-access");
+    // Adult for sponsors only: members keep their price row, but may not buy it any more.
+    await run(async (tx) => offers.updateOffer(tx, ctx, adult.id, (await offers.getOffer(tx, adult.id)).version, { accessGroupIds: [sponsor.id] }));
+    expect((await view(event.id)).offers[0]!.groupPrices).toEqual([]);
+    const members = await view(event.id, "member");
+    expect(members.offers.map((o) => o.code)).toEqual(["early"]);
+    // Without a group, only offers open to everyone count.
+    const anyone = await view(event.id, undefined);
+    expect(anyone.availability).toMatchObject({ status: "available" });
+  });
+
+  it("charges the buyer's group price and freezes it, and the sales view counts per group", async () => {
+    const { occ, adult } = await onSale("reserve-groups");
+    const line = { occurrenceId: occ.id, offerId: adult.id, quantity: 2 };
+    const asMember = await reserve({ lines: [line], group: "member" });
+    expect(asMember.lines[0]).toMatchObject({ unitPrice: 35000, amount: 70000, group: "member" });
+    const asSponsor = await reserve({ lines: [line], group: "sponsor" });
+    expect(asSponsor.lines[0]!.unitPrice).toBe(50000);
+    const plain = await reserve({ lines: [{ ...line, quantity: 1 }] });
+    expect(plain.lines[0]!.unitPrice).toBe(50000);
+
+    // A member price change after reserve: confirm charges the snapshot.
+    await run(async (tx) => offers.updateOffer(tx, ctx, adult.id, (await offers.getOffer(tx, adult.id)).version, { groupPrices: [{ groupId: member.id, amount: 30000 }] }));
+    const confirmed = await run((tx) => sales.confirm(tx, webCaller, asMember.id, { externalOrderRef: "M-1" }, at(1)));
+    expect(confirmed.lines[0]!.unitPrice).toBe(35000);
+    await run((tx) => sales.confirm(tx, webCaller, plain.id, { externalOrderRef: "P-1" }, at(1)));
+
+    const s = await run((tx) => sales.occurrenceSales(tx, ctx, occ.id, at(2)));
+    const adultSales = s.offers.find((o) => o.offerId === adult.id)!;
+    expect(adultSales).toMatchObject({ sold: 3, revenue: 120000, held: 2 });
+    expect(adultSales.byGroup).toEqual([{ group: "member", sold: 2, revenue: 70000 }, { group: null, sold: 1, revenue: 50000 }]);
+    expect(s.reservations.find((r) => r.id === asMember.id)?.group).toBe("member");
+  });
+});
+
 describe("tenancy", () => {
   it("does not see another account's group codes", async () => {
     const { occ, adult } = await concert("tenant-check");

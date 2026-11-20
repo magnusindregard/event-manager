@@ -226,7 +226,9 @@ async function sellable(
   if (!offers.windowOpen(w, now)) {
     throw new DomainError("not_on_sale", "The offer is not on sale now", { ...details, opensAt: w.opensAt?.toISOString() ?? null, closesAt: w.closesAt.toISOString() });
   }
-  return { offer, target, sku, unitPrice: price.price.value };
+  // The buyer's group pays its own price where one applies (docs/user-groups.md), else the general one.
+  const own = group ? (await offers.loadGroupPrices(tx, [target.occurrence.id])).get(target.occurrence.id)?.get(offer.id)?.get(group.id) : undefined;
+  return { offer, target, sku, unitPrice: own?.value ?? price.price.value };
 }
 
 async function groupCodes(tx: Tx, ids: readonly string[]): Promise<string[]> {

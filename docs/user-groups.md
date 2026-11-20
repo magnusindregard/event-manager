@@ -143,6 +143,23 @@ The hosted attendee app cannot know a user's group. A restricted registration ev
 - **Endpoints.** Offers take and return `groupPrices: [{ groupId, amount }]`, which replaces the list and resolves the event. `PUT`/`DELETE /v1/offers/{id}/occurrences/{occurrenceId}/groups/{groupId}/override` with `{ amount }` set and clear a group override and return the group's cell. `GET /v1/events/{id}/prices?groupId=` adds `group: { groupId, price, inherited, override }` to each cell.
 - **Admin.** Group prices in the ticket type editor (empty: the general price), "Pris for" in the price grid, with inherited cells greyed and a popover for the group override, and a price per group under each ticket type in the rule editor.
 
+*Milestone 3 (group prices out)* is built and tested locally (20 November 2026): `packages/domain/test/acceptance/user-groups.test.ts` covers the public group prices and `?group=` view, access per group, reservations priced by group with the snapshot kept through confirm, and sales by group; `apps/public-api/test/public.test.ts` `?group=` over HTTP. Decisions taken while building:
+
+- **`groupPrices`** on a public offer lists active groups that have a price of their own at that occurrence and that both the event's and the offer's lists admit, each as `{ group: code, price }`. A group's price that it cannot use (the offer is limited to other groups) is left out.
+- **`?group=code`** on `/public/v1/occurrences` and `/public/v1/events/{idOrSlug}`: offers the group may not buy are left out, `price` is the group's price (else the general one), and availability is counted over the offers that remain. Responses stay publicly cacheable; the code is part of the cache key. An unknown or archived code is 400 `unknown_group`, not cached. Listings of events take no `?group=`: they carry no prices.
+- **Reserve** prices each line with the buyer's group price at that occurrence where one applies, else the general price, and freezes it like any other price.
+- **Sales view.** Each offer has `byGroup`: valid tickets and revenue per group code they were sold under, `null` for no group, listing only groups that sold. Reservations carry `group`. The admin shows the split under the offer when any group bought.
+- **Outbox.** `reservation.held.v1` carries the group code (milestone 1); no new event types.
+
+### For connectors
+
+Until the ticketing integration guide (ticketing milestone 5) is written, this is what a shop needs to know:
+
+1. **Mirror your groups.** Create one user group per group your site has, with the code your site uses. Codes never change; a renamed group is a new one.
+2. **Show prices per visitor.** Read `/public/v1/occurrences?group=<code>` for a signed-in visitor, or read once without `group` and pick from `groupPrices`, falling back to `price`. Hide or lock events and offers whose `access.groups` the visitor is not in; that is a display decision, not a security one.
+3. **Reserve with the group.** Send `group` on `POST /v1/reservations` from your server, after your own sign-in. Expect `group_required`, `group_not_allowed` (both with `details.line` and `details.groups`) and `unknown_group`.
+4. **Charge the snapshot.** Each line's `unitPrice` is the group's price, frozen with `group`; signatures are `reservation_line.v2` and `reservation.v2`, with the group code in them.
+
 ## Acceptance scenarios
 
 - Adult 450, weekend rule 500, Member 350: members pay 350 every day, sponsors 450 on weekdays and 500 at weekends. A general override of 600 at one occurrence leaves members at 350; a member override of 300 there wins.

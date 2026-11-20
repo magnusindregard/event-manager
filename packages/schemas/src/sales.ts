@@ -144,6 +144,11 @@ export const OccurrenceSales = Type.Object({
     cancelled: Type.Integer(),
     places: Type.Integer({ description: "Places the valid tickets take" }),
     revenue: Type.Integer({ description: "Sum of the valid tickets' prices, minor units VAT included" }),
+    byGroup: Type.Array(Type.Object({
+      group: Nullable(Type.String({ description: "The user group's code; null: sold without a group" })),
+      sold: Type.Integer(),
+      revenue: Type.Integer(),
+    }), { description: "Valid tickets and revenue per user group they were sold to; only groups that sold" }),
   }), { description: "The event's active offers, and archived ones that sold here, in display order" }),
   reservations: Type.Array(Type.Object({
     id: Uuid,
@@ -151,6 +156,7 @@ export const OccurrenceSales = Type.Object({
     status: ReservationStatus,
     externalRef: Nullable(Type.String()),
     externalOrderRef: Nullable(Type.String()),
+    group: Nullable(Type.String({ description: "The buyer's user group (its code)" })),
     buyer: Nullable(Type.Object({ name: Nullable(Type.String()), email: Nullable(Type.String()), locale: Nullable(Type.String()) })),
     anonymisedAt: Nullable(DateTime),
     lines: Type.Array(Type.Object({

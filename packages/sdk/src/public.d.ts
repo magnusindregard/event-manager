@@ -89,6 +89,8 @@ export interface operations {
             query: {
                 /** @description Falls back to the account's default locale */
                 locale?: string;
+                /** @description A user group's code (docs/user-groups.md): prices are that group's and offers it may not buy are left out. A view of public data, not access control; the reservations API enforces access */
+                group?: string;
                 /** @description Default: now. Occurrences still running at this time are included. */
                 from?: string;
                 to?: string;
@@ -212,6 +214,18 @@ export interface operations {
                                         name: string;
                                     }[];
                                 };
+                                /** @description User groups with a price of their own at this occurrence that may buy the offer (docs/user-groups.md). Other groups pay price */
+                                groupPrices: {
+                                    /** @description The user group's code */
+                                    group: string;
+                                    price: {
+                                        /** @description Minor units (øre), VAT included */
+                                        amount: number;
+                                        currency: string;
+                                        /** @enum {boolean} */
+                                        vatIncluded: true;
+                                    };
+                                }[];
                                 /** @description Channel keys only: the channel's product for this offer; null: none mapped, so not on sale */
                                 sku?: string | null;
                                 /** @description Channel keys only */
@@ -466,6 +480,8 @@ export interface operations {
             query?: {
                 /** @description Falls back to the account's default locale */
                 locale?: string;
+                /** @description A user group's code (docs/user-groups.md): prices are that group's and offers it may not buy are left out. A view of public data, not access control; the reservations API enforces access */
+                group?: string;
                 occurrencesFrom?: string;
                 occurrencesTo?: string;
             };
@@ -616,6 +632,18 @@ export interface operations {
                                             name: string;
                                         }[];
                                     };
+                                    /** @description User groups with a price of their own at this occurrence that may buy the offer (docs/user-groups.md). Other groups pay price */
+                                    groupPrices: {
+                                        /** @description The user group's code */
+                                        group: string;
+                                        price: {
+                                            /** @description Minor units (øre), VAT included */
+                                            amount: number;
+                                            currency: string;
+                                            /** @enum {boolean} */
+                                            vatIncluded: true;
+                                        };
+                                    }[];
                                     /** @description Channel keys only: the channel's product for this offer; null: none mapped, so not on sale */
                                     sku?: string | null;
                                     /** @description Channel keys only */
