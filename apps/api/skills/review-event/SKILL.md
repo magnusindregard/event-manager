@@ -18,6 +18,7 @@ A review lets the human catch mistakes before they reach the public. Write it fo
 - When: the pattern and the first and last date, or the list of dates, in the event's local time with the timezone named once ("Tuesdays 14:00–15:00, 2 March to 8 June 2027, 15 dates, Oslo time")
 - How people get in: drop in, a link elsewhere, sign-up here, or tickets
 - Places per date, and whether there is a waitlist or overbooking
+- Tags (audience, category and so on), or that it has none
 - Ticket types and prices including VAT, with the currency ("Adult NOK 150, Child free")
 - Variations by rule: "Saturdays and Sundays: Adult NOK 180"; "June to August: 40 places"
 - Who it is for: everyone, by invitation, or only certain groups
@@ -38,4 +39,5 @@ For a change, show **before → after** for each field that changes, and say tha
 
 - Do not present a guess as a fact. If a date conversion or price is uncertain, say so.
 - Mention side effects: a moved series moves its dates; a removed date or a cancelled event affects people who registered or bought tickets; a new default price applies to every date.
-- After saving, read the event back and report what actually was saved, not what you intended.
+- After saving, read the event back and report what actually was saved, not what you intended, with the link to the event in the admin (`adminUrl`).
+- Whenever you list events for the human, give each one's admin link (`adminUrl`) with its title, status and next date.

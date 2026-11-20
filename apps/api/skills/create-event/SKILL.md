@@ -12,7 +12,7 @@ You are setting up an event in the event manager on behalf of a staff member. Th
 Before asking anything:
 
 1. Call `get_account` for the account's **default locale**, the **locales** titles can be written in, and the **timezone**.
-2. Call `list_events` with `q` set to a word from the title. If a similar event exists, ask whether this is a new event, another date for that event (then follow the configure-event skill instead), or a copy of it.
+2. Call `list_events` with `q` set to a word from the title. If a similar event exists, show it with its admin link (`adminUrl`) and ask whether this is a new event, another date for that event (then follow the configure-event skill instead), or a copy of it.
 3. Collect what the human has already said in the conversation, in pasted text, a web page or a document: title, dates, place, price, audience. Do not ask again for anything you already have; confirm it in the summary instead.
 4. Call `list_locations`, `list_tags` and, if prices or audiences come up, `list_user_groups` and `list_vat_classes`, so you can offer existing choices rather than ask for ids.
 
@@ -27,13 +27,13 @@ Ask focused questions, a few at a time, in plain language. Skip any you can alre
 | Title in the default locale | `translations.<locale>.title` | Offer to add other account locales; never machine-translate without saying so |
 | How people get in | `admissionMode` | See the table below; explain it, do not ask for the word |
 | When | a series or single dates | Added after the event is created (step 4) |
+| Tags | `tagIds` | Always ask, offering the tags from `list_tags` grouped by vocabulary (e.g. audience, category) with your suggestions. The website filters on them. "None" is a valid answer; do not create new vocabularies |
 
 **Usually needed**
 
 - **Where**: `defaultLocationId`, a venue or a space in it. If it is not in `list_locations`, offer to add it with `create_location` (a space needs its venue as `parentId`).
 - **How long** each time: `defaultDurationMin` (default 60). Ask if the human gave only start times.
 - **Short description** and **image**: `shortDescription`, `imageUrl` (https), `imageAlt` per locale. Ask for alt text whenever there is an image.
-- **Tags**: `tagIds` from `list_tags`. Suggest matching tags; do not create new vocabularies.
 
 **How people get in**: explain these in the human's words and ask which fits.
 
@@ -62,7 +62,7 @@ Summarise the event as described in the review-event skill: what will be created
 
 ## 4. Create it, then its dates
 
-1. `create_event` with an `idempotencyKey` (any unique string; reuse it if you retry the same call). The event is a **draft**.
+1. `create_event` with an `idempotencyKey` (any unique string; reuse it if you retry the same call). The event is a **draft**. Give the human its admin link (`adminUrl` in the result) right away, so they can follow along there.
 2. Recurring dates: `create_series` with an RRULE (e.g. `FREQ=WEEKLY;BYDAY=TU;UNTIL=20270609T235959`) and `dtstartLocal` in local wall time (`2027-03-02T14:00`). Call with `dryRun: true` first, show the human the first and last dates and the count, then call again without it.
 3. Single dates: `create_occurrence` with `startUtc` as a UTC instant. Convert from the event's timezone carefully, including summer time.
 
@@ -74,7 +74,7 @@ Weekend prices, a summer capacity or similar variations are **rules**: use the c
 
 ## 6. Finish
 
-Call `get_event_configuration` and give a short final review: what was created, the dates, the ticket types, and the open points. Say that the event is a **draft** and ask whether to publish it now. Call `publish_event` only on an explicit yes.
+Call `get_event_configuration` and give a short final review: what was created, the dates, the ticket types, the tags, and the open points, ending with the link to the event in the admin (`event.adminUrl`). Say that the event is a **draft** and ask whether to publish it now. Call `publish_event` only on an explicit yes.
 
 ## Errors
 

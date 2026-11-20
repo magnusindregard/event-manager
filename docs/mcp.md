@@ -48,8 +48,9 @@ MCP clients sign in through Entra External ID, which has no dynamic client regis
 |---|---|
 | `MCP_OAUTH_SCOPES` | The API scope clients ask for, e.g. `api://em-api-staging/access` |
 | `PUBLIC_URL` | The API's public base URL, so the metadata names `https://…/mcp` behind the ingress |
+| `ADMIN_URL` | The admin's base URL. Tool results then give each event its admin page as `adminUrl` (`eventAdminUrl` on changes to its dates, ticket types and rules), which the skills hand the human. Unset in production: no links. Locally it defaults to `http://localhost:5173/` |
 
-The Bicep templates set both: `MCP_OAUTH_SCOPES` from the GitHub variable `ENTRA_API_SCOPE` (the scope the admin asks for), and `PUBLIC_URL` from `API_PUBLIC_URL`, else `ADMIN_URL` behind Front Door, where the API and the admin share a host. Front Door sends the container app's own host name to the API, so without `PUBLIC_URL` the metadata would name that instead of the URL the client used. Front Door routes `/mcp`, `/.well-known/oauth-protected-resource*`, `/.well-known/oauth-authorization-server`, `/.well-known/openid-configuration` and `/oauth/*` to the API.
+The Bicep templates set all three: `ADMIN_URL` from the GitHub variable of the same name, `MCP_OAUTH_SCOPES` from the GitHub variable `ENTRA_API_SCOPE` (the scope the admin asks for), and `PUBLIC_URL` from `API_PUBLIC_URL`, else `ADMIN_URL` behind Front Door, where the API and the admin share a host. Front Door sends the container app's own host name to the API, so without `PUBLIC_URL` the metadata would name that instead of the URL the client used. Front Door routes `/mcp`, `/.well-known/oauth-protected-resource*`, `/.well-known/oauth-authorization-server`, `/.well-known/openid-configuration` and `/oauth/*` to the API.
 
 After a deploy, both of these answer without a token: the first with 401 and `WWW-Authenticate`, the second with the metadata.
 

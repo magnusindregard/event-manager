@@ -31,8 +31,8 @@ export interface AppDeps {
   attendeeUrl?: string;
   /** Basic-auth credentials Postmark sends with delivery webhooks; null leaves the webhook off. */
   postmarkWebhook?: { user: string; password: string } | null;
-  /** MCP server at /mcp (docs/mcp.md): where clients sign in, and the scopes they ask for. */
-  mcp?: { authorizationServers: string[]; scopes: string[]; publicUrl?: string };
+  /** MCP server at /mcp (docs/mcp.md): where clients sign in, the scopes they ask for, and the admin to link events to. */
+  mcp?: { authorizationServers: string[]; scopes: string[]; publicUrl?: string; adminUrl?: string };
 }
 
 /** Operations whose request body may be left out. */
@@ -92,7 +92,7 @@ export async function buildApp(deps: AppDeps) {
     return { ok: true };
   });
 
-  await app.register(mcpPlugin, { operations, authorizationServers: deps.mcp?.authorizationServers ?? [], scopes: deps.mcp?.scopes ?? [], publicUrl: deps.mcp?.publicUrl });
+  await app.register(mcpPlugin, { operations, authorizationServers: deps.mcp?.authorizationServers ?? [], scopes: deps.mcp?.scopes ?? [], publicUrl: deps.mcp?.publicUrl, adminUrl: deps.mcp?.adminUrl });
 
   if (deps.postmarkWebhook) await app.register(postmarkWebhookRoutes, { credentials: deps.postmarkWebhook });
 

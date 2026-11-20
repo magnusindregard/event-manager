@@ -25,6 +25,8 @@ export interface McpOptions {
   scopes: string[];
   /** Public base URL of this API; else derived from the request. */
   publicUrl?: string;
+  /** Base URL of the admin (ADMIN_URL); results then link each event to its page there. */
+  adminUrl?: string;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -35,7 +37,8 @@ const INSTRUCTIONS = `Event manager: find, create and configure the account's ev
 - Never guess facts the human has not given or the data does not show. Ask, then summarise what you will do and get a yes before any write.
 - Events are created as drafts. Publish, unpublish or cancel only when the human says so explicitly.
 - Changes take the resource's \`version\` from your latest read. A version_conflict means someone else changed it: read it again and re-check with the human.
-- Times: occurrences are UTC instants; series take local wall time in the event's timezone.`;
+- Times: occurrences are UTC instants; series take local wall time in the event's timezone.
+- Events in results carry \`adminUrl\` (writes on an event's dates, ticket types and rules: \`eventAdminUrl\`), the event's page in the admin. Give the human that link whenever you list, create or change events.`;
 
 const WHOAMI: ToolDefinition = {
   name: "whoami",
@@ -66,6 +69,7 @@ export async function mcpPlugin(app: FastifyInstance, opts: McpOptions) {
   let bindings: ReturnType<typeof bindTools> | undefined;
   // Routes are all registered once the app is ready; bind on first use and fail loudly in tests.
   const tools = () => (bindings ??= bindTools(OPERATION_TOOLS, opts.operations));
+  const link = adminLinks(opts.adminUrl);
   app.addHook("onReady", async () => {
     tools();
     loadSkills();
@@ -135,11 +139,12 @@ export async function mcpPlugin(app: FastifyInstance, opts: McpOptions) {
         return errorResult("account_id_required", `No account selected. The user belongs to ${accounts.length} accounts (${accounts.map((a) => `${a.name}: ${a.accountId}`).join(", ") || "none"}). Connect with ?accountId=<id> on the MCP server URL or the Account-Id header.`);
       }
       const caller: Caller = { authorization: req.headers.authorization!, accountId };
-      if (name === CONFIGURATION.name) return configuration(app, caller, args);
+      if (name === CONFIGURATION.name) return configuration(app, caller, args, link);
       const binding = tools().get(name);
       if (!binding) throw new McpError(ErrorCode.InvalidParams, `Unknown tool ${name}`);
       try {
-        return toolResult(await inject(app, caller, requestFor(binding, args)));
+        const res = await inject(app, caller, requestFor(binding, args));
+        return toolResult(res.status < 400 ? { ...res, body: link(name, args, res.body) } : res);
       } catch (e) {
         if (e instanceof ArgumentError) return errorResult("invalid_request", e.message);
         throw e;
@@ -176,8 +181,40 @@ export async function mcpPlugin(app: FastifyInstance, opts: McpOptions) {
   app.delete("/mcp", { schema: { hide: true } }, notAllowed);
 }
 
+type Linker = (tool: string, args: Record<string, unknown>, body: unknown) => unknown;
+
+/** Tools whose result is one event. */
+const EVENT_RESULT = new Set(["get_event", "create_event", "update_event", "publish_event", "unpublish_event", "cancel_event"]);
+
+/**
+ * Adds the admin page of each event to a result, so the agent can hand the human a link:
+ * `adminUrl` on events, `eventAdminUrl` on what belongs to an event (dates, ticket types, rules).
+ */
+export function adminLinks(adminUrl: string | undefined): Linker {
+  if (!adminUrl) return (_tool, _args, body) => body;
+  const base = adminUrl.replace(/\/$/, "");
+  const url = (id: unknown) => (typeof id === "string" && UUID.test(id) ? `${base}/events/${id}` : undefined);
+  const withUrl = (event: unknown) => {
+    if (!event || typeof event !== "object") return event;
+    const href = url((event as { id?: unknown }).id);
+    return href ? { ...event, adminUrl: href } : event;
+  };
+  return (tool, args, body) => {
+    if (!body || typeof body !== "object" || Array.isArray(body)) return body;
+    const b = body as Record<string, unknown>;
+    if (EVENT_RESULT.has(tool)) return withUrl(b);
+    if (tool === "list_events" && Array.isArray(b.items)) return { ...b, items: b.items.map(withUrl) };
+    if (tool === CONFIGURATION.name) return { ...b, event: withUrl(b.event) };
+    if (tool.startsWith("list_") || tool.startsWith("get_")) return body;
+    // Writes on an event's dates, ticket types and rules: the id is an argument or in the result.
+    const nested = Object.values(b).find((v): v is { eventId: unknown } => !!v && typeof v === "object" && "eventId" in v);
+    const href = url(args.eventId) ?? url(b.eventId) ?? url(nested?.eventId);
+    return href ? { ...b, eventAdminUrl: href } : body;
+  };
+}
+
 /** get_event_configuration: the event and everything that configures it, read in parallel. */
-async function configuration(app: FastifyInstance, caller: Caller, args: Record<string, unknown>): Promise<ToolResult> {
+async function configuration(app: FastifyInstance, caller: Caller, args: Record<string, unknown>, link: Linker): Promise<ToolResult> {
   const eventId = args.eventId;
   if (typeof eventId !== "string" || !UUID.test(eventId)) return errorResult("invalid_request", "eventId must be an event's UUID");
   const unknown = Object.keys(args).filter((k) => !["eventId", "from", "occurrenceLimit"].includes(k));
@@ -199,12 +236,12 @@ async function configuration(app: FastifyInstance, caller: Caller, args: Record<
   const occ = occurrences.body as { items: unknown[]; nextCursor: string | null };
   return toolResult({
     status: 200,
-    body: {
+    body: link(CONFIGURATION.name, args, {
       event: event.body,
       series: items(series),
       occurrences: { from, items: occ.items, more: occ.nextCursor !== null, nextCursor: occ.nextCursor },
       offers: items(offers),
       rules: items(rules),
-    },
+    }),
   });
 }

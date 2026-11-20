@@ -7,7 +7,7 @@ export interface Config {
   production: boolean;
   attendeeUrl: string;
   postmarkWebhook: { user: string; password: string } | null;
-  mcp: { authorizationServers: string[]; scopes: string[]; publicUrl?: string };
+  mcp: { authorizationServers: string[]; scopes: string[]; publicUrl?: string; adminUrl?: string };
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -19,6 +19,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (production && devAuthSecret) throw new Error("AUTH_DEV_SECRET must not be set in production");
   if (!oidc && !devAuthSecret) throw new Error("Configure OIDC_ISSUER + OIDC_AUDIENCE (or AUTH_DEV_SECRET locally)");
   const publicUrl = env.PUBLIC_URL || undefined;
+  // Links to events in the admin in MCP tool results; none in production unless set.
+  const adminUrl = env.ADMIN_URL || (production ? undefined : "http://localhost:5173/");
   return {
     port: Number(env.PORT ?? 3000),
     databaseUrl,
@@ -36,6 +38,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       authorizationServers: oidc ? [oidc.issuer] : [],
       scopes: (env.MCP_OAUTH_SCOPES ?? "").split(/[\s,]+/).filter(Boolean),
       ...(publicUrl ? { publicUrl } : {}),
+      ...(adminUrl ? { adminUrl } : {}),
     },
   };
 }
