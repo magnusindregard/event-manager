@@ -67,7 +67,15 @@ export async function mcpPlugin(app: FastifyInstance, opts: McpOptions) {
     loadSkills();
   });
 
-  const baseUrl = (req: FastifyRequest) => (opts.publicUrl ?? `${req.protocol}://${req.host}`).replace(/\/$/, "");
+  // Container Apps (and Front Door) end TLS and forward plain HTTP, so req.protocol is "http" for a
+  // client that used https. Clients reject metadata whose resource differs from the URL they used,
+  // so the scheme the proxy saw (X-Forwarded-Proto) wins. It only shapes this caller's metadata.
+  const scheme = (req: FastifyRequest) => {
+    const forwarded = req.headers["x-forwarded-proto"];
+    const first = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(",")[0]?.trim().toLowerCase();
+    return first === "https" || first === "http" ? first : req.protocol;
+  };
+  const baseUrl = (req: FastifyRequest) => (opts.publicUrl ?? `${scheme(req)}://${req.host}`).replace(/\/$/, "");
   const metadataUrl = (req: FastifyRequest) => `${baseUrl(req)}/.well-known/oauth-protected-resource/mcp`;
 
   // RFC 9728: tells MCP clients where to sign in. Served under both well-known paths clients try.

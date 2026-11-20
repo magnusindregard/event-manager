@@ -81,6 +81,21 @@ describe("MCP authentication", () => {
     expect(meta).toMatchObject({ resource: `${base}/mcp`, authorization_servers: ["https://login.example/tenant/v2.0"], scopes_supported: ["api://em-api/access"] });
   });
 
+  it("names the scheme the client used behind a TLS-ending proxy", async () => {
+    const headers = { host: "api.example", "x-forwarded-proto": "https" };
+    const meta = await app.inject({ method: "GET", url: "/.well-known/oauth-protected-resource/mcp", headers });
+    expect(meta.json()).toMatchObject({ resource: "https://api.example/mcp" });
+    const refused = await app.inject({ method: "POST", url: "/mcp", headers: { ...headers, "content-type": "application/json" }, payload: {} });
+    expect(refused.statusCode).toBe(401);
+    expect(refused.headers["www-authenticate"]).toContain('resource_metadata="https://api.example/.well-known/oauth-protected-resource/mcp"');
+
+    // A list takes the first proxy's value; anything else falls back to the connection's scheme.
+    const listed = await app.inject({ method: "GET", url: "/.well-known/oauth-protected-resource/mcp", headers: { host: "api.example", "x-forwarded-proto": "https, http" } });
+    expect(listed.json()).toMatchObject({ resource: "https://api.example/mcp" });
+    const junk = await app.inject({ method: "GET", url: "/.well-known/oauth-protected-resource/mcp", headers: { host: "api.example", "x-forwarded-proto": "javascript" } });
+    expect(junk.json()).toMatchObject({ resource: "http://api.example/mcp" });
+  });
+
   it("refuses an invalid token", async () => {
     const client = new Client({ name: "x", version: "1" });
     await expect(client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers: { authorization: "Bearer nope" } } }))).rejects.toThrow();
