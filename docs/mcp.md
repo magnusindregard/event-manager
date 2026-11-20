@@ -37,7 +37,17 @@ MCP clients sign in through Entra External ID, which has no dynamic client regis
 | `MCP_OAUTH_SCOPES` | The API scope clients ask for, e.g. `api://em-api-staging/access` |
 | `PUBLIC_URL` | The API's public base URL, so the metadata names `https://…/mcp` behind the ingress |
 
-The authorization server in the metadata is `OIDC_ISSUER`. The Bicep templates do not set the two settings yet; without them the metadata has no scopes and derives the URL from the request.
+The authorization server in the metadata is `OIDC_ISSUER`. The Bicep templates set both: `MCP_OAUTH_SCOPES` from the GitHub variable `ENTRA_API_SCOPE` (the scope the admin asks for), and `PUBLIC_URL` from `API_PUBLIC_URL`, else `ADMIN_URL` behind Front Door, where the API and the admin share a host. Front Door sends the container app's own host name to the API, so without `PUBLIC_URL` the metadata would name that instead of the URL the client used. Front Door routes `/mcp` and `/.well-known/oauth-protected-resource*` to the API.
+
+After a deploy, both of these answer without a token: the first with 401 and `WWW-Authenticate`, the second with the metadata.
+
+```bash
+curl -si -X POST https://<front door host>/mcp | head -5
+```
+
+```bash
+curl -s https://<front door host>/.well-known/oauth-protected-resource/mcp
+```
 
 ## Tools
 

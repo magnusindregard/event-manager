@@ -34,6 +34,10 @@ param mailFrom string = ''
 param adminUrl string = ''
 @description('Comma-separated origins allowed to call the core API from a browser. Empty behind Front Door (same origin).')
 param corsOrigins string = ''
+@description('MCP_OAUTH_SCOPES on the API: the scope MCP clients ask for. Empty: left out.')
+param mcpScopes string = ''
+@description('PUBLIC_URL on the API, e.g. https://<front door host>/. Behind Front Door the request carries the origin host, so the MCP metadata needs it. Empty: left out.')
+param publicUrl string = ''
 @description('Postmark delivery webhook on the API. Needs Key Vault secret "postmark-webhook-auth" holding "user:password".')
 param postmarkWebhook bool = false
 @description('Master keys for sensitive registration answers. Needs Key Vault secret "sensitive-data-keys" holding "id:base64-32-bytes" (infra/README.md). Off: forms cannot take sensitive answers.')
@@ -95,6 +99,8 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           // Guests' personal invitation links point at the hosted attendee pages.
           { name: 'ATTENDEE_URL', value: attendeeUrl }
         ], empty(corsOrigins) ? [] : [{ name: 'CORS_ORIGINS', value: corsOrigins }],
+          empty(mcpScopes) ? [] : [{ name: 'MCP_OAUTH_SCOPES', value: mcpScopes }],
+          empty(publicUrl) ? [] : [{ name: 'PUBLIC_URL', value: publicUrl }],
           webhookEnabled ? [{ name: 'POSTMARK_WEBHOOK_AUTH', secretRef: 'postmark-webhook-auth' }] : [], sensitiveEnv)
         probes: probesFor(3000)
       }], workerAsSidecar ? [workerContainer] : [])
