@@ -7,6 +7,7 @@ export * from "./series.js";
 export { expand, localToUtc, normalizeRrule, utcToLocal, type SeriesDef, type Slot } from "./recurrence.js";
 export { planRegeneration, type RegenerationPlan } from "./regenerate.js";
 export * from "./tags.js";
+export * from "./groups.js";
 export { slugify } from "./shared.js";
 export * from "./public.js";
 export * from "./rules.js";

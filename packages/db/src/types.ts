@@ -547,6 +547,30 @@ export interface OfferChannelTable {
   channel_id: string;
 }
 
+export interface UserGroupTable {
+  id: string;
+  tenant_id: string;
+  code: string;
+  names: ColumnType<Record<string, string>, string | undefined, string>;
+  sort_order: Generated<number>;
+  archived_at: Timestamp | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface EventAccessGroupTable {
+  tenant_id: string;
+  event_id: string;
+  group_id: string;
+}
+
+export interface OfferAccessGroupTable {
+  tenant_id: string;
+  offer_id: string;
+  group_id: string;
+}
+
 export type ReservationStatus = "held" | "confirmed" | "cancelled" | "expired";
 export type TicketStatus = "valid" | "cancelled";
 export type TicketCancelledBy = "channel" | "staff";
@@ -567,6 +591,8 @@ export interface ReservationTable {
   cancelled_at: Timestamp | null;
   expired_at: Timestamp | null;
   anonymised_at: Timestamp | null;
+  group_id: string | null;
+  group_code: string | null;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -592,6 +618,7 @@ export interface ReservationLineTable {
   occurrence_start_utc: Timestamp;
   timezone: string;
   location_name: string | null;
+  group_code: string | null;
 }
 
 export interface ReservationHoldTable {
@@ -628,6 +655,8 @@ export interface DB {
   "catalog.event_tag": EventTagTable;
   "catalog.occurrence": OccurrenceTable;
   "catalog.series": SeriesTable;
+  "catalog.user_group": UserGroupTable;
+  "catalog.event_access_group": EventAccessGroupTable;
   "rules.effective_value": EffectiveValueTable;
   "rules.rule": RuleTable;
   "rules.rule_effect": RuleEffectTable;
@@ -652,6 +681,7 @@ export interface DB {
   "offers.sales_channel": SalesChannelTable;
   "offers.sku_mapping": SkuMappingTable;
   "offers.offer_channel": OfferChannelTable;
+  "offers.offer_access_group": OfferAccessGroupTable;
   "sales.reservation": ReservationTable;
   "sales.reservation_line": ReservationLineTable;
   "sales.reservation_hold": ReservationHoldTable;

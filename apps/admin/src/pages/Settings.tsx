@@ -16,6 +16,7 @@ import { useAccount } from "../queries.js";
 import { ApiKeys } from "./settings/ApiKeys.js";
 import { SalesChannels, SkuMappings } from "./settings/SalesChannels.js";
 import { TagVocabularies } from "./settings/TagVocabularies.js";
+import { UserGroups } from "./settings/UserGroups.js";
 import { VatClasses } from "./settings/VatClasses.js";
 
 const TIMEZONES: string[] = (() => {
@@ -170,6 +171,7 @@ export function Settings() {
       </div>
 
       <TagVocabularies canEdit={canEdit} />
+      <UserGroups canEdit={canEdit} />
       <VatClasses canEdit={canEdit} />
       <SalesChannels canEdit={canEdit} />
       <SkuMappings canEdit={canEdit} />

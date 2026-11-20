@@ -119,6 +119,7 @@ export const Event = Type.Object({
   externalRefs: Type.Record(Type.String(), Type.String()),
   translations: Type.Record(Type.String(), TranslationOut),
   tagIds: Type.Array(Uuid),
+  accessGroupIds: Type.Array(Uuid, { description: "User groups that may attend; empty: everyone" }),
   version: Type.Integer(),
   createdAt: DateTime,
   updatedAt: DateTime,
@@ -137,6 +138,7 @@ const eventFields = {
   registration: Type.Optional(RegistrationSettingsInput),
   externalRefs: Type.Optional(ExternalRefs),
   tagIds: Type.Optional(Type.Array(Uuid, { uniqueItems: true, maxItems: 100 })),
+  accessGroupIds: Type.Optional(Type.Array(Uuid, { uniqueItems: true, maxItems: 50, description: "Only these user groups may attend; empty: everyone. Replaces the list" })),
 };
 
 export const EventCreate = Type.Object(

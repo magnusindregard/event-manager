@@ -32,7 +32,7 @@ The platform takes **no payments** in this edition. Cart, checkout, payment, rec
 |---|---|
 | Checkout and payment (epic #17) | Reservations are the basket: a hosted checkout becomes one more channel that reserves and confirms |
 | Refunds of money | Cancel takes the channel's refund reference; the money moves in the channel |
-| Discount codes, bundles, memberships | Prices are resolved per (offer, occurrence) and frozen in the snapshot; a discount is a later adjustment on the line |
+| Discount codes, bundles, memberships | Prices are resolved per (offer, occurrence) and frozen in the snapshot; a discount is a later adjustment on the line. Group prices for members: [user-groups.md](user-groups.md) |
 | Seat maps, reserved seating | Lines draw from pools; a seat is a pool of one |
 | Quotas per offer ("max 20 student tickets") | ADR 0003's multi-pool holds; offers already name the pool they draw from |
 | Ticket delivery from the platform (epic #11) | Confirm returns ticket URLs and QR payloads; the channel shows or sends them |

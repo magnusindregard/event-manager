@@ -21,6 +21,7 @@ import * as m0016 from "./migrations/0016_offers.js";
 import * as m0017 from "./migrations/0017_channels.js";
 import * as m0018 from "./migrations/0018_reservations.js";
 import * as m0019 from "./migrations/0019_after_sale.js";
+import * as m0020 from "./migrations/0020_user_groups.js";
 
 /** By name, in order. Exported for tests that run one migration down and up again. */
 export const migrations: Record<string, Migration> = {
@@ -42,6 +43,7 @@ export const migrations: Record<string, Migration> = {
   "0017_channels": m0017,
   "0018_reservations": m0018,
   "0019_after_sale": m0019,
+  "0020_user_groups": m0020,
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

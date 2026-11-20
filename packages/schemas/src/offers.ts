@@ -52,6 +52,7 @@ export const Offer = Type.Object({
   offSaleAt: Nullable(Type.String({ format: "date-time", description: "Off sale from this time. Neither this nor offSaleMinBefore: until the start. Sales never run past the start" })),
   channelIds: Type.Array(Uuid, { description: "Sales channels that may sell the offer" }),
   channelsWithoutSku: Type.Array(Uuid, { description: "Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet" }),
+  accessGroupIds: Type.Array(Uuid, { description: "User groups that may buy the offer; empty: everyone the event admits" }),
   translations: Type.Record(Type.String(), OfferTranslationOut),
   version: Type.Integer(),
   createdAt: DateTime,
@@ -67,6 +68,7 @@ const windowFields = {
   offSaleAt: Type.Optional(Nullable(DateTime)),
 };
 const ChannelIds = Type.Array(Uuid, { uniqueItems: true, maxItems: 50 });
+const AccessGroupIds = Type.Array(Uuid, { uniqueItems: true, maxItems: 50, description: "Only these user groups may buy the offer; empty: everyone the event admits. Replaces the list" });
 
 const offerFields = {
   code: Type.Optional(Code),
@@ -77,6 +79,7 @@ const offerFields = {
   maxPerReservation: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000, default: 20 })),
   defaultPrice: Amount,
   ...windowFields,
+  accessGroupIds: Type.Optional(AccessGroupIds),
 };
 export const OfferCreate = Type.Object(
   { ...offerFields, channelIds: Type.Optional(Type.Array(Uuid, { ...ChannelIds, description: "Left out: every active channel" })), translations: Type.Record(LocaleKey, OfferTranslation, { minProperties: 1 }) },
@@ -94,6 +97,7 @@ export const OfferPatch = Type.Object(
     defaultPrice: Type.Optional(Amount),
     ...windowFields,
     channelIds: Type.Optional(Type.Array(Uuid, { ...ChannelIds, description: "Replaces the offer's channels" })),
+    accessGroupIds: Type.Optional(AccessGroupIds),
     translations: Type.Optional(Type.Record(LocaleKey, Nullable(OfferTranslation), { description: "Per locale: replaces the translation, or null removes it" })),
   },
   { additionalProperties: false, minProperties: 1 },

@@ -76,6 +76,15 @@ export function useVatClasses() {
   });
 }
 
+/** The account's user groups, in display order. */
+export function useUserGroups() {
+  const { api, accountId } = useApp();
+  return useQuery({
+    queryKey: ["user-groups", accountId],
+    queryFn: async () => unwrap(await api.GET("/v1/user-groups")).items,
+  });
+}
+
 /** The account's sales channels, active first. */
 export function useSalesChannels() {
   const { api, accountId } = useApp();

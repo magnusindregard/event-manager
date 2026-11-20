@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { type CatalogEvent, etagOf, isConflict, type Offer, unwrap } from "../../api.js";
 import { useApp } from "../../AppContext.js";
+import { GroupAccessField } from "../../components/group-access.js";
 import { formatMoney, moneyInput, parseMoney } from "../../lib/money.js";
 import { offerName, useAccount, useEventOffers, useSalesChannels, useSkuMappings, useVatClasses } from "../../queries.js";
 import { eventTitle } from "../Events.js";
@@ -196,6 +197,7 @@ type Draft = {
   active: boolean;
   /** Null: untouched on a new offer, so the API gives it every active channel. */
   channelIds: string[] | null;
+  accessGroupIds: string[];
   opens: WindowBound;
   closes: WindowBound;
   translations: Record<string, { name: string; description: string }>;
@@ -257,6 +259,7 @@ function OfferForm({ event, offer, onSaved, onConflict }: { event: CatalogEvent;
     max: String(offer?.maxPerReservation ?? 20),
     active: (offer?.status ?? "active") === "active",
     channelIds: offer?.channelIds ?? null,
+    accessGroupIds: offer?.accessGroupIds ?? [],
     opens: bound(offer?.onSaleMinBefore, offer?.onSaleAt),
     closes: bound(offer?.offSaleMinBefore, offer?.offSaleAt),
     translations: Object.fromEntries((account?.locales ?? Object.keys(offer?.translations ?? {})).map((l) => [l, {
@@ -283,6 +286,7 @@ function OfferForm({ event, offer, onSaved, onConflict }: { event: CatalogEvent;
         vatClassId: d.vatClassId, defaultPrice: price!, placesPerUnit: Number(d.placesPerUnit), minPerReservation: Number(d.min), maxPerReservation: Number(d.max),
         ...(d.code.trim() ? { code: d.code.trim() } : {}),
         ...(d.channelIds ? { channelIds: d.channelIds } : {}),
+        accessGroupIds: d.accessGroupIds,
         ...boundFields(d.opens, "onSaleMinBefore", "onSaleAt"),
         ...boundFields(d.closes, "offSaleMinBefore", "offSaleAt"),
       };
@@ -364,6 +368,8 @@ function OfferForm({ event, offer, onSaved, onConflict }: { event: CatalogEvent;
           ))}
           {channels.length === 0 && <p className="text-xs text-muted-foreground">{t("offers.noChannelsYet")}</p>}
         </fieldset>
+        <GroupAccessField id="offer-access" legend={t("groups.whoCanBuy")} everyone={t("groups.everyoneBuy")} hint={t("groups.whoCanBuyHint")}
+          value={d.accessGroupIds} onChange={(accessGroupIds) => setD({ ...d, accessGroupIds })} />
         <div className="grid gap-4 sm:grid-cols-2">
           <WindowField id="offer-opens" label={t("offers.opens")} none={t("offers.opensNone")} value={d.opens} onChange={(opens) => setD({ ...d, opens })} />
           <WindowField id="offer-closes" label={t("offers.closes")} none={t("offers.closesNone")} value={d.closes} onChange={(closes) => setD({ ...d, closes })} />

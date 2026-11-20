@@ -3,6 +3,7 @@ import * as inventory from "../inventory/index.js";
 import * as offers from "../offers/index.js";
 import { getAccount } from "../tenancy/index.js";
 import { availabilityOf, type AvailabilityStatus, fewLeftThreshold } from "./availability.js";
+import { eventAccessGroups, type GroupRef, groupName } from "./groups.js";
 import { loadEffectiveValues } from "./resolve.js";
 
 // Read model for the public API (/public/v1). Only published and cancelled events are
@@ -48,6 +49,12 @@ export interface PublicEventSummary {
   image: { url: string; alt: string | null } | null;
   timezone: string;
   externalRefs: Record<string, string>;
+  /** User groups that may attend (docs/user-groups.md); empty: everyone. The frontend decides how to show a restricted event. */
+  access: PublicAccess;
+}
+
+export interface PublicAccess {
+  groups: { code: string; name: string }[];
 }
 
 export type Admission =
@@ -73,6 +80,8 @@ export interface PublicOffer {
   /** The sales window here; opensAt null: on sale as soon as the event is published. */
   opensAt: string | null;
   closesAt: string;
+  /** User groups that may buy the offer, on top of the event's; empty: everyone the event admits. */
+  access: PublicAccess;
   /** Channel callers only. */
   sku?: string | null;
   placesPerUnit?: number;
@@ -135,12 +144,14 @@ async function eventSummaries(tx: Tx, c: Ctx, rows: EventRow[]): Promise<Map<str
   const ids = [...new Set(rows.map((r) => r.id))];
   const out = new Map<string, PublicEventSummary>();
   if (!ids.length) return out;
-  const translations = await tx
-    .selectFrom("catalog.event_translation")
-    .selectAll()
-    .where("event_id", "in", ids)
-    .where("locale", "in", [...new Set([c.locale, c.defaultLocale])])
-    .execute();
+  const [translations, access] = await Promise.all([
+    tx.selectFrom("catalog.event_translation")
+      .selectAll()
+      .where("event_id", "in", ids)
+      .where("locale", "in", [...new Set([c.locale, c.defaultLocale])])
+      .execute(),
+    eventAccessGroups(tx, ids),
+  ]);
   for (const r of rows) {
     if (out.has(r.id)) continue;
     const t = translations.find((x) => x.event_id === r.id && x.locale === c.locale) ?? translations.find((x) => x.event_id === r.id && x.locale === c.defaultLocale);
@@ -154,10 +165,15 @@ async function eventSummaries(tx: Tx, c: Ctx, rows: EventRow[]): Promise<Map<str
       image: t?.image_url ? { url: t.image_url, alt: t.image_alt } : null,
       timezone: r.timezone,
       externalRefs: r.external_refs,
+      access: publicAccess(c, access.get(r.id) ?? []),
     });
   }
   return out;
 }
+
+const publicAccess = (c: Ctx, groups: GroupRef[]): PublicAccess => ({
+  groups: groups.map((g) => ({ code: g.code, name: groupName(g.names, c.locale, c.defaultLocale) })),
+});
 
 async function locationRefs(tx: Tx, ids: string[]): Promise<Map<string, PublicLocationRef>> {
   const out = new Map<string, PublicLocationRef>();
@@ -293,11 +309,13 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
   return rows.map((r) => {
     const e = eff.get(r.id) ?? {};
     const url = e.externalUrl?.value ?? null;
+    const event = events.get(r.event_id)!;
     const status: OccurrenceStatus = r.status === "cancelled" ? "cancelled" : r.occ_status;
     let admission: Admission = url ? { mode: "external", url } : { mode: "none" };
     let availability: PublicOccurrence["availability"] = null;
     if (r.admission_mode === "registration") {
-      const open = (r.access_policy_override ?? r.access_policy) === "open";
+      // Attendees cannot prove their group, so a restricted event is by invitation (docs/user-groups.md, "Registration").
+      const open = (r.access_policy_override ?? r.access_policy) === "open" && event.access.groups.length === 0;
       admission = { mode: "registration", url: open && c.attendeeUrl ? `${c.attendeeUrl}/r/${r.id}` : null };
       const a = availabilityOf({
         now: c.now, startUtc: r.start_utc, eventStatus: r.status, occurrenceStatus: status,
@@ -323,7 +341,7 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
       admission,
       availability,
       offers: offers.get(r.id) ?? [],
-      event: events.get(r.event_id)!,
+      event,
     };
   });
 }
@@ -369,7 +387,7 @@ async function offersFor(tx: Tx, c: Ctx, rows: OccRow[]): Promise<{ byOccurrence
   if (channelId) {
     offerQuery = offerQuery.where((eb) => eb.exists(eb.selectFrom("offers.offer_channel as oc").whereRef("oc.offer_id", "=", "o.id").where("oc.channel_id", "=", channelId).select("oc.offer_id")));
   }
-  const [offerRows, translations, prices, skus] = await Promise.all([
+  const [offerRows, translations, prices, skus, accessRows] = await Promise.all([
     offerQuery.execute(),
     tx.selectFrom("offers.offer_translation as t").innerJoin("offers.offer as o", "o.id", "t.offer_id")
       .select(["t.offer_id", "t.locale", "t.name", "t.description"])
@@ -378,7 +396,15 @@ async function offersFor(tx: Tx, c: Ctx, rows: OccRow[]): Promise<{ byOccurrence
     channelId
       ? tx.selectFrom("offers.sku_mapping").select(["vat_class_id", "external_sku"]).where("channel_id", "=", channelId).execute()
       : Promise.resolve([]),
+    tx.selectFrom("offers.offer_access_group as oa").innerJoin("offers.offer as o", "o.id", "oa.offer_id").innerJoin("catalog.user_group as g", "g.id", "oa.group_id")
+      .select(["oa.offer_id", "g.id", "g.code", "g.names"]).where("o.event_id", "in", eventIds).orderBy("g.sort_order").orderBy("g.code").execute(),
   ]);
+  const offerAccess = new Map<string, PublicAccess>();
+  for (const a of accessRows) {
+    const list = offerAccess.get(a.offer_id) ?? { groups: [] };
+    list.groups.push({ code: a.code, name: groupName(a.names, c.locale, c.defaultLocale) });
+    offerAccess.set(a.offer_id, list);
+  }
   const skuOf = new Map(skus.map((m) => [m.vat_class_id, m.external_sku]));
   // Places per unit × minimum per reservation: what sold out compares with the places left.
   const smallest = new Map(offerRows.map((o) => [o.id, o.places_per_unit * o.min_per_reservation]));
@@ -398,6 +424,7 @@ async function offersFor(tx: Tx, c: Ctx, rows: OccRow[]): Promise<{ byOccurrence
         onSale: scheduled && offers.windowOpen(w, c.now) && (!channelId || sku !== null),
         opensAt: w.opensAt?.toISOString() ?? null,
         closesAt: w.closesAt.toISOString(),
+        access: offerAccess.get(o.id) ?? { groups: [] },
       };
       if (channelId) Object.assign(offer, { sku, placesPerUnit: o.places_per_unit, minPerReservation: o.min_per_reservation, maxPerReservation: o.max_per_reservation });
       list.push(offer);

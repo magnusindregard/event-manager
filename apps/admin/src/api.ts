@@ -75,6 +75,7 @@ export type GuestImportResult = Json<"/v1/guest-imports/{id}/commit", "post">;
 export type ImportMapping = Body<"/v1/guest-imports/{id}/preview", "post">["mapping"];
 
 export type VatClass = Json<"/v1/vat-classes", "get">["items"][number];
+export type UserGroup = Json<"/v1/user-groups", "get">["items"][number];
 export type Offer = Json<"/v1/offers/{id}", "get">;
 export type OfferCreate = Body<"/v1/events/{id}/offers", "post">;
 export type OfferPatch = Body<"/v1/offers/{id}", "patch">;

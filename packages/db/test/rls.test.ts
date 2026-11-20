@@ -9,7 +9,7 @@ import { startTestDatabase, type TestDatabase } from "../src/testing.js";
 
 type Ids = {
   tenantA: string; tenantB: string; user: string; event: string;
-  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string; vatClass: string; offer: string; channel: string; reservation: string; line: string; ticket: string;
+  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string; vatClass: string; offer: string; channel: string; reservation: string; line: string; ticket: string; group: string;
 };
 type Fixture = (c: pg.ClientBase, tenantId: string, ids: Ids) => Promise<void>;
 
@@ -109,6 +109,12 @@ const fixtures: Record<string, Fixture> = {
     c.query(`insert into offers.sku_mapping (tenant_id, vat_class_id, channel_id, external_sku) values ($1, $2, $3, 'TICKET-VAT0')`, [t, ids.vatClass, ids.channel]).then(() => {}),
   "offers.offer_channel": (c, t, ids) =>
     c.query(`insert into offers.offer_channel (tenant_id, offer_id, channel_id) values ($1, $2, $3)`, [t, ids.offer, ids.channel]).then(() => {}),
+  "catalog.user_group": (c, t, ids) =>
+    c.query(`insert into catalog.user_group (id, tenant_id, code, names) values ($1, $2, 'member', '{"nb":"Medlem"}')`, [ids.group, t]).then(() => {}),
+  "catalog.event_access_group": (c, t, ids) =>
+    c.query(`insert into catalog.event_access_group (tenant_id, event_id, group_id) values ($1, $2, $3)`, [t, ids.catalogEvent, ids.group]).then(() => {}),
+  "offers.offer_access_group": (c, t, ids) =>
+    c.query(`insert into offers.offer_access_group (tenant_id, offer_id, group_id) values ($1, $2, $3)`, [t, ids.offer, ids.group]).then(() => {}),
   "sales.reservation": (c, t, ids) =>
     c.query(`insert into sales.reservation (id, tenant_id, channel_id, expires_at, locale) values ($1, $2, $3, now() + interval '15 minutes', 'nb')`,
       [ids.reservation, t, ids.channel]).then(() => {}),
@@ -129,7 +135,7 @@ const fixtures: Record<string, Fixture> = {
       [randomUUID(), t, ids.registration, ids.ticket, ids.occurrence, randomUUID()]).then(() => {}),
 };
 
-const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID(), vatClass: randomUUID(), offer: randomUUID(), channel: randomUUID(), reservation: randomUUID(), line: randomUUID(), ticket: randomUUID() });
+const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID(), vatClass: randomUUID(), offer: randomUUID(), channel: randomUUID(), reservation: randomUUID(), line: randomUUID(), ticket: randomUUID(), group: randomUUID() });
 
 let db: TestDatabase;
 let admin: pg.Client;

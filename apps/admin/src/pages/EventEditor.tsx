@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiProblem, type CatalogEvent, isConflict, unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
+import { GroupAccessField } from "../components/group-access.js";
 import { useAccount } from "../queries.js";
 import { Audit } from "./Audit.js";
 import { eventTitle, statusVariant } from "./Events.js";
@@ -50,6 +51,7 @@ type Form = {
   externalUrl: string;
   reg: Reg;
   tagIds: string[];
+  accessGroupIds: string[];
   refs: { key: string; value: string }[];
   translations: Record<string, T>;
 };
@@ -109,6 +111,7 @@ function toForm(e: CatalogEvent | null, locales: string[], timezone: string): Fo
     externalUrl: e?.externalUrl ?? "",
     reg: toReg(e?.registration),
     tagIds: e?.tagIds ?? [],
+    accessGroupIds: e?.accessGroupIds ?? [],
     refs: Object.entries(e?.externalRefs ?? {}).map(([key, value]) => ({ key, value })),
     translations: Object.fromEntries(
       locales.map((l) => {
@@ -139,6 +142,7 @@ function toBody(f: Form, before: CatalogEvent | null) {
     // Ticketed events have places too; the rest of the registration settings do not apply.
     ...(f.admission === "tickets" ? { registration: { capacity: regBody(f.reg).capacity, overbookingPct: regBody(f.reg).overbookingPct } } : {}),
     tagIds: f.tagIds,
+    accessGroupIds: f.accessGroupIds,
     externalRefs: Object.fromEntries(f.refs.filter((r) => r.key.trim()).map((r) => [r.key.trim(), r.value])),
     translations,
   };
@@ -466,6 +470,9 @@ function EventDetails({ event, etag, handle }: { event: CatalogEvent | null; eta
         )}
         {form.admission === "registration" && <RegistrationFields reg={form.reg} onChange={(reg) => set("reg", reg)} errField={errField} />}
         {form.admission === "tickets" && <TicketFields reg={form.reg} onChange={(reg) => set("reg", reg)} errField={errField} />}
+        <GroupAccessField id="event-access" legend={t("groups.whoCanAttend")} everyone={t("groups.everyoneAttend")}
+          hint={form.admission === "registration" && form.accessGroupIds.length ? t("groups.registrationHint") : t("groups.whoCanAttendHint")}
+          value={form.accessGroupIds} onChange={(v) => set("accessGroupIds", v)} />
       </section>
 
       <section className="space-y-2">

@@ -2,6 +2,7 @@ import { type AccessPolicy, type AdmissionMode, type EventStatus, newId, sql, ty
 import { emit } from "../outbox/index.js";
 import { type ActorContext, DomainError } from "../shared/index.js";
 import { assertCan, diffFields, getAccount, isValidTimezone, recordAudit } from "../tenancy/index.js";
+import { assertUsableGroups, writeEventAccess } from "./groups.js";
 import { assertUsableLocation } from "./locations.js";
 import { resolveEventSoon } from "./resolve.js";
 import { assertUrl, invalid, notFound, pgCode, SLUG_RE, slugify, versionConflict } from "./shared.js";
@@ -47,6 +48,8 @@ export interface CatalogEvent {
   externalRefs: Record<string, string>;
   translations: Record<string, Translation>;
   tagIds: string[];
+  /** User groups that may attend (docs/user-groups.md); empty: everyone. */
+  accessGroupIds: string[];
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -68,6 +71,7 @@ export interface EventInput {
   externalRefs?: Record<string, string>;
   translations: Record<string, Partial<Translation> & { title: string }>;
   tagIds?: string[];
+  accessGroupIds?: string[];
 }
 
 export type EventPatch = Partial<Omit<EventInput, "translations">> & {
@@ -155,9 +159,10 @@ const DEFAULT_SETTINGS: RegistrationSettings = {
 async function hydrate(tx: Tx, rows: EventRow[]): Promise<CatalogEvent[]> {
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.id);
-  const [translations, tags] = await Promise.all([
+  const [translations, tags, access] = await Promise.all([
     tx.selectFrom("catalog.event_translation").selectAll().where("event_id", "in", ids).execute(),
     tx.selectFrom("catalog.event_tag").select(["event_id", "tag_id"]).where("event_id", "in", ids).execute(),
+    tx.selectFrom("catalog.event_access_group").select(["event_id", "group_id"]).where("event_id", "in", ids).execute(),
   ]);
   return rows.map((r) => ({
     id: r.id,
@@ -176,6 +181,7 @@ async function hydrate(tx: Tx, rows: EventRow[]): Promise<CatalogEvent[]> {
         .map((t) => [t.locale, { title: t.title, shortDescription: t.short_description, imageUrl: t.image_url, imageAlt: t.image_alt }]),
     ),
     tagIds: tags.filter((t) => t.event_id === r.id).map((t) => t.tag_id).sort(),
+    accessGroupIds: access.filter((a) => a.event_id === r.id).map((a) => a.group_id).sort(),
     version: r.version,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -328,6 +334,7 @@ export async function createEvent(tx: Tx, ctx: ActorContext, input: EventInput):
   validateSettings(settings);
   validateRefs(input.externalRefs);
   if (input.tagIds) await assertUsableTags(tx, input.tagIds, "tagIds");
+  const accessGroupIds = await assertUsableGroups(tx, input.accessGroupIds ?? []);
 
   const id = newId();
   const slug = input.slug ?? (await uniqueSlug(tx, slugify(defaultTitle)));
@@ -349,6 +356,7 @@ export async function createEvent(tx: Tx, ctx: ActorContext, input: EventInput):
     .catch(slugConflict);
   await writeTranslations(tx, ctx.tenantId, id, translations);
   if (input.tagIds) await writeTags(tx, ctx.tenantId, id, input.tagIds);
+  if (accessGroupIds.length) await writeEventAccess(tx, ctx.tenantId, id, accessGroupIds);
 
   const event = await getEvent(tx, id);
   await recordAudit(tx, ctx, { action: "event.created", entityType: "event", entityId: id, diff: { slug, title: defaultTitle } });
@@ -384,6 +392,8 @@ export async function updateEvent(tx: Tx, ctx: ActorContext, id: string, expecte
     const added = patch.tagIds.filter((t) => !before.tagIds.includes(t));
     await assertUsableTags(tx, added, "tagIds");
   }
+  // Groups already on the list may stay there after they are archived.
+  const accessGroupIds = patch.accessGroupIds ? await assertUsableGroups(tx, patch.accessGroupIds, before.accessGroupIds) : undefined;
 
   const res = await tx
     .updateTable("catalog.event")
@@ -405,14 +415,18 @@ export async function updateEvent(tx: Tx, ctx: ActorContext, id: string, expecte
   if (!res.numUpdatedRows) throw versionConflict("Event", before.version);
   if (patch.translations) await writeTranslations(tx, ctx.tenantId, id, patch.translations);
   if (patch.tagIds) await writeTags(tx, ctx.tenantId, id, patch.tagIds);
+  if (accessGroupIds) await writeEventAccess(tx, ctx.tenantId, id, accessGroupIds);
 
   const after = await getEvent(tx, id);
-  const { registration: _r, ...rest } = patch;
+  const { registration: _r, accessGroupIds: _a, ...rest } = patch;
   const diff = diffFields(before as unknown as Record<string, unknown>, rest as Record<string, unknown>);
   if (settings) {
     for (const [k, v] of Object.entries(diffFields(before.registration as unknown as Record<string, unknown>, settings as unknown as Record<string, unknown>))) {
       diff[`registration.${k}`] = v;
     }
+  }
+  if (accessGroupIds && JSON.stringify(accessGroupIds) !== JSON.stringify(before.accessGroupIds)) {
+    diff.accessGroupIds = { from: before.accessGroupIds, to: accessGroupIds };
   }
   // Rules match on local time, so a timezone change can change which rules apply.
   const resolution = DEFAULT_FIELDS.some((f) => f in diff) || "timezone" in diff ? await resolveEventSoon(tx, id) : undefined;

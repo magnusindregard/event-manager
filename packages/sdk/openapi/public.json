@@ -472,7 +472,8 @@
                                 "price",
                                 "onSale",
                                 "opensAt",
-                                "closesAt"
+                                "closesAt",
+                                "access"
                               ],
                               "properties": {
                                 "id": {
@@ -533,6 +534,34 @@
                                   "format": "date-time",
                                   "description": "End of the sales window, at the start at the latest"
                                 },
+                                "access": {
+                                  "type": "object",
+                                  "required": [
+                                    "groups"
+                                  ],
+                                  "properties": {
+                                    "groups": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "required": [
+                                          "code",
+                                          "name"
+                                        ],
+                                        "properties": {
+                                          "code": {
+                                            "type": "string",
+                                            "description": "The user group's stable code, as the frontend knows it"
+                                          },
+                                          "name": {
+                                            "type": "string"
+                                          }
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "description": "User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it"
+                                },
                                 "sku": {
                                   "type": [
                                     "string",
@@ -568,7 +597,8 @@
                               "shortDescription",
                               "image",
                               "timezone",
-                              "externalRefs"
+                              "externalRefs",
+                              "access"
                             ],
                             "properties": {
                               "id": {
@@ -648,6 +678,34 @@
                                 "additionalProperties": {
                                   "type": "string"
                                 }
+                              },
+                              "access": {
+                                "type": "object",
+                                "required": [
+                                  "groups"
+                                ],
+                                "properties": {
+                                  "groups": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "required": [
+                                        "code",
+                                        "name"
+                                      ],
+                                      "properties": {
+                                        "code": {
+                                          "type": "string",
+                                          "description": "The user group's stable code, as the frontend knows it"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        }
+                                      }
+                                    }
+                                  }
+                                },
+                                "description": "User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it"
                               }
                             }
                           }
@@ -951,6 +1009,7 @@
                           "image",
                           "timezone",
                           "externalRefs",
+                          "access",
                           "tags"
                         ],
                         "properties": {
@@ -1031,6 +1090,34 @@
                             "additionalProperties": {
                               "type": "string"
                             }
+                          },
+                          "access": {
+                            "type": "object",
+                            "required": [
+                              "groups"
+                            ],
+                            "properties": {
+                              "groups": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "code",
+                                    "name"
+                                  ],
+                                  "properties": {
+                                    "code": {
+                                      "type": "string",
+                                      "description": "The user group's stable code, as the frontend knows it"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "description": "User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it"
                           },
                           "tags": {
                             "type": "array",
@@ -1328,6 +1415,7 @@
                         "image",
                         "timezone",
                         "externalRefs",
+                        "access",
                         "tags",
                         "occurrences"
                       ],
@@ -1409,6 +1497,34 @@
                           "additionalProperties": {
                             "type": "string"
                           }
+                        },
+                        "access": {
+                          "type": "object",
+                          "required": [
+                            "groups"
+                          ],
+                          "properties": {
+                            "groups": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "code",
+                                  "name"
+                                ],
+                                "properties": {
+                                  "code": {
+                                    "type": "string",
+                                    "description": "The user group's stable code, as the frontend knows it"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "description": "User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it"
                         },
                         "tags": {
                           "type": "array",
@@ -1748,7 +1864,8 @@
                                     "price",
                                     "onSale",
                                     "opensAt",
-                                    "closesAt"
+                                    "closesAt",
+                                    "access"
                                   ],
                                   "properties": {
                                     "id": {
@@ -1808,6 +1925,34 @@
                                       "type": "string",
                                       "format": "date-time",
                                       "description": "End of the sales window, at the start at the latest"
+                                    },
+                                    "access": {
+                                      "type": "object",
+                                      "required": [
+                                        "groups"
+                                      ],
+                                      "properties": {
+                                        "groups": {
+                                          "type": "array",
+                                          "items": {
+                                            "type": "object",
+                                            "required": [
+                                              "code",
+                                              "name"
+                                            ],
+                                            "properties": {
+                                              "code": {
+                                                "type": "string",
+                                                "description": "The user group's stable code, as the frontend knows it"
+                                              },
+                                              "name": {
+                                                "type": "string"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      },
+                                      "description": "User groups that may attend or buy (docs/user-groups.md); empty: everyone. The platform does not know who the visitor is: the frontend decides how to show a restricted event, and the reservations API enforces it"
                                     },
                                     "sku": {
                                       "type": [
