@@ -490,7 +490,9 @@ export function Occurrences({ event }: { event: CatalogEvent }) {
         label={registrationsOf ? fmt(registrationsOf.startUtc) : ""}
         onClose={() => setRegistrationsOf(null)}
       />
+      {/* Keyed by occurrence, so a ticket selection never carries over to another occurrence or a reopened sheet. */}
       <Sales
+        key={salesOf?.id ?? "closed"}
         event={event}
         occurrence={salesOf && (query.data?.find((o) => o.id === salesOf.id) ?? salesOf)}
         label={salesOf ? fmt(salesOf.startUtc) : ""}

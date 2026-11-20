@@ -78,7 +78,7 @@ function groupBy<T>(xs: readonly T[], key: (x: T) => string): Map<string, T[]> {
 }
 
 /** Staff: an occurrence's sales, newest reservations first (at most 2,000). */
-export async function occurrenceSales(tx: Tx, ctx: ActorContext, occurrenceId: string, now: Date = new Date()): Promise<OccurrenceSales> {
+export async function occurrenceSales(tx: Tx, ctx: ActorContext, occurrenceId: string, now: Date = new Date(), limit = LIMIT): Promise<OccurrenceSales> {
   assertCan(ctx, "sales.read");
   const occ = await tx.selectFrom("catalog.occurrence").select(["id", "event_id"]).where("id", "=", occurrenceId).executeTakeFirst();
   if (!occ) throw new DomainError("not_found", "Occurrence not found");
@@ -90,10 +90,10 @@ export async function occurrenceSales(tx: Tx, ctx: ActorContext, occurrenceId: s
       "r.confirmed_at", "r.cancelled_at", "r.created_at", "c.id as channel_id", "c.code as channel_code", "c.name as channel_name",
     ])
     .where("r.id", "in", (eb) => eb.selectFrom("sales.reservation_line").select("reservation_id").where("occurrence_id", "=", occurrenceId))
-    .orderBy("r.created_at", "desc").orderBy("r.id", "desc").limit(LIMIT)
+    .orderBy("r.created_at", "desc").orderBy("r.id", "desc").limit(limit)
     .execute();
   const ids = reservations.map((r) => r.id);
-  const [lines, tickets, others, offerRows, pool] = await Promise.all([
+  const [lines, tickets, others, offerRows, pool, heldRows] = await Promise.all([
     ids.length
       ? tx.selectFrom("sales.reservation_line").select(["id", "reservation_id", "line_no", "offer_id", "offer_code", "line_name", "quantity", "unit_price", "currency", "places_per_unit"])
         .where("occurrence_id", "=", occurrenceId).where("reservation_id", "in", ids).orderBy("line_no").execute()
@@ -109,6 +109,11 @@ export async function occurrenceSales(tx: Tx, ctx: ActorContext, occurrenceId: s
       .select(["o.id", "o.code", "o.status", "o.sort_order", "t.locale", "t.name"])
       .where("o.event_id", "=", occ.event_id).orderBy("o.sort_order").orderBy("o.code").execute(),
     inventory.getPool(tx, occurrenceId),
+    // Held units per offer over every live hold here, not only the reservations listed below.
+    tx.selectFrom("sales.reservation_line as l").innerJoin("sales.reservation as r", "r.id", "l.reservation_id")
+      .select(["l.offer_id", (eb) => eb.fn.sum<number>("l.quantity").as("held")])
+      .where("l.occurrence_id", "=", occurrenceId).where("r.status", "=", "held").where("r.expires_at", ">", now)
+      .groupBy("l.offer_id").execute(),
   ]);
 
   const account = await getAccount(tx);
@@ -121,7 +126,7 @@ export async function occurrenceSales(tx: Tx, ctx: ActorContext, occurrenceId: s
   for (const x of offers.values()) x.name = x.names.get(account.defaultLocale) ?? [...x.names.values()][0] ?? x.code;
 
   const status = new Map(reservations.map((r) => [r.id, effectiveStatus({ status: r.status, expiresAt: r.expires_at }, now)]));
-  for (const l of lines) if (status.get(l.reservation_id) === "held") offers.get(l.offer_id)!.held += l.quantity;
+  for (const h of heldRows) offers.get(h.offer_id)!.held = Number(h.held);
   for (const t of tickets) {
     const x = offers.get(t.offer_id)!;
     if (t.status === "valid") {

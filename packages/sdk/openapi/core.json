@@ -55284,7 +55284,7 @@
         ],
         "description": "Reasons: expired, extend_limit, and the reserve reasons for a line no longer on sale",
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -57027,7 +57027,7 @@
         ],
         "description": "Once no valid ticket is left the reservation is cancelled. Reasons: already_cancelled (with ticketIds for listed tickets cancelled before), occurrence_started (a listed ticket's occurrence has begun, unless it was cancelled)",
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -59218,7 +59218,7 @@
         ],
         "description": "The channel is not told yet (webhooks arrive with epic #9); refunds stay in the channel. Reasons: already_cancelled, occurrence_started, conflict (not confirmed)",
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {

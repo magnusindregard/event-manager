@@ -29,6 +29,9 @@ export interface AppDeps {
   postmarkWebhook?: { user: string; password: string } | null;
 }
 
+/** Operations whose request body may be left out. */
+const OPTIONAL_BODY = new Set(["cancelReservation", "extendReservation", "cancelTicketsAsStaff"]);
+
 export async function buildApp(deps: AppDeps) {
   const app = Fastify({
     logger: deps.logger ?? false,
@@ -46,6 +49,18 @@ export async function buildApp(deps: AppDeps) {
           channelKey: { type: "http", scheme: "bearer", description: "Sales channel key (sk_…), for the reservations API. Server-side only." },
         },
       },
+    },
+    // @fastify/swagger marks every body as required. These operations read a missing body as {}
+    // (emptyBody in routes/reservations.ts), so the spec says so too.
+    transformObject: (doc) => {
+      if (!("openapiObject" in doc)) return doc.swaggerObject;
+      const openapiObject = doc.openapiObject;
+      for (const item of Object.values(openapiObject.paths ?? {})) {
+        for (const op of Object.values(item ?? {}) as { operationId?: string; requestBody?: { required?: boolean } }[]) {
+          if (op?.operationId && OPTIONAL_BODY.has(op.operationId) && op.requestBody) op.requestBody.required = false;
+        }
+      }
+      return openapiObject;
     },
   });
   if (deps.corsOrigins?.length) {

@@ -20787,7 +20787,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": {
                     /** @description From now; default the channel's hold time. Capped at extendLimitAt */
@@ -21381,7 +21381,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": {
                     /** @description Confirmed reservations: the tickets to cancel. Left out: all valid tickets. Held reservations take no tickets */
@@ -22097,7 +22097,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": {
                     /** @description Confirmed reservations: the tickets to cancel. Left out: all valid tickets. Held reservations take no tickets */

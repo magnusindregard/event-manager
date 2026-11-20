@@ -161,6 +161,16 @@ describe("staff: the sales view and cancelling from the admin", () => {
     await expect(run((tx) => sales.cancelTicketsAsStaff(tx, ctx, held.id, {}, at(3)))).rejects.toMatchObject({ code: "conflict" });
   });
 
+  it("counts every live hold per offer, also beyond the listed reservations", async () => {
+    const { occ, adult } = await concert("many-holds", 20);
+    for (const q of [1, 2, 3]) await run((tx) => sales.reserve(tx, webCaller, { lines: [{ occurrenceId: occ.id, offerId: adult.id, quantity: q }] }, NOW));
+    // An expired hold no longer counts, even before the sweeper has run.
+    await run((tx) => sales.reserve(tx, webCaller, { lines: [{ occurrenceId: occ.id, offerId: adult.id, quantity: 4 }] }, new Date(NOW.getTime() - 20 * MIN)));
+    const view = await run((tx) => sales.occurrenceSales(tx, ctx, occ.id, at(1), 1));
+    expect(view.reservations).toHaveLength(1);
+    expect(view.offers[0]).toMatchObject({ offerId: adult.id, held: 6 });
+  });
+
   it("keeps another tenant's sales apart", async () => {
     const { occ, adult } = await concert("isolated");
     const r = await sell([{ occurrenceId: occ.id, offerId: adult.id, quantity: 1 }], "ORDER-I");
