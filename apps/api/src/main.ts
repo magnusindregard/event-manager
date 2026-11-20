@@ -20,6 +20,7 @@ const app = await buildApp({
   corsOrigins: config.corsOrigins,
   attendeeUrl: config.attendeeUrl,
   postmarkWebhook: config.postmarkWebhook,
+  mcp: config.mcp,
   logger: { level: process.env.LOG_LEVEL ?? "info" },
 });
 

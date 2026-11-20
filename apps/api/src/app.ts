@@ -5,6 +5,8 @@ import type { TypeBoxTypeProvider } from "@fastify/type-provider-typebox";
 import { type Db, sql } from "@event-manager/db";
 import { Problem, problemMediaType, requireHeader } from "@event-manager/schemas";
 import type { TokenVerifier } from "./auth.js";
+import { mcpPlugin } from "./mcp/plugin.js";
+import { collectOperations } from "./mcp/operations.js";
 import { contextPlugin } from "./plugins/context.js";
 import { problemPlugin } from "./plugins/problem.js";
 import { accountRoutes } from "./routes/account.js";
@@ -29,6 +31,8 @@ export interface AppDeps {
   attendeeUrl?: string;
   /** Basic-auth credentials Postmark sends with delivery webhooks; null leaves the webhook off. */
   postmarkWebhook?: { user: string; password: string } | null;
+  /** MCP server at /mcp (docs/mcp.md): where clients sign in, and the scopes they ask for. */
+  mcp?: { authorizationServers: string[]; scopes: string[]; publicUrl?: string };
 }
 
 /** Operations whose request body may be left out. */
@@ -41,6 +45,8 @@ export async function buildApp(deps: AppDeps) {
     logger: deps.logger ?? false,
     ajv: { customOptions: { removeAdditional: false, coerceTypes: "array", useDefaults: true } },
   }).withTypeProvider<TypeBoxTypeProvider>();
+  // Before any route, so the MCP tools see every operation's schemas.
+  const operations = collectOperations(app);
 
   await app.register(swagger, {
     openapi: {
@@ -71,8 +77,9 @@ export async function buildApp(deps: AppDeps) {
   if (deps.corsOrigins?.length) {
     await app.register(cors, {
       origin: deps.corsOrigins,
-      allowedHeaders: ["authorization", "content-type", "account-id", "if-match", "idempotency-key"],
-      exposedHeaders: ["etag"],
+      // mcp-protocol-version: sent by MCP clients after initialize; www-authenticate: where they sign in.
+      allowedHeaders: ["authorization", "content-type", "account-id", "if-match", "idempotency-key", "mcp-protocol-version"],
+      exposedHeaders: ["etag", "www-authenticate"],
       methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
     });
   }
@@ -84,6 +91,8 @@ export async function buildApp(deps: AppDeps) {
     await sql`select 1`.execute(deps.db);
     return { ok: true };
   });
+
+  await app.register(mcpPlugin, { operations, authorizationServers: deps.mcp?.authorizationServers ?? [], scopes: deps.mcp?.scopes ?? [], publicUrl: deps.mcp?.publicUrl });
 
   if (deps.postmarkWebhook) await app.register(postmarkWebhookRoutes, { credentials: deps.postmarkWebhook });
 
