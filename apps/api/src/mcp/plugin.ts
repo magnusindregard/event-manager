@@ -5,6 +5,7 @@ import { CallToolRequestSchema, ErrorCode, GetPromptRequestSchema, ListPromptsRe
 import { tenancy } from "@event-manager/domain";
 import { AuthError } from "../auth.js";
 import { ArgumentError, bindTools, type Caller, errorResult, inject, requestFor, type ToolDefinition, type ToolResult, toolResult } from "./dispatch.js";
+import { oauthProxy } from "./oauth.js";
 import type { OperationRegistry } from "./operations.js";
 import { loadSkills } from "./skills.js";
 import { OPERATION_TOOLS } from "./tools.js";
@@ -15,7 +16,10 @@ import { OPERATION_TOOLS } from "./tools.js";
 
 export interface McpOptions {
   operations: OperationRegistry;
-  /** OAuth authorization servers for the protected resource metadata (RFC 9728); empty: none. */
+  /**
+   * The staff IdP's issuer, first entry (OIDC_ISSUER); empty: no sign-in for MCP clients. Clients
+   * see this API as their authorization server, which passes sign-in through to it (oauth.ts).
+   */
   authorizationServers: string[];
   /** Scopes a client asks for to call this API, e.g. api://em-api/access. */
   scopes: string[];
@@ -78,10 +82,13 @@ export async function mcpPlugin(app: FastifyInstance, opts: McpOptions) {
   const baseUrl = (req: FastifyRequest) => (opts.publicUrl ?? `${scheme(req)}://${req.host}`).replace(/\/$/, "");
   const metadataUrl = (req: FastifyRequest) => `${baseUrl(req)}/.well-known/oauth-protected-resource/mcp`;
 
+  const issuer = opts.authorizationServers[0];
+  if (issuer) await app.register(oauthProxy, { issuer, scopes: opts.scopes, baseUrl });
+
   // RFC 9728: tells MCP clients where to sign in. Served under both well-known paths clients try.
   const metadata = async (req: FastifyRequest) => ({
     resource: `${baseUrl(req)}/mcp`,
-    authorization_servers: opts.authorizationServers,
+    authorization_servers: issuer ? [baseUrl(req)] : [],
     scopes_supported: opts.scopes,
     bearer_methods_supported: ["header"],
     resource_name: "Event manager",

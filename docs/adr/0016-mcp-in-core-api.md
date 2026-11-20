@@ -20,3 +20,4 @@ ADR 0007 planned `/mcp`, "a curated set of API operations as tools, using the ca
 - MCP load shares the core API's scaling. If it needs its own, the plugin can move to its own app by replacing `app.inject` with HTTP calls to `/v1`, keeping the same tool catalogue.
 - Integrations with client credentials (ADR 0005) can use `/mcp` once the core API accepts them; nothing in the MCP layer is staff-specific apart from `whoami`.
 - Entra External ID has no dynamic client registration, so MCP clients need a registered client ID (docs/mcp.md).
+- Entra refuses the `resource` parameter MCP clients send (AADSTS9010010) and does not advertise PKCE. The API therefore presents itself as the authorization server and passes authorize and token requests through to Entra without `resource` (added 20 November 2026). Tokens are still Entra's; the pass-through stores nothing.

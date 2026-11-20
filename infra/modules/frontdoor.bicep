@@ -86,8 +86,9 @@ resource apiRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2024-02-01' = {
   properties: {
     originGroup: { id: groups[0].id }
     // /webhooks/*: delivery reports from Postmark, which would otherwise fall through to the admin site.
-    // /mcp and /.well-known/oauth-protected-resource*: the MCP server and its RFC 9728 metadata (docs/mcp.md).
-    patternsToMatch: ['/v1/*', '/webhooks/*', '/mcp', '/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/*']
+    // /mcp and /.well-known/oauth-protected-resource*: the MCP server and its RFC 9728 metadata; /oauth/* and the
+    // authorization server metadata: its sign-in pass-through to Entra (docs/mcp.md).
+    patternsToMatch: ['/v1/*', '/webhooks/*', '/mcp', '/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/*', '/.well-known/oauth-authorization-server', '/.well-known/openid-configuration', '/oauth/*']
     supportedProtocols: ['Https']
     httpsRedirect: 'Enabled'
     forwardingProtocol: 'HttpsOnly'
