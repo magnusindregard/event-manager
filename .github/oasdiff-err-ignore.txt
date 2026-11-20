@@ -3,6 +3,12 @@
 # that as removing null (it misreads OpenAPI 3.1 type arrays) and as adding the pattern that was inside
 # the anyOf branch. The accepted values are unchanged. These lines only match that base -> head change,
 # so they can be removed once it is on main.
+# Ticketing M5: the reservations API has refused writes without an Idempotency-Key (428) since it
+# shipped; the spec now marks the header required, as the integration guide says. Remove once on main.
+POST /v1/reservations the 'header' request parameter 'idempotency-key' became required
+POST /v1/reservations/{id}/cancel the 'header' request parameter 'idempotency-key' became required
+POST /v1/reservations/{id}/confirm the 'header' request parameter 'idempotency-key' became required
+POST /v1/reservations/{id}/extend the 'header' request parameter 'idempotency-key' became required
 PATCH /v1/events/{id} added the pattern '^https?://\S+$' to the request property 'externalUrl'
 PATCH /v1/events/{id} added the pattern '^https?://\S+$' to the request property 'translations/additionalProperties/anyOf[subschema #2]/imageUrl'
 PATCH /v1/events/{id} request property 'defaultLocationId' list-of-types was narrowed by removing types 'null' from media type 'application/json'
