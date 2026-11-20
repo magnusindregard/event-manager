@@ -8,6 +8,7 @@ import { OCCURRENCE_NOTICE_TASK, occurrenceNoticeTask } from "./occurrence-notic
 import { PROVISION_TASK, type ProvisionDeps, provisionTask } from "./provision.js";
 import { REGISTRATION_EMAIL_TASK, type RegistrationEmailDeps, registrationEmailTask } from "./registration-email.js";
 import { REMINDER_TASK, reminderTask } from "./reminder.js";
+import { RESERVATION_SWEEP_TASK, reservationSweepTask } from "./reservations.js";
 import { RETENTION_TASK, retentionTask } from "./retention.js";
 import { RESOLVE_TASK, resolveTask } from "./resolver.js";
 import { OFFER_EXPIRY_TASK, offerExpiryTask } from "./waitlist.js";
@@ -48,6 +49,7 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
     [RESOLVE_TASK]: resolveTask(db),
     [RETENTION_TASK]: retentionTask(db),
     [OFFER_EXPIRY_TASK]: offerExpiryTask(db),
+    [RESERVATION_SWEEP_TASK]: reservationSweepTask(db),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
     ...(registrationEmail
       ? {

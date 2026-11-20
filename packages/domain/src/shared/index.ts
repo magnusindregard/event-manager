@@ -11,7 +11,19 @@ export type ErrorCode =
   | "invitation_required"
   // Waitlist: the offer was not claimed in time, or there is none to claim.
   | "offer_expired"
-  | "no_offer";
+  | "no_offer"
+  // Reservations (docs/ticketing.md, "Reservations API"); stable codes for sales channels.
+  | "sold_out"
+  | "not_on_sale"
+  | "offer_unavailable"
+  | "channel_not_allowed"
+  | "no_sku"
+  | "quantity_out_of_range"
+  | "expired"
+  | "extend_limit"
+  | "expired_sold_out"
+  | "already_cancelled"
+  | "already_confirmed";
 
 const statusFor: Record<ErrorCode, number> = {
   not_found: 404,
@@ -25,6 +37,17 @@ const statusFor: Record<ErrorCode, number> = {
   invitation_required: 403,
   offer_expired: 409,
   no_offer: 409,
+  sold_out: 409,
+  not_on_sale: 409,
+  offer_unavailable: 409,
+  channel_not_allowed: 403,
+  no_sku: 409,
+  quantity_out_of_range: 422,
+  expired: 409,
+  extend_limit: 409,
+  expired_sold_out: 409,
+  already_cancelled: 409,
+  already_confirmed: 409,
 };
 
 /** Domain errors carry a stable reason code that the API maps to RFC 9457 problem details. */

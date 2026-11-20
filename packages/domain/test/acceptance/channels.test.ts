@@ -167,9 +167,9 @@ describe("sales windows", () => {
     expect(early.offers.map((o) => [o.code, o.onSale])).toEqual([["voksen", false], ["honnor", true]]);
     expect(early.offers[0]).toMatchObject({ opensAt: BEFORE(10080).toISOString(), closesAt: BEFORE(30).toISOString() });
     expect(early.offers[1]).toMatchObject({ opensAt: null, closesAt: START.toISOString() });
-    // Anonymous callers get no SKUs or limits, and no ticket availability yet (milestone 3).
+    // Anonymous callers get no SKUs or limits, and availability without exact places (milestone 3).
     expect(early.offers[0]).not.toHaveProperty("sku");
-    expect(early.availability).toBeNull();
+    expect(early.availability).toEqual({ status: "available", opensAt: null, closesAt: START.toISOString() });
 
     expect((await publicOcc(event.id, BEFORE(60))).offers.map((o) => o.onSale)).toEqual([true, true]);
     expect((await publicOcc(event.id, BEFORE(10))).offers.map((o) => o.onSale)).toEqual([false, true]);
@@ -229,10 +229,13 @@ describe("migration 0017", () => {
   it("rolls back with channels, keys and windows in place, and forward again", async () => {
     const su = createDb(tdb.superuserUrl) as unknown as Parameters<(typeof migrations)[string]["up"]>[0];
     try {
+      // Reservations (0018) build on channels: down in reverse order, up again in order.
+      await migrations["0018_reservations"]!.down!(su);
       await migrations["0017_channels"]!.down!(su);
       const left = await sql<{ n: number }>`select count(*)::int as n from tenancy.api_key where kind::text = 'channel'`.execute(su);
       expect(left.rows).toEqual([{ n: 0 }]);
       await migrations["0017_channels"]!.up(su);
+      await migrations["0018_reservations"]!.up(su);
     } finally {
       await su.destroy();
     }

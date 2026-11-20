@@ -12,6 +12,7 @@ import { type AttendeeService, type Details, type InvitationDetails, preferredLo
 //   /i/{token}       an invitation: pick a time and accept, or decline
 //   /m/{token}       see, change or cancel a registration; leave the waitlist, or claim or
 //                    decline a waitlist offer (the offer email links here)
+//   /t/{token}       a ticket sold through a sales channel, with its QR code (docs/ticketing.md)
 // Forms post back to the same URL and redirect (post/redirect/get). Basic bot protection:
 // a hidden honeypot field, a minimum time on the form and a per-IP rate limit on posts.
 
@@ -283,6 +284,33 @@ ${v.rights.cancel ? html`
 </form>` : ""}`;
     return send(reply, status, page({ locale: d.locale, title: d.title, account: d.account.name, langLinks: langLinks(d, base), body }));
   };
+
+  app.get<{ Params: { token: string }; Querystring: { lang?: string } }>("/t/:token", async (req, reply) => {
+    const v = await svc.ticket(req.params.token, lang(req));
+    if (!v) return notFound(reply, lang(req) ?? "en", true);
+    const t = textsFor(v.locale);
+    const { target } = v;
+    const cancelled = target.occurrence.status === "cancelled" || target.event.status === "cancelled";
+    const qr = v.admissionToken ? await QRCode.toString(v.admissionToken, { type: "svg", errorCorrectionLevel: "M", margin: 1 }) : null;
+    const tr = target.event.translations[v.locale];
+    const body = html`
+<p><span class="status ${v.ticket.status === "valid" ? "available" : "cancelled"}">${v.ticket.status === "valid" ? t.ticketValid : t.ticketCancelled}</span></p>
+${tr?.imageUrl ? html`<img class="hero" src="${tr.imageUrl}" alt="${tr.imageAlt ?? ""}">` : ""}
+<h1>${v.title}</h1>
+<ul class="meta">
+  <li>${formatWhen(v.locale, target.event.timezone, target.occurrence.startUtc, target.occurrence.endUtc)}</li>
+  ${whereText(target.location) ? html`<li>${whereText(target.location)}</li>` : ""}
+</ul>
+${cancelled ? html`<p><span class="status cancelled">${t.cancelledOccurrence}</span></p>` : ""}
+<section class="card">
+  <h2 style="margin-top:0">${t.ticketTitle}</h2>
+  <ul class="meta"><li>${v.offerName}</li><li>${t.partyOf(v.ticket.partySize)}</li></ul>
+  ${qr ? html`<div class="qr" role="img" aria-label="${t.qrAlt}">${raw(qr)}</div><p class="muted">${t.ticketHelp}</p>` : ""}
+</section>`;
+    const base = `/t/${req.params.token}`;
+    const langLinks = v.locales.length > 1 ? v.locales.filter((l) => l !== v.locale).map((l) => ({ locale: l, href: `${base}?lang=${encodeURIComponent(l)}` })) : [];
+    return send(reply, 200, page({ locale: v.locale, title: v.title, account: v.accountName, langLinks, body }));
+  });
 
   app.get<{ Params: { token: string }; Querystring: { welcome?: string; saved?: string; cancelled?: string; claimed?: string; lang?: string } }>("/m/:token", async (req, reply) => {
     const q = req.query;

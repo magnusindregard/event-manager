@@ -1,5 +1,5 @@
 import { type Db, type Tx, withoutTenant, withTenant } from "@event-manager/db";
-import { catalog, registration, tenancy } from "@event-manager/domain";
+import { catalog, registration, sales, tenancy } from "@event-manager/domain";
 
 // The attendee API and the hosted pages share these, so a page does exactly what the API
 // does. Every call finds its tenant first (from the occurrence, or from the signed token)
@@ -180,6 +180,15 @@ export class AttendeeService {
 
   async cancel(token: string): Promise<AttendeeRegistration | null> {
     return this.withToken(token, async (tx, tenantId, reg) => withAnswers(tx, tenantId, await registration.cancelRegistration(tx, tenantId, reg.id, { kind: "attendee" }, this.now())));
+  }
+
+  // ── Ticket links ──
+
+  /** The ticket page's data, or null for an invalid token. */
+  async ticket(token: string, locale?: string): Promise<sales.TicketPage | null> {
+    const tenantId = sales.ticketTenant(token);
+    if (!tenantId) return null;
+    return withTenant(this.db, { tenantId }, (tx) => sales.ticketPage(tx, token, locale));
   }
 
   // ── Invitation links ──

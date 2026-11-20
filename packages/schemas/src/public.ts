@@ -54,7 +54,7 @@ export const PublicAvailability = Type.Object(
       {
         description:
           "Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. " +
-          "Tickets (channel keys only): sold_out: no on-sale offer's smallest purchase fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added",
+          "Tickets: sold_out: no on-sale offer's smallest purchase fits in the places left (held places count as gone). not_on_sale: no offer is on sale now. New statuses may be added",
       },
     ),
     opensAt: Nullable(Type.String({ format: "date-time", description: "Null: open as soon as the event is published. Tickets: the earliest sales window opening of the offers" })),
@@ -63,7 +63,7 @@ export const PublicAvailability = Type.Object(
   },
   {
     description:
-      "Registration occurrences: places without exact numbers. Ticketed occurrences, with a channel key only (docs/ticketing.md): exact places left. Null otherwise",
+      "Registration and ticketed occurrences: places without exact numbers; channel keys also get exact places left for ticketed occurrences (docs/ticketing.md). Null otherwise",
   },
 );
 

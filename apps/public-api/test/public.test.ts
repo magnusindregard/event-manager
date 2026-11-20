@@ -263,7 +263,8 @@ describe("/public/v1", () => {
     const anon = await get(`${url}&key=${setup.pk}`);
     expect(anon.body.items[0].offers.map((o: { code: string }) => o.code)).toEqual(["voksen", "luke"]);
     expect(anon.body.items[0].offers[0]).not.toHaveProperty("sku");
-    expect(anon.body.items[0].availability).toBeNull();
+    expect(anon.body.items[0].availability).toMatchObject({ status: "available" });
+    expect(anon.body.items[0].availability).not.toHaveProperty("placesLeft");
 
     const viaWeb = await get(url, { authorization: `Bearer ${setup.sk}` });
     expect(viaWeb.status).toBe(200);

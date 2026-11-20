@@ -139,3 +139,4 @@ export * from "./attendee.js";
 export * from "./registration.js";
 export * from "./invitations.js";
 export * from "./offers.js";
+export * from "./sales.js";

@@ -36,8 +36,8 @@ export interface AttendeeAppDeps {
 
 const TYPE_BASE = "https://docs.event-manager.dev/problems/";
 // Links carry the manage token in the path: keep it out of logs and referrers.
-/** Hides the token in /m/{token} and /i/{token}. The request log serializer in main.ts uses it too. */
-export const redactUrl = (url: string) => url.replace(/\/([mi])\/[A-Za-z0-9_-]+/, "/$1/[token]");
+/** Hides the token in /m/{token}, /i/{token} and /t/{token}. The request log serializer in main.ts uses it too. */
+export const redactUrl = (url: string) => url.replace(/\/([mit])\/[A-Za-z0-9_-]+/, "/$1/[token]");
 
 class ApiProblem extends Error {
   constructor(readonly status: number, readonly code: string, message: string) {
