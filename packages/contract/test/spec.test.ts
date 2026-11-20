@@ -93,4 +93,23 @@ describe("the contract checks", () => {
     await expect(post({ "idempotency-key": "k" }, { lines: [], price: 1 })).rejects.toThrow(/request/);
     await expect(contractFetch(fake(200, {}))(new Request("https://api.test/v1/nowhere"))).rejects.toThrow(/not in the spec/);
   });
+
+  it("reject parameter values outside their schemas", async () => {
+    const post = (key: string) =>
+      contractFetch(fake(201, {}))(new Request("https://api.test/v1/reservations", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": key }, body: JSON.stringify({ lines: [] }) }));
+    await expect(post("")).rejects.toThrow(/header parameter idempotency-key must NOT have fewer than 1 characters/);
+    await expect(post("k".repeat(256))).rejects.toThrow(/must NOT have more than 255 characters/);
+    await expect(contractFetch(fake(404, {}))(new Request("https://api.test/v1/reservations/not-a-uuid"))).rejects.toThrow(/path parameter id must match format "uuid"/);
+
+    const pub = contract(specs.public).contractFetch(fake(200, {}));
+    await expect(pub(new Request("https://public.test/public/v1/occurrences?key=pk&limit=-1"))).rejects.toThrow(/query parameter limit must be >= 1/);
+    await expect(pub(new Request("https://public.test/public/v1/occurrences?key=pk&limit=lots"))).rejects.toThrow(/query parameter limit must be integer/);
+    await expect(pub(new Request("https://public.test/public/v1/occurrences?key=pk&group=Not%20A%20Code"))).rejects.toThrow(/query parameter group must match pattern/);
+  });
+
+  it("reject an empty response where the spec describes a body", async () => {
+    const empty = (status: number): Injectable => ({ inject: async () => ({ statusCode: status, headers: {}, body: "", json: () => undefined }) });
+    await expect(get(empty(200))).rejects.toThrow(/200 has no body, but the spec says application\/json/);
+    await expect(get(empty(404))).rejects.toThrow(/404 has no body, but the spec says application\/json, application\/problem\+json/);
+  });
 });

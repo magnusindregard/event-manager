@@ -46,6 +46,10 @@ export function contract(spec: Spec) {
   const ajv = new Ajv2020({ strict: false, allErrors: true });
   addFormats.default(ajv);
   const cache = new Map<unknown, ValidateFunction>();
+  // Parameters arrive as strings; coerce them like the API does (Fastify's coerceTypes: "array").
+  const paramAjv = new Ajv2020({ strict: false, allErrors: true, coerceTypes: "array" });
+  addFormats.default(paramAjv);
+  const paramCache = new Map<unknown, ValidateFunction>();
 
   /** Inlines local $refs (#/components/schemas/…), so each schema compiles on its own. */
   const resolve = (s: unknown): unknown => {
@@ -61,8 +65,17 @@ export function contract(spec: Spec) {
     if (!fn(value)) throw new ContractViolation(`${where}: ${ajv.errorsText(fn.errors, { dataVar: "body" })}\n${JSON.stringify(value, null, 2).slice(0, 2000)}`);
   };
 
+  /** Checks one parameter's value, wrapped so Ajv can coerce it in place. */
+  const checkParam = (schema: unknown, name: string, value: unknown, where: string) => {
+    let fn = paramCache.get(schema);
+    if (!fn) paramCache.set(schema, (fn = paramAjv.compile({ type: "object", properties: { value: resolve(schema) as object } })));
+    // Name the parameter, not the wrapper: "query parameter limit must be >= 1".
+    if (!fn({ value })) throw new ContractViolation(`${where}: ${(fn.errors ?? []).map((e) => `${name}${e.instancePath.replace(/^\/value/, "")} ${e.message}`).join(", ")} (${JSON.stringify(value)})`);
+  };
+
   const templates = operations(spec).map(({ method, path, op }) => ({
     method, path, op,
+    names: [...path.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]!),
     re: new RegExp(`^${path.replace(/[.*+?^$()|[\]\\]/g, "\\$&").replace(/\{[^}]+\}/g, "([^/]+)")}$`),
   }));
   const find = (method: string, path: string) => {
@@ -72,10 +85,19 @@ export function contract(spec: Spec) {
     return hits[0];
   };
 
-  function checkRequest(op: Operation, where: string, headers: Headers, query: URLSearchParams, body: unknown) {
+  function checkRequest(op: Operation, where: string, path: Record<string, string>, headers: Headers, query: URLSearchParams, body: unknown) {
     for (const p of op.parameters ?? []) {
-      const value = p.in === "header" ? headers.get(p.name) : p.in === "query" ? query.get(p.name) : undefined;
-      if (p.required && p.in !== "path" && value === null) throw new ContractViolation(`${where}: missing required ${p.in} parameter ${p.name}`);
+      const isArray = (p.schema as { type?: unknown } | undefined)?.type === "array";
+      const value =
+        p.in === "path" ? path[p.name] ?? null
+        : p.in === "header" ? headers.get(p.name)
+        : p.in === "query" ? (isArray ? (query.has(p.name) ? query.getAll(p.name) : null) : query.get(p.name))
+        : null;
+      if (value === null) {
+        if (p.required || p.in === "path") throw new ContractViolation(`${where}: missing required ${p.in} parameter ${p.name}`);
+        continue;
+      }
+      if (p.schema) checkParam(p.schema, `${p.in} parameter ${p.name}`, value, where);
     }
     const media = op.requestBody?.content?.["application/json"];
     if (body === undefined) {
@@ -90,7 +112,12 @@ export function contract(spec: Spec) {
   function checkResponse(op: Operation, where: string, status: number, contentType: string | undefined, body: unknown) {
     const res = op.responses[String(status)] ?? op.responses[`${String(status)[0]}XX`] ?? op.responses.default;
     if (!res) throw new ContractViolation(`${where}: status ${status} is not in the spec (${Object.keys(op.responses).join(", ")})\n${JSON.stringify(body)}`);
-    if (body === undefined) return;
+    if (body === undefined) {
+      // A body the spec describes must be there; 204 and 304 never have one.
+      const declared = Object.keys(res.content ?? {});
+      if (declared.length && status !== 204 && status !== 304) throw new ContractViolation(`${where}: ${status} has no body, but the spec says ${declared.join(", ")}`);
+      return;
+    }
     const type = contentType?.split(";")[0]?.trim() ?? "";
     const media = res.content?.[type];
     if (!media) throw new ContractViolation(`${where}: ${status} ${type} is not in the spec (${Object.keys(res.content ?? {}).join(", ") || "no content"})`);
@@ -113,7 +140,9 @@ export function contract(spec: Spec) {
       const where = `${hit.op.operationId ?? `${method} ${hit.path}`}`;
       const text = await req.text();
       const body = text ? (JSON.parse(text) as unknown) : undefined;
-      if (opts.strict !== false) checkRequest(hit.op, where, req.headers, url.searchParams, body);
+      const m = hit.re.exec(url.pathname)!;
+      const path = Object.fromEntries(hit.names.map((n, i) => [n, decodeURIComponent(m[i + 1]!)]));
+      if (opts.strict !== false) checkRequest(hit.op, where, path, req.headers, url.searchParams, body);
 
       const headers = Object.fromEntries(req.headers.entries());
       const res = await app.inject({ method: req.method, url: url.pathname + url.search, headers, ...(text ? { payload: text } : {}) });
