@@ -134,6 +134,15 @@ The hosted attendee app cannot know a user's group. A restricted registration ev
 - **Signatures.** The line text is `reservation_line.v2` with the group code last; the reservation text is `reservation.v2` with the group before the line signatures. The HMAC prefix stays `v1.`.
 - **Prices** are still the general prices in this milestone; group prices arrive with milestone 2 and are used by reservations in milestone 3.
 
+*Milestone 2 (group prices)* is built and tested locally (20 November 2026): `packages/domain/test/rules.test.ts` covers the engine (the fallback order, ties per offer and group, group targets on price only); `packages/domain/test/acceptance/user-groups.test.ts` the 450/500/350 scenario, a member effect on the weekend rule with its preview, general and group overrides, removing a group price, permissions and copying; `apps/api/test/user-groups.test.ts` the endpoints; `packages/db/test/rls.test.ts` the three new tables. Decisions taken while building:
+
+- **Tables.** `offers.offer_group_price`, `offers.offer_group_override` and `offers.effective_group_price` (migration `0021_group_prices`), and `rules.rule_effect.target_group`, unique with the rule, type and target. Group overrides have their own table, so `offer_override` keeps its key.
+- **Sparse rows.** The resolver replaces an occurrence's group rows on every resolution and writes only pairs where a group setting applied; `amount_source = 'default'` is the offer's group price. A pair appearing or going away counts as a price change in `price.changed.v1`.
+- **Pairs resolved** per occurrence: the offers' group prices, the rules' group effects and that occurrence's group overrides. Archived groups keep being resolved; readers that buyers see ask for active groups only.
+- **Rule effects.** A `price` effect takes an optional `targetGroup`; responses carry it only when set. `offerAvailable` takes none. The general price ignores group effects. Group effects need an active group when added, like offers. The preview reports group changes with `group`, showing the general price for a group without its own; `conflicts[]` carries `group` too.
+- **Endpoints.** Offers take and return `groupPrices: [{ groupId, amount }]`, which replaces the list and resolves the event. `PUT`/`DELETE /v1/offers/{id}/occurrences/{occurrenceId}/groups/{groupId}/override` with `{ amount }` set and clear a group override and return the group's cell. `GET /v1/events/{id}/prices?groupId=` adds `group: { groupId, price, inherited, override }` to each cell.
+- **Admin.** Group prices in the ticket type editor (empty: the general price), "Pris for" in the price grid, with inherited cells greyed and a popover for the group override, and a price per group under each ticket type in the rule editor.
+
 ## Acceptance scenarios
 
 - Adult 450, weekend rule 500, Member 350: members pay 350 every day, sponsors 450 on weekdays and 500 at weekends. A general override of 600 at one occurrence leaves members at 350; a member override of 300 there wins.

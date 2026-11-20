@@ -11,6 +11,8 @@ export interface EffectRefs {
   locations?: string[];
   tags?: string[];
   offers?: string[];
+  /** User groups that targeted effects name (docs/user-groups.md). */
+  groups?: string[];
 }
 
 export interface EffectType<V = unknown> {
@@ -19,6 +21,8 @@ export interface EffectType<V = unknown> {
   /** Whether the effect needs a targetRef, and what kind of entity it names. */
   targeted: boolean;
   target?: "offer";
+  /** Whether the effect may target one user group as well (docs/user-groups.md): price only. */
+  groupable?: boolean;
   /** Returns the canonical value, or throws validation_failed. */
   validate(value: unknown, path: string): V;
   refs(value: V): EffectRefs;
@@ -117,6 +121,7 @@ const price: EffectType<{ amount: number }> = {
   field: "price",
   targeted: true,
   target: "offer",
+  groupable: true,
   validate(value, path) {
     if (typeof value !== "object" || value === null || Array.isArray(value)) throw invalid(path, "Must be { amount }");
     const extra = Object.keys(value).filter((k) => k !== "amount");
@@ -144,6 +149,13 @@ const offerAvailable: EffectType<boolean> = {
   refs: () => ({}),
   apply: (v) => v,
 };
+
+/** Validates and normalizes a user group target (a group id). */
+export function validateGroup(t: EffectType, group: string, path: string): string {
+  if (!t.groupable) throw invalid(path, "This effect cannot target a user group");
+  if (!UUID_RE.test(group)) throw invalid(path, "Must be a user group id");
+  return group.toLowerCase();
+}
 
 /** Validates and normalizes a targetRef for the effect type. */
 export function validateTarget(t: EffectType, ref: string, path: string): string {

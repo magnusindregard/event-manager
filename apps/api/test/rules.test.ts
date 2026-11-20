@@ -55,7 +55,7 @@ describe("/v1 rules", () => {
     const dry = await call("POST", `/v1/events/${eventId}/rules?dryRun=true`, { body: rule });
     expect(dry.status).toBe(200);
     expect(dry.body).toMatchObject({ rule: null, resolution: "none", preview: { counts: { matched: 10, changed: 10, overridden: 0, conflicts: 0 } } });
-    expect(dry.body.preview.changes[0].fields).toEqual([{ field: "location", targetRef: null, from: { value: venue.id, source: "default", ruleId: null }, to: { value: rooftop.id, source: "rule", ruleId: expect.any(String) } }]);
+    expect(dry.body.preview.changes[0].fields).toEqual([{ field: "location", targetRef: null, group: null, from: { value: venue.id, source: "default", ruleId: null }, to: { value: rooftop.id, source: "rule", ruleId: expect.any(String) } }]);
     expect((await call("GET", `/v1/events/${eventId}/rules`)).body.items).toEqual([]);
 
     const created = await call("POST", `/v1/events/${eventId}/rules`, { body: rule, headers: { "idempotency-key": "rule-1" } });

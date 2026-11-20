@@ -53,6 +53,7 @@ export const Offer = Type.Object({
   channelIds: Type.Array(Uuid, { description: "Sales channels that may sell the offer" }),
   channelsWithoutSku: Type.Array(Uuid, { description: "Of channelIds: where the offer's VAT class has no SKU, so it cannot be sold there yet" }),
   accessGroupIds: Type.Array(Uuid, { description: "User groups that may buy the offer; empty: everyone the event admits" }),
+  groupPrices: Type.Array(Type.Object({ groupId: Uuid, amount: Amount }), { description: "The offer's own prices per user group; groups not listed pay the general price" }),
   translations: Type.Record(Type.String(), OfferTranslationOut),
   version: Type.Integer(),
   createdAt: DateTime,
@@ -68,6 +69,9 @@ const windowFields = {
   offSaleAt: Type.Optional(Nullable(DateTime)),
 };
 const ChannelIds = Type.Array(Uuid, { uniqueItems: true, maxItems: 50 });
+const GroupPrices = Type.Array(Type.Object({ groupId: Uuid, amount: Amount }, { additionalProperties: false }), {
+  maxItems: 50, description: "The offer's own price per user group; groups not listed pay the general price. Replaces the list",
+});
 const AccessGroupIds = Type.Array(Uuid, { uniqueItems: true, maxItems: 50, description: "Only these user groups may buy the offer; empty: everyone the event admits. Replaces the list" });
 
 const offerFields = {
@@ -80,6 +84,7 @@ const offerFields = {
   defaultPrice: Amount,
   ...windowFields,
   accessGroupIds: Type.Optional(AccessGroupIds),
+  groupPrices: Type.Optional(GroupPrices),
 };
 export const OfferCreate = Type.Object(
   { ...offerFields, channelIds: Type.Optional(Type.Array(Uuid, { ...ChannelIds, description: "Left out: every active channel" })), translations: Type.Record(LocaleKey, OfferTranslation, { minProperties: 1 }) },
@@ -98,6 +103,7 @@ export const OfferPatch = Type.Object(
     ...windowFields,
     channelIds: Type.Optional(Type.Array(Uuid, { ...ChannelIds, description: "Replaces the offer's channels" })),
     accessGroupIds: Type.Optional(AccessGroupIds),
+    groupPrices: Type.Optional(GroupPrices),
     translations: Type.Optional(Type.Record(LocaleKey, Nullable(OfferTranslation), { description: "Per locale: replaces the translation, or null removes it" })),
   },
   { additionalProperties: false, minProperties: 1 },
@@ -126,11 +132,25 @@ export const OfferOverrideInput = Type.Object(
   { additionalProperties: false, minProperties: 1 },
 );
 
+export const GroupCell = Type.Object({
+  groupId: Uuid,
+  price: Type.Object({ value: Type.Integer(), source: ValueSource, ruleId: Nullable(Type.String({ format: "uuid" })) }, {
+    description: "What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source",
+  }),
+  inherited: Type.Boolean({ description: "No group setting applies here, so the group pays the general price" }),
+  override: Nullable(Type.Integer({ description: "The group override here, if any" })),
+}, { description: "With groupId: what that user group pays (docs/user-groups.md)" });
+export const GroupOverrideInput = Type.Object(
+  { amount: Type.Integer({ minimum: 0, maximum: 100000000, description: "Minor units, VAT included" }) },
+  { additionalProperties: false },
+);
+
 export const PriceCell = Type.Object({
   offerId: Uuid,
   price: Type.Object({ value: Type.Integer(), source: ValueSource, ruleId: Nullable(Type.String({ format: "uuid" })) }),
   available: Type.Object({ value: Type.Boolean(), source: ValueSource, ruleId: Nullable(Type.String({ format: "uuid" })) }),
   override: Nullable(OfferOverride),
+  group: Type.Optional(GroupCell),
 }, { description: "One offer at one occurrence: effective price and availability with their source" });
 
 export const PriceRow = Type.Object({

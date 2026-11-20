@@ -3,8 +3,9 @@ import { emit } from "../outbox/index.js";
 import * as rules from "../rules/index.js";
 import { type ActorContext, DomainError } from "../shared/index.js";
 import { assertCan, diffFields, recordAudit } from "../tenancy/index.js";
+import { assertUsableGroups } from "./groups.js";
 import { assertUsableLocation } from "./locations.js";
-import { previewOccurrences, previewTargets, resolutionContext, resolveEventSoon } from "./resolve.js";
+import { previewGroupTargets, previewOccurrences, previewTargets, resolutionContext, resolveEventSoon } from "./resolve.js";
 import { notFound, versionConflict } from "./shared.js";
 import { assertUsableTags } from "./tags.js";
 
@@ -70,7 +71,7 @@ function normalize(input: RuleInput): Omit<rules.RuleDef, "id"> {
  */
 async function checkRefs(tx: Tx, eventId: string, effects: readonly rules.Effect[], before?: readonly rules.Effect[]) {
   const now = rules.effectRefs(effects);
-  const had = before ? rules.effectRefs(before) : { locations: [], tags: [], offers: [] };
+  const had = before ? rules.effectRefs(before) : { locations: [] as string[], tags: [] as string[], offers: [] as string[], groups: [] as string[] };
   for (const id of now.locations.filter((x) => !had.locations.includes(x))) await assertUsableLocation(tx, id, "effects");
   await assertUsableTags(tx, now.tags.filter((x) => !had.tags.includes(x)), "effects");
   const added = now.offers.filter((x) => !had.offers.includes(x));
@@ -79,6 +80,8 @@ async function checkRefs(tx: Tx, eventId: string, effects: readonly rules.Effect
     const missing = added.find((id) => !found.some((o) => o.id === id && o.status === "active"));
     if (missing) throw new DomainError("validation_failed", "The offer is not an active offer of this event", { field: "effects", offerId: missing });
   }
+  // Group prices name active user groups; groups the rule already had may since be archived.
+  await assertUsableGroups(tx, now.groups.filter((x) => !had.groups.includes(x)), [], "effects");
 }
 
 /** Price and availability effects are offer settings: changing them takes offers.write as well (docs/ticketing.md, "Permissions"). */
@@ -91,6 +94,7 @@ async function preview(tx: Tx, eventId: string, change: (existing: rules.Rule[])
   return rules.previewRules({
     defaults: c.defaults,
     targets: previewTargets(c),
+    groupTargets: previewGroupTargets(c),
     occurrences: await previewOccurrences(tx, eventId, c.timezone, c.offers.length > 0),
     before: c.rules,
     after: change(c.rules),

@@ -76,4 +76,32 @@ describe("/v1/user-groups", () => {
     const renamed = await call("PATCH", `/v1/user-groups/${groupId}`, { body: { names: { nb: "Medlemmer", en: "Members" } }, headers: { "if-match": `"${used.version}"` } });
     expect(renamed).toMatchObject({ status: 200, body: { names: { nb: "Medlemmer", en: "Members" }, version: 2 } });
   });
+
+  it("prices offers per group, takes group price rules and group overrides, and shows a group in the price grid", async () => {
+    const group = (await call("POST", "/v1/user-groups", { body: { code: "sponsor", names: { nb: "Sponsor" } } })).body;
+    const vat = (await call("GET", "/v1/vat-classes")).body.items[0];
+    const eventId = (await call("POST", "/v1/events", { body: { translations: { nb: { title: "Konsert" } }, admissionMode: "tickets" } })).body.id;
+    const occ = (await call("POST", `/v1/events/${eventId}/occurrences`, { body: { startUtc: "2027-02-13T18:30:00Z" } })).body;
+    const created = await call("POST", `/v1/events/${eventId}/offers`, { body: { translations: { nb: { name: "Voksen" } }, vatClassId: vat.id, defaultPrice: 45000, groupPrices: [{ groupId: group.id, amount: 35000 }] } });
+    expect(created).toMatchObject({ status: 201, body: { offer: { groupPrices: [{ groupId: group.id, amount: 35000 }] }, resolution: "done" } });
+    const offerId = created.body.offer.id;
+
+    const rule = await call("POST", `/v1/events/${eventId}/rules`, {
+      body: { name: "Helg", conditions: { weekdays: [6, 7] }, effects: [{ type: "price", targetRef: offerId, targetGroup: group.id, value: { amount: 30000 } }] },
+    });
+    expect(rule.status).toBe(201);
+    expect(rule.body.rule.effects[0]).toMatchObject({ type: "price", targetRef: offerId, targetGroup: group.id });
+    expect(rule.body.preview.changes[0].fields[0]).toMatchObject({ field: "price", targetRef: offerId, group: group.id, to: { value: 30000, source: "rule" } });
+    // offerAvailable takes no group.
+    expect((await call("POST", `/v1/events/${eventId}/rules`, { body: { name: "X", effects: [{ type: "offerAvailable", targetRef: offerId, targetGroup: group.id, value: false }] } })).status).toBe(400);
+
+    const grid = await call("GET", `/v1/events/${eventId}/prices?groupId=${group.id}`);
+    expect(grid.body.items[0].cells[0]).toMatchObject({ price: { value: 45000 }, group: { groupId: group.id, price: { value: 30000, source: "rule" }, inherited: false, override: null } });
+    expect((await call("GET", `/v1/events/${eventId}/prices`)).body.items[0].cells[0].group).toBeUndefined();
+
+    const url = `/v1/offers/${offerId}/occurrences/${occ.id}/groups/${group.id}/override`;
+    expect(await call("PUT", url, { body: { amount: 25000 } })).toMatchObject({ status: 200, body: { price: { value: 25000, source: "override" }, override: 25000 } });
+    expect((await call("PUT", url, { as: "editor@a.test", body: { amount: 1 } })).status).toBe(403);
+    expect(await call("DELETE", url)).toMatchObject({ status: 200, body: { price: { value: 30000, source: "rule" }, override: null } });
+  });
 });

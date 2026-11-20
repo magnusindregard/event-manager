@@ -93,7 +93,7 @@ describe("acceptance: weekend Adult 500, one occurrence overridden to 400", () =
     // The preview reports price changes per offer, so the save resolves them.
     expect(created.preview.counts).toMatchObject({ matched: 2, changed: 2 });
     expect(created.preview.changes[0]!.fields).toEqual([
-      { field: "price", targetRef: adult.id, from: { value: 45000, source: "default", ruleId: null }, to: { value: 50000, source: "rule", ruleId: created.rule!.id } },
+      { field: "price", targetRef: adult.id, group: null, from: { value: 45000, source: "default", ruleId: null }, to: { value: 50000, source: "rule", ruleId: created.rule!.id } },
     ]);
     expect(created.resolution).toBe("done");
 

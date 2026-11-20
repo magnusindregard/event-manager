@@ -181,6 +181,87 @@ describe("acceptance: a members' registration event", () => {
   });
 });
 
+describe("acceptance: group prices (milestone 2)", () => {
+  // Fri 12 and Sat 13 February 2027, 19:30 in Oslo.
+  const FRI = new Date("2027-02-12T18:30:00Z");
+  const SAT = new Date("2027-02-13T18:30:00Z");
+
+  async function priced(slug: string) {
+    const event = await run((tx) => catalog.createEvent(tx, ctx, { slug, translations: title("Konsert"), admissionMode: "tickets", registration: { capacity: 100 } }));
+    const fri = await run((tx) => catalog.createOccurrence(tx, ctx, event.id, { startUtc: FRI }));
+    const sat = await run((tx) => catalog.createOccurrence(tx, ctx, event.id, { startUtc: SAT }));
+    const adult = await run(async (tx) => (await offers.createOffer(tx, ctx, event.id, {
+      translations: name("Voksen"), vatClassId: exempt.id, defaultPrice: 45000, groupPrices: [{ groupId: member.id, amount: 35000 }],
+    })).offer!);
+    const weekend = await run((tx) => catalog.createRule(tx, ctx, event.id, {
+      name: "Helg", conditions: { weekdays: [6, 7] }, effects: [{ type: "price", targetRef: adult.id, value: { amount: 50000 } }],
+    }));
+    return { event, fri, sat, adult, weekend };
+  }
+  const grid = (eventId: string, groupId: string) => run((tx) => offers.priceGrid(tx, eventId, { limit: 10, groupId }));
+  const cell = async (eventId: string, groupId: string, occurrenceId: string) =>
+    (await grid(eventId, groupId)).rows.find((r) => r.occurrenceId === occurrenceId)!.cells[0]!;
+
+  it("members pay their own price every day; sponsors, with none, pay what everyone pays", async () => {
+    const { event, fri, sat, adult } = await priced("group-prices");
+    expect(adult.groupPrices).toEqual([{ groupId: member.id, amount: 35000 }]);
+    expect((await cell(event.id, member.id, fri.id)).group).toEqual({ groupId: member.id, price: { value: 35000, source: "default", ruleId: null }, inherited: false, override: null });
+    expect((await cell(event.id, member.id, sat.id)).group).toMatchObject({ price: { value: 35000, source: "default" }, inherited: false });
+    const sponsorSat = await cell(event.id, sponsor.id, sat.id);
+    expect(sponsorSat.price.value).toBe(50000);
+    expect(sponsorSat.group).toMatchObject({ price: { value: 50000, source: "rule" }, inherited: true });
+    expect((await cell(event.id, sponsor.id, fri.id)).group).toMatchObject({ price: { value: 45000, source: "default" }, inherited: true });
+  });
+
+  it("a member effect on the weekend rule moves only the weekend member price, and the preview shows it", async () => {
+    const { event, fri, sat, adult, weekend } = await priced("group-rule");
+    const effects = [...weekend.rule!.effects, { type: "price", targetRef: adult.id, targetGroup: member.id, value: { amount: 40000 } }];
+    const dry = await run((tx) => catalog.updateRule(tx, ctx, weekend.rule!.id, weekend.rule!.version, { effects }, { dryRun: true }));
+    expect(dry.preview.counts.changed).toBe(1);
+    expect(dry.preview.changes[0]!.fields).toEqual([{
+      field: "price", targetRef: adult.id, group: member.id, from: { value: 35000, source: "default", ruleId: null }, to: { value: 40000, source: "rule", ruleId: weekend.rule!.id },
+    }]);
+    const saved = await run((tx) => catalog.updateRule(tx, ctx, weekend.rule!.id, weekend.rule!.version, { effects }));
+    expect(saved.rule!.effects.find((e) => e.targetGroup)).toMatchObject({ targetGroup: member.id, value: { amount: 40000 } });
+    expect((await cell(event.id, member.id, sat.id)).group!.price).toEqual({ value: 40000, source: "rule", ruleId: weekend.rule!.id });
+    expect((await cell(event.id, member.id, fri.id)).group!.price.value).toBe(35000);
+    // The general price is unchanged.
+    expect((await cell(event.id, member.id, sat.id)).price.value).toBe(50000);
+  });
+
+  it("a general override leaves members on their price; a member override wins", async () => {
+    const { event, sat, adult } = await priced("group-override");
+    await run((tx) => offers.setOverride(tx, ctx, adult.id, sat.id, { amount: 60000 }));
+    expect((await cell(event.id, member.id, sat.id)).group!.price.value).toBe(35000);
+    const g = await run((tx) => offers.setGroupOverride(tx, ctx, adult.id, sat.id, member.id, 30000));
+    expect(g).toEqual({ groupId: member.id, price: { value: 30000, source: "override", ruleId: null }, inherited: false, override: 30000 });
+    // Clearing it gives the member price back.
+    expect((await run((tx) => offers.setGroupOverride(tx, ctx, adult.id, sat.id, member.id, null))).price).toEqual({ value: 35000, source: "default", ruleId: null });
+    // A group override for a group without a price of its own; clearing it inherits again.
+    expect((await run((tx) => offers.setGroupOverride(tx, ctx, adult.id, sat.id, sponsor.id, 20000))).inherited).toBe(false);
+    expect(await run((tx) => offers.setGroupOverride(tx, ctx, adult.id, sat.id, sponsor.id, null))).toMatchObject({ inherited: true, price: { value: 60000, source: "override" } });
+  });
+
+  it("removing a group price makes the group pay the general price again; offer writers only", async () => {
+    const { event, fri, adult } = await priced("group-remove");
+    const editor = { ...ctx, roles: ["editor" as const] };
+    expect(await code(run((tx) => offers.updateOffer(tx, editor, adult.id, adult.version, { groupPrices: [] }), editor))).toBe("forbidden");
+    expect(await code(run((tx) => offers.updateOffer(tx, ctx, adult.id, adult.version, { groupPrices: [{ groupId: member.id, amount: 1 }, { groupId: member.id, amount: 2 }] })))).toBe("validation_failed");
+    const r = await run((tx) => offers.updateOffer(tx, ctx, adult.id, adult.version, { groupPrices: [] }));
+    expect(r.resolution).toBe("done");
+    expect((await cell(event.id, member.id, fri.id)).group).toMatchObject({ inherited: true, price: { value: 45000 } });
+    const changes = await run((tx) => tx.selectFrom("outbox.event").select("data").where("type", "=", "price.changed.v1").where("subject", "=", `event/${event.id}`).execute());
+    expect(changes.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("copies group prices with the offers, leaving archived groups behind", async () => {
+    const { event } = await priced("group-copy-source");
+    const target = await run((tx) => catalog.createEvent(tx, ctx, { slug: "group-copy-target", translations: title("Kopi"), admissionMode: "tickets", registration: { capacity: 10 } }));
+    const { created } = await run((tx) => offers.copyOffers(tx, ctx, target.id, event.id));
+    expect(created[0]!.groupPrices).toEqual([{ groupId: member.id, amount: 35000 }]);
+  });
+});
+
 describe("tenancy", () => {
   it("does not see another account's group codes", async () => {
     const { occ, adult } = await concert("tenant-check");

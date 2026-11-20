@@ -122,6 +122,32 @@ const targetInputs = (c: ResolutionContext, overrides: Map<string, offerStore.Of
 /** The event's offers with their defaults, as the rule preview takes them. */
 export const previewTargets = (c: ResolutionContext) => c.offers.map((o) => ({ ref: o.id, defaults: offerStore.targetDefaults(o) }));
 
+/** The offers' own group prices, as the rule preview takes them. */
+export const previewGroupTargets = (c: ResolutionContext) =>
+  c.offers.flatMap((o) => o.groupPrices.map((g) => ({ ref: o.id, group: g.groupId, groupDefault: g.amount })));
+
+/**
+ * (offer, group) pairs to resolve at one occurrence: the offers' group prices, the rules' group
+ * effects and the occurrence's group overrides. Offers outside the event are ignored.
+ */
+function groupInputs(c: ResolutionContext, groupOverrides: Record<string, number> | undefined): rules.GroupTargetInput[] {
+  const offers = new Map(c.offers.map((o) => [o.id, o]));
+  const pairs = new Map<string, rules.GroupTargetInput>();
+  const add = (ref: string, group: string) => {
+    const k = rules.groupKey(ref, group);
+    if (pairs.has(k) || !offers.has(ref)) return;
+    const own = offers.get(ref)!.groupPrices.find((g) => g.groupId === group);
+    pairs.set(k, { ref, group, groupDefault: own?.amount ?? null, override: groupOverrides?.[k] });
+  };
+  for (const o of c.offers) for (const g of o.groupPrices) add(o.id, g.groupId);
+  for (const p of rules.groupRuleTargets(c.rules)) add(p.ref, p.group);
+  for (const k of Object.keys(groupOverrides ?? {})) {
+    const [ref, group] = k.split("|") as [string, string];
+    add(ref, group);
+  }
+  return [...pairs.values()];
+}
+
 const occColumns = [
   "id", "tenant_id", "start_utc", "location_override_id", "external_url_override", "location_cleared", "external_url_cleared", "tags_override", "capacity_override",
 ] as const;
@@ -137,13 +163,17 @@ const occOverrides = (o: OccRow) => overrideValues({
 /** An event's occurrences as the rule preview sees them. */
 export async function previewOccurrences(tx: Tx, eventId: string, timezone: string, withOffers = false): Promise<rules.PreviewOccurrence[]> {
   const rows = await tx.selectFrom("catalog.occurrence").select(occColumns).where("event_id", "=", eventId).orderBy("start_utc").orderBy("id").execute();
-  const overrides = withOffers ? await offerStore.loadOverrides(tx, rows.map((o) => o.id)) : new Map<string, Map<string, offerStore.OfferOverride>>();
+  const ids = rows.map((o) => o.id);
+  const [overrides, groupOverrides] = withOffers
+    ? await Promise.all([offerStore.loadOverrides(tx, ids), offerStore.loadGroupOverrides(tx, ids)])
+    : [new Map<string, Map<string, offerStore.OfferOverride>>(), new Map<string, Record<string, number>>()];
   return rows.map((o) => ({
     id: o.id,
     startUtc: o.start_utc,
     startLocal: utcToLocal(o.start_utc, timezone),
     overrides: occOverrides(o),
     targetOverrides: offerStore.targetOverrides(overrides.get(o.id)),
+    groupOverrides: groupOverrides.get(o.id),
   }));
 }
 
@@ -221,8 +251,11 @@ async function resolvePrices(
   occs: readonly { tenantId: string; occurrenceId: string; startLocal: string }[],
 ): Promise<void> {
   const ids = occs.map((o) => o.occurrenceId);
-  const [overrides, before] = await Promise.all([offerStore.loadOverrides(tx, ids), offerStore.loadEffectivePrices(tx, ids)]);
+  const [overrides, before, groupOverrides, groupBefore] = await Promise.all([
+    offerStore.loadOverrides(tx, ids), offerStore.loadEffectivePrices(tx, ids), offerStore.loadGroupOverrides(tx, ids), offerStore.loadGroupPrices(tx, ids),
+  ]);
   const out: offerStore.EffectivePriceRow[] = [];
+  const groupOut: offerStore.EffectiveGroupPriceRow[] = [];
   const changed: string[] = [];
   for (const o of occs) {
     const { values } = rules.resolveTargets(targetInputs(c, overrides.get(o.occurrenceId)), o.startLocal, ordered);
@@ -232,9 +265,22 @@ async function resolvePrices(
       const prev = before.get(o.occurrenceId)?.get(offerId);
       if (!prev || !rules.sameResolved(prev.price, v.price) || !rules.sameResolved(prev.available, v.offerAvailable)) differs = true;
     }
+    // Group prices (docs/user-groups.md): sparse, so a pair that appears or goes away is a change too.
+    const groups = rules.resolveGroupPrices(groupInputs(c, groupOverrides.get(o.occurrenceId)), o.startLocal, ordered).values;
+    const prevGroups = groupBefore.get(o.occurrenceId);
+    let prevCount = 0;
+    for (const m of prevGroups?.values() ?? []) prevCount += m.size;
+    if (prevCount !== groups.size) differs = true;
+    for (const [k, price] of groups) {
+      const [offerId, groupId] = k.split("|") as [string, string];
+      groupOut.push({ tenantId: o.tenantId, occurrenceId: o.occurrenceId, offerId, groupId, price });
+      const prev = prevGroups?.get(offerId)?.get(groupId);
+      if (!prev || !rules.sameResolved(prev, price)) differs = true;
+    }
     if (differs) changed.push(o.occurrenceId);
   }
   await offerStore.writeEffectivePrices(tx, out);
+  await offerStore.writeEffectiveGroupPrices(tx, ids, groupOut);
   if (changed.length) {
     await emit(tx, occs[0]!.tenantId, { type: "price.changed.v1", subject: `event/${eventId}`, data: { eventId, occurrenceIds: changed } });
   }

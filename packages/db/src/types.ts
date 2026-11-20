@@ -450,6 +450,7 @@ export interface RuleEffectTable {
   rule_id: string;
   effect_type: string;
   target_ref: string | null;
+  target_group: string | null;
   value: Json;
 }
 
@@ -571,6 +572,31 @@ export interface OfferAccessGroupTable {
   group_id: string;
 }
 
+export interface OfferGroupPriceTable {
+  tenant_id: string;
+  offer_id: string;
+  group_id: string;
+  amount: number;
+}
+
+export interface OfferGroupOverrideTable {
+  tenant_id: string;
+  offer_id: string;
+  occurrence_id: string;
+  group_id: string;
+  amount: number;
+}
+
+export interface EffectiveGroupPriceTable {
+  tenant_id: string;
+  occurrence_id: string;
+  offer_id: string;
+  group_id: string;
+  amount: number;
+  amount_source: ValueSource;
+  amount_rule_id: string | null;
+}
+
 export type ReservationStatus = "held" | "confirmed" | "cancelled" | "expired";
 export type TicketStatus = "valid" | "cancelled";
 export type TicketCancelledBy = "channel" | "staff";
@@ -682,6 +708,9 @@ export interface DB {
   "offers.sku_mapping": SkuMappingTable;
   "offers.offer_channel": OfferChannelTable;
   "offers.offer_access_group": OfferAccessGroupTable;
+  "offers.offer_group_price": OfferGroupPriceTable;
+  "offers.offer_group_override": OfferGroupOverrideTable;
+  "offers.effective_group_price": EffectiveGroupPriceTable;
   "sales.reservation": ReservationTable;
   "sales.reservation_line": ReservationLineTable;
   "sales.reservation_hold": ReservationHoldTable;

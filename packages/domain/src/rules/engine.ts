@@ -1,6 +1,6 @@
 import type { EffectiveField, LocalDateTime, TargetedField, ValueSource } from "@event-manager/db";
 import { DomainError } from "../shared/index.js";
-import { type EffectRefs, effectType, validateTarget } from "./effects.js";
+import { type EffectRefs, effectType, validateGroup, validateTarget } from "./effects.js";
 
 // The rule engine, pure (docs/implementation-plan.md, "Rules"). Matching happens on an
 // occurrence's local start in the event's timezone. Resolution per occurrence and field:
@@ -22,6 +22,8 @@ export interface Conditions {
 export interface Effect {
   type: string;
   targetRef: string | null;
+  /** A user group the effect applies to (price only, docs/user-groups.md); null or absent: everyone. */
+  targetGroup?: string | null;
   value: unknown;
 }
 
@@ -63,6 +65,8 @@ export interface Tie {
   field: EffectiveField | TargetedField;
   /** The target of a targeted field; null otherwise. */
   targetRef: string | null;
+  /** The user group of a group price; null otherwise. */
+  group?: string | null;
   /** The winner first. */
   ruleIds: string[];
 }
@@ -128,24 +132,26 @@ export function normalizeEffects(input: readonly EffectInput[]): Effect[] {
     const raw = e.targetRef ?? null;
     if (t.targeted !== (raw !== null)) throw invalid(`effects.${i}.targetRef`, t.targeted ? "This effect needs a targetRef" : "This effect takes no targetRef");
     const targetRef = raw === null ? null : validateTarget(t, raw, `effects.${i}.targetRef`);
-    const key = `${e.type}\u0000${targetRef ?? ""}`;
+    const targetGroup = e.targetGroup == null ? null : validateGroup(t, e.targetGroup, `effects.${i}.targetGroup`);
+    const key = `${e.type}\u0000${targetRef ?? ""}\u0000${targetGroup ?? ""}`;
     if (seen.has(key)) throw invalid(`effects.${i}`, targetRef ? `The rule already has a ${e.type} effect for this target` : `The rule already has a ${e.type} effect`);
     seen.add(key);
-    return { type: e.type, targetRef, value: t.validate(e.value, `effects.${i}.value`) };
+    return { type: e.type, targetRef, ...(targetGroup ? { targetGroup } : {}), value: t.validate(e.value, `effects.${i}.value`) };
   });
 }
 
 /** Catalog entities the effects point at, for the caller to check. */
 export function effectRefs(effects: readonly Effect[]): Required<EffectRefs> {
-  const out = { locations: new Set<string>(), tags: new Set<string>(), offers: new Set<string>() };
+  const out = { locations: new Set<string>(), tags: new Set<string>(), offers: new Set<string>(), groups: new Set<string>() };
   for (const e of effects) {
     const t = effectType(e.type);
     const r = t.refs(e.value);
     r.locations?.forEach((x) => out.locations.add(x));
     r.tags?.forEach((x) => out.tags.add(x));
     if (t.target === "offer" && e.targetRef) out.offers.add(e.targetRef);
+    if (e.targetGroup) out.groups.add(e.targetGroup);
   }
-  return { locations: [...out.locations], tags: [...out.tags], offers: [...out.offers] };
+  return { locations: [...out.locations], tags: [...out.tags], offers: [...out.offers], groups: [...out.groups] };
 }
 
 /** Active rules in resolution order: priority high to low, then oldest (lowest UUIDv7) first. */
@@ -205,7 +211,8 @@ export function resolveTargets(
         out[field] = { value: target.overrides[field], source: "override", ruleId: null };
         continue;
       }
-      const sets = (e: Effect) => e.targetRef === target.ref && effectType(e.type).field === field;
+      // Group effects set a group's price only (resolveGroupPrices), never the general one.
+      const sets = (e: Effect) => e.targetRef === target.ref && !e.targetGroup && effectType(e.type).field === field;
       const setting = matching.filter((r) => r.effects.some(sets));
       const winner = setting[0];
       if (!winner) {
@@ -218,6 +225,60 @@ export function resolveTargets(
       out[field] = { value: effectType(effect.type).apply(effect.value, target.defaults[field]), source: "rule", ruleId: winner.id };
     }
     values.set(target.ref, out);
+  }
+  return { values, ties };
+}
+
+/** One (offer, group) pair at an occurrence: the offer's group price and the occurrence's group override. */
+export interface GroupTargetInput {
+  ref: string;
+  group: string;
+  /** The offer's own price for the group; null: none. */
+  groupDefault: number | null;
+  /** A group override at this occurrence. */
+  override?: number;
+}
+
+export const groupKey = (ref: string, group: string) => `${ref}|${group}`;
+
+/** The (offer, group) pairs that rules give a group price to. */
+export function groupRuleTargets(rules: readonly RuleDef[]): { ref: string; group: string }[] {
+  const out = new Map<string, { ref: string; group: string }>();
+  for (const r of rules) {
+    for (const e of r.effects) if (e.targetRef && e.targetGroup) out.set(groupKey(e.targetRef, e.targetGroup), { ref: e.targetRef, group: e.targetGroup });
+  }
+  return [...out.values()];
+}
+
+/**
+ * Resolves group prices at one occurrence (docs/user-groups.md, "Price resolution"), per
+ * (offer, group): group override → the highest-priority matching rule with a price effect for
+ * that offer and group → the offer's group price. Pairs where none applies are left out: the
+ * group pays the general price. `rules` must be ordered, as for resolve().
+ */
+export function resolveGroupPrices(
+  inputs: readonly GroupTargetInput[], startLocal: LocalDateTime, rules: readonly RuleDef[],
+): { values: Map<string, Resolved<number>>; ties: Tie[] } {
+  const matching = rules.filter((r) => r.effects.some((e) => !!e.targetGroup) && matches(r.conditions, startLocal));
+  const values = new Map<string, Resolved<number>>();
+  const ties: Tie[] = [];
+  for (const t of inputs) {
+    const key = groupKey(t.ref, t.group);
+    if (t.override !== undefined) {
+      values.set(key, { value: t.override, source: "override", ruleId: null });
+      continue;
+    }
+    const sets = (e: Effect) => e.targetRef === t.ref && e.targetGroup === t.group && effectType(e.type).field === "price";
+    const setting = matching.filter((r) => r.effects.some(sets));
+    const winner = setting[0];
+    if (winner) {
+      const tied = setting.filter((r) => r.priority === winner.priority);
+      if (tied.length > 1) ties.push({ field: "price", targetRef: t.ref, group: t.group, ruleIds: tied.map((r) => r.id) });
+      const effect = winner.effects.find(sets)!;
+      values.set(key, { value: effectType(effect.type).apply(effect.value, t.groupDefault) as number, source: "rule", ruleId: winner.id });
+      continue;
+    }
+    if (t.groupDefault !== null) values.set(key, { value: t.groupDefault, source: "default", ruleId: null });
   }
   return { values, ties };
 }

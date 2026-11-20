@@ -605,6 +605,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/offers/{id}/occurrences/{occurrenceId}/groups/{groupId}/override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set one user group's price for the offer at one occurrence; it wins over rules and the offer's group price */
+        put: operations["setGroupOverride"];
+        post?: never;
+        /** Remove one user group's override at one occurrence; its price comes from rules, its group price or the general price again */
+        delete: operations["clearGroupOverride"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/user-groups": {
         parameters: {
             query?: never;
@@ -8098,6 +8116,11 @@ export interface operations {
                                 type: "price";
                                 /** Format: uuid */
                                 targetRef: string;
+                                /**
+                                 * Format: uuid
+                                 * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                                 */
+                                targetGroup?: string | null;
                                 value: {
                                     /** @description Minor units (øre), VAT included */
                                     amount: number;
@@ -8287,6 +8310,11 @@ export interface operations {
                         type: "price";
                         /** Format: uuid */
                         targetRef: string;
+                        /**
+                         * Format: uuid
+                         * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                         */
+                        targetGroup?: string | null;
                         value: {
                             /** @description Minor units (øre), VAT included */
                             amount: number;
@@ -8376,6 +8404,11 @@ export interface operations {
                                 type: "price";
                                 /** Format: uuid */
                                 targetRef: string;
+                                /**
+                                 * Format: uuid
+                                 * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                                 */
+                                targetGroup?: string | null;
                                 value: {
                                     /** @description Minor units (øre), VAT included */
                                     amount: number;
@@ -8418,6 +8451,11 @@ export interface operations {
                                      * @description The offer of a price or offerAvailable field; null otherwise
                                      */
                                     targetRef: string | null;
+                                    /**
+                                     * Format: uuid
+                                     * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                     */
+                                    group: string | null;
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -8444,6 +8482,11 @@ export interface operations {
                                  * @description The offer of a price or offerAvailable field; null otherwise
                                  */
                                 targetRef: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                 */
+                                group: string | null;
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -8527,6 +8570,11 @@ export interface operations {
                                 type: "price";
                                 /** Format: uuid */
                                 targetRef: string;
+                                /**
+                                 * Format: uuid
+                                 * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                                 */
+                                targetGroup?: string | null;
                                 value: {
                                     /** @description Minor units (øre), VAT included */
                                     amount: number;
@@ -8569,6 +8617,11 @@ export interface operations {
                                      * @description The offer of a price or offerAvailable field; null otherwise
                                      */
                                     targetRef: string | null;
+                                    /**
+                                     * Format: uuid
+                                     * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                     */
+                                    group: string | null;
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -8595,6 +8648,11 @@ export interface operations {
                                  * @description The offer of a price or offerAvailable field; null otherwise
                                  */
                                 targetRef: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                 */
+                                group: string | null;
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -8874,6 +8932,11 @@ export interface operations {
                             type: "price";
                             /** Format: uuid */
                             targetRef: string;
+                            /**
+                             * Format: uuid
+                             * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                             */
+                            targetGroup?: string | null;
                             value: {
                                 /** @description Minor units (øre), VAT included */
                                 amount: number;
@@ -9075,6 +9138,11 @@ export interface operations {
                                 type: "price";
                                 /** Format: uuid */
                                 targetRef: string;
+                                /**
+                                 * Format: uuid
+                                 * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                                 */
+                                targetGroup?: string | null;
                                 value: {
                                     /** @description Minor units (øre), VAT included */
                                     amount: number;
@@ -9117,6 +9185,11 @@ export interface operations {
                                      * @description The offer of a price or offerAvailable field; null otherwise
                                      */
                                     targetRef: string | null;
+                                    /**
+                                     * Format: uuid
+                                     * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                     */
+                                    group: string | null;
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -9143,6 +9216,11 @@ export interface operations {
                                  * @description The offer of a price or offerAvailable field; null otherwise
                                  */
                                 targetRef: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                 */
+                                group: string | null;
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -9409,6 +9487,11 @@ export interface operations {
                         type: "price";
                         /** Format: uuid */
                         targetRef: string;
+                        /**
+                         * Format: uuid
+                         * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                         */
+                        targetGroup?: string | null;
                         value: {
                             /** @description Minor units (øre), VAT included */
                             amount: number;
@@ -9498,6 +9581,11 @@ export interface operations {
                                 type: "price";
                                 /** Format: uuid */
                                 targetRef: string;
+                                /**
+                                 * Format: uuid
+                                 * @description A user group: the effect sets that group's price only. Null or left out: everyone's price
+                                 */
+                                targetGroup?: string | null;
                                 value: {
                                     /** @description Minor units (øre), VAT included */
                                     amount: number;
@@ -9540,6 +9628,11 @@ export interface operations {
                                      * @description The offer of a price or offerAvailable field; null otherwise
                                      */
                                     targetRef: string | null;
+                                    /**
+                                     * Format: uuid
+                                     * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                     */
+                                    group: string | null;
                                     from: {
                                         value: unknown;
                                         source: "default" | "rule" | "override";
@@ -9566,6 +9659,11 @@ export interface operations {
                                  * @description The offer of a price or offerAvailable field; null otherwise
                                  */
                                 targetRef: string | null;
+                                /**
+                                 * Format: uuid
+                                 * @description The user group of a group price; null otherwise. A group without a price of its own shows the general price
+                                 */
+                                group: string | null;
                                 /** @description The winner first */
                                 ruleIds: string[];
                             }[];
@@ -11939,6 +12037,13 @@ export interface operations {
                             channelsWithoutSku: string[];
                             /** @description User groups that may buy the offer; empty: everyone the event admits */
                             accessGroupIds: string[];
+                            /** @description The offer's own prices per user group; groups not listed pay the general price */
+                            groupPrices: {
+                                /** Format: uuid */
+                                groupId: string;
+                                /** @description Minor units (øre), VAT included */
+                                amount: number;
+                            }[];
                             translations: {
                                 [key: string]: {
                                     name: string;
@@ -12083,6 +12188,13 @@ export interface operations {
                     offSaleAt?: string | null;
                     /** @description Only these user groups may buy the offer; empty: everyone the event admits. Replaces the list */
                     accessGroupIds?: string[];
+                    /** @description The offer's own price per user group; groups not listed pay the general price. Replaces the list */
+                    groupPrices?: {
+                        /** Format: uuid */
+                        groupId: string;
+                        /** @description Minor units (øre), VAT included */
+                        amount: number;
+                    }[];
                     /** @description Left out: every active channel */
                     channelIds?: string[];
                     translations: {
@@ -12139,6 +12251,13 @@ export interface operations {
                             channelsWithoutSku: string[];
                             /** @description User groups that may buy the offer; empty: everyone the event admits */
                             accessGroupIds: string[];
+                            /** @description The offer's own prices per user group; groups not listed pay the general price */
+                            groupPrices: {
+                                /** Format: uuid */
+                                groupId: string;
+                                /** @description Minor units (øre), VAT included */
+                                amount: number;
+                            }[];
                             translations: {
                                 [key: string]: {
                                     name: string;
@@ -12407,6 +12526,13 @@ export interface operations {
                             channelsWithoutSku: string[];
                             /** @description User groups that may buy the offer; empty: everyone the event admits */
                             accessGroupIds: string[];
+                            /** @description The offer's own prices per user group; groups not listed pay the general price */
+                            groupPrices: {
+                                /** Format: uuid */
+                                groupId: string;
+                                /** @description Minor units (øre), VAT included */
+                                amount: number;
+                            }[];
                             translations: {
                                 [key: string]: {
                                     name: string;
@@ -12666,6 +12792,13 @@ export interface operations {
                         channelsWithoutSku: string[];
                         /** @description User groups that may buy the offer; empty: everyone the event admits */
                         accessGroupIds: string[];
+                        /** @description The offer's own prices per user group; groups not listed pay the general price */
+                        groupPrices: {
+                            /** Format: uuid */
+                            groupId: string;
+                            /** @description Minor units (øre), VAT included */
+                            amount: number;
+                        }[];
                         translations: {
                             [key: string]: {
                                 name: string;
@@ -13010,6 +13143,13 @@ export interface operations {
                     channelIds?: string[];
                     /** @description Only these user groups may buy the offer; empty: everyone the event admits. Replaces the list */
                     accessGroupIds?: string[];
+                    /** @description The offer's own price per user group; groups not listed pay the general price. Replaces the list */
+                    groupPrices?: {
+                        /** Format: uuid */
+                        groupId: string;
+                        /** @description Minor units (øre), VAT included */
+                        amount: number;
+                    }[];
                     /** @description Per locale: replaces the translation, or null removes it */
                     translations?: {
                         [key: string]: null | {
@@ -13065,6 +13205,13 @@ export interface operations {
                             channelsWithoutSku: string[];
                             /** @description User groups that may buy the offer; empty: everyone the event admits */
                             accessGroupIds: string[];
+                            /** @description The offer's own prices per user group; groups not listed pay the general price */
+                            groupPrices: {
+                                /** Format: uuid */
+                                groupId: string;
+                                /** @description Minor units (øre), VAT included */
+                                amount: number;
+                            }[];
                             translations: {
                                 [key: string]: {
                                     name: string;
@@ -13275,6 +13422,8 @@ export interface operations {
                 to?: string;
                 cursor?: string;
                 limit: number;
+                /** @description Also show what this user group pays in each cell (docs/user-groups.md) */
+                groupId?: string;
             };
             header?: never;
             path: {
@@ -13328,6 +13477,13 @@ export interface operations {
                             channelsWithoutSku: string[];
                             /** @description User groups that may buy the offer; empty: everyone the event admits */
                             accessGroupIds: string[];
+                            /** @description The offer's own prices per user group; groups not listed pay the general price */
+                            groupPrices: {
+                                /** Format: uuid */
+                                groupId: string;
+                                /** @description Minor units (øre), VAT included */
+                                amount: number;
+                            }[];
                             translations: {
                                 [key: string]: {
                                     name: string;
@@ -13369,6 +13525,22 @@ export interface operations {
                                     amount: number | null;
                                     /** @description false: off sale here; null inherits */
                                     available: boolean | null;
+                                };
+                                /** @description With groupId: what that user group pays (docs/user-groups.md) */
+                                group?: {
+                                    /** Format: uuid */
+                                    groupId: string;
+                                    /** @description What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source */
+                                    price: {
+                                        value: number;
+                                        source: "default" | "rule" | "override";
+                                        /** Format: uuid */
+                                        ruleId: string | null;
+                                    };
+                                    /** @description No group setting applies here, so the group pays the general price */
+                                    inherited: boolean;
+                                    /** @description The group override here, if any */
+                                    override: number | null;
                                 };
                             }[];
                         }[];
@@ -13468,6 +13640,29 @@ export interface operations {
                     };
                 };
             };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
         };
     };
     setOfferOverride: {
@@ -13517,6 +13712,22 @@ export interface operations {
                             amount: number | null;
                             /** @description false: off sale here; null inherits */
                             available: boolean | null;
+                        };
+                        /** @description With groupId: what that user group pays (docs/user-groups.md) */
+                        group?: {
+                            /** Format: uuid */
+                            groupId: string;
+                            /** @description What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source */
+                            price: {
+                                value: number;
+                                source: "default" | "rule" | "override";
+                                /** Format: uuid */
+                                ruleId: string | null;
+                            };
+                            /** @description No group setting applies here, so the group pays the general price */
+                            inherited: boolean;
+                            /** @description The group override here, if any */
+                            override: number | null;
                         };
                     };
                 };
@@ -13746,6 +13957,473 @@ export interface operations {
                             /** @description false: off sale here; null inherits */
                             available: boolean | null;
                         };
+                        /** @description With groupId: what that user group pays (docs/user-groups.md) */
+                        group?: {
+                            /** Format: uuid */
+                            groupId: string;
+                            /** @description What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source */
+                            price: {
+                                value: number;
+                                source: "default" | "rule" | "override";
+                                /** Format: uuid */
+                                ruleId: string | null;
+                            };
+                            /** @description No group setting applies here, so the group pays the general price */
+                            inherited: boolean;
+                            /** @description The group override here, if any */
+                            override: number | null;
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    setGroupOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                occurrenceId: string;
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Minor units, VAT included */
+                    amount: number;
+                };
+            };
+        };
+        responses: {
+            /** @description With groupId: what that user group pays (docs/user-groups.md) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        groupId: string;
+                        /** @description What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source */
+                        price: {
+                            value: number;
+                            source: "default" | "rule" | "override";
+                            /** Format: uuid */
+                            ruleId: string | null;
+                        };
+                        /** @description No group setting applies here, so the group pays the general price */
+                        inherited: boolean;
+                        /** @description The group override here, if any */
+                        override: number | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    clearGroupOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                occurrenceId: string;
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description With groupId: what that user group pays (docs/user-groups.md) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        groupId: string;
+                        /** @description What the group pays here. Sources: override (a group override), rule (a rule's group effect), default (the offer's group price); when inherited, the general price and its source */
+                        price: {
+                            value: number;
+                            source: "default" | "rule" | "override";
+                            /** Format: uuid */
+                            ruleId: string | null;
+                        };
+                        /** @description No group setting applies here, so the group pays the general price */
+                        inherited: boolean;
+                        /** @description The group override here, if any */
+                        override: number | null;
                     };
                 };
             };

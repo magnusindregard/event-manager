@@ -115,6 +115,14 @@ const fixtures: Record<string, Fixture> = {
     c.query(`insert into catalog.event_access_group (tenant_id, event_id, group_id) values ($1, $2, $3)`, [t, ids.catalogEvent, ids.group]).then(() => {}),
   "offers.offer_access_group": (c, t, ids) =>
     c.query(`insert into offers.offer_access_group (tenant_id, offer_id, group_id) values ($1, $2, $3)`, [t, ids.offer, ids.group]).then(() => {}),
+  "offers.offer_group_price": (c, t, ids) =>
+    c.query(`insert into offers.offer_group_price (tenant_id, offer_id, group_id, amount) values ($1, $2, $3, 35000)`, [t, ids.offer, ids.group]).then(() => {}),
+  "offers.offer_group_override": (c, t, ids) =>
+    c.query(`insert into offers.offer_group_override (tenant_id, offer_id, occurrence_id, group_id, amount) values ($1, $2, $3, $4, 30000)`,
+      [t, ids.offer, ids.occurrence, ids.group]).then(() => {}),
+  "offers.effective_group_price": (c, t, ids) =>
+    c.query(`insert into offers.effective_group_price (tenant_id, occurrence_id, offer_id, group_id, amount, amount_source) values ($1, $2, $3, $4, 35000, 'default')`,
+      [t, ids.occurrence, ids.offer, ids.group]).then(() => {}),
   "sales.reservation": (c, t, ids) =>
     c.query(`insert into sales.reservation (id, tenant_id, channel_id, expires_at, locale) values ($1, $2, $3, now() + interval '15 minutes', 'nb')`,
       [ids.reservation, t, ids.channel]).then(() => {}),

@@ -1,7 +1,8 @@
 import type { EffectiveField, LocalDateTime, TargetedField } from "@event-manager/db";
 import { effectType } from "./effects.js";
 import {
-  type FieldValues, FIELDS, matches, ordered, type Resolved, resolve, resolveTargets, type RuleDef, sameResolved, TARGETED_FIELDS, type TargetValues,
+  type FieldValues, FIELDS, groupKey, groupRuleTargets, matches, ordered, type Resolved, resolve, resolveGroupPrices, resolveTargets, type RuleDef, sameResolved,
+  TARGETED_FIELDS, type TargetValues,
 } from "./engine.js";
 
 // Rule preview (docs/mvp.md, "Rule editor with live preview"): resolve an event's
@@ -16,12 +17,16 @@ export interface PreviewOccurrence {
   overrides: Partial<FieldValues>;
   /** Overrides of targeted fields, per target (offer id). */
   targetOverrides?: Record<string, Partial<TargetValues>>;
+  /** Group overrides, per groupKey(offer, group). */
+  groupOverrides?: Record<string, number>;
 }
 
 export interface FieldChange {
   field: EffectiveField | TargetedField;
   /** The offer of a price or offerAvailable change; null otherwise. */
   targetRef: string | null;
+  /** The user group of a group price change; null otherwise. A group without a price of its own shows the general price. */
+  group: string | null;
   from: Resolved;
   to: Resolved;
 }
@@ -39,13 +44,15 @@ export interface RulePreview {
   };
   /** At most 200 items; counts are exact. */
   changes: { occurrenceId: string; startUtc: Date; fields: FieldChange[] }[];
-  conflicts: { occurrenceId: string; startUtc: Date; field: EffectiveField | TargetedField; targetRef: string | null; ruleIds: string[] }[];
+  conflicts: { occurrenceId: string; startUtc: Date; field: EffectiveField | TargetedField; targetRef: string | null; group: string | null; ruleIds: string[] }[];
 }
 
 export interface PreviewInput {
   defaults: FieldValues;
   /** Targets of targeted fields (the event's offers) with their defaults. */
   targets?: readonly { ref: string; defaults: TargetValues }[];
+  /** The offers' own group prices (docs/user-groups.md). */
+  groupTargets?: readonly { ref: string; group: string; groupDefault: number }[];
   occurrences: readonly PreviewOccurrence[];
   before: readonly RuleDef[];
   after: readonly RuleDef[];
@@ -59,8 +66,10 @@ export function previewRules(input: PreviewInput): RulePreview {
   const before = ordered(input.before);
   const after = ordered(input.after);
   const rule = input.after.find((r) => r.id === input.ruleId) ?? input.before.find((r) => r.id === input.ruleId);
-  const ruleEffects = (rule?.effects ?? []).map((e) => ({ field: effectType(e.type).field, targetRef: e.targetRef }));
+  const ruleEffects = (rule?.effects ?? []).map((e) => ({ field: effectType(e.type).field, targetRef: e.targetRef, targetGroup: e.targetGroup }));
   const targets = input.targets ?? [];
+  const groupDefaults = new Map((input.groupTargets ?? []).map((g) => [groupKey(g.ref, g.group), g.groupDefault]));
+  const rulePairs = groupRuleTargets([...input.before, ...input.after]);
   const out: RulePreview = { counts: { matched: 0, changed: 0, overridden: 0, conflicts: 0 }, changes: [], conflicts: [] };
 
   for (const o of input.occurrences) {
@@ -68,12 +77,14 @@ export function previewRules(input: PreviewInput): RulePreview {
     if (rule && matches(rule.conditions, o.startLocal)) {
       out.counts.matched++;
       const overridden = ruleEffects.some((e) =>
-        e.targetRef === null ? e.field in o.overrides : e.field in (o.targetOverrides?.[e.targetRef] ?? {}));
+        e.targetRef === null ? e.field in o.overrides
+          : e.targetGroup ? (o.groupOverrides?.[groupKey(e.targetRef, e.targetGroup)] !== undefined)
+          : e.field in (o.targetOverrides?.[e.targetRef] ?? {}));
       if (overridden) out.counts.overridden++;
     }
     const a = resolve(base, before).values;
     const b = resolve(base, after);
-    const fields: FieldChange[] = FIELDS.filter((f) => !sameResolved(a[f], b.values[f])).map((f) => ({ field: f, targetRef: null, from: a[f], to: b.values[f] }));
+    const fields: FieldChange[] = FIELDS.filter((f) => !sameResolved(a[f], b.values[f])).map((f) => ({ field: f, targetRef: null, group: null, from: a[f], to: b.values[f] }));
     const ties = b.ties.filter((t) => t.ruleIds.includes(input.ruleId));
 
     if (targets.length) {
@@ -84,10 +95,34 @@ export function previewRules(input: PreviewInput): RulePreview {
         for (const f of TARGETED_FIELDS) {
           const from = ta.get(t.ref)![f];
           const to = tb.values.get(t.ref)![f];
-          if (!sameResolved(from, to)) fields.push({ field: f, targetRef: t.ref, from, to });
+          if (!sameResolved(from, to)) fields.push({ field: f, targetRef: t.ref, group: null, from, to });
         }
       }
       ties.push(...tb.ties.filter((t) => t.ruleIds.includes(input.ruleId)));
+
+      // Group prices: every pair that has a group price, a group override or a group effect in either rule set.
+      const pairs = new Map<string, { ref: string; group: string }>();
+      for (const g of input.groupTargets ?? []) pairs.set(groupKey(g.ref, g.group), g);
+      for (const p of rulePairs) pairs.set(groupKey(p.ref, p.group), p);
+      for (const k of Object.keys(o.groupOverrides ?? {})) {
+        const [ref, group] = k.split("|") as [string, string];
+        pairs.set(k, { ref, group });
+      }
+      if (pairs.size) {
+        const gInputs = [...pairs.entries()].filter(([, p]) => ta.has(p.ref)).map(([k, p]) => ({
+          ref: p.ref, group: p.group, groupDefault: groupDefaults.get(k) ?? null, override: o.groupOverrides?.[k],
+        }));
+        const ga = resolveGroupPrices(gInputs, o.startLocal, before).values;
+        const gb = resolveGroupPrices(gInputs, o.startLocal, after);
+        for (const g of gInputs) {
+          const k = groupKey(g.ref, g.group);
+          // Without a price of its own the group pays the general price.
+          const from = ga.get(k) ?? ta.get(g.ref)!.price;
+          const to = gb.values.get(k) ?? tb.values.get(g.ref)!.price;
+          if (!sameResolved(from, to)) fields.push({ field: "price", targetRef: g.ref, group: g.group, from, to });
+        }
+        ties.push(...gb.ties.filter((t) => t.ruleIds.includes(input.ruleId)));
+      }
     }
 
     if (fields.length) {
@@ -97,7 +132,7 @@ export function previewRules(input: PreviewInput): RulePreview {
     if (ties.length) {
       out.counts.conflicts++;
       for (const t of ties) {
-        if (out.conflicts.length < LIST_CAP) out.conflicts.push({ occurrenceId: o.id, startUtc: o.startUtc, field: t.field, targetRef: t.targetRef, ruleIds: t.ruleIds });
+        if (out.conflicts.length < LIST_CAP) out.conflicts.push({ occurrenceId: o.id, startUtc: o.startUtc, field: t.field, targetRef: t.targetRef, group: t.group ?? null, ruleIds: t.ruleIds });
       }
     }
   }
