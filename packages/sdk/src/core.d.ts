@@ -1050,6 +1050,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hold places for all lines or none, priced and frozen in snapshots. With confirm: true and externalOrderRef, also confirm (POS walk-up)
+         * @description Reasons: sold_out (with occurrenceId and placesLeft), not_on_sale, offer_unavailable, channel_not_allowed, no_sku, quantity_out_of_range
+         */
+        post: operations["createReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reservations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The reservation as it is now: the connector's source of truth before charging */
+        get: operations["getReservation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reservations/{id}/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hold the places longer, at most 60 minutes after the reservation was made. Revalidates the lines
+         * @description Reasons: expired, extend_limit, and the reserve reasons for a line no longer on sale
+         */
+        post: operations["extendReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reservations/{id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take the places and issue the tickets, with QR payloads and ticket page URLs. Charges what the snapshot says
+         * @description After expiry the places are taken again if still free. Reasons: expired_sold_out (refund the buyer), schedule_changed (the occurrence moved while held; refund and reserve again), already_cancelled, already_confirmed (another order)
+         */
+        post: operations["confirmReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reservations/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release a held reservation's places. Cancelling confirmed tickets is not supported yet
+         * @description Reasons: already_cancelled; conflict for a confirmed reservation
+         */
+        post: operations["cancelReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -20076,6 +20173,1363 @@ export interface operations {
             };
             /** @description Default Response */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    createReservation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. Makes the request safe to retry for 24 hours */
+                "idempotency-key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Each offer once per occurrence. Lines may span occurrences */
+                    lines: {
+                        /** Format: uuid */
+                        occurrenceId: string;
+                        /** Format: uuid */
+                        offerId: string;
+                        quantity: number;
+                    }[];
+                    externalRef?: string | null;
+                    locale?: string;
+                    /** @description Confirm in the same call (a POS walk-up sale); needs externalOrderRef */
+                    confirm?: boolean;
+                    externalOrderRef?: string;
+                    buyer?: null | {
+                        name?: string | null;
+                        email?: string | null;
+                        locale?: string | null;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        channelId: string;
+                        /** @description held past expiresAt reads as expired. An expired reservation can still be confirmed while its places are free */
+                        status: "held" | "confirmed" | "cancelled" | "expired";
+                        /**
+                         * Format: date-time
+                         * @description While held: when the places are released
+                         */
+                        expiresAt: string;
+                        /**
+                         * Format: date-time
+                         * @description The latest expiresAt that extend can reach
+                         */
+                        extendLimitAt: string;
+                        externalRef: string | null;
+                        externalOrderRef: string | null;
+                        /** @description Language of the line names */
+                        locale: string;
+                        buyer: null | {
+                            name: string | null;
+                            email: string | null;
+                            locale: string | null;
+                        };
+                        lines: {
+                            /** Format: uuid */
+                            id: string;
+                            lineNo: number;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            offerCode: string;
+                            quantity: number;
+                            placesPerUnit: number;
+                            /** @description Minor units (øre), VAT included, frozen at reserve time */
+                            unitPrice: number;
+                            /** @description unitPrice × quantity */
+                            amount: number;
+                            /** @description ISO 4217, e.g. NOK */
+                            currency: string;
+                            vatClassCode: string;
+                            vatRatePct: number;
+                            /** @description The channel's product for this line */
+                            externalSku: string;
+                            /** @description Line name for the receipt, e.g. "Adult – Hamlet, Sat 13 Feb 19:30, Main stage" */
+                            name: string;
+                            /** Format: date-time */
+                            occurrenceStartUtc: string;
+                            timezone: string;
+                            locationName: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            signature: string | null;
+                        }[];
+                        total: {
+                            /** @description Minor units, VAT included */
+                            amount: number;
+                            currency: string;
+                        };
+                        /** @description Once confirmed: one per unit, in line order */
+                        tickets: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            lineId: string;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            status: "valid" | "cancelled";
+                            /** Format: uuid */
+                            admissionId: string;
+                            /** @description People the ticket admits: the offer's places per unit */
+                            partySize: number;
+                            /** @description The ticket page with its QR code; null once cancelled */
+                            url: string | null;
+                            /** @description The QR code's payload (a signed admission token); null once cancelled */
+                            qr: string | null;
+                        }[];
+                        /** Format: date-time */
+                        confirmedAt: string | null;
+                        /** Format: date-time */
+                        cancelledAt: string | null;
+                        version: number;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        signature: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    getReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        channelId: string;
+                        /** @description held past expiresAt reads as expired. An expired reservation can still be confirmed while its places are free */
+                        status: "held" | "confirmed" | "cancelled" | "expired";
+                        /**
+                         * Format: date-time
+                         * @description While held: when the places are released
+                         */
+                        expiresAt: string;
+                        /**
+                         * Format: date-time
+                         * @description The latest expiresAt that extend can reach
+                         */
+                        extendLimitAt: string;
+                        externalRef: string | null;
+                        externalOrderRef: string | null;
+                        /** @description Language of the line names */
+                        locale: string;
+                        buyer: null | {
+                            name: string | null;
+                            email: string | null;
+                            locale: string | null;
+                        };
+                        lines: {
+                            /** Format: uuid */
+                            id: string;
+                            lineNo: number;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            offerCode: string;
+                            quantity: number;
+                            placesPerUnit: number;
+                            /** @description Minor units (øre), VAT included, frozen at reserve time */
+                            unitPrice: number;
+                            /** @description unitPrice × quantity */
+                            amount: number;
+                            /** @description ISO 4217, e.g. NOK */
+                            currency: string;
+                            vatClassCode: string;
+                            vatRatePct: number;
+                            /** @description The channel's product for this line */
+                            externalSku: string;
+                            /** @description Line name for the receipt, e.g. "Adult – Hamlet, Sat 13 Feb 19:30, Main stage" */
+                            name: string;
+                            /** Format: date-time */
+                            occurrenceStartUtc: string;
+                            timezone: string;
+                            locationName: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            signature: string | null;
+                        }[];
+                        total: {
+                            /** @description Minor units, VAT included */
+                            amount: number;
+                            currency: string;
+                        };
+                        /** @description Once confirmed: one per unit, in line order */
+                        tickets: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            lineId: string;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            status: "valid" | "cancelled";
+                            /** Format: uuid */
+                            admissionId: string;
+                            /** @description People the ticket admits: the offer's places per unit */
+                            partySize: number;
+                            /** @description The ticket page with its QR code; null once cancelled */
+                            url: string | null;
+                            /** @description The QR code's payload (a signed admission token); null once cancelled */
+                            qr: string | null;
+                        }[];
+                        /** Format: date-time */
+                        confirmedAt: string | null;
+                        /** Format: date-time */
+                        cancelledAt: string | null;
+                        version: number;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        signature: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    extendReservation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. Makes the request safe to retry for 24 hours */
+                "idempotency-key"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description From now; default the channel's hold time. Capped at extendLimitAt */
+                    minutes?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        channelId: string;
+                        /** @description held past expiresAt reads as expired. An expired reservation can still be confirmed while its places are free */
+                        status: "held" | "confirmed" | "cancelled" | "expired";
+                        /**
+                         * Format: date-time
+                         * @description While held: when the places are released
+                         */
+                        expiresAt: string;
+                        /**
+                         * Format: date-time
+                         * @description The latest expiresAt that extend can reach
+                         */
+                        extendLimitAt: string;
+                        externalRef: string | null;
+                        externalOrderRef: string | null;
+                        /** @description Language of the line names */
+                        locale: string;
+                        buyer: null | {
+                            name: string | null;
+                            email: string | null;
+                            locale: string | null;
+                        };
+                        lines: {
+                            /** Format: uuid */
+                            id: string;
+                            lineNo: number;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            offerCode: string;
+                            quantity: number;
+                            placesPerUnit: number;
+                            /** @description Minor units (øre), VAT included, frozen at reserve time */
+                            unitPrice: number;
+                            /** @description unitPrice × quantity */
+                            amount: number;
+                            /** @description ISO 4217, e.g. NOK */
+                            currency: string;
+                            vatClassCode: string;
+                            vatRatePct: number;
+                            /** @description The channel's product for this line */
+                            externalSku: string;
+                            /** @description Line name for the receipt, e.g. "Adult – Hamlet, Sat 13 Feb 19:30, Main stage" */
+                            name: string;
+                            /** Format: date-time */
+                            occurrenceStartUtc: string;
+                            timezone: string;
+                            locationName: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            signature: string | null;
+                        }[];
+                        total: {
+                            /** @description Minor units, VAT included */
+                            amount: number;
+                            currency: string;
+                        };
+                        /** @description Once confirmed: one per unit, in line order */
+                        tickets: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            lineId: string;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            status: "valid" | "cancelled";
+                            /** Format: uuid */
+                            admissionId: string;
+                            /** @description People the ticket admits: the offer's places per unit */
+                            partySize: number;
+                            /** @description The ticket page with its QR code; null once cancelled */
+                            url: string | null;
+                            /** @description The QR code's payload (a signed admission token); null once cancelled */
+                            qr: string | null;
+                        }[];
+                        /** Format: date-time */
+                        confirmedAt: string | null;
+                        /** Format: date-time */
+                        cancelledAt: string | null;
+                        version: number;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        signature: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    confirmReservation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. Makes the request safe to retry for 24 hours */
+                "idempotency-key"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    externalOrderRef: string;
+                    buyer?: null | {
+                        name?: string | null;
+                        email?: string | null;
+                        locale?: string | null;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        channelId: string;
+                        /** @description held past expiresAt reads as expired. An expired reservation can still be confirmed while its places are free */
+                        status: "held" | "confirmed" | "cancelled" | "expired";
+                        /**
+                         * Format: date-time
+                         * @description While held: when the places are released
+                         */
+                        expiresAt: string;
+                        /**
+                         * Format: date-time
+                         * @description The latest expiresAt that extend can reach
+                         */
+                        extendLimitAt: string;
+                        externalRef: string | null;
+                        externalOrderRef: string | null;
+                        /** @description Language of the line names */
+                        locale: string;
+                        buyer: null | {
+                            name: string | null;
+                            email: string | null;
+                            locale: string | null;
+                        };
+                        lines: {
+                            /** Format: uuid */
+                            id: string;
+                            lineNo: number;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            offerCode: string;
+                            quantity: number;
+                            placesPerUnit: number;
+                            /** @description Minor units (øre), VAT included, frozen at reserve time */
+                            unitPrice: number;
+                            /** @description unitPrice × quantity */
+                            amount: number;
+                            /** @description ISO 4217, e.g. NOK */
+                            currency: string;
+                            vatClassCode: string;
+                            vatRatePct: number;
+                            /** @description The channel's product for this line */
+                            externalSku: string;
+                            /** @description Line name for the receipt, e.g. "Adult – Hamlet, Sat 13 Feb 19:30, Main stage" */
+                            name: string;
+                            /** Format: date-time */
+                            occurrenceStartUtc: string;
+                            timezone: string;
+                            locationName: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            signature: string | null;
+                        }[];
+                        total: {
+                            /** @description Minor units, VAT included */
+                            amount: number;
+                            currency: string;
+                        };
+                        /** @description Once confirmed: one per unit, in line order */
+                        tickets: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            lineId: string;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            status: "valid" | "cancelled";
+                            /** Format: uuid */
+                            admissionId: string;
+                            /** @description People the ticket admits: the offer's places per unit */
+                            partySize: number;
+                            /** @description The ticket page with its QR code; null once cancelled */
+                            url: string | null;
+                            /** @description The QR code's payload (a signed admission token); null once cancelled */
+                            qr: string | null;
+                        }[];
+                        /** Format: date-time */
+                        confirmedAt: string | null;
+                        /** Format: date-time */
+                        cancelledAt: string | null;
+                        version: number;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        signature: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    cancelReservation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. Makes the request safe to retry for 24 hours */
+                "idempotency-key"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        channelId: string;
+                        /** @description held past expiresAt reads as expired. An expired reservation can still be confirmed while its places are free */
+                        status: "held" | "confirmed" | "cancelled" | "expired";
+                        /**
+                         * Format: date-time
+                         * @description While held: when the places are released
+                         */
+                        expiresAt: string;
+                        /**
+                         * Format: date-time
+                         * @description The latest expiresAt that extend can reach
+                         */
+                        extendLimitAt: string;
+                        externalRef: string | null;
+                        externalOrderRef: string | null;
+                        /** @description Language of the line names */
+                        locale: string;
+                        buyer: null | {
+                            name: string | null;
+                            email: string | null;
+                            locale: string | null;
+                        };
+                        lines: {
+                            /** Format: uuid */
+                            id: string;
+                            lineNo: number;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            offerCode: string;
+                            quantity: number;
+                            placesPerUnit: number;
+                            /** @description Minor units (øre), VAT included, frozen at reserve time */
+                            unitPrice: number;
+                            /** @description unitPrice × quantity */
+                            amount: number;
+                            /** @description ISO 4217, e.g. NOK */
+                            currency: string;
+                            vatClassCode: string;
+                            vatRatePct: number;
+                            /** @description The channel's product for this line */
+                            externalSku: string;
+                            /** @description Line name for the receipt, e.g. "Adult – Hamlet, Sat 13 Feb 19:30, Main stage" */
+                            name: string;
+                            /** Format: date-time */
+                            occurrenceStartUtc: string;
+                            timezone: string;
+                            locationName: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            signature: string | null;
+                        }[];
+                        total: {
+                            /** @description Minor units, VAT included */
+                            amount: number;
+                            currency: string;
+                        };
+                        /** @description Once confirmed: one per unit, in line order */
+                        tickets: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            lineId: string;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            status: "valid" | "cancelled";
+                            /** Format: uuid */
+                            admissionId: string;
+                            /** @description People the ticket admits: the offer's places per unit */
+                            partySize: number;
+                            /** @description The ticket page with its QR code; null once cancelled */
+                            url: string | null;
+                            /** @description The QR code's payload (a signed admission token); null once cancelled */
+                            qr: string | null;
+                        }[];
+                        /** Format: date-time */
+                        confirmedAt: string | null;
+                        /** Format: date-time */
+                        cancelledAt: string | null;
+                        version: number;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        signature: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            428: {
                 headers: {
                     [name: string]: unknown;
                 };

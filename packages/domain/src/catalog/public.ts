@@ -88,13 +88,13 @@ export interface PublicAvailability {
   closesAt: string;
 }
 
-/** Ticketed occurrences, channel callers only. */
+/** Ticketed occurrences. */
 export interface PublicTicketAvailability {
   status: TicketAvailabilityStatus;
   opensAt: string | null;
   closesAt: string;
-  /** Null without a limit. */
-  placesLeft: number | null;
+  /** Channel callers only; null without a limit. */
+  placesLeft?: number | null;
 }
 
 export interface PublicOccurrence {
@@ -107,7 +107,7 @@ export interface PublicOccurrence {
   location: PublicLocationRef | null;
   tags: PublicTag[];
   admission: Admission;
-  /** Registration occurrences; ticketed occurrences for channel callers; null otherwise. */
+  /** Registration and ticketed occurrences; null otherwise. */
   availability: PublicAvailability | PublicTicketAvailability | null;
   /** Ticketed occurrences: the offers available here, in display order, with their prices. Empty otherwise. */
   offers: PublicOffer[];
@@ -281,15 +281,15 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
   }
   const registrationIds = rows.filter((r) => r.admission_mode === "registration").map((r) => r.id);
   const ticketed = rows.filter((r) => r.admission_mode === "tickets");
-  // Channel callers get exact places for ticketed occurrences too.
-  const poolIds = [...registrationIds, ...(c.channelId ? ticketed.map((r) => r.id) : [])];
-  const [events, locs, tags, pools, offers] = await Promise.all([
+  const poolIds = [...registrationIds, ...ticketed.map((r) => r.id)];
+  const [events, locs, tags, pools, offerData] = await Promise.all([
     eventSummaries(tx, c, rows.map((r) => ({ id: r.event_id, slug: r.slug, status: r.status, timezone: r.timezone, external_refs: r.external_refs }))),
     locationRefs(tx, locIds),
     tagRefs(tx, c, tagIds),
     poolIds.length ? inventory.listPools(tx, poolIds) : Promise.resolve(new Map<string, inventory.Pool>()),
-    ticketed.length ? offersFor(tx, c, ticketed) : Promise.resolve(new Map<string, PublicOffer[]>()),
+    ticketed.length ? offersFor(tx, c, ticketed) : Promise.resolve({ byOccurrence: new Map<string, PublicOffer[]>(), smallest: new Map<string, number>() }),
   ]);
+  const { byOccurrence: offers, smallest } = offerData;
   return rows.map((r) => {
     const e = eff.get(r.id) ?? {};
     const url = e.externalUrl?.value ?? null;
@@ -308,7 +308,9 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
     }
     if (r.admission_mode === "tickets") {
       admission = { mode: "tickets" };
-      if (c.channelId) availability = ticketAvailability(offers.get(r.id) ?? [], pools.get(r.id) ?? null);
+      const a = ticketAvailability(offers.get(r.id) ?? [], pools.get(r.id) ?? null, smallest);
+      // Exact places left for channel callers only (docs/registration.md, open question 6).
+      availability = c.channelId ? a : { status: a.status, opensAt: a.opensAt, closesAt: a.closesAt };
     }
     return {
       id: r.id,
@@ -327,11 +329,16 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
 }
 
 /**
- * Pure: a ticketed occurrence's availability for a channel caller. Not on sale while none of
+ * Pure: a ticketed occurrence's availability. Channel callers also get placesLeft. Not on sale while none of
  * its offers is; sold out once no on-sale offer's smallest purchase (places per unit × minimum
  * per reservation) fits in the places left.
  */
-export function ticketAvailability(list: readonly PublicOffer[], pool: Pick<inventory.Pool, "bookableLimit" | "available"> | null): PublicTicketAvailability {
+export function ticketAvailability(
+  list: readonly PublicOffer[], pool: Pick<inventory.Pool, "bookableLimit" | "available"> | null,
+  /** Smallest purchase per offer id, for callers whose offers do not carry the limits. */
+  smallest: ReadonlyMap<string, number> = new Map(),
+): PublicTicketAvailability {
+  const smallestPurchase = (o: PublicOffer) => smallest.get(o.id) ?? (o.placesPerUnit ?? 1) * (o.minPerReservation ?? 1);
   const opens = list.map((o) => o.opensAt);
   const opensAt = opens.length && !opens.includes(null) ? opens.reduce((a, b) => (a! < b! ? a : b)) : null;
   const closesAt = list.length ? list.map((o) => o.closesAt).reduce((a, b) => (a > b ? a : b)) : new Date(0).toISOString();
@@ -341,7 +348,7 @@ export function ticketAvailability(list: readonly PublicOffer[], pool: Pick<inve
   if (!selling.length || !pool) status = "not_on_sale";
   else if (placesLeft === null) status = "available";
   // An offer fits only if its smallest allowed purchase does.
-  else if (!selling.some((o) => (o.placesPerUnit ?? 1) * (o.minPerReservation ?? 1) <= placesLeft)) status = "sold_out";
+  else if (!selling.some((o) => smallestPurchase(o) <= placesLeft)) status = "sold_out";
   else status = placesLeft <= fewLeftThreshold(pool.bookableLimit!) ? "few_left" : "available";
   return { status, opensAt, closesAt, placesLeft };
 }
@@ -351,7 +358,7 @@ export function ticketAvailability(list: readonly PublicOffer[], pool: Pick<inve
  * there (offerAvailable false) and offers whose prices are not resolved yet. Channel callers
  * see only the offers their channel sells, with the channel's SKU and the offer's limits.
  */
-async function offersFor(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Map<string, PublicOffer[]>> {
+async function offersFor(tx: Tx, c: Ctx, rows: OccRow[]): Promise<{ byOccurrence: Map<string, PublicOffer[]>; smallest: Map<string, number> }> {
   const eventIds = [...new Set(rows.map((r) => r.event_id))];
   let offerQuery = tx.selectFrom("offers.offer as o")
     .select(["o.id", "o.event_id", "o.code", "o.sort_order", "o.vat_class_id", "o.places_per_unit", "o.min_per_reservation", "o.max_per_reservation",
@@ -373,6 +380,8 @@ async function offersFor(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Map<string, Pu
       : Promise.resolve([]),
   ]);
   const skuOf = new Map(skus.map((m) => [m.vat_class_id, m.external_sku]));
+  // Places per unit × minimum per reservation: what sold out compares with the places left.
+  const smallest = new Map(offerRows.map((o) => [o.id, o.places_per_unit * o.min_per_reservation]));
   const out = new Map<string, PublicOffer[]>();
   for (const r of rows) {
     const scheduled = r.status !== "cancelled" && r.occ_status === "scheduled";
@@ -395,7 +404,7 @@ async function offersFor(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Map<string, Pu
     }
     out.set(r.id, list);
   }
-  return out;
+  return { byOccurrence: out, smallest };
 }
 
 export interface PublicEventFilter {

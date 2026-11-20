@@ -9,7 +9,7 @@ import { startTestDatabase, type TestDatabase } from "../src/testing.js";
 
 type Ids = {
   tenantA: string; tenantB: string; user: string; event: string;
-  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string; vatClass: string; offer: string; channel: string;
+  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string; vatClass: string; offer: string; channel: string; reservation: string; line: string; ticket: string;
 };
 type Fixture = (c: pg.ClientBase, tenantId: string, ids: Ids) => Promise<void>;
 
@@ -68,9 +68,6 @@ const fixtures: Record<string, Fixture> = {
               values ($1, $2, $3, $4, 'Kari', 'kari@example.com', 'nb', 1, 'confirmed', 'open')`, [ids.registration, t, ids.catalogEvent, ids.occurrence]).then(() => {}),
   "registration.token_key": (c, t) =>
     c.query(`insert into registration.token_key (tenant_id, key) values ($1, decode(repeat('ab', 32), 'hex'))`, [t]).then(() => {}),
-  "admission.admission": (c, t, ids) =>
-    c.query(`insert into admission.admission (id, tenant_id, registration_id, occurrence_id, party_size) values ($1, $2, $3, $4, 1)`,
-      [randomUUID(), t, ids.registration, ids.occurrence]).then(() => {}),
   "registration.guest_invitation": (c, t, ids) =>
     c.query(`insert into registration.guest_invitation (id, tenant_id, event_id, email) values ($1, $2, $3, $4)`,
       [ids.guestInvitation, t, ids.catalogEvent, `guest-${ids.guestInvitation}@example.com`]).then(() => {}),
@@ -112,9 +109,27 @@ const fixtures: Record<string, Fixture> = {
     c.query(`insert into offers.sku_mapping (tenant_id, vat_class_id, channel_id, external_sku) values ($1, $2, $3, 'TICKET-VAT0')`, [t, ids.vatClass, ids.channel]).then(() => {}),
   "offers.offer_channel": (c, t, ids) =>
     c.query(`insert into offers.offer_channel (tenant_id, offer_id, channel_id) values ($1, $2, $3)`, [t, ids.offer, ids.channel]).then(() => {}),
+  "sales.reservation": (c, t, ids) =>
+    c.query(`insert into sales.reservation (id, tenant_id, channel_id, expires_at, locale) values ($1, $2, $3, now() + interval '15 minutes', 'nb')`,
+      [ids.reservation, t, ids.channel]).then(() => {}),
+  "sales.reservation_line": (c, t, ids) =>
+    c.query(`insert into sales.reservation_line (id, tenant_id, reservation_id, line_no, occurrence_id, offer_id, quantity, places_per_unit, offer_code,
+              unit_price, currency, vat_class_code, vat_rate_pct, external_sku, line_name, occurrence_start_utc, timezone)
+              values ($1, $2, $3, 1, $4, $5, 1, 1, 'adult', 45000, 'NOK', 'exempt', 0, 'TICKET-VAT0', 'Voksen – Hamlet', now(), 'Europe/Oslo')`,
+      [ids.line, t, ids.reservation, ids.occurrence, ids.offer]).then(() => {}),
+  "sales.reservation_hold": (c, t, ids) =>
+    c.query(`insert into sales.reservation_hold (tenant_id, reservation_id, occurrence_id, hold_id, places) values ($1, $2, $3, $4, 1)`,
+      [t, ids.reservation, ids.occurrence, randomUUID()]).then(() => {}),
+  "sales.ticket": (c, t, ids) =>
+    c.query(`insert into sales.ticket (id, tenant_id, reservation_id, line_id, occurrence_id, offer_id) values ($1, $2, $3, $4, $5, $6)`,
+      [ids.ticket, t, ids.reservation, ids.line, ids.occurrence, ids.offer]).then(() => {}),
+  // After registrations and tickets: an admission belongs to one of them.
+  "admission.admission": (c, t, ids) =>
+    c.query(`insert into admission.admission (id, tenant_id, registration_id, ticket_id, occurrence_id, party_size) values ($1, $2, $3, null, $5, 1), ($6, $2, null, $4, $5, 1)`,
+      [randomUUID(), t, ids.registration, ids.ticket, ids.occurrence, randomUUID()]).then(() => {}),
 };
 
-const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID(), vatClass: randomUUID(), offer: randomUUID(), channel: randomUUID() });
+const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID(), vatClass: randomUUID(), offer: randomUUID(), channel: randomUUID(), reservation: randomUUID(), line: randomUUID(), ticket: randomUUID() });
 
 let db: TestDatabase;
 let admin: pg.Client;

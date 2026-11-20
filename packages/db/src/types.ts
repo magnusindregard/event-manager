@@ -412,7 +412,9 @@ export interface TokenKeyTable {
 export interface AdmissionTable {
   id: string;
   tenant_id: string;
-  registration_id: string;
+  /** Exactly one of registration_id and ticket_id is set. */
+  registration_id: string | null;
+  ticket_id: string | null;
   occurrence_id: string;
   party_size: number;
   status: Generated<AdmissionStatus>;
@@ -545,6 +547,73 @@ export interface OfferChannelTable {
   channel_id: string;
 }
 
+export type ReservationStatus = "held" | "confirmed" | "cancelled" | "expired";
+export type TicketStatus = "valid" | "cancelled";
+
+export interface ReservationTable {
+  id: string;
+  tenant_id: string;
+  channel_id: string;
+  status: Generated<ReservationStatus>;
+  expires_at: Timestamp;
+  external_ref: string | null;
+  external_order_ref: string | null;
+  locale: string;
+  buyer_name: string | null;
+  buyer_email: string | null;
+  buyer_locale: string | null;
+  confirmed_at: Timestamp | null;
+  cancelled_at: Timestamp | null;
+  expired_at: Timestamp | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface ReservationLineTable {
+  id: string;
+  tenant_id: string;
+  reservation_id: string;
+  line_no: number;
+  occurrence_id: string;
+  offer_id: string;
+  quantity: number;
+  places_per_unit: number;
+  offer_code: string;
+  unit_price: number;
+  currency: string;
+  vat_class_code: string;
+  /** numeric(5,2); pg returns it as a string. */
+  vat_rate_pct: ColumnType<string, string | number, string | number>;
+  external_sku: string;
+  line_name: string;
+  occurrence_start_utc: Timestamp;
+  timezone: string;
+  location_name: string | null;
+}
+
+export interface ReservationHoldTable {
+  tenant_id: string;
+  reservation_id: string;
+  occurrence_id: string;
+  hold_id: string;
+  places: number;
+}
+
+export interface TicketTable {
+  id: string;
+  tenant_id: string;
+  reservation_id: string;
+  line_id: string;
+  occurrence_id: string;
+  offer_id: string;
+  status: Generated<TicketStatus>;
+  token_version: Generated<number>;
+  cancelled_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
 export interface DB {
   "tenancy.tag_vocabulary": TagVocabularyTable;
   "tenancy.tag": TagTable;
@@ -579,6 +648,10 @@ export interface DB {
   "offers.sales_channel": SalesChannelTable;
   "offers.sku_mapping": SkuMappingTable;
   "offers.offer_channel": OfferChannelTable;
+  "sales.reservation": ReservationTable;
+  "sales.reservation_line": ReservationLineTable;
+  "sales.reservation_hold": ReservationHoldTable;
+  "sales.ticket": TicketTable;
   "tenancy.account": AccountTable;
   "tenancy.user": UserTable;
   "tenancy.membership": MembershipTable;

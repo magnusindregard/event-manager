@@ -161,7 +161,7 @@ export interface operations {
                                 mode: "tickets";
                             };
                             availability: null | {
-                                /** @description Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets (channel keys only): sold_out: no on-sale offer's smallest purchase fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added */
+                                /** @description Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets: sold_out: no on-sale offer's smallest purchase fits in the places left (held places count as gone). not_on_sale: no offer is on sale now. New statuses may be added */
                                 status: "available" | "few_left" | "full" | "waitlist" | "closed" | "sold_out" | "not_on_sale";
                                 /**
                                  * Format: date-time
@@ -533,7 +533,7 @@ export interface operations {
                                     mode: "tickets";
                                 };
                                 availability: null | {
-                                    /** @description Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets (channel keys only): sold_out: no on-sale offer's smallest purchase fits in the places left. not_on_sale: no offer is on sale now. New statuses may be added */
+                                    /** @description Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets: sold_out: no on-sale offer's smallest purchase fits in the places left (held places count as gone). not_on_sale: no offer is on sale now. New statuses may be added */
                                     status: "available" | "few_left" | "full" | "waitlist" | "closed" | "sold_out" | "not_on_sale";
                                     /**
                                      * Format: date-time

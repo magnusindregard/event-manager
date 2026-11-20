@@ -105,7 +105,7 @@ export async function listPools(tx: Tx, occurrenceIds: readonly string[]): Promi
 }
 
 const assertQuantity = (quantity: number) => {
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) throw new DomainError("validation_failed", "Quantity must be 1–100", { field: "quantity" });
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100_000) throw new DomainError("validation_failed", "Quantity must be 1–100000", { field: "quantity" });
 };
 
 async function poolFor(tx: Tx, occurrenceId: string): Promise<{ id: string }> {
@@ -177,6 +177,12 @@ export async function endHold(tx: Tx, holdId: string, convert: boolean, now: Dat
     .where("id", "=", hold.pool_id)
     .execute();
   return convert ? claim : true;
+}
+
+/** Moves a hold's expiry, e.g. when a reservation is extended. False if the hold is gone (claimed, released or swept). */
+export async function extendHold(tx: Tx, holdId: string, expiresAt: Date): Promise<boolean> {
+  const res = await tx.updateTable("inventory.hold").set({ expires_at: expiresAt }).where("id", "=", holdId).executeTakeFirst();
+  return res.numUpdatedRows > 0n;
 }
 
 /** Releases holds that expired before now. Returns the occurrences whose places came free. */

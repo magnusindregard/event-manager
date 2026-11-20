@@ -5,6 +5,7 @@ Event management, registration (RSVP) and ticketing platform: events and recurri
 - Roadmap: epics in [issues](https://github.com/magnusindregard/event-manager/issues?q=label%3Aepic)
 - MVP scope: [docs/mvp.md](docs/mvp.md)
 - Registration (guest invitations and RSVP), in progress: [docs/registration.md](docs/registration.md)
+- Ticketing (offers, prices, sales channels and reservations), in progress: [docs/ticketing.md](docs/ticketing.md)
 - Backlog (unscheduled features): [docs/backlog.md](docs/backlog.md)
 - Architecture decisions: [docs/adr](docs/adr/README.md)
 - Implementation plan: [docs/implementation-plan.md](docs/implementation-plan.md)
@@ -55,11 +56,11 @@ The publishable key goes in `?key=` (the edge cache keys on the query string); a
 ```
 apps/api          core API (/v1), Fastify
 apps/public-api   /public/v1, read-only, edge-cached
-apps/attendee     hosted attendee pages (/r, /i, /m) and the attendee API (/attendee/v1)
-apps/worker       graphile-worker: outbox dispatch, invitation provisioning, rule resolution, series horizon, registration emails, retention
+apps/attendee     hosted attendee pages (/r, /i, /m, /t) and the attendee API (/attendee/v1)
+apps/worker       graphile-worker: outbox dispatch, invitation provisioning, rule resolution, series horizon, registration emails, retention, reservation sweeper
 apps/admin        React + shadcn/ui admin
 packages/db       Kysely, migrations, roles and RLS, withTenant
-packages/domain   modules: tenancy, catalog, rules, inventory, registration, admission, outbox
+packages/domain   modules: tenancy, catalog, rules, inventory, offers, registration, sales, admission, outbox
 packages/schemas  TypeBox schemas → OpenAPI
 packages/sdk      generated TypeScript client
 infra/            Bicep

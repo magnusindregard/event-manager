@@ -23,13 +23,25 @@ export async function idempotent(
   tenantId: string,
   status: number,
   fn: () => Promise<unknown>,
-  opts: { store?: (body: unknown) => unknown; replay?: (stored: unknown) => Promise<unknown> } = {},
+  opts: {
+    store?: (body: unknown) => unknown;
+    replay?: (stored: unknown) => Promise<unknown>;
+    /** Reject requests without a key (428), e.g. the reservations API. */
+    required?: boolean;
+    /** Keeps callers that share a tenant apart, e.g. "channel:<id>". */
+    scope?: string;
+  } = {},
 ): Promise<Stored> {
-  const raw = req.headers["idempotency-key"];
-  if (raw === undefined) return { status, body: await fn(), replayed: false };
-  if (typeof raw !== "string" || raw.length < 1 || raw.length > 255) {
+  const header = req.headers["idempotency-key"];
+  if (header === undefined) {
+    if (opts.required) throw new HttpProblem(428, "idempotency_key_required", "Idempotency-Key header is required");
+    return { status, body: await fn(), replayed: false };
+  }
+  if (typeof header !== "string" || header.length < 1 || header.length > 255) {
     throw new HttpProblem(400, "invalid_idempotency_key", "Idempotency-Key must be 1–255 characters");
   }
+  // A long key is hashed so the scoped key still fits the column.
+  const raw = opts.scope ? `${opts.scope}:${header.length > 200 ? createHash("sha256").update(header).digest("base64url") : header}` : header;
   const requestHash = createHash("sha256").update(`${req.method} ${req.routeOptions.url}\n${JSON.stringify(req.params)}\n${JSON.stringify(req.body)}`).digest("hex");
 
   const prior = await tx

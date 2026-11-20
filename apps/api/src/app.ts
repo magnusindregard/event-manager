@@ -15,6 +15,7 @@ import { offerRoutes } from "./routes/offers.js";
 import { invitationRoutes } from "./routes/invitations.js";
 import { postmarkWebhookRoutes } from "./routes/postmark-webhook.js";
 import { registrationRoutes } from "./routes/registrations.js";
+import { reservationRoutes } from "./routes/reservations.js";
 
 export interface AppDeps {
   db: Db;
@@ -41,6 +42,7 @@ export async function buildApp(deps: AppDeps) {
         securitySchemes: {
           bearer: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
           accountId: { type: "apiKey", in: "header", name: "Account-Id", description: "UUID of the account the request acts on. Not a secret; membership is checked server-side." },
+          channelKey: { type: "http", scheme: "bearer", description: "Sales channel key (sk_…), for the reservations API. Server-side only." },
         },
       },
     },
@@ -74,6 +76,7 @@ export async function buildApp(deps: AppDeps) {
       await v1.register(apiKeyRoutes);
       await v1.register(registrationRoutes);
       await v1.register(invitationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
+      await v1.register(reservationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
       v1.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: "/v1" },
