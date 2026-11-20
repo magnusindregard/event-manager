@@ -12,7 +12,7 @@ The server is at **`/mcp` on the core API** (`http://localhost:3000/mcp` locally
 |---|---|
 | Token | The same staff access token the admin uses (Entra External ID; locally a dev token) |
 | Account | `Account-Id` header, else `?accountId=<uuid>` on the URL, else the user's only account |
-| Sign-in discovery | `401` with `WWW-Authenticate: Bearer resource_metadata=".../.well-known/oauth-protected-resource/mcp"` (RFC 9728), naming the staff IdP |
+| Sign-in discovery | `401` with `WWW-Authenticate: Bearer resource_metadata=".../.well-known/oauth-protected-resource/mcp"` (RFC 9728), naming this API as the authorization server; its sign-in pass-through hands sign-in to the staff IdP (below) |
 
 ### Locally, with Claude Code
 
@@ -28,6 +28,18 @@ claude mcp add --transport http event-manager http://localhost:3000/mcp --header
 
 Run it from `apps/api` (where `jose` is installed). Add `--header "Account-Id: <uuid>"` if you belong to several accounts. To use the companion skills as Claude Code skills as well as prompts, copy or link `apps/api/skills/*` into `.claude/skills/`.
 
+### Sign-in through Entra
+
+MCP clients cannot sign in against Entra External ID directly. They send `resource=<MCP server URL>` (RFC 8707), which Entra refuses because it does not match the requested scope (`AADSTS9010010`), and Entra's discovery document does not advertise PKCE, which MCP clients require. So the API is the authorization server clients see (`apps/api/src/mcp/oauth.ts`):
+
+| Path | |
+|---|---|
+| `/.well-known/oauth-authorization-server`, `/.well-known/openid-configuration` | RFC 8414 metadata: this API as issuer, its own authorize and token endpoints, PKCE (`S256`), no registration endpoint |
+| `GET /oauth/authorize` | Redirects to Entra's authorize endpoint with the same query, without `resource`, and with `offline_access` added to the scope so Entra issues a refresh token |
+| `POST /oauth/token` | Posts the same form (and `Authorization` header) to Entra's token endpoint, without `resource`; returns Entra's answer as is, `no-store` |
+
+Entra's endpoints come from `OIDC_ISSUER`'s discovery document. Staff sign in on Entra's page and Entra issues the tokens, which the API checks as before. The code, the client's secret and the tokens pass through the API in transit and are never stored or logged.
+
 ### In Azure
 
 MCP clients sign in through Entra External ID, which has no dynamic client registration: register the client (for example Claude) as an app in the external tenant with its redirect URI, grant it the API scope, and give the client its client ID. Set on the API:
@@ -37,7 +49,7 @@ MCP clients sign in through Entra External ID, which has no dynamic client regis
 | `MCP_OAUTH_SCOPES` | The API scope clients ask for, e.g. `api://em-api-staging/access` |
 | `PUBLIC_URL` | The API's public base URL, so the metadata names `https://…/mcp` behind the ingress |
 
-The authorization server in the metadata is `OIDC_ISSUER`. The Bicep templates set both: `MCP_OAUTH_SCOPES` from the GitHub variable `ENTRA_API_SCOPE` (the scope the admin asks for), and `PUBLIC_URL` from `API_PUBLIC_URL`, else `ADMIN_URL` behind Front Door, where the API and the admin share a host. Front Door sends the container app's own host name to the API, so without `PUBLIC_URL` the metadata would name that instead of the URL the client used. Front Door routes `/mcp` and `/.well-known/oauth-protected-resource*` to the API.
+The Bicep templates set both: `MCP_OAUTH_SCOPES` from the GitHub variable `ENTRA_API_SCOPE` (the scope the admin asks for), and `PUBLIC_URL` from `API_PUBLIC_URL`, else `ADMIN_URL` behind Front Door, where the API and the admin share a host. Front Door sends the container app's own host name to the API, so without `PUBLIC_URL` the metadata would name that instead of the URL the client used. Front Door routes `/mcp`, `/.well-known/oauth-protected-resource*`, `/.well-known/oauth-authorization-server`, `/.well-known/openid-configuration` and `/oauth/*` to the API.
 
 After a deploy, both of these answer without a token: the first with 401 and `WWW-Authenticate`, the second with the metadata.
 

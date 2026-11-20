@@ -1,3 +1,4 @@
+import Fastify from "fastify";
 import { SignJWT } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -46,10 +47,26 @@ async function rest(method: string, url: string, email: string, account: string,
   return res.json() as Record<string, unknown>;
 }
 
+// A stand-in for Entra: discovery, and a token endpoint that records what it was sent.
+const entra = Fastify();
+let issuer: string;
+const tokenCalls: { body: string; authorization?: string }[] = [];
+entra.addContentTypeParser("application/x-www-form-urlencoded", { parseAs: "string" }, (_r, body, done) => done(null, body));
+entra.get("/tenant/v2.0/.well-known/openid-configuration", async () => ({
+  issuer, authorization_endpoint: `${issuer.replace("/v2.0", "")}/oauth2/v2.0/authorize`, token_endpoint: `${issuer.replace("/v2.0", "")}/oauth2/v2.0/token`,
+}));
+entra.post("/tenant/oauth2/v2.0/token", async (req, reply) => {
+  tokenCalls.push({ body: req.body as string, authorization: req.headers.authorization });
+  const form = new URLSearchParams(req.body as string);
+  if (form.get("code") === "bad") return reply.status(400).send({ error: "invalid_grant", error_description: "AADSTS70008: The code has expired." });
+  return { token_type: "Bearer", access_token: "entra-access-token", refresh_token: "entra-refresh-token", expires_in: 3600 };
+});
+
 beforeAll(async () => {
+  issuer = `${await entra.listen({ port: 0, host: "127.0.0.1" })}/tenant/v2.0`;
   tdb = await startTestDatabase();
   db = createDb(tdb.appUrl);
-  app = await buildApp({ db, verifier: devVerifier(SECRET), corsOrigins: ["https://agent.example"], mcp: { authorizationServers: ["https://login.example/tenant/v2.0"], scopes: ["api://em-api/access"] } });
+  app = await buildApp({ db, verifier: devVerifier(SECRET), corsOrigins: ["https://agent.example"], mcp: { authorizationServers: [issuer], scopes: ["api://em-api/access"] } });
   base = await app.listen({ port: 0, host: "127.0.0.1" });
   A = (await tenancy.createAccount(db, { slug: "mcp-a", name: "Museum A", ownerEmail: "owner@a.test" })).id;
   B = (await tenancy.createAccount(db, { slug: "mcp-b", name: "Museum B", ownerEmail: "owner@b.test" })).id;
@@ -61,6 +78,7 @@ beforeAll(async () => {
   for (const email of ["finance@a.test", "both@x.test"]) await app.inject({ method: "GET", url: "/v1/me", headers: { authorization: `Bearer ${await token(email)}` } });
 });
 afterAll(async () => {
+  await entra.close();
   for (const c of clients) await c.close().catch(() => undefined);
   await app?.close();
   await db?.destroy();
@@ -78,7 +96,7 @@ describe("MCP authentication", () => {
     expect(res.headers.get("www-authenticate")).toBe(`Bearer resource_metadata="${base}/.well-known/oauth-protected-resource/mcp", scope="api://em-api/access"`);
 
     const meta = await (await fetch(`${base}/.well-known/oauth-protected-resource/mcp`)).json();
-    expect(meta).toMatchObject({ resource: `${base}/mcp`, authorization_servers: ["https://login.example/tenant/v2.0"], scopes_supported: ["api://em-api/access"] });
+    expect(meta).toMatchObject({ resource: `${base}/mcp`, authorization_servers: [base], scopes_supported: ["api://em-api/access"] });
   });
 
   it("names the scheme the client used behind a TLS-ending proxy", async () => {
@@ -94,6 +112,55 @@ describe("MCP authentication", () => {
     expect(listed.json()).toMatchObject({ resource: "https://api.example/mcp" });
     const junk = await app.inject({ method: "GET", url: "/.well-known/oauth-protected-resource/mcp", headers: { host: "api.example", "x-forwarded-proto": "javascript" } });
     expect(junk.json()).toMatchObject({ resource: "http://api.example/mcp" });
+  });
+
+  it("publishes sign-in metadata with PKCE, pointing at its own endpoints", async () => {
+    for (const path of ["/.well-known/oauth-authorization-server", "/.well-known/openid-configuration"]) {
+      const doc = (await (await fetch(`${base}${path}`)).json()) as Record<string, unknown>;
+      expect(doc).toMatchObject({
+        issuer: base, authorization_endpoint: `${base}/oauth/authorize`, token_endpoint: `${base}/oauth/token`,
+        code_challenge_methods_supported: ["S256"], scopes_supported: ["api://em-api/access", "offline_access"],
+      });
+      expect(doc.registration_endpoint).toBeUndefined();
+    }
+  });
+
+  it("passes the authorize request to Entra without resource, adding offline_access", async () => {
+    const q = new URLSearchParams({
+      client_id: "claude", response_type: "code", redirect_uri: "https://claude.ai/api/mcp/auth_callback", scope: "api://em-api/access",
+      code_challenge: "abc", code_challenge_method: "S256", state: "s1", resource: `${base}/mcp`,
+    });
+    const res = await fetch(`${base}/oauth/authorize?${q}`, { redirect: "manual" });
+    expect(res.status).toBe(302);
+    const to = new URL(res.headers.get("location")!);
+    expect(`${to.origin}${to.pathname}`).toBe(`${issuer.replace("/v2.0", "")}/oauth2/v2.0/authorize`);
+    expect(to.searchParams.has("resource")).toBe(false);
+    expect(Object.fromEntries(to.searchParams)).toMatchObject({
+      client_id: "claude", redirect_uri: "https://claude.ai/api/mcp/auth_callback", scope: "api://em-api/access offline_access",
+      code_challenge: "abc", code_challenge_method: "S256", state: "s1",
+    });
+  });
+
+  it("passes the token request to Entra without resource and returns its answer", async () => {
+    const form = new URLSearchParams({ grant_type: "authorization_code", code: "c1", code_verifier: "v1", redirect_uri: "https://claude.ai/api/mcp/auth_callback", resource: `${base}/mcp` });
+    const res = await fetch(`${base}/oauth/token`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", authorization: "Basic Y2xhdWRlOnNlY3JldA==" }, body: form });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.json()).toMatchObject({ access_token: "entra-access-token", refresh_token: "entra-refresh-token" });
+    const sent = tokenCalls.at(-1)!;
+    expect(sent.authorization).toBe("Basic Y2xhdWRlOnNlY3JldA==");
+    expect(Object.fromEntries(new URLSearchParams(sent.body))).toEqual({ grant_type: "authorization_code", code: "c1", code_verifier: "v1", redirect_uri: "https://claude.ai/api/mcp/auth_callback" });
+
+    const refresh = await fetch(`${base}/oauth/token`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: "r1", scope: "api://em-api/access", client_id: "claude", resource: `${base}/mcp` }) });
+    expect(refresh.status).toBe(200);
+    expect(Object.fromEntries(new URLSearchParams(tokenCalls.at(-1)!.body))).toEqual({ grant_type: "refresh_token", refresh_token: "r1", scope: "api://em-api/access offline_access", client_id: "claude" });
+
+    const expired = await fetch(`${base}/oauth/token`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "authorization_code", code: "bad" }) });
+    expect(expired.status).toBe(400);
+    expect(await expired.json()).toMatchObject({ error: "invalid_grant" });
+
+    const json = await fetch(`${base}/oauth/token`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    expect(json.status).toBe(400);
   });
 
   it("refuses an invalid token", async () => {
