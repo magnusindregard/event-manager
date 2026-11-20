@@ -101,6 +101,8 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
         ], empty(corsOrigins) ? [] : [{ name: 'CORS_ORIGINS', value: corsOrigins }],
           empty(mcpScopes) ? [] : [{ name: 'MCP_OAUTH_SCOPES', value: mcpScopes }],
           empty(publicUrl) ? [] : [{ name: 'PUBLIC_URL', value: publicUrl }],
+          // MCP tool results link each event to its page in the admin.
+          empty(adminUrl) ? [] : [{ name: 'ADMIN_URL', value: adminUrl }],
           webhookEnabled ? [{ name: 'POSTMARK_WEBHOOK_AUTH', secretRef: 'postmark-webhook-auth' }] : [], sensitiveEnv)
         probes: probesFor(3000)
       }], workerAsSidecar ? [workerContainer] : [])

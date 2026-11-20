@@ -34,7 +34,7 @@ export const OPERATION_TOOLS: OperationTool[] = [
   },
   {
     name: "list_events", operationId: "listEvents", kind: "read", title: "Find events",
-    description: "Events, newest first, with their next start and number of occurrences. `q` matches the slug or any title; filter by status, tag, location or a time window. Use it to find an event the human refers to by name, and to check whether a similar event already exists before creating one. Pass `nextCursor` back as `cursor` for more.",
+    description: "Events, newest first, with their next start and number of occurrences. `q` matches the slug or any title; filter by status, tag, location or a time window. Use it to find an event the human refers to by name, and to check whether a similar event already exists before creating one. Pass `nextCursor` back as `cursor` for more. When you show events to the human, include each one's `adminUrl`.",
   },
   {
     name: "get_event", operationId: "getEvent", kind: "read", id: "eventId", title: "Get an event",

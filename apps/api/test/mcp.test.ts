@@ -66,7 +66,7 @@ beforeAll(async () => {
   issuer = `${await entra.listen({ port: 0, host: "127.0.0.1" })}/tenant/v2.0`;
   tdb = await startTestDatabase();
   db = createDb(tdb.appUrl);
-  app = await buildApp({ db, verifier: devVerifier(SECRET), corsOrigins: ["https://agent.example"], mcp: { authorizationServers: [issuer], scopes: ["api://em-api/access"] } });
+  app = await buildApp({ db, verifier: devVerifier(SECRET), corsOrigins: ["https://agent.example"], mcp: { authorizationServers: [issuer], scopes: ["api://em-api/access"], adminUrl: "https://admin.example/" } });
   base = await app.listen({ port: 0, host: "127.0.0.1" });
   A = (await tenancy.createAccount(db, { slug: "mcp-a", name: "Museum A", ownerEmail: "owner@a.test" })).id;
   B = (await tenancy.createAccount(db, { slug: "mcp-b", name: "Museum B", ownerEmail: "owner@b.test" })).id;
@@ -288,6 +288,7 @@ describe("MCP event management", () => {
     expect(first).toMatchObject({ status: "draft", registration: { capacity: 25 } });
     const again = ok<{ id: string }>(await call(c, "create_event", args));
     expect(again.id).toBe(first.id);
+    expect(first).toMatchObject({ adminUrl: `https://admin.example/events/${first.id}` });
     eventId = first.id;
     version = first.version;
   });
@@ -312,6 +313,7 @@ describe("MCP event management", () => {
   it("finds events and reads one", async () => {
     const found = ok<{ items: { id: string }[] }>(await call(c, "list_events", { q: "omvisning" }));
     expect(found.items.map((e) => e.id)).toEqual([eventId]);
+    expect(found.items[0]).toMatchObject({ adminUrl: `https://admin.example/events/${eventId}` });
     expect(ok<{ items: unknown[] }>(await call(c, "list_events", { q: "concert" })).items).toEqual([]);
     expect(ok(await call(c, "get_event", { eventId }))).toMatchObject({ id: eventId, translations: { en: { title: "Guided tour" } } });
     const missing = await call(c, "get_event", { eventId: "00000000-0000-4000-8000-000000000000" });
@@ -349,7 +351,7 @@ describe("MCP event management", () => {
     const conf = ok<{ event: { id: string }; series: unknown[]; occurrences: { items: unknown[]; more: boolean }; offers: unknown[]; rules: unknown[] }>(
       await call(c, "get_event_configuration", { eventId, from: "2027-01-01T00:00:00Z", occurrenceLimit: 3 }),
     );
-    expect(conf.event.id).toBe(eventId);
+    expect(conf.event).toMatchObject({ id: eventId, adminUrl: `https://admin.example/events/${eventId}` });
     expect(conf.series).toHaveLength(1);
     expect(conf.occurrences.items).toHaveLength(3);
     expect(conf.occurrences.more).toBe(true);
@@ -363,7 +365,9 @@ describe("MCP event management", () => {
     const preview = ok<{ rule: unknown; preview: { counts: { matched: number } } }>(await call(c, "create_rule", { ...rule, dryRun: true }));
     expect(preview.rule).toBeNull();
     expect(preview.preview.counts.matched).toBe(2);
-    expect(ok<{ rule: { id: string } }>(await call(c, "create_rule", rule)).rule.id).toBeTruthy();
+    const created = ok<{ rule: { id: string }; eventAdminUrl: string }>(await call(c, "create_rule", rule));
+    expect(created.rule.id).toBeTruthy();
+    expect(created.eventAdminUrl).toBe(`https://admin.example/events/${eventId}`);
     expect(ok<{ status: string }>(await call(c, "publish_event", { eventId, version })).status).toBe("published");
   });
 

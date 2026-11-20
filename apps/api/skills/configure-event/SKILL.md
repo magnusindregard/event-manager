@@ -9,7 +9,7 @@ You are changing an event on behalf of a staff member, with their permissions. R
 
 ## 1. Find the event and read its set-up
 
-1. If you do not have the event id, call `list_events` with `q` (a word from the title or slug). If several match, show them (title, status, next date) and ask which.
+1. If you do not have the event id, call `list_events` with `q` (a word from the title or slug). If several match, show them (title, status, next date and the admin link, `adminUrl`) and ask which.
 2. Call `get_event_configuration`: the event, its series, its upcoming dates, its ticket types and its rules, each with its `version`.
 3. Call `get_account` if you need locales or the timezone, and `list_locations`, `list_tags`, `list_user_groups` or `list_vat_classes` when the change involves them.
 
@@ -50,4 +50,4 @@ Publishing, unpublishing and cancelling the whole event affect what the public s
 
 ## 5. Confirm
 
-Read the event again and tell the human, briefly, what is now true: the fields that changed and, for rules, the dates they now apply to.
+Read the event again and tell the human, briefly, what is now true: the fields that changed and, for rules, the dates they now apply to. End with the link to the event in the admin (`adminUrl`, or `eventAdminUrl` in the result of a change to its dates, ticket types or rules).
