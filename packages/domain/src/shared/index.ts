@@ -23,7 +23,8 @@ export type ErrorCode =
   | "extend_limit"
   | "expired_sold_out"
   | "already_cancelled"
-  | "already_confirmed";
+  | "already_confirmed"
+  | "schedule_changed";
 
 const statusFor: Record<ErrorCode, number> = {
   not_found: 404,
@@ -48,6 +49,7 @@ const statusFor: Record<ErrorCode, number> = {
   expired_sold_out: 409,
   already_cancelled: 409,
   already_confirmed: 409,
+  schedule_changed: 409,
 };
 
 /** Domain errors carry a stable reason code that the API maps to RFC 9457 problem details. */

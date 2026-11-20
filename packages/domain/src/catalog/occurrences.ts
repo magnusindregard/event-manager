@@ -353,7 +353,7 @@ export async function deleteOccurrence(tx: Tx, ctx: ActorContext, id: string, ex
 /**
  * Puts a detached series occurrence back on its slot: series time, no overrides (capacity and
  * offer prices included), no conflict. Fails if the series no longer has the slot. An occurrence with
- * registrations stays detached (detachForRegistrations), so later regeneration still reports a
+ * registrations, valid tickets or held reservations stays detached (detachForRegistrations), so later regeneration still reports a
  * conflict instead of moving or deleting a booked occurrence.
  */
 export async function reattachOccurrence(tx: Tx, ctx: ActorContext, id: string, expectedVersion: number): Promise<Occurrence> {
@@ -372,7 +372,9 @@ export async function reattachOccurrence(tx: Tx, ctx: ActorContext, id: string, 
     .set({
       start_utc: slot.startUtc, end_utc: slot.endUtc, location_override_id: null, external_url_override: null, tags_override: null,
       capacity_override: null, location_cleared: false, external_url_cleared: false, conflict: false, version: sql<number>`version + 1`,
-      detached: sql<boolean>`exists (select 1 from registration.registration r where r.occurrence_id = ${id} and r.status <> 'cancelled')`,
+      detached: sql<boolean>`exists (select 1 from registration.registration r where r.occurrence_id = ${id} and r.status <> 'cancelled')
+        or exists (select 1 from sales.ticket t where t.occurrence_id = ${id} and t.status = 'valid')
+        or exists (select 1 from sales.reservation_hold h join sales.reservation r on r.id = h.reservation_id where h.occurrence_id = ${id} and r.status = 'held')`,
     })
     .where("id", "=", id)
     .where("version", "=", expectedVersion)

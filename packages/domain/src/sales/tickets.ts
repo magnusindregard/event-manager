@@ -3,7 +3,6 @@ import * as admission from "../admission/index.js";
 import * as catalog from "../catalog/index.js";
 import * as registration from "../registration/index.js";
 import { getAccount } from "../tenancy/index.js";
-import { expireReservation } from "./reservations.js";
 
 // Tickets (docs/ticketing.md, "Ticket and admission"): one per unit of a confirmed line, each
 // with its own admission. The ticket page (/t/{token} on the attendee app) shows the QR code;
@@ -68,9 +67,13 @@ export async function overdueReservationTenants(tx: Tx, now: Date = new Date()):
   return r.rows.map((x) => x.id);
 }
 
-/** Expires a tenant's overdue reservations, oldest first. Returns how many it looked at; a full batch means more may be due. */
-export async function sweepReservations(tx: Tx, tenantId: string, now: Date = new Date(), limit = 500): Promise<number> {
-  const rows = await tx.selectFrom("sales.reservation").select("id").where("status", "=", "held").where("expires_at", "<=", now).orderBy("expires_at").limit(limit).execute();
-  for (const r of rows) await expireReservation(tx, tenantId, r.id, now);
-  return rows.length;
+/**
+ * Ids of a tenant's held reservations past their expiry, oldest first. The sweeper expires each
+ * in its own transaction (expireReservation): one transaction for a batch would keep every
+ * reservation's pool locks until it commits, out of the global pool order, and could deadlock
+ * with a confirm across several occurrences.
+ */
+export async function overdueReservations(tx: Tx, now: Date = new Date(), limit = 500): Promise<string[]> {
+  const rows = await tx.selectFrom("sales.reservation").select("id").where("status", "=", "held").where("expires_at", "<=", now).orderBy("expires_at").orderBy("id").limit(limit).execute();
+  return rows.map((r) => r.id);
 }

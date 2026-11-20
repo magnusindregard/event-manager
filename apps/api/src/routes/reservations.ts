@@ -131,7 +131,7 @@ export const reservationRoutes: FastifyPluginAsyncTypebox<{ attendeeUrl: string 
       schema: {
         operationId: "confirmReservation", tags: ["reservations"], ...channelScoped,
         summary: "Take the places and issue the tickets, with QR payloads and ticket page URLs. Charges what the snapshot says",
-        description: "After expiry the places are taken again if still free. Reasons: expired_sold_out (refund the buyer), already_cancelled, already_confirmed (another order)",
+        description: "After expiry the places are taken again if still free. Reasons: expired_sold_out (refund the buyer), schedule_changed (the occurrence moved while held; refund and reserve again), already_cancelled, already_confirmed (another order)",
         params: IdParams, headers: idempotencyHeader, body: ReservationConfirm, response: { 200: Reservation, ...writeErrors },
       },
     },

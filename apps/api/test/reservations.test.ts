@@ -78,7 +78,7 @@ describe("/v1/reservations", () => {
     expect(r.body.lines.map((l: { externalSku: string; quantity: number }) => [l.externalSku, l.quantity])).toEqual([["TICKET-VAT0", 2], ["TICKET-VAT0", 1]]);
 
     // The connector checks a line's signature with SHA-256 of its own key's secret.
-    const signingKey = createHash("sha256").update(a.key.split("_")[2]!).digest();
+    const signingKey = createHash("sha256").update(a.key.slice(a.key.indexOf("_", 3) + 1)).digest();
     const line = r.body.lines[0];
     const text = JSON.stringify([
       "reservation_line.v1", r.body.id, line.id, line.lineNo, line.occurrenceId, line.offerId, line.offerCode, line.quantity, line.placesPerUnit,

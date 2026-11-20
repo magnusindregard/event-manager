@@ -27,7 +27,7 @@ const NOW = new Date("2027-02-01T12:00:00Z");
 const at = (min: number) => new Date(NOW.getTime() + min * MIN);
 
 const callerFor = (tenantId: string, channelId: string, secret: string): sales.ChannelCaller => ({
-  tenantId, channelId, signingKey: createHash("sha256").update(secret.split("_")[2]!).digest(),
+  tenantId, channelId, signingKey: createHash("sha256").update(secret.slice(secret.indexOf("_", 3) + 1)).digest(),
 });
 
 beforeAll(async () => {
@@ -234,12 +234,40 @@ describe("expiry, extend and cancel", () => {
     const late = await reserve(webCaller, { lines: [{ occurrenceId: occ.id, offerId: adult.id, quantity: 1 }] });
     expect(await withoutTenant(db, (tx) => sales.overdueReservationTenants(tx, at(16)))).toContain(ctx.tenantId);
     // Other tests' held reservations are due too.
-    expect(await run((tx) => sales.sweepReservations(tx, ctx.tenantId, at(16)))).toBeGreaterThanOrEqual(1);
+    const due = await run((tx) => sales.overdueReservations(tx, at(16)));
+    expect(due).toContain(late.id);
+    for (const id of due) await run((tx) => sales.expireReservation(tx, ctx.tenantId, id, at(16)));
     expect((await run((tx) => sales.getReservation(tx, webCaller, late.id, at(16)))).status).toBe("expired");
     expect(await pool(occ.id)).toMatchObject({ held: 0, taken: 1, available: 1 });
     await reserve(posCaller, { lines: [{ occurrenceId: occ.id, offerId: adult.id, quantity: 1 }] }, at(16));
     await expect(run((tx) => sales.confirm(tx, webCaller, late.id, { externalOrderRef: "LATE-2" }, at(17)))).rejects.toMatchObject({ code: "expired_sold_out", details: { occurrenceId: occ.id, placesLeft: 0 } });
     expect((await run((tx) => sales.getReservation(tx, webCaller, late.id, at(17)))).status).toBe("expired");
+  });
+
+  it("keeps a held occurrence on its frozen time, and refuses to confirm one moved by hand", async () => {
+    const event = await run((tx) => catalog.createEvent(tx, ctx, { slug: "serie", translations: title("Serie"), admissionMode: "tickets", registration: { capacity: 10 } }));
+    const created = await run((tx) => catalog.createSeries(tx, ctx, event.id, { rrule: "FREQ=DAILY;COUNT=2", dtstartLocal: "2027-03-01T19:00" }, { now: NOW }));
+    const adult = (await run((tx) => offers.createOffer(tx, ctx, event.id, { translations: name("Voksen"), vatClassId: exempt.id, defaultPrice: 45000 }))).offer!;
+    await run(async (tx) => catalog.transitionEvent(tx, ctx, event.id, (await catalog.getEvent(tx, event.id)).version, "publish"));
+    const [first, second] = await run((tx) => catalog.listOccurrences(tx, { eventId: event.id, limit: 10 }));
+
+    // Reserving detaches the occurrence: moving the series leaves it on the time the buyer saw.
+    const r = await reserve(webCaller, { lines: [{ occurrenceId: first!.id, offerId: adult.id, quantity: 1 }] });
+    expect((await run((tx) => catalog.getOccurrence(tx, first!.id))).detached).toBe(true);
+    const moved = await run((tx) => catalog.updateSeries(tx, ctx, created.series!.id, created.series!.version, { dtstartLocal: "2027-03-01T20:00" }, { now: NOW }));
+    expect(moved.changes.counts).toMatchObject({ conflicts: 1 });
+    expect((await run((tx) => catalog.getOccurrence(tx, first!.id))).startUtc).toEqual(r.lines[0]!.occurrenceStartUtc);
+    expect((await run((tx) => sales.confirm(tx, webCaller, r.id, { externalOrderRef: "SERIE-1" }, at(1)))).status).toBe("confirmed");
+
+    // Staff can still move a held occurrence by hand; confirm then refuses to sell the old time.
+    const occ = await run((tx) => catalog.getOccurrence(tx, second!.id));
+    const r2 = await reserve(webCaller, { lines: [{ occurrenceId: occ.id, offerId: adult.id, quantity: 1 }] });
+    const v = (await run((tx) => catalog.getOccurrence(tx, occ.id))).version;
+    await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, v, { startUtc: new Date(occ.startUtc.getTime() + 3_600_000) }));
+    await expect(run((tx) => sales.confirm(tx, webCaller, r2.id, { externalOrderRef: "SERIE-2" }, at(1)))).rejects.toMatchObject({
+      code: "schedule_changed", details: { occurrenceId: occ.id, reservedStartUtc: occ.startUtc.toISOString() },
+    });
+    expect((await run((tx) => sales.getReservation(tx, webCaller, r2.id, at(1)))).status).toBe("held");
   });
 
   it("cancels a held reservation and releases its places", async () => {

@@ -55961,7 +55961,7 @@
         "tags": [
           "reservations"
         ],
-        "description": "After expiry the places are taken again if still free. Reasons: expired_sold_out (refund the buyer), already_cancelled, already_confirmed (another order)",
+        "description": "After expiry the places are taken again if still free. Reasons: expired_sold_out (refund the buyer), schedule_changed (the occurrence moved while held; refund and reserve again), already_cancelled, already_confirmed (another order)",
         "requestBody": {
           "required": true,
           "content": {

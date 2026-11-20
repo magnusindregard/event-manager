@@ -293,6 +293,9 @@ export async function reserve(tx: Tx, caller: ChannelCaller, input: ReserveInput
     }
     await tx.insertInto("sales.reservation_hold").values({ tenant_id: caller.tenantId, reservation_id: id, occurrence_id: occurrenceId, hold_id: holdId, places: n }).execute();
   }
+  // A held occurrence keeps its frozen time when its series is regenerated, as registered and
+  // sold ones do. It stays detached after the reservation ends; staff can reattach it.
+  for (const occurrenceId of places.keys()) await catalog.detachForRegistrations(tx, occurrenceId);
 
   const title = (t: catalog.RegistrationTarget) => t.event.translations[locale]?.title ?? t.event.translations[account.defaultLocale]?.title ?? t.event.slug;
   const offerName = (o: offers.Offer) => o.translations[locale]?.name ?? o.translations[account.defaultLocale]?.name ?? o.code;
@@ -417,6 +420,19 @@ export async function confirm(tx: Tx, caller: ChannelCaller, id: string, input: 
   }
   if (row.status === "cancelled") throw new DomainError("already_cancelled", "The reservation is cancelled");
 
+  // The tickets must be for the time the buyer was shown and charged for. Regeneration leaves
+  // held occurrences alone, but staff can still move one by hand while it is held.
+  const lines = await tx.selectFrom("sales.reservation_line").select(["id", "occurrence_id", "offer_id", "quantity", "places_per_unit", "occurrence_start_utc"]).where("reservation_id", "=", id).orderBy("line_no").execute();
+  const starts = new Map((await tx.selectFrom("catalog.occurrence").select(["id", "start_utc"]).where("id", "in", [...new Set(lines.map((l) => l.occurrence_id))]).execute()).map((o) => [o.id, o.start_utc]));
+  for (const l of lines) {
+    const current = starts.get(l.occurrence_id);
+    if (current?.getTime() !== l.occurrence_start_utc.getTime()) {
+      throw new DomainError("schedule_changed", "The occurrence has moved since the reservation was made; cancel it and reserve again", {
+        occurrenceId: l.occurrence_id, reservedStartUtc: l.occurrence_start_utc.toISOString(), startUtc: current?.toISOString() ?? null,
+      });
+    }
+  }
+
   for (const h of holds) {
     // A live hold becomes taken places. An expired one is released here, and a swept or
     // expired reservation's places are taken again if they still fit.
@@ -432,7 +448,6 @@ export async function confirm(tx: Tx, caller: ChannelCaller, id: string, input: 
     buyer_name: buyer?.name ?? null, buyer_email: buyer?.email ?? null, buyer_locale: buyer?.locale ?? null, version: sql<number>`version + 1`,
   }).where("id", "=", id).execute();
 
-  const lines = await tx.selectFrom("sales.reservation_line").select(["id", "occurrence_id", "offer_id", "quantity", "places_per_unit"]).where("reservation_id", "=", id).orderBy("line_no").execute();
   const tickets = lines.flatMap((l) => Array.from({ length: l.quantity }, () => ({
     id: newId(), tenant_id: caller.tenantId, reservation_id: id, line_id: l.id, occurrence_id: l.occurrence_id, offer_id: l.offer_id, partySize: l.places_per_unit,
   })));
@@ -440,7 +455,7 @@ export async function confirm(tx: Tx, caller: ChannelCaller, id: string, input: 
     await tx.insertInto("sales.ticket").values(tickets.slice(i, i + 1000).map(({ partySize: _p, ...t }) => ({ ...t, created_at: now }))).execute();
   }
   await admission.issueTicketAdmissions(tx, caller.tenantId, tickets.map((t) => ({ ticketId: t.id, occurrenceId: t.occurrence_id, partySize: t.partySize })));
-  // Sold occurrences keep their time when their series is regenerated, as registered ones do.
+  // Reserve detached the occurrences already; a reattach since then detaches them again.
   for (const occurrenceId of new Set(lines.map((l) => l.occurrence_id))) await catalog.detachForRegistrations(tx, occurrenceId);
 
   await emit(tx, caller.tenantId, {

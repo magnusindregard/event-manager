@@ -5,11 +5,14 @@ import { sales } from "@event-manager/domain";
 // The reservation sweeper (docs/ticketing.md, "Reservation"): every minute, held reservations
 // past their expiry release their places and become expired (reservation.expired). Confirm
 // checks expiry itself and reads an overdue reservation as expired, so the sweeper only decides
-// how soon the places go back on sale. Each tenant runs in its own transaction.
+// how soon the places go back on sale. Each reservation is expired in its own transaction, so
+// the sweeper never holds more than one reservation's pool locks at a time.
 
 // Crontab task names may not contain dots, so this one uses a colon.
 export const RESERVATION_SWEEP_TASK = "sales:sweep_reservations";
 export const RESERVATION_SWEEP_CRONTAB = `* * * * * ${RESERVATION_SWEEP_TASK}`;
+
+const BATCH = 500;
 
 export interface SweepResult {
   tenants: number;
@@ -22,11 +25,14 @@ export async function sweepReservations(db: Db, now: Date, log: (msg: string) =>
   const result: SweepResult = { tenants: tenants.length, expired: 0, failed: 0 };
   for (const tenantId of tenants) {
     try {
-      // Batches of 500, each its own transaction, until the tenant has none left due.
+      // Batches of BATCH ids until the tenant has none left due; each expiry is its own transaction.
       for (;;) {
-        const n = await withTenant(db, { tenantId }, (tx) => sales.sweepReservations(tx, tenantId, now));
-        result.expired += n;
-        if (n < 500) break;
+        const ids = await withTenant(db, { tenantId }, (tx) => sales.overdueReservations(tx, now, BATCH));
+        for (const id of ids) {
+          await withTenant(db, { tenantId }, (tx) => sales.expireReservation(tx, tenantId, id, now));
+          result.expired++;
+        }
+        if (ids.length < BATCH) break;
       }
     } catch (e) {
       result.failed++;
