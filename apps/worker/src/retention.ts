@@ -1,6 +1,6 @@
 import type { Task } from "graphile-worker";
 import { type Db, withoutTenant, withTenant } from "@event-manager/db";
-import { registration } from "@event-manager/domain";
+import { registration, sales } from "@event-manager/domain";
 
 // Crontab task names may not contain dots, so this one uses a colon.
 export const RETENTION_TASK = "registration:retention";
@@ -8,32 +8,35 @@ export const RETENTION_TASK = "registration:retention";
 export const RETENTION_CRONTAB = `0 3 * * * ${RETENTION_TASK}`;
 
 export interface RetentionRun extends registration.RetentionResult {
+  /** Reservations whose buyer was removed (docs/ticketing.md, "Reservation"). */
+  reservationsAnonymised: number;
   tenants: number;
   failed: number;
 }
 
 /**
- * Deletes sensitive answers and anonymises registrations past the account's retention
- * periods (docs/registration.md, "Retention"). Each tenant runs in its own transaction, so
+ * Deletes sensitive answers and anonymises registrations and ticket buyers past the account's
+ * retention periods (docs/registration.md, "Retention"; docs/ticketing.md, "Reservation"). Each tenant runs in its own transaction, so
  * one failure does not hold back the others; every step is idempotent and simply repeats
  * the next night.
  */
 export async function runRetention(db: Db, now: Date, log: (msg: string) => void): Promise<RetentionRun> {
   const tenants = await withoutTenant(db, (tx) => registration.retentionTenants(tx));
-  const total: RetentionRun = { tenants: tenants.length, failed: 0, sensitiveDeleted: 0, anonymised: 0, invitationsDeleted: 0, importsDeleted: 0 };
+  const total: RetentionRun = { tenants: tenants.length, failed: 0, sensitiveDeleted: 0, anonymised: 0, invitationsDeleted: 0, importsDeleted: 0, reservationsAnonymised: 0 };
   for (const tenantId of tenants) {
     try {
-      const r = await withTenant(db, { tenantId }, (tx) => registration.applyRetention(tx, now));
+      const r = await withTenant(db, { tenantId }, async (tx) => ({ ...(await registration.applyRetention(tx, now)), ...(await sales.applySalesRetention(tx, now)) }));
       total.sensitiveDeleted += r.sensitiveDeleted;
       total.anonymised += r.anonymised;
       total.invitationsDeleted += r.invitationsDeleted;
       total.importsDeleted += r.importsDeleted;
+      total.reservationsAnonymised += r.reservationsAnonymised;
     } catch (e) {
       total.failed++;
       log(`retention: tenant ${tenantId} failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  log(`retention: ${total.tenants} accounts, ${total.sensitiveDeleted} sensitive answers deleted, ${total.anonymised} registrations anonymised, ${total.invitationsDeleted} invitations and ${total.importsDeleted} uploads deleted, ${total.failed} failed`);
+  log(`retention: ${total.tenants} accounts, ${total.sensitiveDeleted} sensitive answers deleted, ${total.anonymised} registrations and ${total.reservationsAnonymised} buyers anonymised, ${total.invitationsDeleted} invitations and ${total.importsDeleted} uploads deleted, ${total.failed} failed`);
   return total;
 }
 

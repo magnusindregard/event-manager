@@ -16,6 +16,7 @@ import { invitationRoutes } from "./routes/invitations.js";
 import { postmarkWebhookRoutes } from "./routes/postmark-webhook.js";
 import { registrationRoutes } from "./routes/registrations.js";
 import { reservationRoutes } from "./routes/reservations.js";
+import { salesRoutes } from "./routes/sales.js";
 
 export interface AppDeps {
   db: Db;
@@ -27,6 +28,9 @@ export interface AppDeps {
   /** Basic-auth credentials Postmark sends with delivery webhooks; null leaves the webhook off. */
   postmarkWebhook?: { user: string; password: string } | null;
 }
+
+/** Operations whose request body may be left out. */
+const OPTIONAL_BODY = new Set(["cancelReservation", "extendReservation", "cancelTicketsAsStaff"]);
 
 export async function buildApp(deps: AppDeps) {
   const app = Fastify({
@@ -45,6 +49,18 @@ export async function buildApp(deps: AppDeps) {
           channelKey: { type: "http", scheme: "bearer", description: "Sales channel key (sk_…), for the reservations API. Server-side only." },
         },
       },
+    },
+    // @fastify/swagger marks every body as required. These operations read a missing body as {}
+    // (emptyBody in routes/reservations.ts), so the spec says so too.
+    transformObject: (doc) => {
+      if (!("openapiObject" in doc)) return doc.swaggerObject;
+      const openapiObject = doc.openapiObject;
+      for (const item of Object.values(openapiObject.paths ?? {})) {
+        for (const op of Object.values(item ?? {}) as { operationId?: string; requestBody?: { required?: boolean } }[]) {
+          if (op?.operationId && OPTIONAL_BODY.has(op.operationId) && op.requestBody) op.requestBody.required = false;
+        }
+      }
+      return openapiObject;
     },
   });
   if (deps.corsOrigins?.length) {
@@ -77,6 +93,7 @@ export async function buildApp(deps: AppDeps) {
       await v1.register(registrationRoutes);
       await v1.register(invitationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
       await v1.register(reservationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
+      await v1.register(salesRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
       v1.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: "/v1" },

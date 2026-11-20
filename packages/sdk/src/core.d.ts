@@ -1137,10 +1137,64 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Release a held reservation's places. Cancelling confirmed tickets is not supported yet
-         * @description Reasons: already_cancelled; conflict for a confirmed reservation
+         * Held: release the places. Confirmed: cancel all tickets, or those listed, void their admissions and put the places back on sale, recording the refund
+         * @description Once no valid ticket is left the reservation is cancelled. Reasons: already_cancelled (with ticketIds for listed tickets cancelled before), occurrence_started (a listed ticket's occurrence has begun, unless it was cancelled)
          */
         post: operations["cancelReservation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/occurrences/{id}/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Held and sold per offer, and the reservations with lines at the occurrence, newest first. Needs sales.read (buyers are personal data) */
+        get: operations["getOccurrenceSales"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/reservations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A reservation of any channel, with its tickets and their links. Needs sales.read */
+        get: operations["getReservationAsStaff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/reservations/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a confirmed reservation's tickets, all or those listed: their admissions are voided and the places go back on sale. Needs sales.write
+         * @description The channel is not told yet (webhooks arrive with epic #9); refunds stay in the channel. Reasons: already_cancelled, occurrence_started, conflict (not confirmed)
+         */
+        post: operations["cancelTicketsAsStaff"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1185,7 +1239,7 @@ export interface operations {
                             slug: string;
                             name: string;
                             roles: ("owner" | "editor" | "event_manager" | "box_office" | "door_staff" | "finance")[];
-                            permissions: ("account.write" | "members.manage" | "content.write" | "content.read" | "audit.read" | "registrations.read" | "registrations.write" | "registrations.sensitive" | "offers.write")[];
+                            permissions: ("account.write" | "members.manage" | "content.write" | "content.read" | "audit.read" | "registrations.read" | "registrations.write" | "registrations.sensitive" | "offers.write" | "sales.read" | "sales.write")[];
                         }[];
                     };
                 };
@@ -1716,8 +1770,8 @@ export interface operations {
                 "application/json": {
                     /** Format: email */
                     email: string;
-                    /** @description owner: everything. event_manager: content and guest data. editor: content only */
-                    role: "owner" | "event_manager" | "editor";
+                    /** @description owner: everything. event_manager: content, guest data and sales. editor: content only. box_office: guest lists and sales, reading content. finance: reading sales and content */
+                    role: "owner" | "event_manager" | "editor" | "box_office" | "finance";
                     /** @description auto: decided by a realm lookup on the address. work: guest with their organisation's account. local: email one-time passcode. */
                     signinKind?: "auto" | "work" | "local";
                 };
@@ -20313,6 +20367,11 @@ export interface operations {
                             admissionId: string;
                             /** @description People the ticket admits: the offer's places per unit */
                             partySize: number;
+                            /** Format: date-time */
+                            cancelledAt: string | null;
+                            cancelledBy: null | ("channel" | "staff");
+                            /** @description The channel's refund reference given on cancel */
+                            externalRefundRef: string | null;
                             /** @description The ticket page with its QR code; null once cancelled */
                             url: string | null;
                             /** @description The QR code's payload (a signed admission token); null once cancelled */
@@ -20322,6 +20381,11 @@ export interface operations {
                         confirmedAt: string | null;
                         /** Format: date-time */
                         cancelledAt: string | null;
+                        /**
+                         * Format: date-time
+                         * @description When retention removed the buyer, as for registrations; the lines and references stay
+                         */
+                        anonymisedAt: string | null;
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -20588,6 +20652,11 @@ export interface operations {
                             admissionId: string;
                             /** @description People the ticket admits: the offer's places per unit */
                             partySize: number;
+                            /** Format: date-time */
+                            cancelledAt: string | null;
+                            cancelledBy: null | ("channel" | "staff");
+                            /** @description The channel's refund reference given on cancel */
+                            externalRefundRef: string | null;
                             /** @description The ticket page with its QR code; null once cancelled */
                             url: string | null;
                             /** @description The QR code's payload (a signed admission token); null once cancelled */
@@ -20597,6 +20666,11 @@ export interface operations {
                         confirmedAt: string | null;
                         /** Format: date-time */
                         cancelledAt: string | null;
+                        /**
+                         * Format: date-time
+                         * @description When retention removed the buyer, as for registrations; the lines and references stay
+                         */
+                        anonymisedAt: string | null;
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -20713,7 +20787,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": {
                     /** @description From now; default the channel's hold time. Capped at extendLimitAt */
@@ -20804,6 +20878,11 @@ export interface operations {
                             admissionId: string;
                             /** @description People the ticket admits: the offer's places per unit */
                             partySize: number;
+                            /** Format: date-time */
+                            cancelledAt: string | null;
+                            cancelledBy: null | ("channel" | "staff");
+                            /** @description The channel's refund reference given on cancel */
+                            externalRefundRef: string | null;
                             /** @description The ticket page with its QR code; null once cancelled */
                             url: string | null;
                             /** @description The QR code's payload (a signed admission token); null once cancelled */
@@ -20813,6 +20892,11 @@ export interface operations {
                         confirmedAt: string | null;
                         /** Format: date-time */
                         cancelledAt: string | null;
+                        /**
+                         * Format: date-time
+                         * @description When retention removed the buyer, as for registrations; the lines and references stay
+                         */
+                        anonymisedAt: string | null;
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -21093,6 +21177,11 @@ export interface operations {
                             admissionId: string;
                             /** @description People the ticket admits: the offer's places per unit */
                             partySize: number;
+                            /** Format: date-time */
+                            cancelledAt: string | null;
+                            cancelledBy: null | ("channel" | "staff");
+                            /** @description The channel's refund reference given on cancel */
+                            externalRefundRef: string | null;
                             /** @description The ticket page with its QR code; null once cancelled */
                             url: string | null;
                             /** @description The QR code's payload (a signed admission token); null once cancelled */
@@ -21102,6 +21191,11 @@ export interface operations {
                         confirmedAt: string | null;
                         /** Format: date-time */
                         cancelledAt: string | null;
+                        /**
+                         * Format: date-time
+                         * @description When retention removed the buyer, as for registrations; the lines and references stay
+                         */
+                        anonymisedAt: string | null;
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -21287,7 +21381,16 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Confirmed reservations: the tickets to cancel. Left out: all valid tickets. Held reservations take no tickets */
+                    ticketIds?: string[];
+                    /** @description Confirmed reservations: the channel's refund, stored on each cancelled ticket */
+                    externalRefundRef?: string | null;
+                };
+            };
+        };
         responses: {
             /** @description Default Response */
             200: {
@@ -21371,6 +21474,11 @@ export interface operations {
                             admissionId: string;
                             /** @description People the ticket admits: the offer's places per unit */
                             partySize: number;
+                            /** Format: date-time */
+                            cancelledAt: string | null;
+                            cancelledBy: null | ("channel" | "staff");
+                            /** @description The channel's refund reference given on cancel */
+                            externalRefundRef: string | null;
                             /** @description The ticket page with its QR code; null once cancelled */
                             url: string | null;
                             /** @description The QR code's payload (a signed admission token); null once cancelled */
@@ -21380,6 +21488,11 @@ export interface operations {
                         confirmedAt: string | null;
                         /** Format: date-time */
                         cancelledAt: string | null;
+                        /**
+                         * Format: date-time
+                         * @description When retention removed the buyer, as for registrations; the lines and references stay
+                         */
+                        anonymisedAt: string | null;
                         version: number;
                         /** Format: date-time */
                         createdAt: string;
@@ -21530,6 +21643,699 @@ export interface operations {
             };
             /** @description Default Response */
             428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    getOccurrenceSales: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        occurrenceId: string;
+                        pool: null | {
+                            bookableLimit: number | null;
+                            taken: number;
+                            held: number;
+                            available: number | null;
+                        };
+                        currency: string;
+                        /** @description The event's active offers, and archived ones that sold here, in display order */
+                        offers: {
+                            /** Format: uuid */
+                            offerId: string;
+                            code: string;
+                            /** @description In the account's default locale */
+                            name: string;
+                            /** @description Units in held reservations that have not expired */
+                            held: number;
+                            /** @description Valid tickets */
+                            sold: number;
+                            cancelled: number;
+                            /** @description Places the valid tickets take */
+                            places: number;
+                            /** @description Sum of the valid tickets' prices, minor units VAT included */
+                            revenue: number;
+                        }[];
+                        /** @description Newest first, at most 2,000 */
+                        reservations: {
+                            /** Format: uuid */
+                            id: string;
+                            channel: {
+                                /** Format: uuid */
+                                id: string;
+                                code: string;
+                                name: string;
+                            };
+                            /** @description held past expiresAt reads as expired. An expired reservation can still be confirmed while its places are free */
+                            status: "held" | "confirmed" | "cancelled" | "expired";
+                            externalRef: string | null;
+                            externalOrderRef: string | null;
+                            buyer: null | {
+                                name: string | null;
+                                email: string | null;
+                                locale: string | null;
+                            };
+                            /** Format: date-time */
+                            anonymisedAt: string | null;
+                            /** @description Lines at this occurrence */
+                            lines: {
+                                /** Format: uuid */
+                                id: string;
+                                lineNo: number;
+                                /** Format: uuid */
+                                offerId: string;
+                                offerCode: string;
+                                name: string;
+                                quantity: number;
+                                unitPrice: number;
+                                amount: number;
+                            }[];
+                            /** @description Tickets at this occurrence */
+                            tickets: {
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: uuid */
+                                lineId: string;
+                                /** Format: uuid */
+                                offerId: string;
+                                status: "valid" | "cancelled";
+                                partySize: number;
+                                /** Format: date-time */
+                                cancelledAt: string | null;
+                                cancelledBy: null | ("channel" | "staff");
+                                externalRefundRef: string | null;
+                            }[];
+                            total: {
+                                /** @description Minor units, VAT included */
+                                amount: number;
+                                currency: string;
+                            };
+                            /** @description The reservation also has lines at other occurrences */
+                            otherOccurrences: boolean;
+                            /** Format: date-time */
+                            expiresAt: string;
+                            /** Format: date-time */
+                            confirmedAt: string | null;
+                            /** Format: date-time */
+                            cancelledAt: string | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    getReservationAsStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        channelId: string;
+                        /** @description held past expiresAt reads as expired. An expired reservation can still be confirmed while its places are free */
+                        status: "held" | "confirmed" | "cancelled" | "expired";
+                        /**
+                         * Format: date-time
+                         * @description While held: when the places are released
+                         */
+                        expiresAt: string;
+                        /**
+                         * Format: date-time
+                         * @description The latest expiresAt that extend can reach
+                         */
+                        extendLimitAt: string;
+                        externalRef: string | null;
+                        externalOrderRef: string | null;
+                        /** @description Language of the line names */
+                        locale: string;
+                        buyer: null | {
+                            name: string | null;
+                            email: string | null;
+                            locale: string | null;
+                        };
+                        lines: {
+                            /** Format: uuid */
+                            id: string;
+                            lineNo: number;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            offerCode: string;
+                            quantity: number;
+                            placesPerUnit: number;
+                            /** @description Minor units (øre), VAT included, frozen at reserve time */
+                            unitPrice: number;
+                            /** @description unitPrice × quantity */
+                            amount: number;
+                            /** @description ISO 4217, e.g. NOK */
+                            currency: string;
+                            vatClassCode: string;
+                            vatRatePct: number;
+                            /** @description The channel's product for this line */
+                            externalSku: string;
+                            /** @description Line name for the receipt, e.g. "Adult – Hamlet, Sat 13 Feb 19:30, Main stage" */
+                            name: string;
+                            /** Format: date-time */
+                            occurrenceStartUtc: string;
+                            timezone: string;
+                            locationName: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            signature: string | null;
+                        }[];
+                        total: {
+                            /** @description Minor units, VAT included */
+                            amount: number;
+                            currency: string;
+                        };
+                        /** @description Once confirmed: one per unit, in line order */
+                        tickets: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            lineId: string;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            status: "valid" | "cancelled";
+                            /** Format: uuid */
+                            admissionId: string;
+                            /** @description People the ticket admits: the offer's places per unit */
+                            partySize: number;
+                            /** Format: date-time */
+                            cancelledAt: string | null;
+                            cancelledBy: null | ("channel" | "staff");
+                            /** @description The channel's refund reference given on cancel */
+                            externalRefundRef: string | null;
+                            /** @description The ticket page with its QR code; null once cancelled */
+                            url: string | null;
+                            /** @description The QR code's payload (a signed admission token); null once cancelled */
+                            qr: string | null;
+                        }[];
+                        /** Format: date-time */
+                        confirmedAt: string | null;
+                        /** Format: date-time */
+                        cancelledAt: string | null;
+                        /**
+                         * Format: date-time
+                         * @description When retention removed the buyer, as for registrations; the lines and references stay
+                         */
+                        anonymisedAt: string | null;
+                        version: number;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        signature: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    cancelTicketsAsStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description Confirmed reservations: the tickets to cancel. Left out: all valid tickets. Held reservations take no tickets */
+                    ticketIds?: string[];
+                    /** @description Confirmed reservations: the channel's refund, stored on each cancelled ticket */
+                    externalRefundRef?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        channelId: string;
+                        /** @description held past expiresAt reads as expired. An expired reservation can still be confirmed while its places are free */
+                        status: "held" | "confirmed" | "cancelled" | "expired";
+                        /**
+                         * Format: date-time
+                         * @description While held: when the places are released
+                         */
+                        expiresAt: string;
+                        /**
+                         * Format: date-time
+                         * @description The latest expiresAt that extend can reach
+                         */
+                        extendLimitAt: string;
+                        externalRef: string | null;
+                        externalOrderRef: string | null;
+                        /** @description Language of the line names */
+                        locale: string;
+                        buyer: null | {
+                            name: string | null;
+                            email: string | null;
+                            locale: string | null;
+                        };
+                        lines: {
+                            /** Format: uuid */
+                            id: string;
+                            lineNo: number;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            offerCode: string;
+                            quantity: number;
+                            placesPerUnit: number;
+                            /** @description Minor units (øre), VAT included, frozen at reserve time */
+                            unitPrice: number;
+                            /** @description unitPrice × quantity */
+                            amount: number;
+                            /** @description ISO 4217, e.g. NOK */
+                            currency: string;
+                            vatClassCode: string;
+                            vatRatePct: number;
+                            /** @description The channel's product for this line */
+                            externalSku: string;
+                            /** @description Line name for the receipt, e.g. "Adult – Hamlet, Sat 13 Feb 19:30, Main stage" */
+                            name: string;
+                            /** Format: date-time */
+                            occurrenceStartUtc: string;
+                            timezone: string;
+                            locationName: string | null;
+                            /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                            signature: string | null;
+                        }[];
+                        total: {
+                            /** @description Minor units, VAT included */
+                            amount: number;
+                            currency: string;
+                        };
+                        /** @description Once confirmed: one per unit, in line order */
+                        tickets: {
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            lineId: string;
+                            /** Format: uuid */
+                            occurrenceId: string;
+                            /** Format: uuid */
+                            offerId: string;
+                            status: "valid" | "cancelled";
+                            /** Format: uuid */
+                            admissionId: string;
+                            /** @description People the ticket admits: the offer's places per unit */
+                            partySize: number;
+                            /** Format: date-time */
+                            cancelledAt: string | null;
+                            cancelledBy: null | ("channel" | "staff");
+                            /** @description The channel's refund reference given on cancel */
+                            externalRefundRef: string | null;
+                            /** @description The ticket page with its QR code; null once cancelled */
+                            url: string | null;
+                            /** @description The QR code's payload (a signed admission token); null once cancelled */
+                            qr: string | null;
+                        }[];
+                        /** Format: date-time */
+                        confirmedAt: string | null;
+                        /** Format: date-time */
+                        cancelledAt: string | null;
+                        /**
+                         * Format: date-time
+                         * @description When retention removed the buyer, as for registrations; the lines and references stay
+                         */
+                        anonymisedAt: string | null;
+                        version: number;
+                        /** Format: date-time */
+                        createdAt: string;
+                        /** Format: date-time */
+                        updatedAt: string;
+                        /** @description v1.<base64url HMAC-SHA256>. The key is the SHA-256 of the calling channel key's secret (the part of sk_<id>_<secret> after the second underscore); the signed text is a JSON array of the fields in a fixed order (see the integration guide). Null when the caller is not a channel key */
+                        signature: string | null;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        type: string;
+                        title: string;
+                        status: number;
+                        /** @description Stable reason code, e.g. version_conflict */
+                        code: string;
+                        detail?: string;
+                        instance?: string;
+                        errors?: {
+                            path: string;
+                            message: string;
+                        }[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Default Response */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

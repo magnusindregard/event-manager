@@ -1,12 +1,12 @@
-import { newId, type ReservationStatus, sql, type TicketStatus, type Tx } from "@event-manager/db";
+import { newId, type ReservationStatus, sql, type TicketCancelledBy, type TicketStatus, type Tx } from "@event-manager/db";
 import * as admission from "../admission/index.js";
 import * as catalog from "../catalog/index.js";
 import * as inventory from "../inventory/index.js";
 import * as offers from "../offers/index.js";
 import { emit } from "../outbox/index.js";
 import * as registration from "../registration/index.js";
-import { DomainError } from "../shared/index.js";
-import { getAccount } from "../tenancy/index.js";
+import { type ActorContext, DomainError } from "../shared/index.js";
+import { assertCan, getAccount, recordAudit } from "../tenancy/index.js";
 import { lineName, lineSignatureText, reservationSignatureText, shortWhen, sign } from "./snapshot.js";
 
 // Reservations (docs/ticketing.md, "Reservations API", milestone 3). A sales channel reserves
@@ -56,6 +56,13 @@ export interface ConfirmInput {
   buyer?: BuyerInput | null;
 }
 
+export interface CancelInput {
+  /** Confirmed reservations: the tickets to cancel; all valid ones when left out. */
+  ticketIds?: string[] | null;
+  /** The channel's refund, for reconciliation. */
+  externalRefundRef?: string | null;
+}
+
 export interface ReservationLine {
   id: string;
   lineNo: number;
@@ -87,6 +94,9 @@ export interface Ticket {
   status: TicketStatus;
   admissionId: string;
   partySize: number;
+  cancelledAt: Date | null;
+  cancelledBy: TicketCancelledBy | null;
+  externalRefundRef: string | null;
   /** For the ticket page (/t/{token}); null once cancelled. */
   ticketToken: string | null;
   /** The QR code's payload; null once cancelled. */
@@ -110,6 +120,8 @@ export interface Reservation {
   tickets: Ticket[];
   confirmedAt: Date | null;
   cancelledAt: Date | null;
+  /** When retention removed the buyer. */
+  anonymisedAt: Date | null;
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -124,12 +136,12 @@ const invalid = (field: string, message: string) => new DomainError("validation_
 
 const columns = [
   "id", "channel_id", "status", "expires_at", "external_ref", "external_order_ref", "locale", "buyer_name", "buyer_email", "buyer_locale",
-  "confirmed_at", "cancelled_at", "version", "created_at", "updated_at",
+  "confirmed_at", "cancelled_at", "anonymised_at", "version", "created_at", "updated_at",
 ] as const;
 type Row = {
   id: string; channel_id: string; status: ReservationStatus; expires_at: Date; external_ref: string | null; external_order_ref: string | null; locale: string;
   buyer_name: string | null; buyer_email: string | null; buyer_locale: string | null; confirmed_at: Date | null; cancelled_at: Date | null;
-  version: number; created_at: Date; updated_at: Date;
+  anonymised_at: Date | null; version: number; created_at: Date; updated_at: Date;
 };
 
 /** Pure: held past its expiry reads as expired. */
@@ -334,12 +346,19 @@ export async function getReservation(tx: Tx, caller: ChannelCaller, id: string, 
   return view(tx, caller, id, now);
 }
 
-async function view(tx: Tx, caller: ChannelCaller, id: string, now: Date): Promise<Reservation> {
+/** Staff: the reservation without signatures. Callers check sales.read. */
+export const getReservationView = (tx: Tx, tenantId: string, id: string, now: Date = new Date()): Promise<Reservation> =>
+  view(tx, { tenantId, channelId: null, signingKey: null }, id, now);
+
+/** Who reads: a channel (its own reservations, signed for its key) or staff (any, unsigned). */
+type Reader = { tenantId: string; channelId: string | null; signingKey: Buffer | null };
+
+async function view(tx: Tx, caller: Reader, id: string, now: Date): Promise<Reservation> {
   const r = await tx.selectFrom("sales.reservation").select(columns).where("id", "=", id).executeTakeFirst();
-  if (!r || r.channel_id !== caller.channelId) throw new DomainError("not_found", "Reservation not found");
+  if (!r || (caller.channelId !== null && r.channel_id !== caller.channelId)) throw new DomainError("not_found", "Reservation not found");
   const [lineRows, ticketRows] = await Promise.all([
     tx.selectFrom("sales.reservation_line").selectAll().where("reservation_id", "=", id).orderBy("line_no").execute(),
-    tx.selectFrom("sales.ticket").select(["id", "line_id", "occurrence_id", "offer_id", "status", "token_version"]).where("reservation_id", "=", id).orderBy("created_at").orderBy("id").execute(),
+    tx.selectFrom("sales.ticket").select(["id", "line_id", "occurrence_id", "offer_id", "status", "token_version", "cancelled_at", "cancelled_by", "external_refund_ref"]).where("reservation_id", "=", id).orderBy("created_at").orderBy("id").execute(),
   ]);
   const admissions = await admission.ticketAdmissions(tx, ticketRows.map((t) => t.id));
   const lineNo = new Map(lineRows.map((l) => [l.id, l.line_no]));
@@ -357,6 +376,7 @@ async function view(tx: Tx, caller: ChannelCaller, id: string, now: Date): Promi
     const valid = t.status === "valid";
     tickets.push({
       id: t.id, lineId: t.line_id, occurrenceId: t.occurrence_id, offerId: t.offer_id, status: t.status, admissionId: a.id, partySize: a.partySize,
+      cancelledAt: t.cancelled_at, cancelledBy: t.cancelled_by, externalRefundRef: t.external_refund_ref,
       ticketToken: valid ? await registration.issueToken(tx, caller.tenantId, "ticket", t.id, t.token_version) : null,
       admissionToken: valid ? await registration.issueToken(tx, caller.tenantId, "admission", a.id, t.token_version) : null,
     });
@@ -367,7 +387,7 @@ async function view(tx: Tx, caller: ChannelCaller, id: string, now: Date): Promi
     externalRef: r.external_ref, externalOrderRef: r.external_order_ref, locale: r.locale,
     buyer: r.buyer_name || r.buyer_email || r.buyer_locale ? { name: r.buyer_name, email: r.buyer_email, locale: r.buyer_locale } : null,
     lines, total: { amount: lines.reduce((s, l) => s + l.amount, 0), currency: lines[0]?.currency ?? catalog.CURRENCY }, tickets,
-    confirmedAt: r.confirmed_at, cancelledAt: r.cancelled_at, version: r.version, createdAt: r.created_at, updatedAt: r.updated_at, signature: null,
+    confirmedAt: r.confirmed_at, cancelledAt: r.cancelled_at, anonymisedAt: r.anonymised_at, version: r.version, createdAt: r.created_at, updatedAt: r.updated_at, signature: null,
   };
   if (key) res.signature = sign(key, reservationSignatureText(res, lines.map((l) => l.signature!)));
   return res;
@@ -471,25 +491,127 @@ export async function confirm(tx: Tx, caller: ChannelCaller, id: string, input: 
   return view(tx, caller, id, now);
 }
 
-// ── Cancel ────────────────────────────────────────────────────────────────────
+// ── Cancel ──────────────────────────────────────────────────────────────────
 
 /**
- * Cancels a held (or expired) reservation and releases its places. Cancelling confirmed
- * tickets arrives with milestone 4. Throws already_cancelled.
+ * Held (or expired): releases the places and cancels the reservation. Confirmed: cancels the
+ * listed tickets, or all valid ones, voids their admissions and links and puts their places
+ * back on sale, recording the channel's refund reference; once no valid ticket is left the
+ * reservation is cancelled too. Throws already_cancelled, and occurrence_started for a ticket
+ * whose occurrence has begun (unless the occurrence itself was cancelled).
  */
-export async function cancelReservation(tx: Tx, caller: ChannelCaller, id: string, now: Date = new Date()): Promise<Reservation> {
+export async function cancelReservation(tx: Tx, caller: ChannelCaller, id: string, input: CancelInput = {}, now: Date = new Date()): Promise<Reservation> {
   const channel = await requireChannel(tx, caller);
+  const refundRef = ref("externalRefundRef", input.externalRefundRef, false);
   const { row, holds } = await lockReservation(tx, id, channel.id);
   if (row.status === "cancelled") throw new DomainError("already_cancelled", "The reservation is cancelled");
-  if (row.status === "confirmed") throw new DomainError("conflict", "The reservation is confirmed; cancelling sold tickets is not supported yet");
+  if (row.status === "confirmed") {
+    await cancelTickets(tx, caller.tenantId, row, holds, input.ticketIds ?? null, { by: "channel", refundRef }, now);
+    return view(tx, caller, id, now);
+  }
+  if (input.ticketIds?.length) throw invalid("ticketIds", "The reservation is not confirmed, so it has no tickets");
+  if (refundRef) throw invalid("externalRefundRef", "Only confirmed reservations are refunded");
   // Ending a hold that is gone (swept, or released at expiry) changes nothing.
   if (row.status === "held") for (const h of holds) await inventory.endHold(tx, h.hold_id, false, now);
   await tx.updateTable("sales.reservation").set({ status: "cancelled", cancelled_at: now, version: sql<number>`version + 1` }).where("id", "=", id).execute();
   await emit(tx, caller.tenantId, {
     type: "reservation.cancelled.v1", subject: `reservation/${id}`,
-    data: { reservationId: id, channelId: channel.id, previousStatus: row.status, occurrenceIds: holds.map((h) => h.occurrence_id) },
+    data: { reservationId: id, channelId: channel.id, previousStatus: row.status, occurrenceIds: holds.map((h) => h.occurrence_id), by: "channel" },
   });
   return view(tx, caller, id, now);
+}
+
+/**
+ * Staff (sales.write, Occurrence → Sales): cancels tickets of a confirmed reservation, e.g. at
+ * the box office after the shop has refunded. The same rules as the channel's cancel.
+ */
+export async function cancelTicketsAsStaff(tx: Tx, ctx: ActorContext, id: string, input: CancelInput = {}, now: Date = new Date()): Promise<Reservation> {
+  assertCan(ctx, "sales.write");
+  const refundRef = ref("externalRefundRef", input.externalRefundRef, false);
+  const { row, holds } = await lockReservation(tx, id, null);
+  if (row.status === "cancelled") throw new DomainError("already_cancelled", "The reservation is cancelled");
+  if (row.status !== "confirmed") throw new DomainError("conflict", "Only confirmed reservations have tickets to cancel; the channel releases held ones");
+  const cancelled = await cancelTickets(tx, ctx.tenantId, row, holds, input.ticketIds ?? null, { by: "staff", refundRef }, now);
+  const lines = await tx.selectFrom("sales.reservation_line as l").innerJoin("catalog.occurrence as o", "o.id", "l.occurrence_id")
+    .select("o.event_id").where("l.reservation_id", "=", id).execute();
+  for (const eventId of new Set(lines.map((l) => l.event_id))) {
+    await recordAudit(tx, ctx, {
+      action: "tickets.cancelled", entityType: "event", entityId: eventId,
+      diff: { reservationId: id, externalOrderRef: row.external_order_ref, ticketIds: cancelled, ...(refundRef ? { externalRefundRef: refundRef } : {}) },
+    });
+  }
+  return view(tx, { tenantId: ctx.tenantId, channelId: null, signingKey: null }, id, now);
+}
+
+/** Cancels tickets of a locked, confirmed reservation. Returns the ids cancelled. */
+async function cancelTickets(
+  tx: Tx, tenantId: string, row: Row, holds: HoldRow[], ticketIds: readonly string[] | null,
+  opts: { by: TicketCancelledBy; refundRef: string | null }, now: Date,
+): Promise<string[]> {
+  const all = await tx.selectFrom("sales.ticket as t").innerJoin("sales.reservation_line as l", "l.id", "t.line_id")
+    .select(["t.id", "t.status", "t.occurrence_id", "l.places_per_unit", "l.unit_price", "l.currency"])
+    .where("t.reservation_id", "=", row.id).execute();
+  let chosen;
+  if (ticketIds) {
+    if (!Array.isArray(ticketIds) || ticketIds.length === 0) throw invalid("ticketIds", "List the tickets to cancel, or leave the list out to cancel all");
+    const byId = new Map(all.map((t) => [t.id, t]));
+    const unknown = ticketIds.filter((x) => !byId.has(x));
+    if (unknown.length) throw new DomainError("validation_failed", "Some tickets do not belong to the reservation", { field: "ticketIds", ticketIds: unknown });
+    chosen = [...new Set(ticketIds)].map((x) => byId.get(x)!);
+    const done = chosen.filter((t) => t.status === "cancelled").map((t) => t.id);
+    if (done.length) throw new DomainError("already_cancelled", "Some tickets are already cancelled", { ticketIds: done });
+  } else {
+    chosen = all.filter((t) => t.status === "valid");
+    if (!chosen.length) throw new DomainError("already_cancelled", "The reservation has no valid tickets");
+  }
+
+  // A ticket for an occurrence that has begun has been used, or could have been. A cancelled
+  // occurrence's tickets can always be cancelled: that is the refund for the cancelled show.
+  const occurrences = await tx.selectFrom("catalog.occurrence").select(["id", "start_utc", "status"])
+    .where("id", "in", [...new Set(chosen.map((t) => t.occurrence_id))]).execute();
+  const started = occurrences.filter((o) => o.status !== "cancelled" && o.start_utc <= now);
+  if (started.length) {
+    throw new DomainError("occurrence_started", "The occurrence has started; its tickets can no longer be cancelled", {
+      occurrenceIds: started.map((o) => o.id), ticketIds: chosen.filter((t) => started.some((o) => o.id === t.occurrence_id)).map((t) => t.id),
+    });
+  }
+
+  const ids = chosen.map((t) => t.id);
+  for (let i = 0; i < ids.length; i += 1000) {
+    const part = ids.slice(i, i + 1000);
+    await tx.updateTable("sales.ticket").set({
+      status: "cancelled", cancelled_at: now, cancelled_by: opts.by, external_refund_ref: opts.refundRef, token_version: sql<number>`token_version + 1`,
+    }).where("id", "in", part).execute();
+    await admission.voidTicketAdmissions(tx, part);
+  }
+  // Places back per occurrence, in pool id order (the order lockReservation locked them in).
+  const places = new Map<string, number>();
+  for (const t of chosen) places.set(t.occurrence_id, (places.get(t.occurrence_id) ?? 0) + t.places_per_unit);
+  const order = holds.map((h) => h.occurrence_id);
+  for (const occurrenceId of [...places.keys()].sort((a, b) => order.indexOf(a) - order.indexOf(b))) {
+    await inventory.releasePlaces(tx, occurrenceId, places.get(occurrenceId)!);
+  }
+
+  const remaining = all.filter((t) => t.status === "valid" && !ids.includes(t.id)).length;
+  await tx.updateTable("sales.reservation").set({
+    ...(remaining === 0 ? { status: "cancelled" as const, cancelled_at: now } : {}), version: sql<number>`version + 1`,
+  }).where("id", "=", row.id).execute();
+
+  const amount = chosen.reduce((s, t) => s + t.unit_price, 0);
+  await emit(tx, tenantId, {
+    type: "ticket.cancelled.v1", subject: `reservation/${row.id}`,
+    data: {
+      reservationId: row.id, channelId: row.channel_id, externalOrderRef: row.external_order_ref, externalRefundRef: opts.refundRef, by: opts.by,
+      ticketIds: ids, occurrenceIds: [...places.keys()], amount: { amount, currency: chosen[0]?.currency ?? catalog.CURRENCY }, remainingTickets: remaining,
+    },
+  });
+  if (remaining === 0) {
+    await emit(tx, tenantId, {
+      type: "reservation.cancelled.v1", subject: `reservation/${row.id}`,
+      data: { reservationId: row.id, channelId: row.channel_id, previousStatus: "confirmed", occurrenceIds: holds.map((h) => h.occurrence_id), by: opts.by },
+    });
+  }
+  return ids;
 }
 
 // ── Expiry ────────────────────────────────────────────────────────────────────

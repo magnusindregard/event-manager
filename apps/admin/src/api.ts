@@ -83,3 +83,5 @@ export type PriceCell = Json<"/v1/offers/{id}/occurrences/{occurrenceId}/overrid
 export type SalesChannel = Json<"/v1/sales-channels", "get">["items"][number];
 export type ChannelKey = Json<"/v1/sales-channels/{id}/keys", "get">["items"][number];
 export type SkuMapping = Json<"/v1/sku-mappings", "get">["items"][number];
+export type OccurrenceSales = Json<"/v1/occurrences/{id}/sales", "get">;
+export type SalesReservation = OccurrenceSales["reservations"][number];

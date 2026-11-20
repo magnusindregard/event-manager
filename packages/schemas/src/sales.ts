@@ -56,6 +56,9 @@ export const Ticket = Type.Object({
   status: Type.Union([Type.Literal("valid"), Type.Literal("cancelled")]),
   admissionId: Uuid,
   partySize: Type.Integer({ description: "People the ticket admits: the offer's places per unit" }),
+  cancelledAt: Nullable(DateTime),
+  cancelledBy: Nullable(Type.Union([Type.Literal("channel"), Type.Literal("staff")], { description: "Who cancelled the ticket: the channel (a refund) or staff in the admin" })),
+  externalRefundRef: Nullable(Type.String({ description: "The channel's refund reference given on cancel" })),
   url: Nullable(Type.String({ description: "The ticket page with its QR code; null once cancelled" })),
   qr: Nullable(Type.String({ description: "The QR code's payload (a signed admission token); null once cancelled" })),
 });
@@ -75,6 +78,7 @@ export const Reservation = Type.Object({
   tickets: Type.Array(Ticket, { description: "Once confirmed: one per unit, in line order" }),
   confirmedAt: Nullable(DateTime),
   cancelledAt: Nullable(DateTime),
+  anonymisedAt: Nullable(Type.String({ format: "date-time", description: "When retention removed the buyer, as for registrations; the lines and references stay" })),
   version: Type.Integer(),
   createdAt: DateTime,
   updatedAt: DateTime,
@@ -105,3 +109,57 @@ export const ReservationConfirm = Type.Object(
   { externalOrderRef: Ref, buyer: Type.Optional(Nullable(Buyer)) },
   { additionalProperties: false },
 );
+
+export const ReservationCancel = Type.Object(
+  {
+    ticketIds: Type.Optional(Type.Array(Uuid, {
+      minItems: 1, maxItems: 1000, uniqueItems: true,
+      description: "Confirmed reservations: the tickets to cancel. Left out: all valid tickets. Held reservations take no tickets",
+    })),
+    externalRefundRef: Type.Optional(Nullable(Type.String({ minLength: 1, maxLength: 200, description: "Confirmed reservations: the channel's refund, stored on each cancelled ticket" }))),
+  },
+  { additionalProperties: false },
+);
+
+// Staff: Occurrence → Sales (sales.read).
+
+const Money = Type.Object({ amount: Type.Integer({ description: "Minor units, VAT included" }), currency: Type.String() });
+
+export const OccurrenceSales = Type.Object({
+  occurrenceId: Uuid,
+  pool: Nullable(Type.Object({ bookableLimit: Nullable(Type.Integer()), taken: Type.Integer(), held: Type.Integer(), available: Nullable(Type.Integer()) })),
+  currency: Type.String(),
+  offers: Type.Array(Type.Object({
+    offerId: Uuid,
+    code: Type.String(),
+    name: Type.String({ description: "In the account's default locale" }),
+    held: Type.Integer({ description: "Units in held reservations that have not expired" }),
+    sold: Type.Integer({ description: "Valid tickets" }),
+    cancelled: Type.Integer(),
+    places: Type.Integer({ description: "Places the valid tickets take" }),
+    revenue: Type.Integer({ description: "Sum of the valid tickets' prices, minor units VAT included" }),
+  }), { description: "The event's active offers, and archived ones that sold here, in display order" }),
+  reservations: Type.Array(Type.Object({
+    id: Uuid,
+    channel: Type.Object({ id: Uuid, code: Type.String(), name: Type.String() }),
+    status: ReservationStatus,
+    externalRef: Nullable(Type.String()),
+    externalOrderRef: Nullable(Type.String()),
+    buyer: Nullable(Type.Object({ name: Nullable(Type.String()), email: Nullable(Type.String()), locale: Nullable(Type.String()) })),
+    anonymisedAt: Nullable(DateTime),
+    lines: Type.Array(Type.Object({
+      id: Uuid, lineNo: Type.Integer(), offerId: Uuid, offerCode: Type.String(), name: Type.String(),
+      quantity: Type.Integer(), unitPrice: Type.Integer(), amount: Type.Integer(),
+    }), { description: "Lines at this occurrence" }),
+    tickets: Type.Array(Type.Object({
+      id: Uuid, lineId: Uuid, offerId: Uuid, status: Type.Union([Type.Literal("valid"), Type.Literal("cancelled")]), partySize: Type.Integer(),
+      cancelledAt: Nullable(DateTime), cancelledBy: Nullable(Type.Union([Type.Literal("channel"), Type.Literal("staff")])), externalRefundRef: Nullable(Type.String()),
+    }), { description: "Tickets at this occurrence" }),
+    total: Money,
+    otherOccurrences: Type.Boolean({ description: "The reservation also has lines at other occurrences" }),
+    expiresAt: DateTime,
+    confirmedAt: Nullable(DateTime),
+    cancelledAt: Nullable(DateTime),
+    createdAt: DateTime,
+  }), { description: "Newest first, at most 2,000" }),
+});

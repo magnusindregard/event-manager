@@ -11,6 +11,7 @@ import { REMINDER_TASK, reminderTask } from "./reminder.js";
 import { RESERVATION_SWEEP_TASK, reservationSweepTask } from "./reservations.js";
 import { RETENTION_TASK, retentionTask } from "./retention.js";
 import { RESOLVE_TASK, resolveTask } from "./resolver.js";
+import { TICKETS_EMAIL_TASK, ticketsEmailTask } from "./tickets-email.js";
 import { OFFER_EXPIRY_TASK, offerExpiryTask } from "./waitlist.js";
 
 interface DispatchPayload {
@@ -57,6 +58,7 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
           [OCCURRENCE_NOTICE_TASK]: occurrenceNoticeTask(db, registrationEmail),
           [INVITATION_EMAIL_TASK]: invitationEmailTask(db, registrationEmail),
           [REMINDER_TASK]: reminderTask(db, registrationEmail),
+          [TICKETS_EMAIL_TASK]: ticketsEmailTask(db, registrationEmail),
         }
       : {}),
   };

@@ -549,6 +549,7 @@ export interface OfferChannelTable {
 
 export type ReservationStatus = "held" | "confirmed" | "cancelled" | "expired";
 export type TicketStatus = "valid" | "cancelled";
+export type TicketCancelledBy = "channel" | "staff";
 
 export interface ReservationTable {
   id: string;
@@ -565,6 +566,7 @@ export interface ReservationTable {
   confirmed_at: Timestamp | null;
   cancelled_at: Timestamp | null;
   expired_at: Timestamp | null;
+  anonymised_at: Timestamp | null;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -610,6 +612,8 @@ export interface TicketTable {
   status: Generated<TicketStatus>;
   token_version: Generated<number>;
   cancelled_at: Timestamp | null;
+  cancelled_by: TicketCancelledBy | null;
+  external_refund_ref: string | null;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
 }
