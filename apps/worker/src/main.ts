@@ -6,7 +6,7 @@ const { run } = await import("graphile-worker");
 const { createDb, createPool } = await import("@event-manager/db");
 const { buildTaskList } = await import("./tasks.js");
 const { defaultHandlers } = await import("./handlers.js");
-const { mailerFromEnv, provisionDepsFromEnv, registrationEmailDepsFromEnv } = await import("./config.js");
+const { hubspotDepsFromEnv, mailerFromEnv, provisionDepsFromEnv, registrationEmailDepsFromEnv } = await import("./config.js");
 const { HORIZON_CRONTAB } = await import("./horizon.js");
 const { RETENTION_CRONTAB } = await import("./retention.js");
 const { RESERVATION_SWEEP_CRONTAB } = await import("./reservations.js");
@@ -25,7 +25,7 @@ pgPool.on("connect", (client) => client.on("error", (e) => console.error("pg cli
 const runner = await run({
   pgPool,
   concurrency,
-  taskList: buildTaskList(db, defaultHandlers, provisionDepsFromEnv(process.env, log, mailer), registrationEmailDepsFromEnv(process.env, mailer)),
+  taskList: buildTaskList(db, defaultHandlers, provisionDepsFromEnv(process.env, log, mailer), registrationEmailDepsFromEnv(process.env, mailer), hubspotDepsFromEnv(process.env, log)),
   crontab: process.env.WORKER_CRONTAB ?? [HORIZON_CRONTAB, RETENTION_CRONTAB, RESERVATION_SWEEP_CRONTAB].join("\n"),
 });
 await runner.promise;

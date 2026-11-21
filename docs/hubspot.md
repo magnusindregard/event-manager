@@ -1,6 +1,6 @@
 # HubSpot connector
 
-*Draft, 20 November 2026. Issue #95, part of epic #9. Builds on [docs/registration.md](registration.md). Decisions: [ADR 0017](adr/0017-hubspot-connector.md), [ADR 0008](adr/0008-events-and-webhooks.md).*
+*Draft, 20 November 2026; milestone 1 (connection) built 21 November. Issue #95, part of epic #9. Builds on [docs/registration.md](registration.md). Decisions: [ADR 0017](adr/0017-hubspot-connector.md), [ADR 0008](adr/0008-events-and-webhooks.md).*
 
 ## Goal
 
@@ -45,10 +45,10 @@ We own one HubSpot app on HubSpot's developer platform (built and deployed with 
 
 ### OAuth
 
-1. Settings → Integrations → **Connect HubSpot** (owner only). The API redirects to HubSpot's install URL with a signed `state` holding the account, the user and an expiry.
+1. Settings → Integrations → **Connect HubSpot** (owner only). `POST /v1/integrations/hubspot/authorize` returns HubSpot's install URL with a signed `state` (account, user, ten-minute expiry; HMAC with a key derived from the app's client secret, so no table), and the admin sends the browser there.
 2. The portal admin picks the portal and approves the scopes.
-3. HubSpot redirects to `GET /integrations/hubspot/callback`. The API checks `state`, exchanges the code, stores the refresh and access token encrypted, and records the portal id and the scopes granted.
-4. A setup job creates what we need in the portal (below) and a backfill starts.
+3. HubSpot sends the browser back to the **admin's** callback page, `<admin>/integrations/hubspot/callback`, which posts `code` and `state` to `POST /v1/integrations/hubspot/callback` with the signed-in owner's own token. The API refuses a `state` for another account or started by another user, so a link someone else started cannot connect their portal to your account, or yours to theirs. It then exchanges the code, reads the portal id and granted scopes, and stores the refresh and access token encrypted. An install missing a required scope is refused and revoked again.
+4. A setup job creates what we need in the portal (below); the backfill comes with milestone 2.
 
 **Disconnect** deletes our tokens and mappings and stops all sync. What we wrote to HubSpot stays there. Guest keys stop working, so HubSpot email links already sent lead to "link not valid"; the personal links from the platform's own emails keep working.
 
@@ -66,7 +66,7 @@ A token HubSpot refuses (app uninstalled, access revoked) sets the connection to
 | `content`, `marketing-email` | Template emails, drafts, sending | Yes |
 | `analytics.behavioral_events.send`, `behavioral_events.event_definitions.read_write` | Custom behavioural events | Optional (Enterprise) |
 
-Optional scopes are only granted on portals that have them. The connection records what was granted, and features follow from that.
+Optional scopes are only granted on portals that have them. The connection records what was granted, and features follow from that. The list lives in `packages/hubspot/src/index.ts` and must match the app definition in `integrations/hubspot-app/` (a test checks).
 
 ### What HubSpot's plans allow
 
@@ -83,7 +83,7 @@ Sending a regular email through the API needs Marketing Hub Enterprise (or HubSp
 
 Idempotent, rerun from the admin ("Repair setup"):
 
-- Contact property group **Event manager**, with the property `em_guest_key` (single-line text, read-only in the HubSpot UI where HubSpot allows it).
+- Contact property group **Event manager** (`event_manager`), with the property `em_guest_key` (single-line text, not a form field). Whether it can be made read-only in the HubSpot UI is for the spike.
 - Custom event definitions, if the optional scopes were granted.
 
 ## Contacts and the guest key
@@ -234,20 +234,20 @@ The list is remembered on the event; **Refresh from HubSpot** re-runs the import
 
 New module `integrations` (ADR 0001), schema `integrations`:
 
-- `connection`: `tenant_id`, `provider` (`hubspot`), `status` (`active`, `needs_reconnect`, `disconnected`), `external_account_id` (portal id), `scopes[]`, `features` (`send_api`, `custom_events`), `settings` (who to sync, default templates), `connected_by`, `connected_at`. One active HubSpot connection per account.
-- `credential`: refresh and access token, expiry, encrypted with the account's data key.
-- `sync_item`: `kind` (`contact`, `marketing_event`, `segment`, `email`), `local_id`, `remote_id`, `last_synced_at`, `last_error`.
-- `delivery`: `outbox_event_id`, `handler`, `status`, `attempts`, `last_error`, `next_attempt_at`. The sync log, dead letter and replay. Shaped so outgoing webhooks (#94) can use it too.
+- `connection`: `tenant_id`, `provider` (`hubspot`), `status` (`active`, `needs_reconnect`, `disconnected`) and `status_reason`, `external_account_id` (portal id), `scopes[]`, `settings` (who to sync; default templates later), `setup_status`/`setup_error`/`setup_at`, `connected_by`, `connected_at`, `disconnected_at`, and `generation`, bumped on every connect and disconnect: the worker writes tokens, setup results and `needs_reconnect` back only to the generation it loaded, so a job that outlives a reconnect to another portal cannot touch it. One row per account and provider, kept on disconnect. Features (`customEvents`, later `sendApi`) are derived from the scopes and capability checks, not stored. Reconnecting the same portal reuses the row; another portal needs a disconnect first.
+- `credential`: refresh and access token as one ciphertext under the account's data key, bound to the connection id, plus the access token's expiry.
+- `sync_item` (milestone 2): `kind` (`contact`, `marketing_event`, `segment`, `email`), `local_id`, `remote_id`, `last_synced_at`, `last_error`.
+- `delivery` (milestone 2): `outbox_event_id`, `handler`, `status`, `attempts`, `last_error`, `next_attempt_at`. The sync log, dead letter and replay. Shaped so outgoing webhooks (#94) can use it too.
 
 Changes elsewhere:
 
-- Envelope encryption moves from `registration/secrets.ts` to `shared`, with the stored format unchanged, so both modules use it.
+- Envelope encryption moves from `registration/secrets.ts` to `shared/secrets.ts` (`encryptJson`/`decryptJson` with a context string), and `registration.data_key` to `platform.data_key`, with the stored format unchanged, so both modules use it.
 - `catalog.event`: `invitation_channel` (`platform` | `hubspot`), HubSpot template overrides and campaign id (as settings, read only by the connector).
 - `registration`: `guest_key` token purpose; `invitation_send` gains `channel`; the `/h/<eventId>/<key>` lookup by HubSpot contact.
 
 ## Worker
 
-- `apps/worker/src/integrations/hubspot/` with a `HubSpotClient` interface (real one and a fake, like `Mailer` and `FakeMailer`). The real client refreshes tokens, backs off on `429` and honours HubSpot's rate limit headers.
+- `packages/hubspot`: the `HubSpotClient` interface, the real `HttpHubSpot` and `FakeHubSpot` (like `Mailer` and `FakeMailer`), shared by the API (OAuth) and the worker. The worker's `withHubSpot` (`apps/worker/src/hubspot/session.ts`) refreshes a token about to expire, and once more if HubSpot refuses one anyway; only a refused refresh sets `needs_reconnect`. `429` and `5xx` fail the job so graphile-worker retries with backoff; honouring rate limit headers within a job comes with the batch calls in milestone 2.
 - One `InternalHandler` in `handlers.ts` subscribed to `invitation.*`, `registration.*`, `event.*`, `occurrence.*` (and `admission.*` when #93 lands). It only enqueues keyed jobs; the jobs call HubSpot.
 - Idempotent on outbox event id (ADR 0008): replaying an event never registers twice or adds a send twice.
 - Retries with backoff, dead letter after the limit, replay from the sync log.

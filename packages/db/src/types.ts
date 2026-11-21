@@ -403,6 +403,38 @@ export interface DataKeyTable {
   updated_at: GeneratedTimestamp;
 }
 
+export type IntegrationProvider = "hubspot";
+export type ConnectionStatus = "active" | "needs_reconnect" | "disconnected";
+
+export interface ConnectionTable {
+  id: string;
+  tenant_id: string;
+  provider: IntegrationProvider;
+  status: ConnectionStatus;
+  external_account_id: string;
+  scopes: ColumnType<string[], string[] | undefined, string[]>;
+  settings: ColumnType<unknown, string | undefined, string>;
+  setup_status: ColumnType<"pending" | "done" | "failed", "pending" | "done" | "failed" | undefined, "pending" | "done" | "failed">;
+  setup_error: string | null;
+  setup_at: Timestamp | null;
+  status_reason: string | null;
+  connected_by: string | null;
+  connected_at: Timestamp;
+  generation: Generated<number>;
+  disconnected_at: Timestamp | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface CredentialTable {
+  connection_id: string;
+  tenant_id: string;
+  ciphertext: Buffer;
+  access_expires_at: Timestamp;
+  updated_at: GeneratedTimestamp;
+}
+
 export interface TokenKeyTable {
   tenant_id: string;
   key: Buffer;
@@ -697,7 +729,6 @@ export interface DB {
   "registration.form_version": FormVersionTable;
   "registration.answer": AnswerTable;
   "registration.sensitive_answer": SensitiveAnswerTable;
-  "registration.data_key": DataKeyTable;
   "admission.admission": AdmissionTable;
   "offers.vat_class": VatClassTable;
   "offers.offer": OfferTable;
@@ -723,4 +754,7 @@ export interface DB {
   "tenancy.api_key": ApiKeyTable;
   "outbox.event": OutboxEventTable;
   "outbox.handled": OutboxHandledTable;
+  "platform.data_key": DataKeyTable;
+  "integrations.connection": ConnectionTable;
+  "integrations.credential": CredentialTable;
 }

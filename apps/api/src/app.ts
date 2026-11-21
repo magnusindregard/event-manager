@@ -16,6 +16,7 @@ import { channelRoutes } from "./routes/channels.js";
 import { meRoutes } from "./routes/me.js";
 import { offerRoutes } from "./routes/offers.js";
 import { userGroupRoutes } from "./routes/user-groups.js";
+import { type HubSpotDeps, integrationRoutes } from "./routes/integrations.js";
 import { invitationRoutes } from "./routes/invitations.js";
 import { postmarkWebhookRoutes } from "./routes/postmark-webhook.js";
 import { registrationRoutes } from "./routes/registrations.js";
@@ -33,6 +34,8 @@ export interface AppDeps {
   postmarkWebhook?: { user: string; password: string } | null;
   /** MCP server at /mcp (docs/mcp.md): where clients sign in, the scopes they ask for, and the admin to link events to. */
   mcp?: { authorizationServers: string[]; scopes: string[]; publicUrl?: string; adminUrl?: string };
+  /** Our HubSpot app (docs/hubspot.md); null or missing leaves connecting off. */
+  hubspot?: HubSpotDeps | null;
 }
 
 /** Operations whose request body may be left out. */
@@ -105,6 +108,7 @@ export async function buildApp(deps: AppDeps) {
       await v1.register(userGroupRoutes);
       await v1.register(channelRoutes);
       await v1.register(apiKeyRoutes);
+      await v1.register(integrationRoutes, { hubspot: deps.hubspot ?? null });
       await v1.register(registrationRoutes);
       await v1.register(invitationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
       await v1.register(reservationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });

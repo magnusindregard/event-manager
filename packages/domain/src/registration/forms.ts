@@ -1,8 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { Tx } from "@event-manager/db";
-import { type ActorContext, DomainError } from "../shared/index.js";
+import { type ActorContext, decryptJson, DomainError, encryptJson } from "../shared/index.js";
 import { assertCan, can, getAccount, recordAudit } from "../tenancy/index.js";
-import { decryptAnswer, encryptAnswer } from "./secrets.js";
 
 // Registration forms (docs/registration.md, "Form fields"). Name and email are always
 // collected; the guest is the event's guestAllowed setting. Everything else is a field the
@@ -233,6 +232,9 @@ export async function visibleAnswerFields(tx: Tx, ctx: ActorContext, occurrenceI
 
 // ── Answers ─────────────────────────────────────────────────────────────────
 
+/** Binds a sensitive answer to its row and field (the stored format since migration 0013). */
+const answerAad = (tenantId: string, registrationId: string, fieldId: string) => `answer:${tenantId}:${registrationId}:${fieldId}`;
+
 export interface AnswerInput {
   /** By field id. Text: a string; checkbox: true, "1" or "on"; choice: an option id or a list of them. */
   answers?: Record<string, unknown>;
@@ -308,7 +310,7 @@ export async function writeAnswers(
     await tx.deleteFrom("registration.sensitive_answer").where("registration_id", "=", registrationId).execute();
     const rows = [];
     for (const [field_id, v] of sensitive) {
-      rows.push({ tenant_id: tenantId, registration_id: registrationId, field_id, ciphertext: await encryptAnswer(tx, tenantId, registrationId, field_id, v) });
+      rows.push({ tenant_id: tenantId, registration_id: registrationId, field_id, ciphertext: await encryptJson(tx, tenantId, answerAad(tenantId, registrationId, field_id), v) });
     }
     if (rows.length) await tx.insertInto("registration.sensitive_answer").values(rows).execute();
   }
@@ -333,7 +335,7 @@ export async function readAnswers(tx: Tx, tenantId: string, registrationIds: rea
   for (const a of plain) out.get(a.registration_id)![a.field_id] = a.value as AnswerValue;
   if (canReadSensitive(reader)) {
     const enc = await tx.selectFrom("registration.sensitive_answer").select(["registration_id", "field_id", "ciphertext"]).where("registration_id", "in", registrationIds).execute();
-    for (const a of enc) out.get(a.registration_id)![a.field_id] = (await decryptAnswer(tx, tenantId, a.registration_id, a.field_id, a.ciphertext)) as AnswerValue;
+    for (const a of enc) out.get(a.registration_id)![a.field_id] = (await decryptJson(tx, tenantId, answerAad(tenantId, a.registration_id, a.field_id), a.ciphertext)) as AnswerValue;
   }
   return out;
 }

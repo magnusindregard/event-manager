@@ -15,6 +15,7 @@
     "@azure/monitor-opentelemetry": "^1.21.0",
     "@event-manager/db": "workspace:*",
     "@event-manager/domain": "workspace:*",
+    "@event-manager/hubspot": "workspace:*",
     "graphile-worker": "~0.17.1",
     "qrcode": "^1.5.4"
   },

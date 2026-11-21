@@ -6,5 +6,6 @@ export * as offers from "./offers/index.js";
 export * as admission from "./admission/index.js";
 export * as registration from "./registration/index.js";
 export * as sales from "./sales/index.js";
+export * as integrations from "./integrations/index.js";
 export * as outbox from "./outbox/index.js";
 export * from "./shared/index.js";
