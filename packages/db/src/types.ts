@@ -420,6 +420,7 @@ export interface ConnectionTable {
   status_reason: string | null;
   connected_by: string | null;
   connected_at: Timestamp;
+  generation: Generated<number>;
   disconnected_at: Timestamp | null;
   version: Generated<number>;
   created_at: GeneratedTimestamp;

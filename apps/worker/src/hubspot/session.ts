@@ -13,6 +13,8 @@ const REFRESH_MARGIN_MS = 5 * 60_000;
  * The token is refreshed first when it is about to expire, and once more if HubSpot refuses it
  * anyway (early expiry, clock skew). Only a refresh HubSpot refuses (app uninstalled, access
  * revoked) marks the connection needs_reconnect: nothing to retry until an owner connects again.
+ * Every write back names the generation loaded here, so a job that outlives a disconnect and
+ * reconnect leaves the new install alone, and returns null.
  * Two jobs refreshing at once is harmless; HubSpot keeps the refresh token.
  */
 export async function withHubSpot<T>(
@@ -30,14 +32,16 @@ export async function withHubSpot<T>(
   const refresh = async (): Promise<string | null> => {
     try {
       const fresh = await client.refresh(tokens.refreshToken);
-      await withTenant(db, scope, (tx) =>
-        integrations.storeRefreshedTokens(tx, tenantId, connection.id, { accessToken: fresh.accessToken, refreshToken: fresh.refreshToken || tokens.refreshToken, accessExpiresAt: fresh.expiresAt }),
+      const stored = await withTenant(db, scope, (tx) =>
+        integrations.storeRefreshedTokens(tx, tenantId, connection, { accessToken: fresh.accessToken, refreshToken: fresh.refreshToken || tokens.refreshToken, accessExpiresAt: fresh.expiresAt }),
       );
-      return fresh.accessToken;
+      // Disconnected or reconnected (perhaps to another portal) meanwhile: these tokens belong
+      // to an install that is gone, so this job stops rather than act on it.
+      return stored ? fresh.accessToken : null;
     } catch (e) {
       // HubSpot answers 400 to a refresh token it no longer accepts.
       if (e instanceof HubSpotError && (e.unauthorized || e.status === 400)) {
-        await withTenant(db, scope, (tx) => integrations.markNeedsReconnect(tx, tenantId, connection.id, e.message));
+        await withTenant(db, scope, (tx) => integrations.markNeedsReconnect(tx, tenantId, connection, e.message));
         return null;
       }
       throw e;

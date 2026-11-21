@@ -61,21 +61,21 @@ describe("integrations", () => {
     const loaded = await run((tx) => integrations.loadForSync(tx, ctx.tenantId, "hubspot"));
     expect(loaded?.tokens).toMatchObject({ accessToken: "at-1", refreshToken: "rt-1" });
 
-    await run((tx) => integrations.storeRefreshedTokens(tx, ctx.tenantId, loaded!.connection.id, tokens(2)));
+    await run((tx) => integrations.storeRefreshedTokens(tx, ctx.tenantId, loaded!.connection, tokens(2)));
     expect((await run((tx) => integrations.loadForSync(tx, ctx.tenantId, "hubspot")))?.tokens.accessToken).toBe("at-2");
   });
 
   it("records setup, and pauses on a refused token until the owner reconnects the same portal", async () => {
     const { connection } = (await run((tx) => integrations.loadForSync(tx, ctx.tenantId, "hubspot")))!;
-    await run((tx) => integrations.recordSetup(tx, connection.id, { ok: false, error: "boom" }));
+    await run((tx) => integrations.recordSetup(tx, connection, { ok: false, error: "boom" }));
     expect((await run((tx) => integrations.getConnection(tx, ctx, "hubspot")))?.setup).toMatchObject({ status: "failed", error: "boom" });
 
-    await run((tx) => integrations.markNeedsReconnect(tx, ctx.tenantId, connection.id, "401 expired"));
+    await run((tx) => integrations.markNeedsReconnect(tx, ctx.tenantId, connection, "401 expired"));
     expect(await run((tx) => integrations.getConnection(tx, ctx, "hubspot"))).toMatchObject({ status: "needs_reconnect", statusReason: "401 expired" });
     expect(await run((tx) => integrations.loadForSync(tx, ctx.tenantId, "hubspot"))).toBeNull();
     expect(await code(run((tx) => integrations.requestSetup(tx, ctx, "hubspot")))).toBe("conflict");
     // Refreshed tokens from a job that was running are dropped.
-    await run((tx) => integrations.storeRefreshedTokens(tx, ctx.tenantId, connection.id, tokens(9)));
+    expect(await run((tx) => integrations.storeRefreshedTokens(tx, ctx.tenantId, connection, tokens(9)))).toBe(false);
 
     // Another portal is refused while connected; the same one reconnects in place.
     expect(await code(connect("222", 3))).toBe("conflict");
@@ -102,5 +102,27 @@ describe("integrations", () => {
     expect(await connect("222", 4)).toMatchObject({ status: "active", portalId: "222", disconnectedAt: null });
     const audit = await su.query<{ action: string }>("select action from tenancy.audit_log where tenant_id = $1 and action like 'integration.%' order by at, id", [ctx.tenantId]);
     expect(audit.rows.map((r) => r.action)).toEqual(["integration.connected", "integration.connected", "integration.updated", "integration.disconnected", "integration.connected"]);
+  });
+
+  it("drops what a job loaded before a disconnect and reconnect would write back (review on #113)", async () => {
+    // A refresh starts for portal 222 …
+    const stale = (await run((tx) => integrations.loadForSync(tx, ctx.tenantId, "hubspot")))!.connection;
+    expect(stale.portalId).toBe("222");
+    // … meanwhile the owner disconnects and connects portal 333, which reuses the row.
+    await run((tx) => integrations.disconnect(tx, ctx, "hubspot"));
+    const now = await connect("333", 5);
+    expect(now.id).toBe(stale.id);
+    expect(now.generation).toBeGreaterThan(stale.generation);
+
+    // The refresh for 222 finishes: none of its results reach 333.
+    expect(await run((tx) => integrations.storeRefreshedTokens(tx, ctx.tenantId, stale, tokens(6)))).toBe(false);
+    await run((tx) => integrations.markNeedsReconnect(tx, ctx.tenantId, stale, "400 BAD_REFRESH_TOKEN"));
+    await run((tx) => integrations.recordSetup(tx, stale, { ok: true }));
+    const after = (await run((tx) => integrations.loadForSync(tx, ctx.tenantId, "hubspot")))!;
+    expect(after.connection).toMatchObject({ portalId: "333", status: "active", setup: { status: "pending" } });
+    expect(after.tokens).toMatchObject({ accessToken: "at-5", refreshToken: "rt-5" });
+
+    // The current generation still writes.
+    expect(await run((tx) => integrations.storeRefreshedTokens(tx, ctx.tenantId, after.connection, tokens(7)))).toBe(true);
   });
 });

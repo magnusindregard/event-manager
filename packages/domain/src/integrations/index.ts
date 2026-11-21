@@ -31,9 +31,17 @@ export interface Connection {
   connectedBy: string | null;
   connectedAt: Date;
   disconnectedAt: Date | null;
+  /** Bumped on every (re)connect; see ConnectionRef. */
+  generation: number;
   version: number;
   updatedAt: Date;
 }
+
+/**
+ * The connection a job loaded. Reconnecting reuses the row, so the id alone does not say it is
+ * still the same install: the connector writes back only if the generation still matches.
+ */
+export type ConnectionRef = Pick<Connection, "id" | "generation">;
 
 export interface Tokens {
   accessToken: string;
@@ -45,13 +53,13 @@ const DEFAULT_SETTINGS: ConnectionSettings = { syncInvitedGuests: true, syncOpen
 
 const columns = [
   "id", "provider", "status", "external_account_id", "scopes", "settings", "setup_status", "setup_error", "setup_at",
-  "status_reason", "connected_by", "connected_at", "disconnected_at", "version", "updated_at",
+  "status_reason", "connected_by", "connected_at", "disconnected_at", "generation", "version", "updated_at",
 ] as const;
 
 type Row = {
   id: string; provider: IntegrationProvider; status: ConnectionStatus; external_account_id: string; scopes: string[]; settings: unknown;
   setup_status: "pending" | "done" | "failed"; setup_error: string | null; setup_at: Date | null; status_reason: string | null;
-  connected_by: string | null; connected_at: Date; disconnected_at: Date | null; version: number; updated_at: Date;
+  connected_by: string | null; connected_at: Date; disconnected_at: Date | null; generation: number; version: number; updated_at: Date;
 };
 
 const toConnection = (r: Row): Connection => ({
@@ -66,6 +74,7 @@ const toConnection = (r: Row): Connection => ({
   connectedBy: r.connected_by,
   connectedAt: r.connected_at,
   disconnectedAt: r.disconnected_at,
+  generation: r.generation,
   version: r.version,
   updatedAt: r.updated_at,
 });
@@ -138,7 +147,7 @@ export async function saveConnection(tx: Tx, ctx: ActorContext, input: ConnectIn
   let id: string;
   if (before) {
     id = before.id;
-    await tx.updateTable("integrations.connection").set({ ...values, version: sql<number>`version + 1` }).where("id", "=", id).execute();
+    await tx.updateTable("integrations.connection").set({ ...values, generation: sql<number>`generation + 1`, version: sql<number>`version + 1` }).where("id", "=", id).execute();
   } else {
     id = newId();
     await tx.insertInto("integrations.connection").values({ id, tenant_id: ctx.tenantId, provider: input.provider, ...values }).execute();
@@ -159,9 +168,10 @@ export async function disconnect(tx: Tx, ctx: ActorContext, provider: Integratio
   if (!before || before.status === "disconnected") throw new DomainError("not_found", "Not connected");
   const tokens = await readTokens(tx, ctx.tenantId, before.id);
   await tx.deleteFrom("integrations.credential").where("connection_id", "=", before.id).execute();
+  // A new generation, so jobs still running for the old install drop what they would write.
   await tx
     .updateTable("integrations.connection")
-    .set({ status: "disconnected", disconnected_at: sql<Date>`now()`, status_reason: null, version: sql<number>`version + 1` })
+    .set({ status: "disconnected", disconnected_at: sql<Date>`now()`, status_reason: null, generation: sql<number>`generation + 1`, version: sql<number>`version + 1` })
     .where("id", "=", before.id)
     .execute();
   await recordAudit(tx, ctx, { action: "integration.disconnected", entityType: "account", entityId: ctx.tenantId, diff: { provider, portalId: before.portalId } });
@@ -214,31 +224,37 @@ export async function loadForSync(tx: Tx, tenantId: string, provider: Integratio
   return tokens ? { connection, tokens } : null;
 }
 
-/** Stores refreshed tokens, unless the connection was disconnected or reconnected meanwhile. */
-export async function storeRefreshedTokens(tx: Tx, tenantId: string, connectionId: string, tokens: Tokens): Promise<void> {
-  const c = await tx.selectFrom("integrations.connection").select("status").where("id", "=", connectionId).forUpdate().executeTakeFirst();
-  if (c?.status !== "active") return;
-  await writeTokens(tx, tenantId, connectionId, tokens);
+/** Stores refreshed tokens, unless the connection was disconnected or reconnected since `ref` was loaded. */
+export async function storeRefreshedTokens(tx: Tx, tenantId: string, ref: ConnectionRef, tokens: Tokens): Promise<boolean> {
+  const c = await tx.selectFrom("integrations.connection").select(["status", "generation"]).where("id", "=", ref.id).forUpdate().executeTakeFirst();
+  if (c?.status !== "active" || c.generation !== ref.generation) return false;
+  await writeTokens(tx, tenantId, ref.id, tokens);
+  return true;
 }
 
-/** Records how the setup in the provider went. */
-export async function recordSetup(tx: Tx, connectionId: string, result: { ok: true } | { ok: false; error: string }): Promise<void> {
+/** Records how the setup in the provider went, for the generation that ran it. */
+export async function recordSetup(tx: Tx, ref: ConnectionRef, result: { ok: true } | { ok: false; error: string }): Promise<void> {
   await tx
     .updateTable("integrations.connection")
     .set({ setup_status: result.ok ? "done" : "failed", setup_error: result.ok ? null : result.error.slice(0, 1000), setup_at: sql<Date>`now()` })
-    .where("id", "=", connectionId)
+    .where("id", "=", ref.id)
+    .where("generation", "=", ref.generation)
     .where("status", "=", "active")
     .execute();
 }
 
-/** The provider refused our tokens (uninstalled, revoked): sync pauses until an owner reconnects. */
-export async function markNeedsReconnect(tx: Tx, tenantId: string, connectionId: string, reason: string): Promise<void> {
+/**
+ * The provider refused our tokens (uninstalled, revoked): sync pauses until an owner reconnects.
+ * A refusal of an older generation's tokens says nothing about the current install and is ignored.
+ */
+export async function markNeedsReconnect(tx: Tx, tenantId: string, ref: ConnectionRef, reason: string): Promise<void> {
   const res = await tx
     .updateTable("integrations.connection")
     .set({ status: "needs_reconnect", status_reason: reason.slice(0, 1000), version: sql<number>`version + 1` })
-    .where("id", "=", connectionId)
+    .where("id", "=", ref.id)
+    .where("generation", "=", ref.generation)
     .where("status", "=", "active")
     .returning(["provider"])
     .executeTakeFirst();
-  if (res) await emit(tx, tenantId, { type: "integration.changed.v1", subject: `integration/${res.provider}`, data: { connectionId, provider: res.provider, change: "needs_reconnect" } });
+  if (res) await emit(tx, tenantId, { type: "integration.changed.v1", subject: `integration/${res.provider}`, data: { connectionId: ref.id, provider: res.provider, change: "needs_reconnect" } });
 }

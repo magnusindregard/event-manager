@@ -39,6 +39,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       status_reason       text,
       connected_by        uuid REFERENCES tenancy.user (id),
       connected_at        timestamptz NOT NULL,
+      -- Bumped on every (re)connect. The worker writes back only to the generation it loaded,
+      -- so a job that started before a disconnect and reconnect cannot touch the new one.
+      generation          int NOT NULL DEFAULT 1,
       disconnected_at     timestamptz,
       version             int NOT NULL DEFAULT 1,
       created_at          timestamptz NOT NULL DEFAULT now(),

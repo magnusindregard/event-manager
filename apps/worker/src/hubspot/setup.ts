@@ -46,11 +46,14 @@ export function hubspotSetupTask(db: Db, deps: HubSpotDeps | null): Task {
       helpers.logger.warn("HubSpot is not configured (HUBSPOT_CLIENT_ID); setup skipped");
       return;
     }
+    // The generation that ran the setup; its result is recorded on that generation only.
+    let ref: integrations.ConnectionRef | null = null;
     const record = (result: { ok: true } | { ok: false; error: string }) =>
-      withTenant(db, { tenantId: payload.tenantId }, (tx) => integrations.recordSetup(tx, payload.connectionId, result));
+      ref ? withTenant(db, { tenantId: payload.tenantId }, (tx) => integrations.recordSetup(tx, ref!, result)) : Promise.resolve();
     try {
       const done = await withHubSpot(db, payload.tenantId, deps.client, async (accessToken, connection) => {
         if (connection.id !== payload.connectionId) return null;
+        ref = { id: connection.id, generation: connection.generation };
         await deps.client.ensureContactPropertyGroup(accessToken, PROPERTY_GROUP.name, PROPERTY_GROUP.label);
         await deps.client.ensureContactProperty(accessToken, GUEST_KEY_PROPERTY);
         return connection.portalId;

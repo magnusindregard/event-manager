@@ -109,4 +109,40 @@ describe("HubSpot setup", () => {
     await drain();
     expect(await connection()).toMatchObject({ status: "active", setup: { status: "done" } });
   });
+
+  it("a refresh that finishes after a disconnect and reconnect to another portal leaves the new one alone (review on #113)", async () => {
+    await admin.query("update integrations.credential set access_expires_at = now() + interval '1 minute'");
+    // The refresh for portal 100 succeeds at HubSpot, then stalls before it is stored.
+    let entered!: () => void;
+    let release!: () => void;
+    const inRefresh = new Promise<void>((r) => (entered = r));
+    const gate = new Promise<void>((r) => (release = r));
+    const original = hubspot.refresh.bind(hubspot);
+    hubspot.refresh = async (token) => {
+      hubspot.refresh = original;
+      const fresh = await original(token);
+      entered();
+      await gate;
+      return fresh;
+    };
+    await withTenant(db, ctx, (tx) => integrations.requestSetup(tx, ctx, "hubspot"));
+    const running = drain();
+    await inRefresh;
+
+    // Meanwhile the owner disconnects (revoking at HubSpot, as the API does) and connects portal 200.
+    const { refreshToken } = await withTenant(db, ctx, (tx) => integrations.disconnect(tx, ctx, "hubspot"));
+    await hubspot.revoke(refreshToken!);
+    await connect("200");
+    release();
+    await running;
+    await drain();
+
+    const now = (await withTenant(db, ctx, (tx) => integrations.loadForSync(tx, ctx.tenantId, "hubspot")))!;
+    expect(now.connection).toMatchObject({ portalId: "200", status: "active", setup: { status: "done" } });
+    // The stored tokens are portal 200's: they work there, and a refresh with them works too.
+    await expect(hubspot.tokenInfo(now.tokens.accessToken)).resolves.toMatchObject({ portalId: "200" });
+    await expect(hubspot.refresh(now.tokens.refreshToken)).resolves.toBeTruthy();
+    expect(hubspot.portals.get("200")!.properties.has(GUEST_KEY_PROPERTY.name)).toBe(true);
+    expect(await failedJobs()).toBe(0);
+  });
 });
