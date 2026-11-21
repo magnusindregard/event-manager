@@ -278,6 +278,27 @@ Changes elsewhere:
 
 Depends on #93 (`admission.issued`, `reminder.due`) and #7 (`attend`). #94 reuses the `delivery` log.
 
+## Running the spike
+
+`apps/worker/src/hubspot/spike.ts` runs milestone 0's checks against a portal and records what HubSpot answers. Each step is a question from the milestone; a refused step is a finding, and the run goes on. It refuses to start unless the token belongs to the portal named with `--portal`, so it cannot write to a real portal by mistake.
+
+1. A HubSpot developer account with the app uploaded (`integrations/hubspot-app/README.md`) and a **developer test account** (portal), on Marketing Hub Enterprise to try sending and custom events.
+2. In the test portal, design a marketing email to use as the template, with a button whose URL is `[[em:invitation_link]]`. Try both a drag-and-drop and a coded template.
+3. Connect the test portal from the admin (a local stack with the app's client id and secret works), so the token is ours and the setup job has run.
+4. Run it, with an inbox you can read:
+
+```bash
+pnpm --filter @event-manager/worker hubspot-spike --portal <test portal id> --email <your inbox> --account <account id> --template-email <email id>
+```
+
+`--account` reads the connection's tokens from the database (`DATABASE_URL`, `SENSITIVE_DATA_KEYS`, `HUBSPOT_CLIENT_ID`/`SECRET`) and refreshes them like the worker; `HUBSPOT_ACCESS_TOKEN=…` works instead. Without `--template-email` it lists the portal's emails. Add `--send` to publish the draft, which **sends a real email** to the test contact; open it and check that the link reaches `/h/spike-event/<the contact's key>`. `--keep` leaves what it created (contact, segment, marketing event, draft, event definition); otherwise it cleans up.
+
+It writes `summary.md` (a table of question, outcome and HubSpot's answer, ready to paste below) and one recording per step to `spike-output/` (git-ignored), with tokens and the test address redacted. The recordings are the start of the contract-test fixtures.
+
+### Results
+
+*Not run yet.*
+
 ## Testing
 
 - **Worker** (`apps/worker/test/hubspot.test.ts`, fake client): each outbox event gives the expected calls; replayed events change nothing; segment changes are coalesced; reconcile fixes a drifted segment before a send; a send logs one `invitation_send` per recipient and emits `invitation.sent.v1`; a refused token pauses sync; `429` backs off.

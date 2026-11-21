@@ -21,4 +21,5 @@ that asks for a scope the app does not declare. **Redirect URLs** are the admin'
 (`<admin>/integrations/hubspot/callback`) for each environment; add production's before it goes live.
 
 Not yet checked against a real developer account (milestone 0, the spike): the config schema
-for platform version 2025.2 and the exact scope names.
+for platform version 2025.2 and the exact scope names. The spike script checks the rest; see
+"Running the spike" in docs/hubspot.md.
