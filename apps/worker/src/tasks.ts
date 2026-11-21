@@ -3,6 +3,7 @@ import { type Db, withTenant } from "@event-manager/db";
 import { outbox } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
 import { HORIZON_TASK, horizonTask } from "./horizon.js";
+import { HUBSPOT_SETUP_TASK, type HubSpotDeps, hubspotSetupTask } from "./hubspot/setup.js";
 import { INVITATION_EMAIL_TASK, invitationEmailTask } from "./invitation-email.js";
 import { OCCURRENCE_NOTICE_TASK, occurrenceNoticeTask } from "./occurrence-notice.js";
 import { PROVISION_TASK, type ProvisionDeps, provisionTask } from "./provision.js";
@@ -43,7 +44,7 @@ export function dispatchTask(db: Db, handlers: InternalHandler[]): Task {
   };
 }
 
-export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: ProvisionDeps, registrationEmail?: RegistrationEmailDeps): TaskList {
+export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: ProvisionDeps, registrationEmail?: RegistrationEmailDeps, hubspot: HubSpotDeps | null = null): TaskList {
   return {
     "outbox.dispatch": dispatchTask(db, handlers),
     [HORIZON_TASK]: horizonTask(db),
@@ -51,6 +52,8 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
     [RETENTION_TASK]: retentionTask(db),
     [OFFER_EXPIRY_TASK]: offerExpiryTask(db),
     [RESERVATION_SWEEP_TASK]: reservationSweepTask(db),
+    // Always registered: jobs queued by a connection never sit unknown when HubSpot is not configured.
+    [HUBSPOT_SETUP_TASK]: hubspotSetupTask(db, hubspot),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
     ...(registrationEmail
       ? {

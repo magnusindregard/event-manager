@@ -1,12 +1,12 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import type { Tx } from "@event-manager/db";
 
-// Envelope encryption for sensitive answers (ADR 0003, 0004: per-tenant keys for sensitive
-// columns). Each tenant has a random 256-bit data key, stored in registration.data_key
-// wrapped by a master key that never enters the database: in Azure a Key Vault secret
-// passed to the apps as SENSITIVE_DATA_KEYS. Values are encrypted with AES-256-GCM, with
-// the tenant, registration and field bound in as additional data, so a ciphertext copied to
-// another row does not decrypt.
+// Envelope encryption for sensitive columns (ADR 0003, 0004: per-tenant keys). Each tenant
+// has a random 256-bit data key, stored in platform.data_key wrapped by a master key that
+// never enters the database: in Azure a Key Vault secret passed to the apps as
+// SENSITIVE_DATA_KEYS. Values are encrypted with AES-256-GCM, with a context string bound in
+// as additional data (tenant, row and field), so a ciphertext copied to another row does not
+// decrypt. Used by registration (sensitive answers) and integrations (OAuth tokens).
 //
 // SENSITIVE_DATA_KEYS is "id:base64key[,id:base64key…]". The first key wraps new data keys;
 // the others only unwrap, so a master key can be rotated by adding a new one first and
@@ -53,7 +53,7 @@ function masterKeys(): MasterKeys {
   if (configured) return configured;
   const spec = process.env.SENSITIVE_DATA_KEYS;
   if (!spec) {
-    if (process.env.NODE_ENV === "production") throw new Error("SENSITIVE_DATA_KEYS is required to store or read sensitive answers");
+    if (process.env.NODE_ENV === "production") throw new Error("SENSITIVE_DATA_KEYS is required to store or read sensitive data");
     configured = parseMasterKeys(DEV_KEYS);
   } else {
     configured = parseMasterKeys(spec);
@@ -81,7 +81,7 @@ function open(key: Buffer, sealed: Buffer, aad: string): Buffer {
 
 const wrapAad = (tenantId: string) => `data-key:${tenantId}`;
 
-/** Per transaction: data keys already unwrapped, so a list of answers unwraps once. */
+/** Per transaction: data keys already unwrapped, so a list of values unwraps once. */
 const cache = new WeakMap<Tx, Map<string, Buffer>>();
 
 /** The tenant's data key, created on first use. */
@@ -89,15 +89,15 @@ async function dataKey(tx: Tx, tenantId: string, create: boolean): Promise<Buffe
   const hit = cache.get(tx)?.get(tenantId);
   if (hit) return hit;
   const mk = masterKeys();
-  let row = await tx.selectFrom("registration.data_key").select(["wrapped", "master_key_id"]).where("tenant_id", "=", tenantId).executeTakeFirst();
+  let row = await tx.selectFrom("platform.data_key").select(["wrapped", "master_key_id"]).where("tenant_id", "=", tenantId).executeTakeFirst();
   if (!row) {
     if (!create) return null;
     const key = randomBytes(32);
-    await tx.insertInto("registration.data_key")
+    await tx.insertInto("platform.data_key")
       .values({ tenant_id: tenantId, wrapped: seal(mk.keys.get(mk.currentId)!, key, wrapAad(tenantId)), master_key_id: mk.currentId })
       .onConflict((oc) => oc.column("tenant_id").doNothing())
       .execute();
-    row = await tx.selectFrom("registration.data_key").select(["wrapped", "master_key_id"]).where("tenant_id", "=", tenantId).executeTakeFirstOrThrow();
+    row = await tx.selectFrom("platform.data_key").select(["wrapped", "master_key_id"]).where("tenant_id", "=", tenantId).executeTakeFirstOrThrow();
   }
   const master = mk.keys.get(row.master_key_id);
   if (!master) throw new Error(`Master key ${row.master_key_id} is not configured`);
@@ -107,28 +107,30 @@ async function dataKey(tx: Tx, tenantId: string, create: boolean): Promise<Buffe
   return key;
 }
 
-const answerAad = (tenantId: string, registrationId: string, fieldId: string) => `answer:${tenantId}:${registrationId}:${fieldId}`;
-
-/** Encrypts a JSON value for registration.sensitive_answer. */
-export async function encryptAnswer(tx: Tx, tenantId: string, registrationId: string, fieldId: string, value: unknown): Promise<Buffer> {
+/**
+ * Encrypts a JSON value under the tenant's data key, creating the key on first use. `aad`
+ * names where the value lives (e.g. "answer:<tenant>:<registration>:<field>") and must be
+ * given again to decrypt it.
+ */
+export async function encryptJson(tx: Tx, tenantId: string, aad: string, value: unknown): Promise<Buffer> {
   const key = (await dataKey(tx, tenantId, true))!;
-  return seal(key, Buffer.from(JSON.stringify(value), "utf8"), answerAad(tenantId, registrationId, fieldId));
+  return seal(key, Buffer.from(JSON.stringify(value), "utf8"), aad);
 }
 
-/** Decrypts a sensitive answer. */
-export async function decryptAnswer(tx: Tx, tenantId: string, registrationId: string, fieldId: string, ciphertext: Buffer): Promise<unknown> {
+/** Decrypts a value from encryptJson with the same `aad`. */
+export async function decryptJson(tx: Tx, tenantId: string, aad: string, ciphertext: Buffer): Promise<unknown> {
   const key = await dataKey(tx, tenantId, false);
   if (!key) throw new Error("The account has no data key");
-  return JSON.parse(open(key, ciphertext, answerAad(tenantId, registrationId, fieldId)).toString("utf8"));
+  return JSON.parse(open(key, ciphertext, aad).toString("utf8"));
 }
 
 /** Rewraps the tenant's data key under the current master key; true if it changed. */
 export async function rewrapDataKey(tx: Tx, tenantId: string): Promise<boolean> {
   const mk = masterKeys();
-  const row = await tx.selectFrom("registration.data_key").select("master_key_id").where("tenant_id", "=", tenantId).forUpdate().executeTakeFirst();
+  const row = await tx.selectFrom("platform.data_key").select("master_key_id").where("tenant_id", "=", tenantId).forUpdate().executeTakeFirst();
   if (!row || row.master_key_id === mk.currentId) return false;
   const key = (await dataKey(tx, tenantId, false))!;
-  await tx.updateTable("registration.data_key")
+  await tx.updateTable("platform.data_key")
     .set({ wrapped: seal(mk.keys.get(mk.currentId)!, key, wrapAad(tenantId)), master_key_id: mk.currentId, updated_at: new Date() })
     .where("tenant_id", "=", tenantId).execute();
   return true;

@@ -7,6 +7,7 @@ const { createDb } = await import("@event-manager/db");
 const { buildApp } = await import("./app.js");
 const { anyVerifier, devVerifier, oidcVerifier } = await import("./auth.js");
 const { loadConfig } = await import("./config.js");
+const { FakeHubSpot, HttpHubSpot } = await import("@event-manager/hubspot");
 
 const config = loadConfig();
 const verifiers = [
@@ -21,6 +22,14 @@ const app = await buildApp({
   attendeeUrl: config.attendeeUrl,
   postmarkWebhook: config.postmarkWebhook,
   mcp: config.mcp,
+  hubspot: config.hubspot
+    ? {
+        client: config.hubspot.fake
+          ? new FakeHubSpot((line) => console.log(line), { redirectUrl: config.hubspot.redirectUrl, portalId: "1000" })
+          : new HttpHubSpot(config.hubspot),
+        clientSecret: config.hubspot.clientSecret,
+      }
+    : null,
   logger: { level: process.env.LOG_LEVEL ?? "info" },
 });
 

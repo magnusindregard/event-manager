@@ -1,0 +1,38 @@
+{
+  "uid": "event_manager",
+  "type": "app",
+  "config": {
+    "name": "Event manager",
+    "description": "Syncs invited guests, events and attendance to HubSpot, and drafts invitation emails from your own templates.",
+    "distribution": "private",
+    "auth": {
+      "type": "oauth",
+      "redirectUrls": [
+        "https://stemstagingadminoh7q5wxr.z1.web.core.windows.net/integrations/hubspot/callback",
+        "http://localhost:5173/integrations/hubspot/callback"
+      ],
+      "requiredScopes": [
+        "oauth",
+        "crm.objects.contacts.read",
+        "crm.objects.contacts.write",
+        "crm.schemas.contacts.write",
+        "crm.lists.read",
+        "crm.lists.write",
+        "crm.objects.marketing_events.read",
+        "crm.objects.marketing_events.write",
+        "content",
+        "marketing-email"
+      ],
+      "optionalScopes": [
+        "analytics.behavioral_events.send",
+        "behavioral_events.event_definitions.read_write"
+      ],
+      "conditionallyRequiredScopes": []
+    },
+    "permittedUrls": {
+      "fetch": [],
+      "iframe": [],
+      "img": []
+    }
+  }
+}

@@ -9,7 +9,7 @@ import { startTestDatabase, type TestDatabase } from "../src/testing.js";
 
 type Ids = {
   tenantA: string; tenantB: string; user: string; event: string;
-  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string; vatClass: string; offer: string; channel: string; reservation: string; line: string; ticket: string; group: string;
+  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string; vatClass: string; offer: string; channel: string; reservation: string; line: string; ticket: string; group: string; connection: string;
 };
 type Fixture = (c: pg.ClientBase, tenantId: string, ids: Ids) => Promise<void>;
 
@@ -88,8 +88,13 @@ const fixtures: Record<string, Fixture> = {
   "registration.sensitive_answer": (c, t, ids) =>
     c.query(`insert into registration.sensitive_answer (tenant_id, registration_id, field_id, ciphertext) values ($1, $2, 'diet', '\\x00')`,
       [t, ids.registration]).then(() => {}),
-  "registration.data_key": (c, t) =>
-    c.query(`insert into registration.data_key (tenant_id, wrapped, master_key_id) values ($1, '\\x00', 'k1')`, [t]).then(() => {}),
+  "platform.data_key": (c, t) =>
+    c.query(`insert into platform.data_key (tenant_id, wrapped, master_key_id) values ($1, '\\x00', 'k1')`, [t]).then(() => {}),
+  "integrations.connection": (c, t, ids) =>
+    c.query(`insert into integrations.connection (id, tenant_id, provider, status, external_account_id, connected_at) values ($1, $2, 'hubspot', 'active', '123', now())`,
+      [ids.connection, t]).then(() => {}),
+  "integrations.credential": (c, t, ids) =>
+    c.query(`insert into integrations.credential (connection_id, tenant_id, ciphertext, access_expires_at) values ($1, $2, '\\x00', now())`, [ids.connection, t]).then(() => {}),
   "offers.vat_class": (c, t, ids) =>
     c.query(`insert into offers.vat_class (id, tenant_id, code, label, rate_pct) values ($1, $2, 'exempt', 'Exempt', 0)`, [ids.vatClass, t]).then(() => {}),
   "offers.offer": (c, t, ids) =>
@@ -143,7 +148,7 @@ const fixtures: Record<string, Fixture> = {
       [randomUUID(), t, ids.registration, ids.ticket, ids.occurrence, randomUUID()]).then(() => {}),
 };
 
-const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID(), vatClass: randomUUID(), offer: randomUUID(), channel: randomUUID(), reservation: randomUUID(), line: randomUUID(), ticket: randomUUID(), group: randomUUID() });
+const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID(), vatClass: randomUUID(), offer: randomUUID(), channel: randomUUID(), reservation: randomUUID(), line: randomUUID(), ticket: randomUUID(), group: randomUUID(), connection: randomUUID() });
 
 let db: TestDatabase;
 let admin: pg.Client;

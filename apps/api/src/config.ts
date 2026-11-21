@@ -8,6 +8,8 @@ export interface Config {
   attendeeUrl: string;
   postmarkWebhook: { user: string; password: string } | null;
   mcp: { authorizationServers: string[]; scopes: string[]; publicUrl?: string; adminUrl?: string };
+  /** Our HubSpot app (docs/hubspot.md). redirectUrl is the admin's callback page, registered in the app. */
+  hubspot: { clientId: string; clientSecret: string; redirectUrl: string; fake: boolean } | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -21,6 +23,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const publicUrl = env.PUBLIC_URL || undefined;
   // Links to events in the admin in MCP tool results; none in production unless set.
   const adminUrl = env.ADMIN_URL || (production ? undefined : "http://localhost:5173/");
+  // HUBSPOT_CLIENT_ID + HUBSPOT_CLIENT_SECRET (Key Vault); HUBSPOT_REDIRECT_URL defaults to the admin's page.
+  // HUBSPOT=fake (local only): a fake portal that approves installs at once.
+  const hubspotFake = env.HUBSPOT === "fake";
+  if (hubspotFake && production) throw new Error("HUBSPOT=fake must not be set in production");
+  const hubspotRedirect = env.HUBSPOT_REDIRECT_URL || (adminUrl ? new URL("integrations/hubspot/callback", adminUrl).toString() : undefined);
+  if (env.HUBSPOT_CLIENT_ID && !env.HUBSPOT_CLIENT_SECRET) throw new Error("HUBSPOT_CLIENT_SECRET is required with HUBSPOT_CLIENT_ID");
+  if ((env.HUBSPOT_CLIENT_ID || hubspotFake) && !hubspotRedirect) throw new Error("Set HUBSPOT_REDIRECT_URL or ADMIN_URL with HUBSPOT_CLIENT_ID");
   return {
     port: Number(env.PORT ?? 3000),
     databaseUrl,
@@ -40,5 +49,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       ...(publicUrl ? { publicUrl } : {}),
       ...(adminUrl ? { adminUrl } : {}),
     },
+    hubspot: hubspotFake
+      ? { clientId: "fake", clientSecret: "local-fake-hubspot", redirectUrl: hubspotRedirect!, fake: true }
+      : env.HUBSPOT_CLIENT_ID
+        ? { clientId: env.HUBSPOT_CLIENT_ID, clientSecret: env.HUBSPOT_CLIENT_SECRET!, redirectUrl: hubspotRedirect!, fake: false }
+        : null,
   };
 }
