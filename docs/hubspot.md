@@ -1,6 +1,6 @@
 # HubSpot connector
 
-*Draft, 20 November 2026; milestone 1 (connection) built 21 November. Issue #95, part of epic #9. Builds on [docs/registration.md](registration.md). Decisions: [ADR 0017](adr/0017-hubspot-connector.md), [ADR 0008](adr/0008-events-and-webhooks.md).*
+*Draft, 20 November 2026; milestone 1 (connection) built 21 November; spike run 22–23 November. Issue #95, part of epic #9. Builds on [docs/registration.md](registration.md). Decisions: [ADR 0017](adr/0017-hubspot-connector.md), [ADR 0008](adr/0008-events-and-webhooks.md).*
 
 ## Goal
 
@@ -297,7 +297,73 @@ It writes `summary.md` (a table of question, outcome and HubSpot's answer, ready
 
 ### Results
 
-*Not run yet.*
+**Run 1, 22 November 2026**, developer test account 148058020 (`accountType` SANDBOX), app 63032708, drag-and-drop template, with `--send`.
+
+| Question | Finding | What it means for the design |
+|---|---|---|
+| App definition and scope names | `hs project upload` accepted `integrations/hubspot-app/`. The install granted all 10 required and both optional scopes. Connecting through the admin, the setup job and the property group all worked against real HubSpot | Milestone 1 holds as built |
+| Is the plan visible? | `/account-info/v3/details` gives type, time zone, currency and data hosting, but **not the Marketing Hub tier** | Detect "can send through the API" by trying, as planned, not by reading the tier |
+| Read-only `em_guest_key` | `PATCH modificationMetadata.readOnlyValue=true` answers 200, but the value **stays `false`** | It cannot be made read-only. The setup guide must say not to edit it; rotation repairs a damaged key |
+| Contact upsert by email with the key | Works (`batch/upsert`, `idProperty: email`) | As designed |
+| Static segment | Create, add, remove and read members all work (`/crm/v3/lists`, `processingType: MANUAL`). Batch limits not measured yet | As designed |
+| Marketing event and attendance by email | Create, `register` and `attend` by email all answer 200. The breakdown read straight after shows `total: 0` | Attendance is probably processed asynchronously; re-read later in run 2 before relying on it |
+| Clone and placeholder | Clone works, keeps `emailTemplateMode: DRAG_AND_DROP`, and `[[em:invitation_link]]` is in the content as literal text | Placeholders work for drag-and-drop templates; coded templates still to try |
+| Draft: name, subject, link | All set by PATCH. The placeholder replaced with `…/h/<event>/{{ contact.em_guest_key }}` reads back as written | As designed; whether the token renders in a sent email is for run 2 |
+| Draft: preview text | Not a field on the email: it is a module, `content.widgets.preview_text.body.value` | Set it in the content, like the link |
+| Draft: recipients | After we set our segment, the email also listed `contactLists: [781]`. *Corrected in run 3:* that is our own segment under its **legacy list id**, which HubSpot adds by itself; the clone had no recipients | Set every recipient kind (`contactIlsLists`, `contactLists`, `contactIds`) and check the result before sending, resolving `contactLists` ids with `GET /crm/v3/lists/idmapping?legacyListId=`. The spike does this and will not publish otherwise |
+| Publish through the API | Refused with `400 VALIDATION_FAILED`: `CAN_SPAM_NOT_CONFIGURED` (the portal has no email footer address) and `NOT_SET: SUBSCRIPTION` (the email has no subscription type). Not a plan refusal | The platform must check a draft is publishable and show HubSpot's reasons. The setup guide covers the footer and the template's subscription type. Retry in run 2 |
+| Custom behavioural events | Defining and sending both work (`pe148058020_em_spike_…`) | As designed |
+| Cleanup | Everything the spike made was deleted | – |
+
+Run 1 used email 521529124032, an ordinary marketing email rather than a template, which is why its recipient list came along.
+
+**Run 2, 22 November 2026**, same portal, after adding the email footer; template 521529113795 (a saved HubSpot email template), subscription type "Informasjon fra Munchmuseet".
+
+| Question | Finding | What it means for the design |
+|---|---|---|
+| Can a saved HubSpot email template be the template? | **No.** `POST /marketing/v3/emails/clone` answers `404 OBJECT_NOT_FOUND: The model 521529113795 does not exist`: the clone endpoint only takes marketing emails | A template is a **draft marketing email** the client keeps for the purpose (e.g. "EM · Invitation template"), as the design already says. The template picker lists marketing emails, and the setup guide says to save the design as a draft email, not as a HubSpot template |
+| Subscription type on a template | HubSpot has no subscription type on templates; it is set per email | The platform sets `subscriptionDetails.subscriptionId` on every draft it makes. The account chooses a default subscription type, and an event can override it |
+| Can we list subscription types? | `GET /communication-preferences/v3/definitions` answers `403 MISSING_SCOPES` | Needs another scope (expected `communication_preferences.read`) so the admin can offer the types. Without it, the platform could only take an id typed in |
+| Attendance after a delay | The breakdown still shows `total: 0` straight after `register` and `attend` | Still to read again some minutes later |
+
+**Runs 3 and 4, 22 November 2026**, same portal, template **521501446340** (a draft marketing email with the subscription type set), with `--send`.
+
+| Question | Finding | What it means for the design |
+|---|---|---|
+| Does a clone keep the template's subscription type? | **Yes** (`subscriptionDetails.subscriptionId` 2343918412 came along) | A client can set the subscription type on their template draft; the platform only needs to set it when the account or event chooses another. The extra scope is then a nice-to-have for the admin's picker, not a blocker |
+| Recipients after setting our segment | `contactIlsLists: [1527]` and `contactLists: [783]`, which is 1527's legacy id. The clone itself had no recipients | See the corrected row in run 1. The guard stopped run 3 from sending until it resolved legacy ids |
+| Preview text through the content module | Set and read back | As planned after run 1 |
+| **Publish through the API** | **Works**: `POST /marketing/v3/emails/{id}/publish` answers `204` and the email goes to `PRE_PROCESSING` (run 4) | The "send from the platform" path works on this portal. Whether a non-Enterprise portal refuses it, and with what error, still needs a portal on a lower plan |
+| Deleting a segment a sent email uses | `400`: the list is "blocked for list modification/deletion due to these references" (the email) | Segments of sent emails cannot be deleted. Archiving an event leaves them (renamed or simply left), not deleted |
+| Delivery | Run 4 deleted the test contact seconds after publishing (a spike bug, now fixed); two minutes later the email was still `PRE_PROCESSING` with no counters | Rerun to see the email arrive and check the rendered link |
+| Attendance | Still `total: 0` straight after `register` and `attend` | Still to read again later |
+
+**Run 5, 22 November 2026**: the same as run 4, with cleanup keeping the contact and the segment for delivery.
+
+| Question | Finding | What it means for the design |
+|---|---|---|
+| Is the email delivered? | Published (`204`), then `PRE_PROCESSING` → `PROCESSING` → `PUBLISHED` within 8 minutes. Counters: `selected 1, suppressed 1, notsent 1`. **Nothing was sent** | – |
+| Why suppressed? | The contact we created has **`hs_marketable_status: false`**: contacts created through the API are non-marketing contacts, and HubSpot sends marketing email only to marketing contacts. The property is **read-only through the API**. `hs_legal_basis` is empty too (the portal is EU-hosted, so GDPR settings may also apply) | **A HubSpot invitation reaches only guests who are already marketing contacts.** The platform cannot make a contact one. So: (1) before a send, read `hs_marketable_status` for the recipients and show how many HubSpot will suppress; (2) the setup guide tells the client how to make the contacts we create marketing contacts (portal setting for contacts from integrations, or a workflow), and about legal basis under GDPR; (3) guests imported from a HubSpot list are usually marketing contacts already, which fits the main use case. This needs deciding before milestone 4 |
+
+**Run 6, 23 November 2026**: the same, after the test contact was made a marketing contact by hand in HubSpot.
+
+| Question | Finding | What it means for the design |
+|---|---|---|
+| Is the email delivered to a marketing contact? | **Yes**: `sent 1, delivered 1, suppressed 0`, about 12 minutes after publishing (`PRE_PROCESSING` → `PUBLISHED`) | The whole path works: clone, draft, our segment as the only recipients, publish through the API, delivery. The only blocker is marketing contact status |
+| Does the personal link render? | **Yes**: the button in the received email links to `http://localhost:3020/h/spike-event/spike-202611230806-26b1`, the contact's key at send time | `{{ contact.em_guest_key }}` inside a link URL is filled in per recipient, unencoded. The guest key design holds |
+
+### What the spike leaves to decide
+
+HubSpot sending works, but **only for marketing contacts, which an app cannot create** (runs 5–6). In the museum case many invitees (lenders, the artist's family, other museums) should not be in HubSpot at all, let alone as billable marketing contacts. The options on the table, not yet decided:
+
+1. **Keep HubSpot sending, with a client workflow** that makes our contacts marketing contacts and cleans them up after X days, explained by dialogues in the admin. Caveats: marketing contacts are likely billed at the period's peak even if removed, it creates CRM records for people outside the client's marketing (GDPR), and it relies on workflows the platform cannot see.
+2. **Split per recipient**: HubSpot sends to marketing contacts, the platform to the rest. Every guest is reached, but invitations come from two senders in two designs.
+3. **Drop HubSpot sending, keep the rest**: the platform sends all invitations with account-branded templates (as planned for #100); HubSpot keeps marketing events, attendance, segments and custom events. One sender, consistent branding, no marketing contact problem; clients lose HubSpot's designer and email reporting for invitations.
+4. **Drop the integration** and build email templating in the platform.
+
+ADR 0017 and the "HubSpot emails" section above follow option 1 as written and need revising once this is decided. Milestones 2 and 3 (contacts, marketing events, segments) hold under options 1–3.
+
+Still open: attendance read later; a coded template; publishing on a non-Enterprise portal.
 
 ## Testing
 

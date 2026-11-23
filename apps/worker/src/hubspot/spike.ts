@@ -18,6 +18,8 @@ export interface SpikeOptions {
   email: string;
   /** A marketing email designed as a template, with [[em:invitation_link]] in it. */
   templateEmailId?: string;
+  /** Subscription type for the draft, by id or name; HubSpot will not publish without one. */
+  subscription?: string;
   /** Publish the draft: sends a real email to `email`. */
   send: boolean;
   /** Leave what the spike created in the portal. */
@@ -63,6 +65,9 @@ interface State {
   listId?: string;
   marketingEvent?: { externalAccountId: string; externalEventId: string };
   cloneId?: string;
+  subscriptionId?: string;
+  /** The draft goes to our segment and nobody else. */
+  draftSafe?: boolean;
   sent?: boolean;
   eventDefinition?: string;
 }
@@ -107,8 +112,9 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
   }
 
   const said = (r: Response_) => {
-    const b = r.body as { message?: string; category?: string } | null;
-    return `${r.status}${b?.category ? ` ${b.category}` : ""}${b?.message ? `: ${b.message}` : ""}`;
+    const b = r.body as { message?: string; category?: string; errors?: { errorType?: string }[] } | null;
+    const types = (b?.errors ?? []).map((e) => e.errorType).filter(Boolean);
+    return `${r.status}${b?.category ? ` ${b.category}` : ""}${b?.message ? `: ${b.message}` : ""}${types.length ? ` [${types.join(", ")}]` : ""}`;
   };
 
   async function step(id: string, question: string, fn: (details: string[]) => Promise<Outcome>) {
@@ -168,7 +174,8 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
     d.push(`group ${p.groupName}`, `modificationMetadata ${JSON.stringify(p.modificationMetadata ?? {})}`);
     // Try to make the value read-only; HubSpot may refuse it for custom properties.
     const ro = await call("PATCH", `/crm/v3/properties/contacts/${GUEST_KEY_PROPERTY.name}`, { modificationMetadata: { readOnlyValue: true } });
-    d.push(ro.ok ? `read-only accepted: ${JSON.stringify((ro.body as { modificationMetadata?: unknown }).modificationMetadata)}` : `read-only refused: ${said(ro)}`);
+    const readOnly = (ro.body as { modificationMetadata?: { readOnlyValue?: boolean } } | null)?.modificationMetadata?.readOnlyValue === true;
+    d.push(!ro.ok ? `read-only refused: ${said(ro)}` : readOnly ? "read-only: set" : "read-only: not settable (HubSpot answered OK but readOnlyValue stayed false)");
     return "pass";
   });
 
@@ -224,6 +231,28 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
     return ok ? "pass" : "fail";
   });
 
+  await step("subscription-types", "Can we list the portal's subscription types, to set one on each draft?", async (d) => {
+    const r = await call("GET", "/communication-preferences/v3/definitions");
+    const wanted = opts.subscription?.trim().toLowerCase();
+    if (!r.ok) {
+      d.push(`list: ${said(r)}`);
+      if (opts.subscription && /^\d+$/.test(opts.subscription)) {
+        state.subscriptionId = opts.subscription;
+        d.push(`using id ${opts.subscription} as given`);
+      }
+      return "fail";
+    }
+    const defs = (r.body as { subscriptionDefinitions?: { id: string | number; name: string; isActive?: boolean }[] } | null)?.subscriptionDefinitions ?? [];
+    d.push(`types: ${defs.map((s) => `${s.id} "${s.name}"${s.isActive === false ? " (inactive)" : ""}`).join("; ") || "none"}`);
+    if (wanted) {
+      const hit = defs.find((s) => String(s.id) === wanted || s.name.trim().toLowerCase() === wanted);
+      state.subscriptionId = hit ? String(hit.id) : undefined;
+      d.push(hit ? `using ${hit.id} "${hit.name}"` : `no subscription type matches "${opts.subscription}"`);
+      if (!hit) return "fail";
+    }
+    return "pass";
+  });
+
   await step("email-clone", `Can we clone a template email, and does its content carry ${PLACEHOLDER}?`, async (d) => {
     if (!opts.templateEmailId) {
       const l = await call("GET", "/marketing/v3/emails?limit=20");
@@ -235,9 +264,10 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
     if (!r.ok) return d.push(`clone: ${said(r)}`), "fail";
     state.cloneId = String((r.body as { id: string }).id);
     const g = await call("GET", `/marketing/v3/emails/${state.cloneId}`);
-    const e = g.body as { type?: string; emailTemplateMode?: string; content?: unknown } | null;
+    const e = g.body as { type?: string; emailTemplateMode?: string; content?: unknown; subscriptionDetails?: { subscriptionId?: string | number } } | null;
     const has = JSON.stringify(e?.content ?? {}).includes(PLACEHOLDER);
-    d.push(`clone ${state.cloneId}, type ${e?.type}, mode ${e?.emailTemplateMode ?? "?"}`, has ? "placeholder found in content" : "placeholder NOT found in content");
+    const kept = e?.subscriptionDetails?.subscriptionId;
+    d.push(`clone ${state.cloneId}, type ${e?.type}, mode ${e?.emailTemplateMode ?? "?"}`, has ? "placeholder found in content" : "placeholder NOT found in content", kept ? `subscription type kept: ${kept}` : "no subscription type on the clone");
     return has ? "pass" : "fail";
   });
 
@@ -246,31 +276,54 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
     const g = await call("GET", `/marketing/v3/emails/${state.cloneId}`);
     const content = (g.body as { content?: unknown } | null)?.content ?? {};
     const link = `${opts.attendeeUrl}/h/spike-event/{{ contact.${GUEST_KEY_PROPERTY.name} }}`;
-    const replaced = JSON.parse(JSON.stringify(content).split(PLACEHOLDER).join(link.replace(/"/g, '\\"')));
+    const replaced = JSON.parse(JSON.stringify(content).split(PLACEHOLDER).join(link.replace(/"/g, '\\"'))) as { widgets?: Record<string, { body?: { value?: string } }> };
+    // Preview text is a module in drag-and-drop emails (run 1), not a top-level field.
+    const previewText = `Preview ${tag}`;
+    const previewWidget = replaced.widgets?.preview_text;
+    if (previewWidget) previewWidget.body = { ...previewWidget.body, value: previewText };
     const subject = `EM spike ${tag}`;
+    // Replace every kind of recipient: a clone keeps the template's own lists (run 1), which
+    // would otherwise get the email too.
+    const none = { include: [], exclude: [] };
+    const existing = (g.body as { subscriptionDetails?: Record<string, unknown> } | null)?.subscriptionDetails ?? {};
     const patch = await call("PATCH", `/marketing/v3/emails/${state.cloneId}`, {
       name: `EM spike · ${tag} · Invitation`, subject, content: replaced,
-      ...(state.listId ? { to: { contactIlsLists: { include: [state.listId], exclude: [] } } } : {}),
+      ...(state.subscriptionId ? { subscriptionDetails: { ...existing, subscriptionId: state.subscriptionId } } : {}),
+      to: { contactIlsLists: state.listId ? { include: [state.listId], exclude: [] } : none, contactLists: none, contactIds: none },
     });
-    // Where preview text lives is one of the questions: try it on its own so a refusal is visible.
-    const preview = await call("PATCH", `/marketing/v3/emails/${state.cloneId}`, { previewText: `Preview ${tag}` });
-    const after = (await call("GET", `/marketing/v3/emails/${state.cloneId}`)).body as { subject?: string; to?: { contactIlsLists?: { include?: (string | number)[] } }; content?: unknown } | null;
+    type To = Record<string, { include?: (string | number)[] } | boolean | undefined>;
+    const after = (await call("GET", `/marketing/v3/emails/${state.cloneId}`)).body as { subject?: string; to?: To; content?: unknown; subscriptionDetails?: { subscriptionId?: string | number } } | null;
     const text = JSON.stringify(after ?? {});
+    const recipients = Object.entries(after?.to ?? {}).flatMap(([k, v]) => (typeof v === "object" && v ? (v.include ?? []).map((id) => `${k}:${id}`) : []));
+    // HubSpot also lists a segment under its legacy id in contactLists (run 3). Resolve those, so
+    // our own segment counts as ours and anything else does not.
+    const legacy = new Map<string, string>();
+    for (const r of recipients.filter((x) => x.startsWith("contactLists:"))) {
+      const id = r.slice("contactLists:".length);
+      const m = await call("GET", `/crm/v3/lists/idmapping?legacyListId=${encodeURIComponent(id)}`);
+      const listId = (m.body as { listId?: string | number } | null)?.listId;
+      if (m.ok && listId !== undefined) legacy.set(r, `contactIlsLists:${listId}`);
+    }
+    const resolved = [...new Set(recipients.map((r) => legacy.get(r) ?? r))];
     const checks = {
       patched: patch.ok,
       subject: after?.subject === subject,
-      recipients: !state.listId || (after?.to?.contactIlsLists?.include ?? []).map(String).includes(state.listId),
+      onlyOurSegment: state.listId ? resolved.length === 1 && resolved[0] === `contactIlsLists:${state.listId}` : resolved.length === 0,
       link: text.includes(`contact.${GUEST_KEY_PROPERTY.name}`),
       placeholderGone: !text.includes(PLACEHOLDER),
+      previewText: text.includes(previewText),
+      subscription: !state.subscriptionId || String(after?.subscriptionDetails?.subscriptionId ?? "") === state.subscriptionId,
     };
-    d.push(...Object.entries(checks).map(([k, v]) => `${k} ${v ? "✓" : "✗"}`), patch.ok ? "" : `patch: ${said(patch)}`, `previewText ${preview.ok && text.includes(`Preview ${tag}`) ? "✓" : `✗ ${preview.ok ? "(accepted, not found on read)" : said(preview)}`}`);
+    d.push(...Object.entries(checks).map(([k, v]) => `${k} ${v ? "✓" : "✗"}`), `recipients ${recipients.map((r) => (legacy.has(r) ? `${r} (= ${legacy.get(r)})` : r)).join(", ") || "none"}`, patch.ok ? "" : `patch: ${said(patch)}`, previewWidget ? "" : "no preview_text module in the content");
     d.splice(0, d.length, ...d.filter(Boolean));
+    state.draftSafe = checks.patched && checks.onlyOurSegment && !!state.listId;
     return Object.values(checks).every(Boolean) ? "pass" : "fail";
   });
 
   await step("email-send", "Can we publish (send) the draft through the API, and what does HubSpot say when the plan does not allow it?", async (d) => {
     if (!state.cloneId) return d.push("no draft"), "skip";
     if (!opts.send) return d.push(`pass --send to publish: it sends a real email to ${opts.email}`), "skip";
+    if (!state.draftSafe) return d.push("not published: the draft's recipients are not only our segment (see email-draft)"), "skip";
     const r = await call("POST", `/marketing/v3/emails/${state.cloneId}/publish`);
     state.sent = r.ok;
     const after = (await call("GET", `/marketing/v3/emails/${state.cloneId}`)).body as { state?: string; publishDate?: string } | null;
@@ -299,10 +352,13 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
     const del = async (what: string, path: string) => done.push(`${what} ${(await call("DELETE", path)).status}`);
     if (state.cloneId && !state.sent) await del("email", `/marketing/v3/emails/${state.cloneId}`);
     if (state.cloneId && state.sent) done.push("sent email kept (HubSpot keeps sent emails)");
-    if (state.listId) await del("segment", `/crm/v3/lists/${state.listId}`);
+    // A sent email references its segment (HubSpot refuses to delete it, run 4) and is still being
+    // delivered to the contact, so both stay; remove them in HubSpot once the email has arrived.
+    if (state.listId && !state.sent) await del("segment", `/crm/v3/lists/${state.listId}`);
     if (state.marketingEvent) await del("marketing event", `/marketing/v3/marketing-events/events/${state.marketingEvent.externalEventId}?externalAccountId=${state.marketingEvent.externalAccountId}`);
     if (state.eventDefinition) await del("event definition", `/events/v3/event-definitions/${state.eventDefinition}`);
-    if (state.contactId) await del("contact", `/crm/v3/objects/contacts/${state.contactId}`);
+    if (state.contactId && !state.sent) await del("contact", `/crm/v3/objects/contacts/${state.contactId}`);
+    if (state.sent) done.push(`segment ${state.listId} and contact ${state.contactId} kept for the delivery`);
     d.push(...done);
     return "info";
   });
