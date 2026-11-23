@@ -83,6 +83,7 @@ export async function migrate(migratorUrl: string): Promise<void> {
 
     const migrator = new Migrator({ db, provider, migrationTableSchema: "platform_migrations" });
     await sql`CREATE SCHEMA IF NOT EXISTS platform_migrations`.execute(db);
+    await retireHubSpotMigration(db);
     const { error, results } = await migrator.migrateToLatest();
     for (const r of results ?? []) {
       console.log(`migration ${r.migrationName}: ${r.status}`);
@@ -109,4 +110,28 @@ export async function migrate(migratorUrl: string): Promise<void> {
       await adminDb.destroy();
     }
   }
+}
+
+/**
+ * The HubSpot connector is on hold (feat/hubspot-connector), but staging already ran its
+ * migration. Kysely refuses to migrate while an executed migration is missing, so undo it here:
+ * its down(), then forget it ran. Apps on the previous image use platform.data_key until they
+ * move to the new image. Remove this once no database has the migration.
+ */
+export async function retireHubSpotMigration(db: Kysely<unknown>): Promise<void> {
+  await db.transaction().execute(async (tx) => {
+    const ran = await sql<{ n: number }>`
+      SELECT count(*)::int AS n FROM pg_tables
+      WHERE schemaname = 'platform_migrations' AND tablename = 'kysely_migration'
+    `.execute(tx);
+    if (!ran.rows[0]?.n) return;
+    const deleted = await sql`DELETE FROM platform_migrations.kysely_migration WHERE name = '0022_integrations'`.execute(tx);
+    if (!deleted.numAffectedRows) return;
+    await sql`
+      DROP SCHEMA IF EXISTS integrations CASCADE;
+      DROP VIEW IF EXISTS registration.data_key;
+      ALTER TABLE platform.data_key SET SCHEMA registration;
+    `.execute(tx);
+    console.log("migration 0022_integrations: retired");
+  });
 }
