@@ -872,8 +872,59 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Owner only. Runs the setup in the portal again (property group and guest key property) */
+        /** Owner only. Runs the setup in the portal again */
         post: operations["repairHubSpotSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/hubspot/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The sync log: what is in step with HubSpot, waiting or refused, and why */
+        get: operations["getHubSpotSync"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/hubspot/sync/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owner only. Tries every item HubSpot refused again */
+        post: operations["retryHubSpotSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/hubspot/resync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owner only. Pushes everything the connection should show again, as after connecting */
+        post: operations["resyncHubSpot"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11479,7 +11530,7 @@ export interface operations {
                                 /** @description Upsert attendees of open registration as HubSpot contacts */
                                 syncOpenAttendees: boolean;
                             };
-                            /** @description The property group and guest key property in the portal */
+                            /** @description The setup job in the portal: for now, a check that our token reaches the connected portal */
                             setup: {
                                 status: "pending" | "done" | "failed";
                                 error: string | null;
@@ -11688,7 +11739,7 @@ export interface operations {
                             /** @description Upsert attendees of open registration as HubSpot contacts */
                             syncOpenAttendees: boolean;
                         };
-                        /** @description The property group and guest key property in the portal */
+                        /** @description The setup job in the portal: for now, a check that our token reaches the connected portal */
                         setup: {
                             status: "pending" | "done" | "failed";
                             error: string | null;
@@ -11927,7 +11978,7 @@ export interface operations {
                             /** @description Upsert attendees of open registration as HubSpot contacts */
                             syncOpenAttendees: boolean;
                         };
-                        /** @description The property group and guest key property in the portal */
+                        /** @description The setup job in the portal: for now, a check that our token reaches the connected portal */
                         setup: {
                             status: "pending" | "done" | "failed";
                             error: string | null;
@@ -12061,7 +12112,7 @@ export interface operations {
                             /** @description Upsert attendees of open registration as HubSpot contacts */
                             syncOpenAttendees: boolean;
                         };
-                        /** @description The property group and guest key property in the portal */
+                        /** @description The setup job in the portal: for now, a check that our token reaches the connected portal */
                         setup: {
                             status: "pending" | "done" | "failed";
                             error: string | null;
@@ -12075,6 +12126,311 @@ export interface operations {
                         updatedAt: string;
                     };
                 };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getHubSpotSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            contact: {
+                                /** @description In HubSpot and up to date */
+                                synced: number;
+                                /** @description Waiting to be pushed, including items being retried after a refusal */
+                                pending: number;
+                                /** @description Refused five times; waits for a retry or a change */
+                                failed: number;
+                            };
+                            marketing_event: {
+                                /** @description In HubSpot and up to date */
+                                synced: number;
+                                /** @description Waiting to be pushed, including items being retried after a refusal */
+                                pending: number;
+                                /** @description Refused five times; waits for a retry or a change */
+                                failed: number;
+                            };
+                            attendance: {
+                                /** @description In HubSpot and up to date */
+                                synced: number;
+                                /** @description Waiting to be pushed, including items being retried after a refusal */
+                                pending: number;
+                                /** @description Refused five times; waits for a retry or a change */
+                                failed: number;
+                            };
+                        };
+                        lastSyncedAt: string | null;
+                        /** @description Items HubSpot refused, latest first (at most 50) */
+                        issues: {
+                            kind: "contact" | "marketing_event" | "attendance";
+                            /** @description The contact's email, the event, or both */
+                            label: string;
+                            email: string | null;
+                            eventTitle: string | null;
+                            startUtc: string | null;
+                            attempts: number;
+                            /** @description No longer retried by itself */
+                            givenUp: boolean;
+                            /** @description What HubSpot answered */
+                            lastError: string;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    retryHubSpotSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @description Items queued to be tried again */
+                        retried: number;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    resyncHubSpot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Default Response */
             400: {

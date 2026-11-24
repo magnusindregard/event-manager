@@ -24,12 +24,43 @@ export interface TokenInfo {
   user: string | null;
 }
 
-export interface ContactPropertySpec {
-  name: string;
-  label: string;
-  description: string;
-  groupName: string;
+/** What the portal says about itself (`/account-info/v3/details`); it does not show the Marketing Hub tier (spike run 1). */
+export interface AccountDetails {
+  portalId: string;
+  timeZone: string | null;
+  accountType: string | null;
 }
+
+/** A contact as the platform wants it. Names are only written where HubSpot has none. */
+export interface ContactInput {
+  email: string;
+  firstname: string | null;
+  lastname: string | null;
+}
+
+/** HubSpot's record for an upserted contact; `created`: HubSpot made it now (the upsert's `new`). */
+export interface ContactResult {
+  email: string;
+  id: string;
+  created: boolean;
+}
+
+/** One marketing event per occurrence (docs/hubspot.md, "Marketing events and attendance"). */
+export interface MarketingEventInput {
+  /** The account id. */
+  externalAccountId: string;
+  /** The occurrence id. */
+  externalEventId: string;
+  eventName: string;
+  eventOrganizer: string;
+  eventType: string;
+  startDateTime: Date;
+  endDateTime: Date;
+  eventUrl: string | null;
+  eventCancelled: boolean;
+}
+
+export type AttendanceState = "register" | "cancel" | "attend";
 
 /** A HubSpot answer that is not a success. `unauthorized`: the token is refused (uninstalled, revoked). */
 export class HubSpotError extends Error {
@@ -58,15 +89,21 @@ export interface HubSpotClient {
   tokenInfo(accessToken: string): Promise<TokenInfo>;
   /** Uninstall from our side; an unknown token counts as revoked. */
   revoke(refreshToken: string): Promise<void>;
-  /** Creates the contact property group unless it exists. */
-  ensureContactPropertyGroup(accessToken: string, name: string, label: string): Promise<void>;
-  /** Creates the contact property unless it exists. */
-  ensureContactProperty(accessToken: string, spec: ContactPropertySpec): Promise<void>;
+  /** The portal behind a token: the setup job checks that our token reaches the portal we connected. */
+  accountDetails(accessToken: string): Promise<AccountDetails>;
+  /** Upserts contacts by email (up to 100), filling in names only where HubSpot has none. */
+  upsertContacts(accessToken: string, contacts: ContactInput[]): Promise<ContactResult[]>;
+  /** Creates the marketing event, or updates it when `exists`; returns HubSpot's object id. */
+  saveMarketingEvent(accessToken: string, event: MarketingEventInput, exists: boolean): Promise<{ objectId: string | null }>;
+  /** Marks a marketing event cancelled (its occurrence was deleted); one HubSpot no longer has is fine. */
+  cancelMarketingEvent(accessToken: string, externalAccountId: string, externalEventId: string): Promise<void>;
+  /** Records attendance by email (up to 100); HubSpot processes it in the background (spike run 17). */
+  recordAttendance(accessToken: string, externalAccountId: string, externalEventId: string, state: AttendanceState, emails: string[], at: Date): Promise<void>;
 }
 
 const API = "https://api.hubapi.com";
 
-/** The real client: HubSpot's OAuth v1 endpoints and CRM v3 properties API. */
+/** The real client: HubSpot's OAuth v1 endpoints and the APIs the connector uses. */
 export class HttpHubSpot implements HubSpotClient {
   constructor(
     private readonly app: HubSpotAppConfig,
@@ -105,29 +142,69 @@ export class HttpHubSpot implements HubSpotClient {
     }
   }
 
-  async ensureContactPropertyGroup(accessToken: string, name: string, label: string): Promise<void> {
-    await this.createUnlessExists(accessToken, "/crm/v3/properties/contacts/groups", { name, label, displayOrder: -1 });
+  async accountDetails(accessToken: string): Promise<AccountDetails> {
+    const body = (await this.call("GET", "/account-info/v3/details", undefined, accessToken)) as { portalId: number; timeZone?: string; accountType?: string };
+    return { portalId: String(body.portalId), timeZone: body.timeZone ?? null, accountType: body.accountType ?? null };
   }
 
-  async ensureContactProperty(accessToken: string, spec: ContactPropertySpec): Promise<void> {
-    await this.createUnlessExists(accessToken, "/crm/v3/properties/contacts", {
-      name: spec.name,
-      label: spec.label,
-      description: spec.description,
-      groupName: spec.groupName,
-      type: "string",
-      fieldType: "text",
-      formField: false,
+  async upsertContacts(accessToken: string, contacts: ContactInput[]): Promise<ContactResult[]> {
+    if (!contacts.length) return [];
+    // Names are the client's once set: read what HubSpot has, and only write what is empty.
+    const read = (await this.call("POST", "/crm/v3/objects/contacts/batch/read", { idProperty: "email", properties: ["email", "firstname", "lastname"], inputs: contacts.map((c) => ({ id: c.email })) }, accessToken)) as {
+      results?: { properties?: Record<string, string | null> }[];
+    } | null;
+    const have = new Map((read?.results ?? []).map((r) => [(r.properties?.email ?? "").toLowerCase(), r.properties ?? {}]));
+    const inputs = contacts.map((c) => {
+      const existing = have.get(c.email.toLowerCase()) ?? {};
+      const properties: Record<string, string> = { email: c.email };
+      if (c.firstname && !existing.firstname) properties.firstname = c.firstname;
+      if (c.lastname && !existing.lastname) properties.lastname = c.lastname;
+      return { idProperty: "email", id: c.email, properties };
     });
+    const body = (await this.call("POST", "/crm/v3/objects/contacts/batch/upsert", { inputs }, accessToken)) as { results?: { id: string; new?: boolean; properties?: Record<string, string | null> }[] } | null;
+    return (body?.results ?? []).map((r) => ({ email: (r.properties?.email ?? "").toLowerCase(), id: String(r.id), created: r.new === true }));
   }
 
-  private async createUnlessExists(accessToken: string, path: string, body: unknown) {
-    try {
-      await this.call("POST", path, body, accessToken);
-    } catch (e) {
-      if (e instanceof HubSpotError && e.status === 409) return;
-      throw e;
+  async saveMarketingEvent(accessToken: string, event: MarketingEventInput, exists: boolean): Promise<{ objectId: string | null }> {
+    const body = {
+      eventName: event.eventName,
+      eventOrganizer: event.eventOrganizer,
+      eventType: event.eventType,
+      startDateTime: event.startDateTime.toISOString(),
+      endDateTime: event.endDateTime.toISOString(),
+      eventCancelled: event.eventCancelled,
+      ...(event.eventUrl ? { eventUrl: event.eventUrl } : {}),
+    };
+    const path = `/marketing/v3/marketing-events/events/${encodeURIComponent(event.externalEventId)}?externalAccountId=${encodeURIComponent(event.externalAccountId)}`;
+    if (exists) {
+      try {
+        const r = (await this.call("PATCH", path, body, accessToken)) as { objectId?: string } | null;
+        return { objectId: r?.objectId ?? null };
+      } catch (e) {
+        // Deleted in HubSpot: make it again.
+        if (!(e instanceof HubSpotError && e.status === 404)) throw e;
+      }
     }
+    const r = (await this.call("POST", "/marketing/v3/marketing-events/events", { ...body, externalAccountId: event.externalAccountId, externalEventId: event.externalEventId }, accessToken)) as { objectId?: string } | null;
+    return { objectId: r?.objectId ?? null };
+  }
+
+  async cancelMarketingEvent(accessToken: string, externalAccountId: string, externalEventId: string): Promise<void> {
+    try {
+      await this.call("POST", `/marketing/v3/marketing-events/events/${encodeURIComponent(externalEventId)}/cancel?externalAccountId=${encodeURIComponent(externalAccountId)}`, undefined, accessToken);
+    } catch (e) {
+      if (!(e instanceof HubSpotError && e.status === 404)) throw e;
+    }
+  }
+
+  async recordAttendance(accessToken: string, externalAccountId: string, externalEventId: string, state: AttendanceState, emails: string[], at: Date): Promise<void> {
+    if (!emails.length) return;
+    await this.call(
+      "POST",
+      `/marketing/v3/marketing-events/attendance/${encodeURIComponent(externalEventId)}/${state}/email-create?externalAccountId=${encodeURIComponent(externalAccountId)}`,
+      { inputs: emails.map((email) => ({ email, interactionDateTime: at.getTime() })) },
+      accessToken,
+    );
   }
 
   private async token(params: Record<string, string>): Promise<TokenSet> {

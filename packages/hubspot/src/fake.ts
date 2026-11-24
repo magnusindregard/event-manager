@@ -1,11 +1,25 @@
 import { randomBytes } from "node:crypto";
-import { type ContactPropertySpec, type HubSpotClient, HubSpotError, type TokenInfo, type TokenSet } from "./client.js";
+import {
+  type AccountDetails,
+  type AttendanceState,
+  type ContactInput,
+  type ContactResult,
+  type HubSpotClient,
+  HubSpotError,
+  type MarketingEventInput,
+  type TokenInfo,
+  type TokenSet,
+} from "./client.js";
 
 interface FakePortal {
   portalId: string;
   scopes: string[];
-  groups: Map<string, string>;
-  properties: Map<string, ContactPropertySpec>;
+  /** Contacts by lower-case email. */
+  contacts: Map<string, { id: string; email: string; firstname: string | null; lastname: string | null }>;
+  /** Marketing events by external event id. */
+  events: Map<string, MarketingEventInput & { objectId: string }>;
+  /** Attendance records, in the order recorded. */
+  attendance: { externalEventId: string; state: AttendanceState; email: string }[];
 }
 
 /**
@@ -47,7 +61,7 @@ export class FakeHubSpot implements HubSpotClient {
 
   /** The owner approves in portal `portalId`; returns the authorization code. */
   approve(portalId: string, scopes: string[]): string {
-    const portal = this.portals.get(portalId) ?? { portalId, scopes, groups: new Map(), properties: new Map() };
+    const portal = this.portals.get(portalId) ?? { portalId, scopes, contacts: new Map(), events: new Map(), attendance: [] };
     portal.scopes = scopes;
     this.portals.set(portalId, portal);
     const code = `code-${randomBytes(6).toString("hex")}`;
@@ -94,17 +108,50 @@ export class FakeHubSpot implements HubSpotClient {
     this.refreshTokens.delete(refreshToken);
   }
 
-  async ensureContactPropertyGroup(accessToken: string, name: string, label: string): Promise<void> {
-    this.calls.push(`ensureContactPropertyGroup:${name}`);
+  async accountDetails(accessToken: string): Promise<AccountDetails> {
+    this.calls.push("accountDetails");
     const portal = this.portalFor(accessToken);
-    if (!portal.groups.has(name)) portal.groups.set(name, label);
+    return { portalId: portal.portalId, timeZone: "Europe/Oslo", accountType: "STANDARD" };
   }
 
-  async ensureContactProperty(accessToken: string, spec: ContactPropertySpec): Promise<void> {
-    this.calls.push(`ensureContactProperty:${spec.name}`);
+  private nextId = 1000;
+
+  async upsertContacts(accessToken: string, contacts: ContactInput[]): Promise<ContactResult[]> {
+    this.calls.push(`upsertContacts:${contacts.length}`);
     const portal = this.portalFor(accessToken);
-    if (!portal.groups.has(spec.groupName)) throw new HubSpotError(`HubSpot POST /crm/v3/properties/contacts: 400 group ${spec.groupName} does not exist`, 400);
-    if (!portal.properties.has(spec.name)) portal.properties.set(spec.name, spec);
+    return contacts.map((c) => {
+      const key = c.email.toLowerCase();
+      const existing = portal.contacts.get(key);
+      if (existing) {
+        existing.firstname ??= c.firstname;
+        existing.lastname ??= c.lastname;
+        return { email: key, id: existing.id, created: false };
+      }
+      const id = String(this.nextId++);
+      portal.contacts.set(key, { id, email: c.email, firstname: c.firstname, lastname: c.lastname });
+      return { email: key, id, created: true };
+    });
+  }
+
+  async saveMarketingEvent(accessToken: string, event: MarketingEventInput, exists: boolean): Promise<{ objectId: string | null }> {
+    this.calls.push(`saveMarketingEvent:${exists ? "update" : "create"}:${event.externalEventId}`);
+    const portal = this.portalFor(accessToken);
+    const objectId = portal.events.get(event.externalEventId)?.objectId ?? String(this.nextId++);
+    portal.events.set(event.externalEventId, { ...event, objectId });
+    return { objectId };
+  }
+
+  async cancelMarketingEvent(accessToken: string, _externalAccountId: string, externalEventId: string): Promise<void> {
+    this.calls.push(`cancelMarketingEvent:${externalEventId}`);
+    const e = this.portalFor(accessToken).events.get(externalEventId);
+    if (e) e.eventCancelled = true;
+  }
+
+  async recordAttendance(accessToken: string, _externalAccountId: string, externalEventId: string, state: AttendanceState, emails: string[]): Promise<void> {
+    this.calls.push(`recordAttendance:${state}:${emails.length}`);
+    const portal = this.portalFor(accessToken);
+    if (!portal.events.has(externalEventId)) throw new HubSpotError(`HubSpot POST attendance: 404 no marketing event ${externalEventId}`, 404);
+    for (const email of emails) portal.attendance.push({ externalEventId, state, email: email.toLowerCase() });
   }
 
   private issue(portalId: string): Omit<TokenSet, "refreshToken"> {
@@ -118,7 +165,7 @@ export class FakeHubSpot implements HubSpotClient {
   private localPortal(): FakePortal | null {
     if (!this.local) return null;
     const { portalId } = this.local;
-    if (!this.portals.has(portalId)) this.portals.set(portalId, { portalId, scopes: [], groups: new Map(), properties: new Map() });
+    if (!this.portals.has(portalId)) this.portals.set(portalId, { portalId, scopes: [], contacts: new Map(), events: new Map(), attendance: [] });
     return this.portals.get(portalId)!;
   }
 

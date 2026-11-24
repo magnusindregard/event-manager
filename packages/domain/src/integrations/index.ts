@@ -2,6 +2,9 @@ import { type ConnectionStatus, type IntegrationProvider, newId, sql, type Tx } 
 import { emit } from "../outbox/index.js";
 import { type ActorContext, decryptJson, DomainError, encryptJson } from "../shared/index.js";
 import { assertCan, diffFields, recordAudit } from "../tenancy/index.js";
+import { dropSyncItems } from "./sync.js";
+
+export * from "./sync.js";
 
 // Connections to the account's outside systems (docs/hubspot.md, ADR 0017). One per account
 // and provider. The module stores what the connection is (portal, scopes, settings, setup
@@ -168,6 +171,8 @@ export async function disconnect(tx: Tx, ctx: ActorContext, provider: Integratio
   if (!before || before.status === "disconnected") throw new DomainError("not_found", "Not connected");
   const tokens = await readTokens(tx, ctx.tenantId, before.id);
   await tx.deleteFrom("integrations.credential").where("connection_id", "=", before.id).execute();
+  // Ids in a portal the account no longer reaches; a reconnect backfills afresh.
+  await dropSyncItems(tx, before.id);
   // A new generation, so jobs still running for the old install drop what they would write.
   await tx
     .updateTable("integrations.connection")

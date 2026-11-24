@@ -2,7 +2,7 @@ import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { DomainError, integrations, tenancy } from "@event-manager/domain";
 import { BEHAVIOURAL_EVENT_SCOPES, type HubSpotClient, HubSpotError, OPTIONAL_SCOPES, REQUIRED_SCOPES, signState, verifyState } from "@event-manager/hubspot";
-import { HubSpotAuthorize, HubSpotCallback, Integration, IntegrationList, IntegrationSettingsPatch, Problem } from "@event-manager/schemas";
+import { HubSpotAuthorize, HubSpotCallback, Integration, IntegrationList, IntegrationSettingsPatch, IntegrationSync, IntegrationSyncRetry, Problem } from "@event-manager/schemas";
 import { inTenant } from "../plugins/context.js";
 import { expectedVersion, setEtag } from "../plugins/etag.js";
 
@@ -126,10 +126,41 @@ export const integrationRoutes: FastifyPluginAsyncTypebox<{ hubspot: HubSpotDeps
 
   app.post(
     "/integrations/hubspot/setup",
-    { schema: { operationId: "repairHubSpotSetup", tags: ["integrations"], ...accountScoped, summary: "Owner only. Runs the setup in the portal again (property group and guest key property)", response: { 202: Integration, ...writeErrors } } },
+    { schema: { operationId: "repairHubSpotSetup", tags: ["integrations"], ...accountScoped, summary: "Owner only. Runs the setup in the portal again", response: { 202: Integration, ...writeErrors } } },
     async (req, reply) => {
       const c = await inTenant(app, req, (tx, ctx) => integrations.requestSetup(tx, ctx, "hubspot"));
       return reply.status(202).send(dto(c));
+    },
+  );
+
+  app.get(
+    "/integrations/hubspot/sync",
+    { schema: { operationId: "getHubSpotSync", tags: ["integrations"], ...accountScoped, summary: "The sync log: what is in step with HubSpot, waiting or refused, and why", response: { 200: IntegrationSync, ...errors } } },
+    async (req) => {
+      const s = await inTenant(app, req, (tx, ctx) => integrations.syncSummary(tx, ctx, "hubspot"));
+      return {
+        counts: s.counts,
+        lastSyncedAt: s.lastSyncedAt?.toISOString() ?? null,
+        issues: s.issues.map((i) => ({ ...i, startUtc: i.startUtc?.toISOString() ?? null, updatedAt: i.updatedAt.toISOString() })),
+      };
+    },
+  );
+
+  app.post(
+    "/integrations/hubspot/sync/retry",
+    { schema: { operationId: "retryHubSpotSync", tags: ["integrations"], ...accountScoped, summary: "Owner only. Tries every item HubSpot refused again", response: { 202: IntegrationSyncRetry, ...writeErrors } } },
+    async (req, reply) => {
+      const retried = await inTenant(app, req, (tx, ctx) => integrations.retryFailed(tx, ctx, "hubspot"));
+      return reply.status(202).send({ retried });
+    },
+  );
+
+  app.post(
+    "/integrations/hubspot/resync",
+    { schema: { operationId: "resyncHubSpot", tags: ["integrations"], ...accountScoped, summary: "Owner only. Pushes everything the connection should show again, as after connecting", response: { 202: Type.Null(), ...writeErrors } } },
+    async (req, reply) => {
+      await inTenant(app, req, (tx, ctx) => integrations.requestResync(tx, ctx, "hubspot"));
+      return reply.status(202).send(null);
     },
   );
 

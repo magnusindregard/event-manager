@@ -435,6 +435,25 @@ export interface CredentialTable {
   updated_at: GeneratedTimestamp;
 }
 
+export type SyncItemKind = "contact" | "marketing_event" | "attendance";
+
+export interface SyncItemTable {
+  tenant_id: string;
+  connection_id: string;
+  kind: SyncItemKind;
+  local_key: string;
+  remote_id: string | null;
+  data: ColumnType<unknown, string | undefined, string>;
+  created_by_us: boolean | null;
+  synced_state: string | null;
+  dirty: Generated<boolean>;
+  attempts: Generated<number>;
+  last_error: string | null;
+  last_synced_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
 export interface TokenKeyTable {
   tenant_id: string;
   key: Buffer;
@@ -757,4 +776,5 @@ export interface DB {
   "platform.data_key": DataKeyTable;
   "integrations.connection": ConnectionTable;
   "integrations.credential": CredentialTable;
+  "integrations.sync_item": SyncItemTable;
 }

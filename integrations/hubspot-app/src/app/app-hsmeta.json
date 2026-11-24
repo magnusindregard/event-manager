@@ -15,7 +15,6 @@
         "oauth",
         "crm.objects.contacts.read",
         "crm.objects.contacts.write",
-        "crm.schemas.contacts.write",
         "crm.lists.read",
         "crm.lists.write",
         "crm.objects.marketing_events.read",

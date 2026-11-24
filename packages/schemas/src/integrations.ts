@@ -29,7 +29,7 @@ export const Integration = Type.Object({
       error: Nullable(Type.String()),
       at: Nullable(DateTime),
     },
-    { description: "The property group and guest key property in the portal" },
+    { description: "The setup job in the portal: for now, a check that our token reaches the connected portal" },
   ),
   connectedAt: DateTime,
   disconnectedAt: Nullable(DateTime),
@@ -57,3 +57,32 @@ export const IntegrationSettingsPatch = Type.Object(
   { syncInvitedGuests: Type.Optional(Type.Boolean()), syncOpenAttendees: Type.Optional(Type.Boolean()) },
   { additionalProperties: false, minProperties: 1 },
 );
+
+const SyncKind = Type.Union([Type.Literal("contact"), Type.Literal("marketing_event"), Type.Literal("attendance")]);
+const SyncCounts = Type.Object({
+  synced: Type.Integer({ description: "In HubSpot and up to date" }),
+  pending: Type.Integer({ description: "Waiting to be pushed, including items being retried after a refusal" }),
+  failed: Type.Integer({ description: "Refused five times; waits for a retry or a change" }),
+});
+
+export const IntegrationSync = Type.Object({
+  counts: Type.Object({ contact: SyncCounts, marketing_event: SyncCounts, attendance: SyncCounts }),
+  lastSyncedAt: Nullable(DateTime),
+  issues: Type.Array(
+    Type.Object({
+      kind: SyncKind,
+      label: Type.String({ description: "The contact's email, the event, or both" }),
+      email: Nullable(Type.String()),
+      eventTitle: Nullable(Type.String()),
+      startUtc: Nullable(DateTime),
+      attempts: Type.Integer(),
+      givenUp: Type.Boolean({ description: "No longer retried by itself" }),
+      lastError: Type.String({ description: "What HubSpot answered" }),
+      updatedAt: DateTime,
+    }),
+    { description: "Items HubSpot refused, latest first (at most 50)" },
+  ),
+});
+export type IntegrationSync = Static<typeof IntegrationSync>;
+
+export const IntegrationSyncRetry = Type.Object({ retried: Type.Integer({ description: "Items queued to be tried again" }) });

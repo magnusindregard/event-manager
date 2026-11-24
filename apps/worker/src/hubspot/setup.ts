@@ -1,7 +1,7 @@
 import type { Task } from "graphile-worker";
 import { type Db, sql, withTenant } from "@event-manager/db";
 import { integrations } from "@event-manager/domain";
-import { GUEST_KEY_PROPERTY, type HubSpotClient, HubSpotError, PROPERTY_GROUP } from "@event-manager/hubspot";
+import { type HubSpotClient, HubSpotError } from "@event-manager/hubspot";
 import type { InternalHandler } from "../handlers.js";
 import { withHubSpot } from "./session.js";
 
@@ -34,10 +34,11 @@ const isPayload = (p: unknown): p is Payload =>
   typeof p === "object" && p !== null && typeof (p as Payload).tenantId === "string" && typeof (p as Payload).connectionId === "string";
 
 /**
- * Creates what the connector needs in the portal (docs/hubspot.md, "Setup in the portal"):
- * the contact property group "Event manager" and the guest key property. Idempotent: what
- * exists is left alone. Rate limits and HubSpot outages retry; other refusals are recorded on
- * the connection for the admin and not retried until an owner repairs.
+ * Sets the portal up for the connector (docs/hubspot.md, "Setup in the portal"). For now it checks
+ * that our token reaches the portal we connected; the cleanup segments and workflow (milestone 4)
+ * and custom event definitions (milestone 7) join here. Idempotent. Rate limits and HubSpot
+ * outages retry; other refusals are recorded on the connection for the admin and not retried
+ * until an owner repairs.
  */
 export function hubspotSetupTask(db: Db, deps: HubSpotDeps | null): Task {
   return async (payload, helpers) => {
@@ -54,8 +55,8 @@ export function hubspotSetupTask(db: Db, deps: HubSpotDeps | null): Task {
       const done = await withHubSpot(db, payload.tenantId, deps.client, async (accessToken, connection) => {
         if (connection.id !== payload.connectionId) return null;
         ref = { id: connection.id, generation: connection.generation };
-        await deps.client.ensureContactPropertyGroup(accessToken, PROPERTY_GROUP.name, PROPERTY_GROUP.label);
-        await deps.client.ensureContactProperty(accessToken, GUEST_KEY_PROPERTY);
+        const details = await deps.client.accountDetails(accessToken);
+        if (details.portalId !== connection.portalId) throw new HubSpotError(`HubSpot answered for portal ${details.portalId}, not the connected portal ${connection.portalId}`, 409);
         return connection.portalId;
       });
       if (!done?.value) return;

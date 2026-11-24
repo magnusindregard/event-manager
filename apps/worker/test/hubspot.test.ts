@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Db, withTenant } from "@event-manager/db";
 import { startTestDatabase, type TestDatabase } from "@event-manager/db/testing";
 import { type ActorContext, integrations, tenancy } from "@event-manager/domain";
-import { FakeHubSpot, GUEST_KEY_PROPERTY, HubSpotError, PROPERTY_GROUP, REQUIRED_SCOPES } from "@event-manager/hubspot";
+import { FakeHubSpot, HubSpotError, REQUIRED_SCOPES } from "@event-manager/hubspot";
 import { defaultHandlers } from "../src/handlers.js";
 import { buildTaskList } from "../src/tasks.js";
 
@@ -51,23 +51,22 @@ afterAll(async () => {
 });
 
 describe("HubSpot setup", () => {
-  it("creates the property group and the guest key property once connected", async () => {
+  it("checks that the token reaches the connected portal once connected", async () => {
     await connect("100");
+    const calls = hubspot.calls.length;
     await drain();
-    const portal = hubspot.portals.get("100")!;
-    expect(portal.groups.get(PROPERTY_GROUP.name)).toBe("Event manager");
-    expect(portal.properties.get(GUEST_KEY_PROPERTY.name)).toMatchObject({ groupName: PROPERTY_GROUP.name });
+    expect(hubspot.calls.slice(calls)).toEqual(["accountDetails"]);
     expect((await connection())?.setup).toMatchObject({ status: "done", error: null });
   });
 
-  it("repairs on request, leaving what exists, and refreshes a token about to expire first", async () => {
+  it("repairs on request, and refreshes a token about to expire first", async () => {
     await admin.query("update integrations.credential set access_expires_at = now() + interval '1 minute'");
     const before = (await withTenant(db, ctx, (tx) => integrations.loadForSync(tx, ctx.tenantId, "hubspot")))!.tokens.accessToken;
     await withTenant(db, ctx, (tx) => integrations.requestSetup(tx, ctx, "hubspot"));
     expect((await connection())?.setup.status).toBe("pending");
     const calls = hubspot.calls.length;
     await drain();
-    expect(hubspot.calls.slice(calls)).toEqual(["refresh", "ensureContactPropertyGroup:event_manager", "ensureContactProperty:em_guest_key"]);
+    expect(hubspot.calls.slice(calls)).toEqual(["refresh", "accountDetails"]);
     expect((await withTenant(db, ctx, (tx) => integrations.loadForSync(tx, ctx.tenantId, "hubspot")))!.tokens.accessToken).not.toBe(before);
     expect((await connection())?.setup.status).toBe("done");
   });
@@ -77,22 +76,22 @@ describe("HubSpot setup", () => {
     await withTenant(db, ctx, (tx) => integrations.requestSetup(tx, ctx, "hubspot"));
     const calls = hubspot.calls.length;
     await drain();
-    expect(hubspot.calls.slice(calls)).toEqual(["ensureContactPropertyGroup:event_manager", "refresh", "ensureContactPropertyGroup:event_manager", "ensureContactProperty:em_guest_key"]);
+    expect(hubspot.calls.slice(calls)).toEqual(["accountDetails", "refresh", "accountDetails"]);
     expect(await connection()).toMatchObject({ status: "active", setup: { status: "done" } });
   });
 
   it("records a refusal on the connection without retrying it", async () => {
-    const original = hubspot.ensureContactProperty.bind(hubspot);
-    hubspot.ensureContactProperty = async () => {
-      throw new HubSpotError("HubSpot POST /crm/v3/properties/contacts: 400 bad name", 400);
+    const original = hubspot.accountDetails.bind(hubspot);
+    hubspot.accountDetails = async () => {
+      throw new HubSpotError("HubSpot GET /account-info/v3/details: 400 bad request", 400);
     };
     try {
       await withTenant(db, ctx, (tx) => integrations.requestSetup(tx, ctx, "hubspot"));
       await drain();
     } finally {
-      hubspot.ensureContactProperty = original;
+      hubspot.accountDetails = original;
     }
-    expect((await connection())?.setup).toMatchObject({ status: "failed", error: expect.stringContaining("400 bad name") });
+    expect((await connection())?.setup).toMatchObject({ status: "failed", error: expect.stringContaining("400 bad request") });
     expect(await failedJobs()).toBe(0);
   });
 
@@ -142,7 +141,6 @@ describe("HubSpot setup", () => {
     // The stored tokens are portal 200's: they work there, and a refresh with them works too.
     await expect(hubspot.tokenInfo(now.tokens.accessToken)).resolves.toMatchObject({ portalId: "200" });
     await expect(hubspot.refresh(now.tokens.refreshToken)).resolves.toBeTruthy();
-    expect(hubspot.portals.get("200")!.properties.has(GUEST_KEY_PROPERTY.name)).toBe(true);
     expect(await failedJobs()).toBe(0);
   });
 });

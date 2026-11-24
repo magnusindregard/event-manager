@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleAlert, Plug, RefreshCw, Unplug } from "lucide-react";
+import { CircleAlert, Plug, RefreshCw, RotateCcw, Unplug } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -14,10 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { etagOf, type Integration, unwrap } from "../../api.js";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { etagOf, type Integration, type IntegrationSync, unwrap } from "../../api.js";
 import { useApp } from "../../AppContext.js";
 
 const queryKey = (accountId: string | null) => ["integrations", accountId];
+const syncKey = (accountId: string | null) => ["integrations", accountId, "hubspot-sync"];
 
 /**
  * Settings → Integrations (docs/hubspot.md): connect and disconnect HubSpot, see the portal and
@@ -160,6 +162,8 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
           </>
         )}
 
+        {live && <SyncLog live={live} canEdit={canEdit} />}
+
         <AlertDialog open={confirm} onOpenChange={setConfirm}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -174,6 +178,126 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
         </AlertDialog>
       </CardContent>
     </Card>
+  );
+}
+
+const KINDS = ["contact", "marketing_event", "attendance"] as const;
+
+/**
+ * The sync log (docs/hubspot.md, milestone 2): what is in step with HubSpot, what waits, and what
+ * HubSpot refused with its reason. Owners can try refused items again, or push everything again
+ * ("Resync") for a portal where someone deleted or changed what we wrote.
+ */
+function SyncLog({ live, canEdit }: { live: Integration; canEdit: boolean }) {
+  const { t, i18n } = useTranslation();
+  const { api, accountId } = useApp();
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: syncKey(accountId),
+    queryFn: async () => unwrap(await api.GET("/v1/integrations/hubspot/sync")),
+    // While items wait, look again now and then.
+    refetchInterval: (q) => (q.state.data && KINDS.some((k) => q.state.data!.counts[k].pending > 0) ? 5000 : false),
+  });
+  const refresh = () => void qc.invalidateQueries({ queryKey: syncKey(accountId) });
+  const retry = useMutation({
+    mutationFn: async () => unwrap(await api.POST("/v1/integrations/hubspot/sync/retry")),
+    onSuccess: ({ retried }) => {
+      toast.success(t("integrations.log.retried", { count: retried }));
+      refresh();
+    },
+  });
+  const resync = useMutation({
+    mutationFn: async () => {
+      const r = await api.POST("/v1/integrations/hubspot/resync");
+      if (r.error) unwrap(r);
+    },
+    onSuccess: () => {
+      toast.success(t("integrations.log.resyncQueued"));
+      // The worker marks everything first; look again shortly.
+      setTimeout(refresh, 1500);
+    },
+  });
+  const fmt = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" });
+  const data: IntegrationSync | undefined = query.data;
+  const error = query.error ?? retry.error ?? resync.error;
+
+  return (
+    <div className="space-y-3 border-t pt-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-medium">{t("integrations.log.title")}</div>
+          <p className="text-sm text-muted-foreground">
+            {data?.lastSyncedAt ? t("integrations.log.lastSynced", { date: fmt.format(new Date(data.lastSyncedAt)) }) : t("integrations.log.never")}
+          </p>
+        </div>
+        {canEdit && (
+          <div className="flex flex-wrap gap-2">
+            {!!data?.issues.length && (
+              <Button variant="outline" size="sm" onClick={() => retry.mutate()} disabled={retry.isPending}>
+                <RotateCcw /> {t("integrations.log.retry")}
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => resync.mutate()} disabled={resync.isPending || live.status !== "active"}>
+              <RefreshCw /> {t("integrations.log.resync")}
+            </Button>
+          </div>
+        )}
+      </div>
+      {error && (
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertDescription>{error.message}</AlertDescription>
+        </Alert>
+      )}
+      {data && (
+        <ul className="space-y-1 text-sm">
+          {KINDS.map((k) => {
+            const c = data.counts[k];
+            return (
+              <li key={k} className="flex flex-wrap items-center gap-x-2">
+                <span className="min-w-48 font-medium">{t(`integrations.log.kinds.${k}`)}</span>
+                <span className="text-muted-foreground">{t("integrations.log.synced", { count: c.synced })}</span>
+                {c.pending > 0 && <Badge variant="outline">{t("integrations.log.pending", { count: c.pending })}</Badge>}
+                {c.failed > 0 && <Badge variant="destructive">{t("integrations.log.failed", { count: c.failed })}</Badge>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {!!data?.issues.length && (
+        <div className="space-y-1">
+          <div className="text-sm font-medium">{t("integrations.log.issues")}</div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("integrations.log.item")}</TableHead>
+                <TableHead>{t("integrations.log.error")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.issues.map((i) => (
+                <TableRow key={`${i.kind}:${i.label}:${i.updatedAt}`}>
+                  <TableCell className="whitespace-normal align-top">
+                    <div className="break-all">{i.label}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t(`integrations.log.kinds.${i.kind}`)}
+                      {i.startUtc ? ` · ${fmt.format(new Date(i.startUtc))}` : ""}
+                    </div>
+                  </TableCell>
+                  <TableCell className="whitespace-normal align-top text-sm">
+                    {/* The request line says nothing to a manager; HubSpot's own words do. */}
+                    {i.lastError.replace(/^HubSpot \S+ \S+: /, "")}
+                    <div className="text-xs text-muted-foreground">
+                      {i.givenUp ? t("integrations.log.givenUp") : i.attempts === 0 ? t("integrations.log.queued") : t("integrations.log.retrying", { count: i.attempts })} · {t("integrations.log.lastTried", { date: fmt.format(new Date(i.updatedAt)) })}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   );
 }
 

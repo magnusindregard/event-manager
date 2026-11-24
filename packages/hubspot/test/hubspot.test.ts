@@ -56,17 +56,11 @@ describe("HttpHubSpot", () => {
     expect(requests[0]!.url).toBe("https://api.hubapi.com/oauth/v1/access-tokens/at%2F1");
   });
 
-  it("treats an existing property group or property as done", async () => {
-    const { fn, requests } = stubFetch([{ status: 409, body: { message: "exists" } }, { status: 201, body: {} }]);
-    const h = new HttpHubSpot(app, fn);
-    await h.ensureContactPropertyGroup("at", "event_manager", "Event manager");
-    await h.ensureContactProperty("at", { name: "em_guest_key", label: "Key", description: "d", groupName: "event_manager" });
-    expect(requests.map((r) => `${r.method} ${r.url}`)).toEqual([
-      "POST https://api.hubapi.com/crm/v3/properties/contacts/groups",
-      "POST https://api.hubapi.com/crm/v3/properties/contacts",
-    ]);
-    expect(requests[1]!.headers.authorization).toBe("Bearer at");
-    expect(JSON.parse(requests[1]!.body!)).toMatchObject({ name: "em_guest_key", type: "string", fieldType: "text", groupName: "event_manager", formField: false });
+  it("reads the portal behind a token", async () => {
+    const { fn, requests } = stubFetch([{ status: 200, body: { portalId: 4711, timeZone: "Europe/Oslo", accountType: "STANDARD", uiDomain: "app-eu1.hubspot.com" } }]);
+    expect(await new HttpHubSpot(app, fn).accountDetails("at")).toEqual({ portalId: "4711", timeZone: "Europe/Oslo", accountType: "STANDARD" });
+    expect(`${requests[0]!.method} ${requests[0]!.url}`).toBe("GET https://api.hubapi.com/account-info/v3/details");
+    expect(requests[0]!.headers.authorization).toBe("Bearer at");
   });
 
   it("reports refused tokens and rate limits, and never puts a token in the message", async () => {
@@ -79,7 +73,7 @@ describe("HttpHubSpot", () => {
     expect(e1).toBeInstanceOf(HubSpotError);
     expect(e1).toMatchObject({ status: 401, unauthorized: true, retryable: false });
     expect(e1.message).not.toContain("secret-token");
-    const e2 = (await h.ensureContactPropertyGroup("at", "g", "G").catch((e: unknown) => e)) as HubSpotError;
+    const e2 = (await h.accountDetails("at").catch((e: unknown) => e)) as HubSpotError;
     expect(e2).toMatchObject({ status: 429, retryable: true, retryAfterSeconds: 10 });
   });
 
@@ -97,7 +91,7 @@ describe("FakeHubSpot in local mode", () => {
     expect(u.searchParams.get("state")).toBe("st");
     const t = await api.exchangeCode(u.searchParams.get("code")!);
     const worker = new FakeHubSpot(undefined, { redirectUrl: "", portalId: "1" });
-    await worker.ensureContactPropertyGroup(t.accessToken, "g", "G");
+    await expect(worker.accountDetails(t.accessToken)).resolves.toMatchObject({ portalId: "1" });
     await expect(worker.refresh(t.refreshToken)).resolves.toMatchObject({ refreshToken: t.refreshToken });
   });
 });

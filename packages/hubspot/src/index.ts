@@ -9,7 +9,6 @@ export const REQUIRED_SCOPES = [
   "oauth",
   "crm.objects.contacts.read",
   "crm.objects.contacts.write",
-  "crm.schemas.contacts.write",
   "crm.lists.read",
   "crm.lists.write",
   "crm.objects.marketing_events.read",
@@ -29,12 +28,3 @@ export const CLEANUP_SCOPES = [
   "automation",
 ] as const;
 export const OPTIONAL_SCOPES = [...BEHAVIOURAL_EVENT_SCOPES, ...CLEANUP_SCOPES] as const;
-
-/** What the portal set up in milestone 1 consists of (docs/hubspot.md, "Setup in the portal"). */
-export const PROPERTY_GROUP = { name: "event_manager", label: "Event manager" } as const;
-export const GUEST_KEY_PROPERTY = {
-  name: "em_guest_key",
-  label: "Event manager guest key",
-  description: "Written by the event manager. Personalises invitation links in HubSpot emails; do not edit.",
-  groupName: PROPERTY_GROUP.name,
-} as const;

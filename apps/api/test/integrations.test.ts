@@ -1,6 +1,6 @@
 import { SignJWT } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createDb, type Db } from "@event-manager/db";
+import { createDb, type Db, sql } from "@event-manager/db";
 import { startTestDatabase, type TestDatabase } from "@event-manager/db/testing";
 import { tenancy } from "@event-manager/domain";
 import { FakeHubSpot, OPTIONAL_SCOPES, REQUIRED_SCOPES, signState } from "@event-manager/hubspot";
@@ -122,6 +122,30 @@ describe("/v1/integrations", () => {
     expect((await call("PATCH", "/v1/integrations/hubspot", { body: { syncOpenAttendees: false }, headers: { "if-match": '"1"' } })).status).toBe(412);
   });
 
+  it("shows the sync log to everyone, and lets owners retry refused items and resync", async () => {
+    const empty = await call("GET", "/v1/integrations/hubspot/sync", { as: "manager@a.test" });
+    expect(empty).toMatchObject({ status: 200, body: { counts: { contact: { synced: 0, pending: 0, failed: 0 } }, lastSyncedAt: null, issues: [] } });
+
+    // An item HubSpot refused five times (the worker would have recorded this).
+    const conn = (await call("GET", "/v1/integrations")).body.items[0];
+    const su = createDb(tdb.superuserUrl, { max: 1 });
+    await sql`insert into integrations.sync_item (tenant_id, connection_id, kind, local_key, data, dirty, attempts, last_error)
+      values (${A}, ${conn.id}, 'contact', 'bad@example', '{"email":"bad@example"}', true, 5, 'Property values were not valid: email')`.execute(su);
+    await su.destroy();
+
+    const log = await call("GET", "/v1/integrations/hubspot/sync");
+    expect(log.body.counts.contact).toEqual({ synced: 0, pending: 0, failed: 1 });
+    expect(log.body.issues).toEqual([expect.objectContaining({ kind: "contact", label: "bad@example", givenUp: true, lastError: "Property values were not valid: email" })]);
+
+    expect((await call("POST", "/v1/integrations/hubspot/sync/retry", { as: "manager@a.test" })).status).toBe(403);
+    expect(await call("POST", "/v1/integrations/hubspot/sync/retry")).toMatchObject({ status: 202, body: { retried: 1 } });
+    expect((await call("GET", "/v1/integrations/hubspot/sync")).body.counts.contact).toEqual({ synced: 0, pending: 1, failed: 0 });
+
+    expect((await call("POST", "/v1/integrations/hubspot/resync", { as: "manager@a.test" })).status).toBe(403);
+    expect((await call("POST", "/v1/integrations/hubspot/resync")).status).toBe(202);
+    expect((await call("GET", "/v1/integrations/hubspot/sync", { as: "owner@b.test", account: B })).status).toBe(404);
+  });
+
   it("repairs setup on request, and disconnects, revoking our token at HubSpot", async () => {
     expect((await call("POST", "/v1/integrations/hubspot/setup")).status).toBe(202);
     const revokes = hubspot.calls.filter((c) => c === "revoke").length;
@@ -131,5 +155,6 @@ describe("/v1/integrations", () => {
     expect((await call("GET", "/v1/integrations")).body.items[0]).toMatchObject({ status: "disconnected", portalId: "4711" });
     expect((await call("DELETE", "/v1/integrations/hubspot")).status).toBe(404);
     expect((await call("POST", "/v1/integrations/hubspot/setup")).status).toBe(404);
+    expect((await call("GET", "/v1/integrations/hubspot/sync")).status).toBe(404);
   });
 });

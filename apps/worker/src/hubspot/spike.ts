@@ -1,5 +1,10 @@
 import { randomBytes } from "node:crypto";
-import { BEHAVIOURAL_EVENT_SCOPES, CLEANUP_SCOPES, GUEST_KEY_PROPERTY, OPTIONAL_SCOPES, PROPERTY_GROUP, REQUIRED_SCOPES } from "@event-manager/hubspot";
+import { BEHAVIOURAL_EVENT_SCOPES, CLEANUP_SCOPES, OPTIONAL_SCOPES, REQUIRED_SCOPES } from "@event-manager/hubspot";
+
+// The guest key from the first design (runs 1–6); no longer part of the connector, kept here so
+// the spike's early checks still run as they did.
+const PROPERTY_GROUP = { name: "event_manager", label: "Event manager" } as const;
+const GUEST_KEY_PROPERTY = { name: "em_guest_key", label: "Event manager guest key", description: "Spike only.", groupName: PROPERTY_GROUP.name } as const;
 
 // HubSpot connector milestone 0, the spike (docs/hubspot.md): checks what milestones 2–6 assume
 // about HubSpot, on a developer test portal, and records every answer. Each step stands alone:
@@ -31,6 +36,8 @@ export interface SpikeOptions {
   keep: boolean;
   /** An email set up for the single-send API in HubSpot; without it the spike tries to make one from the template. */
   singleSendEmailId?: string;
+  /** How long to keep reading marketing event attendance (default five minutes). */
+  attendanceWaitMs?: number;
   /** Send from `singleSendEmailId` itself instead of a clone of it. */
   singleSendDirect?: boolean;
   /** Base of the personal link put into the draft. */
@@ -84,7 +91,7 @@ interface State {
   scopes: string[];
   contactId?: string;
   listId?: string;
-  marketingEvent?: { externalAccountId: string; externalEventId: string };
+  marketingEvent?: { externalAccountId: string; externalEventId: string; objectId?: string };
   cloneId?: string;
   subscriptionId?: string;
   /** The draft goes to our segment and nobody else. */
@@ -267,7 +274,7 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
       startDateTime: start.toISOString(), endDateTime: new Date(start.getTime() + 2 * 3_600_000).toISOString(), eventUrl: `${opts.attendeeUrl}/spike`,
     });
     if (!r.ok) return d.push(`create: ${said(r)}`), "fail";
-    state.marketingEvent = { externalAccountId, externalEventId };
+    state.marketingEvent = { externalAccountId, externalEventId, objectId: (r.body as { objectId?: string } | null)?.objectId };
     const outcomes: string[] = [];
     let ok = true;
     for (const subscriberState of ["register", "attend"]) {
@@ -280,6 +287,43 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
     const b = await call("GET", `/marketing/v3/marketing-events/participations/${externalAccountId}/${externalEventId}/breakdown`);
     d.push(...outcomes, `breakdown ${b.ok ? JSON.stringify(b.body).slice(0, 300) : said(b)}`);
     return ok ? "pass" : "fail";
+  });
+
+  await step("marketing-event-attendance", "Does the attendance we recorded show up in HubSpot later, and through which read?", async (d) => {
+    const me = state.marketingEvent;
+    if (!me) return d.push("no marketing event"), "skip";
+    // Runs 1–6 read total 0 straight after register and attend. Read every way HubSpot offers,
+    // for up to `attendanceWaitMs`, and stop at the first that shows the contact.
+    const reads: [string, string][] = [
+      ["by external ids", `/marketing/v3/marketing-events/participations/${me.externalAccountId}/${me.externalEventId}/breakdown`],
+      ...(me.objectId ? ([["by object id", `/marketing/v3/marketing-events/participations/${me.objectId}/breakdown`]] as [string, string][]) : []),
+      ["by contact", `/marketing/v3/marketing-events/participations/contacts/${encodeURIComponent(opts.email)}/breakdown`],
+      ["event counters", `/marketing/v3/marketing-events/events/${me.externalEventId}?externalAccountId=${me.externalAccountId}`],
+    ];
+    const shows = (body: unknown) => {
+      const b = body as { total?: number; results?: unknown[] } & Record<string, unknown> | null;
+      if (!b) return false;
+      if ((b.total ?? 0) > 0 || (b.results?.length ?? 0) > 0) return true;
+      return ["registrants", "attendees", "noShows", "cancellations"].some((k) => typeof b[k] === "number" && (b[k] as number) > 0);
+    };
+    const wait = opts.attendanceWaitMs ?? 300_000;
+    const started = Date.now();
+    let round = 0;
+    for (;;) {
+      round++;
+      const seen: string[] = [];
+      let summary = "";
+      for (const [label, path] of reads) {
+        const r = await call("GET", path);
+        if (r.ok && shows(r.body)) seen.push(label);
+        if (round === 1 || seen.includes(label)) summary += `${label}: ${r.ok ? JSON.stringify(r.body).slice(0, 220) : said(r)}; `;
+      }
+      const elapsed = Math.round((Date.now() - started) / 1000);
+      if (seen.length) return d.push(`after ${elapsed}s (round ${round}) attendance shows ${seen.join(", ")}`, summary), "pass";
+      if (round === 1) d.push(`first read: ${summary}`);
+      if (Date.now() - started >= wait) return d.push(`nothing after ${elapsed}s (${round} rounds)`), "fail";
+      await sleep(30_000);
+    }
   });
 
   await step("subscription-types", "Can we list the portal's subscription types, to set one on each draft?", async (d) => {

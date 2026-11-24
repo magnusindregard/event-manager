@@ -27,6 +27,7 @@ function hubspot(portal: number, overrides: Record<string, Handler> = {}) {
   };
   let nextId = 960;
   let batchCloned = false;
+  let breakdownReads = 0;
   // Contacts by email, with the marketing flag; single-send sets it (as HubSpot says it does).
   const contacts = new Map<string, { id: string; marketable: boolean }>([[EMAIL, { id: "501", marketable: true }]]);
   const sends = new Map<string, { to: string; customProperties: Record<string, string> }>();
@@ -99,7 +100,8 @@ function hubspot(portal: number, overrides: Record<string, Handler> = {}) {
     "GET /crm/v3/lists/:id/memberships": () => ({ status: 200, body: { results: members.map((recordId) => ({ recordId })) } }),
     "POST /marketing/v3/marketing-events/events": () => ({ status: 200, body: {} }),
     "POST /marketing/v3/marketing-events/attendance/:e/:s/email-create": () => ({ status: 200, body: {} }),
-    "GET /marketing/v3/marketing-events/participations/:a/:e/breakdown": () => ({ status: 200, body: { results: [] } }),
+    // Like real HubSpot (run 17): attendance shows up on a later read, not straight away.
+    "GET /marketing/v3/marketing-events/participations/:a/:e/breakdown": () => (breakdownReads++ < 1 ? { status: 200, body: { total: 0, results: [] } } : { status: 200, body: { total: 1, results: [{ properties: { attendanceState: "ATTENDED" } }] } }),
     "GET /communication-preferences/v3/definitions": () => ({ status: 200, body: { subscriptionDefinitions: [{ id: "111", name: "Nyhetsbrev" }, { id: "222", name: "Informasjon fra Munchmuseet" }] } }),
     "GET /marketing/v3/emails": () => ({ status: 200, body: { results: [{ id: "900", name: "Invitation template", type: "BATCH_EMAIL" }] } }),
     "POST /marketing/v3/emails/clone": (b) => {
@@ -183,7 +185,7 @@ describe("HubSpot spike", () => {
     const { results, recordings } = await run(h);
     expect(outcomes(results)).toEqual({
       token: "pass", account: "info", "guest-key-property": "pass", contact: "pass", segment: "pass", "marketing-event": "pass",
-      "subscription-types": "pass", "email-clone": "pass", "email-draft": "pass", "email-send": "skip",
+      "marketing-event-attendance": "pass", "subscription-types": "pass", "email-clone": "pass", "email-draft": "pass", "email-send": "skip",
       "single-send-email": "fail", "single-send-contacts": "pass", "single-send": "skip", "single-send-marketing": "skip",
       "subscription-types-v4": "pass", "subscription-write": "pass", "subscription-blocks": "skip", "unsubscribe-all": "info", "marketable-write": "skip", workflow: "pass",
       "behavioural-events": "pass", cleanup: "info",

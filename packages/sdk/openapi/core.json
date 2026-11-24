@@ -26753,7 +26753,7 @@
                                 ]
                               }
                             },
-                            "description": "The property group and guest key property in the portal"
+                            "description": "The setup job in the portal: for now, a check that our token reaches the connected portal"
                           },
                           "connectedAt": {
                             "type": "string",
@@ -27214,7 +27214,7 @@
                           ]
                         }
                       },
-                      "description": "The property group and guest key property in the portal"
+                      "description": "The setup job in the portal: for now, a check that our token reaches the connected portal"
                     },
                     "connectedAt": {
                       "type": "string",
@@ -27557,7 +27557,7 @@
                           ]
                         }
                       },
-                      "description": "The property group and guest key property in the portal"
+                      "description": "The setup job in the portal: for now, a check that our token reaches the connected portal"
                     },
                     "connectedAt": {
                       "type": "string",
@@ -27850,7 +27850,7 @@
     "/v1/integrations/hubspot/setup": {
       "post": {
         "operationId": "repairHubSpotSetup",
-        "summary": "Owner only. Runs the setup in the portal again (property group and guest key property)",
+        "summary": "Owner only. Runs the setup in the portal again",
         "tags": [
           "integrations"
         ],
@@ -28018,7 +28018,7 @@
                           ]
                         }
                       },
-                      "description": "The property group and guest key property in the portal"
+                      "description": "The setup job in the portal: for now, a check that our token reaches the connected portal"
                     },
                     "connectedAt": {
                       "type": "string",
@@ -28046,6 +28046,575 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/integrations/hubspot/sync": {
+      "get": {
+        "operationId": "getHubSpotSync",
+        "summary": "The sync log: what is in step with HubSpot, waiting or refused, and why",
+        "tags": [
+          "integrations"
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "counts",
+                    "lastSyncedAt",
+                    "issues"
+                  ],
+                  "properties": {
+                    "counts": {
+                      "type": "object",
+                      "required": [
+                        "contact",
+                        "marketing_event",
+                        "attendance"
+                      ],
+                      "properties": {
+                        "contact": {
+                          "type": "object",
+                          "required": [
+                            "synced",
+                            "pending",
+                            "failed"
+                          ],
+                          "properties": {
+                            "synced": {
+                              "type": "integer",
+                              "description": "In HubSpot and up to date"
+                            },
+                            "pending": {
+                              "type": "integer",
+                              "description": "Waiting to be pushed, including items being retried after a refusal"
+                            },
+                            "failed": {
+                              "type": "integer",
+                              "description": "Refused five times; waits for a retry or a change"
+                            }
+                          }
+                        },
+                        "marketing_event": {
+                          "type": "object",
+                          "required": [
+                            "synced",
+                            "pending",
+                            "failed"
+                          ],
+                          "properties": {
+                            "synced": {
+                              "type": "integer",
+                              "description": "In HubSpot and up to date"
+                            },
+                            "pending": {
+                              "type": "integer",
+                              "description": "Waiting to be pushed, including items being retried after a refusal"
+                            },
+                            "failed": {
+                              "type": "integer",
+                              "description": "Refused five times; waits for a retry or a change"
+                            }
+                          }
+                        },
+                        "attendance": {
+                          "type": "object",
+                          "required": [
+                            "synced",
+                            "pending",
+                            "failed"
+                          ],
+                          "properties": {
+                            "synced": {
+                              "type": "integer",
+                              "description": "In HubSpot and up to date"
+                            },
+                            "pending": {
+                              "type": "integer",
+                              "description": "Waiting to be pushed, including items being retried after a refusal"
+                            },
+                            "failed": {
+                              "type": "integer",
+                              "description": "Refused five times; waits for a retry or a change"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "lastSyncedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "issues": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "label",
+                          "email",
+                          "eventTitle",
+                          "startUtc",
+                          "attempts",
+                          "givenUp",
+                          "lastError",
+                          "updatedAt"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "contact"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "marketing_event"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "attendance"
+                                ]
+                              }
+                            ]
+                          },
+                          "label": {
+                            "type": "string",
+                            "description": "The contact's email, the event, or both"
+                          },
+                          "email": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "eventTitle": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "startUtc": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "attempts": {
+                            "type": "integer"
+                          },
+                          "givenUp": {
+                            "type": "boolean",
+                            "description": "No longer retried by itself"
+                          },
+                          "lastError": {
+                            "type": "string",
+                            "description": "What HubSpot answered"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      },
+                      "description": "Items HubSpot refused, latest first (at most 50)"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/integrations/hubspot/sync/retry": {
+      "post": {
+        "operationId": "retryHubSpotSync",
+        "summary": "Owner only. Tries every item HubSpot refused again",
+        "tags": [
+          "integrations"
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "retried"
+                  ],
+                  "properties": {
+                    "retried": {
+                      "type": "integer",
+                      "description": "Items queued to be tried again"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/integrations/hubspot/resync": {
+      "post": {
+        "operationId": "resyncHubSpot",
+        "summary": "Owner only. Pushes everything the connection should show again, as after connecting",
+        "tags": [
+          "integrations"
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Default Response"
           },
           "400": {
             "description": "Default Response",
