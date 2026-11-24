@@ -25,7 +25,11 @@
       ],
       "optionalScopes": [
         "analytics.behavioral_events.send",
-        "behavioral_events.event_definitions.read_write"
+        "behavioral_events.event_definitions.read_write",
+        "communication_preferences.read_write",
+        "communication_preferences.statuses.batch.read",
+        "communication_preferences.statuses.batch.write",
+        "automation"
       ],
       "conditionallyRequiredScopes": []
     },

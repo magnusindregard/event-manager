@@ -1,7 +1,7 @@
 // The HubSpot spike (docs/hubspot.md, milestone 0) against a developer test portal:
 //
 //   pnpm --filter @event-manager/worker hubspot-spike --portal <id> --email <your inbox> \
-//     [--account <account id> | HUBSPOT_ACCESS_TOKEN=…] [--template-email <id>] [--subscription <id or name>] [--send] [--keep] [--out <dir>]
+//     [--account <account id> | HUBSPOT_ACCESS_TOKEN=…] [--template-email <id>] [--single-send-email <id> [--single-send-direct]] [--subscription <id or name>] [--send] [--keep] [--out <dir>]
 //
 // The token comes from a connected account (--account: DATABASE_URL, SENSITIVE_DATA_KEYS and
 // HUBSPOT_CLIENT_ID/SECRET, refreshed like the worker does), or from HUBSPOT_ACCESS_TOKEN.
@@ -20,6 +20,8 @@ const { values } = parseArgs({
     email: { type: "string" },
     account: { type: "string" },
     "template-email": { type: "string" },
+    "single-send-email": { type: "string" },
+    "single-send-direct": { type: "boolean", default: false },
     subscription: { type: "string" },
     "attendee-url": { type: "string" },
     send: { type: "boolean", default: false },
@@ -28,7 +30,7 @@ const { values } = parseArgs({
   },
 });
 if (!values.portal || !values.email) {
-  console.error("Usage: hubspot-spike --portal <id> --email <address> [--account <id>] [--template-email <id>] [--send] [--keep] [--out <dir>]");
+  console.error("Usage: hubspot-spike --portal <id> --email <address> [--account <id>] [--template-email <id>] [--single-send-email <id>] [--send] [--keep] [--out <dir>]");
   process.exit(2);
 }
 
@@ -60,6 +62,8 @@ const { results, recordings } = await runSpike(
     portalId: values.portal,
     email: values.email,
     templateEmailId: values["template-email"],
+    singleSendEmailId: values["single-send-email"],
+    singleSendDirect: values["single-send-direct"],
     subscription: values.subscription,
     send: values.send,
     keep: values.keep,

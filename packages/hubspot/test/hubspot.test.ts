@@ -35,7 +35,7 @@ describe("HttpHubSpot", () => {
     expect(u.searchParams.get("client_id")).toBe("cid");
     expect(u.searchParams.get("redirect_uri")).toBe(app.redirectUrl);
     expect(u.searchParams.get("scope")?.split(" ")).toContain("crm.objects.contacts.write");
-    expect(u.searchParams.get("optional_scope")).toBe("analytics.behavioral_events.send behavioral_events.event_definitions.read_write");
+    expect(u.searchParams.get("optional_scope")).toBe(OPTIONAL_SCOPES.join(" "));
     expect(u.searchParams.get("state")).toBe("st");
   });
 

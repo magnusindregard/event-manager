@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { GUEST_KEY_PROPERTY, OPTIONAL_SCOPES, PROPERTY_GROUP, REQUIRED_SCOPES } from "@event-manager/hubspot";
+import { BEHAVIOURAL_EVENT_SCOPES, CLEANUP_SCOPES, GUEST_KEY_PROPERTY, OPTIONAL_SCOPES, PROPERTY_GROUP, REQUIRED_SCOPES } from "@event-manager/hubspot";
 
 // HubSpot connector milestone 0, the spike (docs/hubspot.md): checks what milestones 2–6 assume
 // about HubSpot, on a developer test portal, and records every answer. Each step stands alone:
@@ -10,6 +10,11 @@ import { GUEST_KEY_PROPERTY, OPTIONAL_SCOPES, PROPERTY_GROUP, REQUIRED_SCOPES } 
 // event with attendance, a clone of a template email, and with the optional scopes a custom
 // event definition. Cleanup removes them unless `keep` is set. Publishing the email sends a
 // real email to the test contact, so it only runs with `send`.
+//
+// The single-send steps try HubSpot's third way of sending, the marketing single-send API: the
+// platform sends one email per guest, with the guest's own link as a custom property. They use
+// two plus addresses of `email` (one an existing non-marketing contact, one with no contact), and
+// with `send` they send to both, which HubSpot says makes them marketing contacts.
 
 export interface SpikeOptions {
   /** The portal the token must belong to. */
@@ -24,6 +29,10 @@ export interface SpikeOptions {
   send: boolean;
   /** Leave what the spike created in the portal. */
   keep: boolean;
+  /** An email set up for the single-send API in HubSpot; without it the spike tries to make one from the template. */
+  singleSendEmailId?: string;
+  /** Send from `singleSendEmailId` itself instead of a clone of it. */
+  singleSendDirect?: boolean;
   /** Base of the personal link put into the draft. */
   attendeeUrl: string;
   now?: Date;
@@ -33,6 +42,8 @@ export interface SpikeDeps {
   accessToken: string;
   fetch: typeof fetch;
   log: (line: string) => void;
+  /** Waits between status reads; tests pass one that does not wait. */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 export type Outcome = "pass" | "fail" | "skip" | "info";
@@ -51,9 +62,19 @@ export interface Recording {
   status: number;
   request?: unknown;
   response: unknown;
+  /** HubSpot's rate limit headers, when it sends them. */
+  rateLimit?: Record<string, string>;
 }
 
 export const PLACEHOLDER = "[[em:invitation_link]]";
+/** The per-guest part of the link in a single-send email; the token comes with each send. A bare
+ * `{{ custom.invitation_link }}` as the whole button URL gave VALIDATION_FAILED (run 8). */
+export const SINGLE_SEND_LINK = "{{ custom.invitation_token }}";
+/** Single-send endpoints, newest first; the spike records which one answers. */
+export const SINGLE_SEND_PATHS = ["/marketing/email-campaigns/2026-09/single-send", "/marketing/v4/email/single-send"];
+/** Ways to turn a clone into a single-send email through the API, if HubSpot allows any. */
+export const SINGLE_SEND_PATCHES: Record<string, unknown>[] = [{ type: "MARKETING_SINGLE_SEND_API" }, { type: "SINGLE_SEND_API" }, { subcategory: "single_send_api" }];
+const MARKETABLE = ["hs_marketable_status", "hs_marketable_reason_type", "hs_marketable_reason_id", "hs_marketable_until_renewal", "hs_legal_basis", "createdate"];
 const API = "https://api.hubapi.com";
 const REDACTED_EMAIL = "guest@example.com";
 
@@ -70,6 +91,26 @@ interface State {
   draftSafe?: boolean;
   sent?: boolean;
   eventDefinition?: string;
+  singleSendId?: string;
+  /** We made the single-send email (and may delete it); it was not the one named. */
+  singleSendOurs?: boolean;
+  /** The single-send recipients: one existing non-marketing contact, one with no contact. */
+  recipients?: { which: "existing" | "fresh" | "plain"; email: string; contactId?: string; marketableBefore?: string }[];
+  singleSent?: boolean;
+  singlePublished?: boolean;
+  /** The portal's workflow that set our recipients to marketing, if any (runs 7–14). */
+  marketingWorkflowId?: string;
+  /** The single-send email's subscription type (the event type) and another one of the portal's. */
+  eventType?: string;
+  otherType?: string;
+  /** Setting a type back to NOT_SPECIFIED works, so the test address may be touched. */
+  restoreWorks?: boolean;
+  /** Writing needed a legal basis. */
+  legalBasis?: boolean;
+  otherTypeEmailId?: string;
+  /** The single-send endpoint that answered. */
+  singleSendPath?: string;
+  flowId?: string;
 }
 
 interface Response_ {
@@ -86,17 +127,27 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
   const state: State = { scopes: [] };
   let current = "";
 
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const [local, domain] = [opts.email.slice(0, opts.email.lastIndexOf("@")), opts.email.slice(opts.email.lastIndexOf("@") + 1)];
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // The tester's address and its plus addresses (the single-send recipients).
+  const address = new RegExp(`${esc(local)}(\\+[\\w.-]+)?@${esc(domain)}`, "gi");
+  const plus = (which: string) => `${local}+em-${tag}-${which}@${domain}`;
   const redact = (v: unknown): unknown =>
-    v === undefined ? undefined : JSON.parse(JSON.stringify(v).split(deps.accessToken).join("«token»").split(opts.email).join(REDACTED_EMAIL));
+    v === undefined ? undefined : JSON.parse(JSON.stringify(v).split(deps.accessToken).join("«token»").replace(address, (_m, p: string | undefined) => REDACTED_EMAIL.replace("@", `${p ?? ""}@`)));
 
   async function call(method: string, path: string, body?: unknown): Promise<Response_> {
     const headers: Record<string, string> = { authorization: `Bearer ${deps.accessToken}` };
     if (body !== undefined) headers["content-type"] = "application/json";
     let status = 0;
     let parsed: unknown;
+    let rateLimit: Record<string, string> | undefined;
     try {
       const res = await deps.fetch(`${API}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(20_000) });
       status = res.status;
+      res.headers?.forEach?.((value, key) => {
+        if (/ratelimit/i.test(key)) (rateLimit ??= {})[key] = value;
+      });
       const text = await res.text();
       try {
         parsed = text ? JSON.parse(text) : null;
@@ -106,7 +157,7 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
     } catch (e) {
       parsed = { error: e instanceof Error ? e.message : String(e) };
     }
-    recordings.push({ step: current, method, path: String(redact(path)), status, request: redact(body), response: redact(parsed) });
+    recordings.push({ step: current, method, path: String(redact(path)), status, request: redact(body), response: redact(parsed), ...(rateLimit ? { rateLimit } : {}) });
     deps.log(`  ${method} ${String(redact(path))} → ${status}`);
     return { status, ok: status >= 200 && status < 300, body: parsed };
   }
@@ -322,7 +373,7 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
 
   await step("email-send", "Can we publish (send) the draft through the API, and what does HubSpot say when the plan does not allow it?", async (d) => {
     if (!state.cloneId) return d.push("no draft"), "skip";
-    if (!opts.send) return d.push(`pass --send to publish: it sends a real email to ${opts.email}`), "skip";
+    if (!opts.send) return d.push(`pass --send to publish: it sends a real email to the test inbox`), "skip";
     if (!state.draftSafe) return d.push("not published: the draft's recipients are not only our segment (see email-draft)"), "skip";
     const r = await call("POST", `/marketing/v3/emails/${state.cloneId}/publish`);
     state.sent = r.ok;
@@ -331,8 +382,377 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
     return r.ok ? "pass" : "fail";
   });
 
+  await step("single-send-email", "Can the platform make a single-send email from the template through the API, or must it be set up in HubSpot? How does the API show one?", async (d) => {
+    // How the portal's emails are typed, so a template picker knows what to look for.
+    const l = await call("GET", "/marketing/v3/emails?limit=100");
+    const all = (l.body as { results?: { id: string; name: string; type?: string; subcategory?: string; state?: string }[] } | null)?.results ?? [];
+    const kinds = new Map<string, number>();
+    for (const e of all) kinds.set(`${e.type ?? "?"}/${e.subcategory ?? "?"}`, (kinds.get(`${e.type ?? "?"}/${e.subcategory ?? "?"}`) ?? 0) + 1);
+    d.push(`portal emails by type/subcategory: ${[...kinds].map(([k, n]) => `${k} ×${n}`).join(", ") || (l.ok ? "none" : said(l))}`);
+    const describe = async (id: string) => {
+      const e = (await call("GET", `/marketing/v3/emails/${id}`)).body as { type?: string; subcategory?: string; state?: string; emailTemplateMode?: string; content?: unknown } | null;
+      const text = JSON.stringify(e?.content ?? {});
+      return { type: e?.type, subcategory: e?.subcategory, line: `type ${e?.type}, subcategory ${e?.subcategory ?? "-"}, state ${e?.state}, mode ${e?.emailTemplateMode ?? "?"}`, hasLink: text.includes("custom.invitation_token"), hasPlaceholder: text.includes(PLACEHOLDER), content: e?.content };
+    };
+    if (opts.singleSendEmailId) {
+      state.singleSendId = opts.singleSendEmailId;
+      const e = await describe(opts.singleSendEmailId);
+      d.push(`named email ${opts.singleSendEmailId}: ${e.line}`);
+      if (opts.singleSendDirect) {
+        // Send from the named email as it is, to tell a problem with our clone from one with the email.
+        d.push(`sending from the named email itself (--single-send-direct)${e.hasLink ? "" : ": its link is not personalised"}`);
+        return "info";
+      }
+      if (!e.hasLink && e.hasPlaceholder) {
+        // The client's template with our placeholder: leave it alone and work on a clone, which also
+        // shows whether a clone stays a single-send email (so the platform could make one per event).
+        const r = await call("POST", "/marketing/v3/emails/clone", { id: opts.singleSendEmailId, cloneName: `EM spike · ${tag} · Single-send` });
+        if (!r.ok) return d.push(`clone: ${said(r)}`), "fail";
+        state.singleSendId = String((r.body as { id: string }).id);
+        state.singleSendOurs = true;
+        const c = await describe(state.singleSendId);
+        const kept = c.type === e.type && c.subcategory === e.subcategory;
+        d.push(`clone ${state.singleSendId}: ${c.line}${kept ? " (kept the single-send type)" : " (type NOT kept)"}`);
+        const content = JSON.parse(JSON.stringify(c.content ?? {}).split(PLACEHOLDER).join(`${opts.attendeeUrl}/i/${SINGLE_SEND_LINK}`));
+        const p = await call("PATCH", `/marketing/v3/emails/${state.singleSendId}`, { content, subject: `EM spike ${tag} (single-send)` });
+        d.push(p.ok ? `placeholder replaced with ${SINGLE_SEND_LINK} in the clone` : `could not replace the placeholder: ${said(p)}`);
+        return p.ok && kept ? "pass" : "fail";
+      }
+      d.push(e.hasLink ? `${SINGLE_SEND_LINK} found in content` : `neither ${SINGLE_SEND_LINK} nor ${PLACEHOLDER} in content: the sent email will have no personal link`);
+      return e.hasLink ? "pass" : "fail";
+    }
+    if (!opts.templateEmailId) return d.push("pass --single-send-email <id> or --template-email <id>"), "skip";
+    const r = await call("POST", "/marketing/v3/emails/clone", { id: opts.templateEmailId, cloneName: `EM spike · ${tag} · Single-send` });
+    if (!r.ok) return d.push(`clone: ${said(r)}`), "fail";
+    state.singleSendId = String((r.body as { id: string }).id);
+    state.singleSendOurs = true;
+    const before = await describe(state.singleSendId);
+    d.push(`clone ${state.singleSendId}: ${before.line}`);
+    const content = JSON.parse(JSON.stringify(before.content ?? {}).split(PLACEHOLDER).join(`${opts.attendeeUrl}/i/${SINGLE_SEND_LINK}`));
+    const c = await call("PATCH", `/marketing/v3/emails/${state.singleSendId}`, { content, subject: `EM spike ${tag} (single-send)` });
+    d.push(c.ok ? `placeholder replaced with ${SINGLE_SEND_LINK}` : `content: ${said(c)}`);
+    let made = false;
+    for (const patch of SINGLE_SEND_PATCHES) {
+      const p = await call("PATCH", `/marketing/v3/emails/${state.singleSendId}`, patch);
+      const after = await describe(state.singleSendId);
+      const changed = after.type !== before.type || after.subcategory !== before.subcategory;
+      d.push(`PATCH ${JSON.stringify(patch)} → ${p.ok ? p.status : said(p)}; now ${after.line}${changed ? " (changed)" : ""}`);
+      if (changed) {
+        made = true;
+        break;
+      }
+    }
+    if (!made) d.push("the API did not change the email's type: a single-send email has to be made in HubSpot (Save for single-send API); the send step shows what HubSpot says about this clone");
+    return made ? "pass" : "fail";
+  });
+
+  await step("single-send-contacts", "Recipients for single-send: an existing non-marketing contact, and an address with no contact", async (d) => {
+    const props = (c: { properties?: Record<string, string | null> } | undefined) => MARKETABLE.map((p) => `${p}=${c?.properties?.[p] ?? "∅"}`).join(", ");
+    const existing = plus("existing");
+    const fresh = plus("fresh");
+    const u = await call("POST", "/crm/v3/objects/contacts/batch/upsert", { inputs: [{ idProperty: "email", id: existing, properties: { email: existing, firstname: "EM spike" } }] });
+    const first = (u.body as { results?: { id: string; new?: boolean }[] } | null)?.results?.[0];
+    const id = first?.id;
+    if (!u.ok || !id) return d.push(`upsert: ${said(u)}`), "fail";
+    // Cleanup needs to know whether the platform created a contact (docs/hubspot.md, "Cleanup").
+    d.push(`upsert says new: ${first?.new === undefined ? "(no new flag)" : String(first.new)}`);
+    const read = (await call("GET", `/crm/v3/objects/contacts/${id}?properties=${MARKETABLE.join(",")}`)).body as { properties?: Record<string, string | null> } | undefined;
+    const none = await call("POST", "/crm/v3/objects/contacts/search", { filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: fresh }] }], properties: ["email"] });
+    const freshFound = ((none.body as { total?: number } | null)?.total ?? 0) > 0;
+    state.recipients = [
+      { which: "existing", email: existing, contactId: id, marketableBefore: read?.properties?.hs_marketable_status ?? undefined },
+      { which: "fresh", email: fresh },
+      // The test address itself, a marketing contact that a regular email reached in run 6: tells a
+      // problem with plus addresses from one with the send (runs 7–11 failed validation for both).
+      { which: "plain", email: opts.email, contactId: state.contactId },
+    ];
+    d.push(`existing: contact ${id}, ${props(read)}`, freshFound ? "fresh: a contact already exists (unexpected)" : "fresh: no contact, as intended");
+    return read?.properties?.hs_marketable_status === "true" || freshFound ? "fail" : "pass";
+  });
+
+  await step("single-send", "Does the single-send API send to each recipient with its own link, ignore a repeated sendId, and report a result per send?", async (d) => {
+    if (!state.singleSendId || !state.recipients) return d.push("no single-send email or recipients"), "skip";
+    if (!opts.send) return d.push(`pass --send to send: it sends two real emails to plus addresses of the test inbox`), "skip";
+    let path: string | undefined;
+    const send = async (r: { which: string; email: string }, sendId: string) => {
+      const customProperties = { invitation_token: `spike-${r.which}-${tag}`, event_title: `EM spike ${tag}`, event_date: now.toISOString().slice(0, 10) };
+      // Two shapes, to see which HubSpot takes (run 7 had VALIDATION_FAILED with the first for
+      // both): the OpenAPI's, with every field it marks required, and the guide's minimal one.
+      const body = r.which === "existing"
+        ? { emailId: Number(state.singleSendId), message: { to: r.email, sendId, cc: [], bcc: [], replyTo: [] }, contactProperties: {}, customProperties }
+        : { emailId: Number(state.singleSendId), message: { to: r.email, sendId }, customProperties };
+      // Newest endpoint first; fall back on 404 and remember the one that answered.
+      const paths = path ? [path] : SINGLE_SEND_PATHS;
+      let res: Response_ | undefined;
+      for (const p of paths) {
+        res = await call("POST", p, body);
+        if (res.status === 404 && p !== paths.at(-1)) {
+          d.push(`${p} → 404`);
+          continue;
+        }
+        if (res.status !== 404) path = p;
+        break;
+      }
+      return res!;
+    };
+    type Status = { statusId?: string; status?: string; sendResult?: string };
+    const sent: { which: string; statusId?: string; first: Status }[] = [];
+    for (const r of state.recipients) {
+      let res = await send(r, `em-spike-${tag}-${r.which}`);
+      // HubSpot refuses a draft (run 7), although its guide says a draft will do. Publishing a
+      // single-send email sends nothing by itself; do it on our own clone only, then try again.
+      if (res.status === 400 && /draft state/i.test(said(res)) && state.singleSendOurs && !state.singlePublished) {
+        d.push(`${r.which}: ${said(res)}`);
+        const p = await call("POST", `/marketing/v3/emails/${state.singleSendId}/publish`);
+        const after = (await call("GET", `/marketing/v3/emails/${state.singleSendId}`)).body as { state?: string } | null;
+        state.singlePublished = p.ok;
+        d.push(`published the clone: ${p.ok ? p.status : said(p)}, state ${after?.state}`);
+        // HubSpot may take a while to see the publish (run 7); then try the older endpoint too.
+        for (let i = 0; p.ok && i < 6; i++) {
+          await sleep(10_000);
+          res = await send(r, `em-spike-${tag}-${r.which}`);
+          if (!(res.status === 400 && /draft state/i.test(said(res)))) break;
+        }
+        if (res.status === 400 && /draft state/i.test(said(res)) && path !== SINGLE_SEND_PATHS.at(-1)) {
+          d.push(`still a draft to ${path} after a minute: trying ${SINGLE_SEND_PATHS.at(-1)}`);
+          path = SINGLE_SEND_PATHS.at(-1);
+          res = await send(r, `em-spike-${tag}-${r.which}`);
+        }
+      }
+      const b = (res.body ?? {}) as Status;
+      d.push(`${r.which}: ${res.ok ? `${res.status} status ${b.status}, sendResult ${b.sendResult ?? "-"}, statusId ${b.statusId}` : said(res)}`);
+      sent.push({ which: r.which, statusId: b.statusId, first: b });
+    }
+    if (path) d.push(`endpoint ${path}`);
+    state.singleSendPath = path;
+    state.singleSent = sent.some((s) => s.statusId);
+    if (!state.singleSent) return "fail";
+    // The same sendId again: HubSpot should not send twice.
+    // On the plain address, the one HubSpot delivers to (plus addresses fail validation, run 12).
+    const repeat = state.recipients.at(-1)!;
+    const first = sent.find((x) => x.which === repeat.which);
+    const again = await send(repeat, `em-spike-${tag}-${repeat.which}`);
+    const ab = (again.body ?? {}) as Status;
+    if (ab.statusId && ab.statusId !== first?.statusId) sent.push({ which: "repeat", statusId: ab.statusId, first: ab });
+    d.push(`same sendId again: ${again.ok ? `${again.status} status ${ab.status}, sendResult ${ab.sendResult ?? "-"}, statusId ${ab.statusId}${ab.statusId === first?.statusId ? " (same statusId)" : ""}` : said(again)}`);
+    // Each send's own result, once HubSpot has processed it.
+    for (const s of sent.filter((x) => x.statusId)) {
+      let st: Status = s.first;
+      for (let i = 0; i < 12 && st.status !== "COMPLETE" && st.status !== "CANCELED"; i++) {
+        await sleep(5_000);
+        st = ((await call("GET", `/marketing/v3/email/send-statuses/${s.statusId}`)).body ?? {}) as Status;
+      }
+      d.push(`${s.which} status: ${st.status}, sendResult ${st.sendResult ?? "-"}`);
+    }
+    d.push("check the inboxes: does each button open /i/spike-<which>-<tag>?");
+    return "pass";
+  });
+
+  await step("single-send-marketing", "Did single-send make both recipients marketing contacts, as HubSpot warns?", async (d) => {
+    if (!state.singleSent || !state.recipients) return d.push("nothing sent"), "skip";
+    let ok = true;
+    for (const r of state.recipients) {
+      let props: Record<string, string | null> | undefined;
+      // Contact creation and the marketing flag may lag the send.
+      for (let i = 0; i < 6; i++) {
+        const s = await call("POST", "/crm/v3/objects/contacts/search", { filterGroups: [{ filters: [{ propertyName: "email", operator: "EQ", value: r.email }] }], properties: MARKETABLE });
+        const c = (s.body as { results?: { id: string; properties?: Record<string, string | null> }[] } | null)?.results?.[0];
+        if (c) {
+          r.contactId = c.id;
+          props = c.properties;
+        }
+        if (props?.hs_marketable_status === "true") break;
+        await sleep(10_000);
+      }
+      ok &&= props?.hs_marketable_status === "true";
+      if (props?.hs_marketable_reason_type === "WORKFLOW" && props.hs_marketable_reason_id) state.marketingWorkflowId = props.hs_marketable_reason_id;
+      d.push(`${r.which}: ${r.contactId ? `contact ${r.contactId}` : "no contact"}, marketable ${r.marketableBefore ?? "∅"} → ${props?.hs_marketable_status ?? "∅"}; ${MARKETABLE.slice(1).map((p) => `${p}=${props?.[p] ?? "∅"}`).join(", ")}`);
+    }
+    return ok ? "pass" : "info";
+  });
+
+  // Cleanup after HubSpot sending (docs/hubspot.md): subscription types, marketing status and the
+  // workflow that sets contacts back to non-marketing. Subscription status belongs to the email
+  // address and outlives the contact, so everything is tried on the throwaway plus address first,
+  // and the test address is only touched once setting a status back is shown to work.
+  const LEGAL = { legalBasis: "LEGITIMATE_INTEREST_OTHER", legalBasisExplanation: "Event manager spike: temporary contact for an event invitation; not for other marketing" };
+  const cleanupMissing = () => CLEANUP_SCOPES.filter((sc) => !state.scopes.includes(sc));
+  type SubStatus = { subscriptionId?: string | number; status?: string; source?: string; legalBasis?: string };
+  const statuses = async (email: string) => {
+    const r = await call("GET", `/communication-preferences/v4/statuses/${encodeURIComponent(email)}?channel=EMAIL`);
+    const found = new Map<string, SubStatus>();
+    const walk = (v: unknown) => {
+      if (Array.isArray(v)) v.forEach(walk);
+      else if (v && typeof v === "object") {
+        const o = v as SubStatus & Record<string, unknown>;
+        if (o.subscriptionId !== undefined && typeof o.status === "string") found.set(String(o.subscriptionId), o);
+        else Object.values(o).forEach(walk);
+      }
+    };
+    walk(r.body);
+    return { r, found };
+  };
+  const setStatus = async (email: string, subscriptionId: string, statusState: string) => {
+    const base = { subscriptionId: Number(subscriptionId), statusState, channel: "EMAIL" };
+    let r = await call("POST", `/communication-preferences/v4/statuses/${encodeURIComponent(email)}`, state.legalBasis ? { ...base, ...LEGAL } : base);
+    if (!r.ok && !state.legalBasis && /legal/i.test(said(r))) {
+      state.legalBasis = true;
+      r = await call("POST", `/communication-preferences/v4/statuses/${encodeURIComponent(email)}`, { ...base, ...LEGAL });
+    }
+    return r;
+  };
+
+  await step("subscription-types-v4", "Which subscription types does the portal have, and which one does the single-send email use?", async (d) => {
+    const missing = cleanupMissing();
+    if (missing.length) return d.push(`not granted: ${missing.join(", ")} (upload the app and reconnect)`), "skip";
+    const r = await call("GET", "/communication-preferences/v4/definitions");
+    if (!r.ok) return d.push(`definitions: ${said(r)}`), "fail";
+    const defs = ((r.body as { results?: { id: string | number; name: string; isActive?: boolean }[] } | null)?.results ?? []).map((x) => ({ ...x, id: String(x.id) }));
+    if (state.singleSendId) {
+      const e = (await call("GET", `/marketing/v3/emails/${state.singleSendId}`)).body as { subscriptionDetails?: { subscriptionId?: string | number } } | null;
+      state.eventType = e?.subscriptionDetails?.subscriptionId === undefined ? undefined : String(e.subscriptionDetails.subscriptionId);
+    }
+    state.otherType = defs.find((x) => x.id !== state.eventType && x.isActive !== false)?.id;
+    d.push(`types: ${defs.map((x) => `${x.id} "${x.name}"${x.isActive === false ? " (inactive)" : ""}`).join("; ") || "none"}`, `event type (the single-send email's): ${state.eventType ?? "none"}`, `other type for the checks: ${state.otherType ?? "none"}`);
+    return state.eventType && state.otherType ? "pass" : "fail";
+  });
+
+  await step("subscription-write", "On a throwaway address: can the platform unsubscribe from one type and set it back to NOT_SPECIFIED, and does that need a legal basis?", async (d) => {
+    const target = state.recipients?.find((r) => r.which === "existing");
+    if (!state.otherType || !target) return d.push("no other type or no throwaway contact"), "skip";
+    const before = await statuses(target.email);
+    d.push(`read ${before.r.ok ? before.r.status : said(before.r)}: ${state.otherType} ${before.found.get(state.otherType)?.status ?? "(not listed)"}`);
+    const u = await setStatus(target.email, state.otherType, "UNSUBSCRIBED");
+    const afterU = await statuses(target.email);
+    d.push(`UNSUBSCRIBED: ${u.ok ? u.status : said(u)}${state.legalBasis ? " (needed a legal basis)" : " (no legal basis needed)"} → ${afterU.found.get(state.otherType)?.status ?? "?"}`);
+    const n = await setStatus(target.email, state.otherType, "NOT_SPECIFIED");
+    const afterN = await statuses(target.email);
+    const back = afterN.found.get(state.otherType)?.status;
+    d.push(`NOT_SPECIFIED: ${n.ok ? n.status : said(n)} → ${back ?? "?"}`);
+    state.restoreWorks = n.ok && back === "NOT_SPECIFIED";
+    // The batch endpoint, which the cleanup job would use.
+    const b = await call("POST", "/communication-preferences/v4/statuses/batch/write", { inputs: [{ subscriberIdString: target.email, subscriptionId: Number(state.otherType), statusState: "UNSUBSCRIBED", channel: "EMAIL", ...(state.legalBasis ? LEGAL : {}) }] });
+    d.push(`batch write UNSUBSCRIBED: ${b.ok ? b.status : said(b)}`);
+    return u.ok && afterU.found.get(state.otherType)?.status === "UNSUBSCRIBED" && state.restoreWorks ? "pass" : "fail";
+  });
+
+  await step("subscription-blocks", "With the test address unsubscribed from another type: is an email of that type blocked, and one of the event type still sent?", async (d) => {
+    if (!opts.send) return d.push("pass --send: it sends up to two emails to the test inbox"), "skip";
+    if (!state.restoreWorks) return d.push("not run: setting a type back to NOT_SPECIFIED did not work, so the test address is not touched"), "skip";
+    if (!state.otherType || !state.singleSendId || !state.singlePublished) return d.push("needs a published single-send clone and another type"), "skip";
+    const before = (await statuses(opts.email)).found.get(state.otherType)?.status ?? "NOT_SPECIFIED";
+    const u = await setStatus(opts.email, state.otherType, "UNSUBSCRIBED");
+    d.push(`test address: ${state.otherType} ${before} → UNSUBSCRIBED (${u.ok ? u.status : said(u)})`);
+    // A copy of our single-send email with the other type, standing in for a client's newsletter.
+    const c = await call("POST", "/marketing/v3/emails/clone", { id: state.singleSendId, cloneName: `EM spike · ${tag} · Other type` });
+    state.otherTypeEmailId = c.ok ? String((c.body as { id: string }).id) : undefined;
+    if (state.otherTypeEmailId) {
+      const e = (await call("GET", `/marketing/v3/emails/${state.otherTypeEmailId}`)).body as { subscriptionDetails?: Record<string, unknown> } | null;
+      const p = await call("PATCH", `/marketing/v3/emails/${state.otherTypeEmailId}`, { subscriptionDetails: { ...(e?.subscriptionDetails ?? {}), subscriptionId: state.otherType }, subject: `EM spike ${tag} (other type: should not arrive)` });
+      const pub = await call("POST", `/marketing/v3/emails/${state.otherTypeEmailId}/publish`);
+      d.push(`other-type email ${state.otherTypeEmailId}: patch ${p.ok ? p.status : said(p)}, publish ${pub.ok ? pub.status : said(pub)}`);
+    }
+    const result = async (emailId: string, label: string) => {
+      let r: Response_ | undefined;
+      for (let i = 0; i < 7; i++) {
+        r = await call("POST", state.singleSendPath ?? SINGLE_SEND_PATHS[0]!, { emailId: Number(emailId), message: { to: opts.email, sendId: `em-spike-${tag}-${label}` }, customProperties: { invitation_token: `spike-${label}-${tag}` } });
+        if (!(r.status === 400 && /draft state/i.test(said(r)))) break;
+        await sleep(10_000);
+      }
+      let st = (r!.body ?? {}) as { statusId?: string; status?: string; sendResult?: string };
+      for (let i = 0; st.statusId && i < 12 && st.status !== "COMPLETE"; i++) {
+        await sleep(5_000);
+        st = ((await call("GET", `/marketing/v3/email/send-statuses/${st.statusId}`)).body ?? {}) as typeof st;
+      }
+      d.push(`${label}: ${r!.ok ? `${st.status}, sendResult ${st.sendResult ?? "-"}` : said(r!)}`);
+      return st.sendResult;
+    };
+    const own = await result(state.singleSendId, "event-type");
+    const other = state.otherTypeEmailId ? await result(state.otherTypeEmailId, "other-type") : undefined;
+    // Put the test address back as it was.
+    const restore = await setStatus(opts.email, state.otherType, before === "SUBSCRIBED" ? "SUBSCRIBED" : "NOT_SPECIFIED");
+    const now_ = (await statuses(opts.email)).found.get(state.otherType)?.status;
+    d.push(`test address restored to ${now_ ?? "?"} (${restore.ok ? restore.status : said(restore)})`);
+    return own === "SENT" && other !== undefined && other !== "SENT" && now_ === before ? "pass" : "fail";
+  });
+
+  await step("unsubscribe-all", "On a throwaway address: does unsubscribe-all also stop a single-send of the event type?", async (d) => {
+    const target = state.recipients?.find((r) => r.which === "existing");
+    if (cleanupMissing().length || !target) return d.push("no scopes or no throwaway contact"), "skip";
+    const u = await call("POST", "/communication-preferences/v4/statuses/batch/unsubscribe-all?channel=EMAIL", { inputs: [target.email] });
+    d.push(`unsubscribe-all: ${u.ok ? u.status : said(u)}`);
+    if (!opts.send || !state.singleSendId || !state.singlePublished) return d.push("no send (needs --send and a published clone)"), "info";
+    const r = await call("POST", state.singleSendPath ?? SINGLE_SEND_PATHS[0]!, { emailId: Number(state.singleSendId), message: { to: target.email, sendId: `em-spike-${tag}-unsub-all` }, customProperties: { invitation_token: "x" } });
+    let st = (r.body ?? {}) as { statusId?: string; status?: string; sendResult?: string };
+    for (let i = 0; st.statusId && i < 12 && st.status !== "COMPLETE"; i++) {
+      await sleep(5_000);
+      st = ((await call("GET", `/marketing/v3/email/send-statuses/${st.statusId}`)).body ?? {}) as typeof st;
+    }
+    d.push(`single-send after unsubscribe-all: ${r.ok ? `${st.status}, sendResult ${st.sendResult ?? "-"}` : said(r)}`, "plus addresses fail validation anyway (run 12), so only a PREVIOUSLY_UNSUBSCRIBED_* result is conclusive");
+    return "info";
+  });
+
+  await step("marketable-write", "Can the API set a contact back to non-marketing?", async (d) => {
+    const target = state.recipients?.find((r) => r.which === "existing");
+    if (!target?.contactId) return d.push("no throwaway contact"), "skip";
+    const was = ((await call("GET", `/crm/v3/objects/contacts/${target.contactId}?properties=hs_marketable_status`)).body as { properties?: Record<string, string | null> } | null)?.properties?.hs_marketable_status;
+    if (was !== "true") return d.push(`the contact is not a marketing contact (${was ?? "∅"}), so nothing to set back; run with --send`), "skip";
+    const r = await call("PATCH", `/crm/v3/objects/contacts/${target.contactId}`, { properties: { hs_marketable_status: "false" } });
+    const after = (await call("GET", `/crm/v3/objects/contacts/${target.contactId}?properties=hs_marketable_status,hs_marketable_until_renewal`)).body as { properties?: Record<string, string | null> } | null;
+    // HubSpot may answer 200 and ignore it (run 15), so only the value read back counts.
+    const changed = after?.properties?.hs_marketable_status === "false" || after?.properties?.hs_marketable_until_renewal === "true";
+    d.push(`PATCH hs_marketable_status=false: ${r.ok ? r.status : said(r)}`, `now hs_marketable_status=${after?.properties?.hs_marketable_status ?? "∅"}, hs_marketable_until_renewal=${after?.properties?.hs_marketable_until_renewal ?? "∅"}`, changed ? "the API changed it" : "unchanged: the API cannot set non-marketing");
+    return changed ? "pass" : "fail";
+  });
+
+  await step("workflow", "Can the platform create a workflow, enrolled on our segment, that sets contacts to non-marketing?", async (d) => {
+    if (cleanupMissing().length) return d.push(`not granted: ${cleanupMissing().join(", ")}`), "skip";
+    if (!state.listId) return d.push("no segment to enrol on"), "skip";
+    type Flow = { id?: string; name?: string; actions?: { actionTypeId?: string; fields?: Record<string, unknown> }[] };
+    // Learn the action from the portal's own workflow that sets contacts to marketing.
+    let model: Flow | undefined;
+    const isStatusAction = (a: { fields?: unknown }) => /marketable|marketing_contact|marketing contact/i.test(JSON.stringify(a.fields ?? {}));
+    if (state.marketingWorkflowId) {
+      const g = await call("GET", `/automation/v4/flows/${state.marketingWorkflowId}`);
+      d.push(`flow ${state.marketingWorkflowId}: ${g.ok ? "read" : said(g)}`);
+      if (g.ok) model = g.body as Flow;
+    }
+    if (!model?.actions?.some(isStatusAction)) {
+      const l = await call("GET", "/automation/v4/flows?limit=100");
+      const ids = ((l.body as { results?: { id: string }[] } | null)?.results ?? []).map((f) => f.id);
+      d.push(`flows listed: ${l.ok ? ids.length : said(l)}`);
+      for (const id of ids.slice(0, 40)) {
+        const g = await call("GET", `/automation/v4/flows/${id}`);
+        if (g.ok && (g.body as Flow).actions?.some(isStatusAction)) {
+          model = g.body as Flow;
+          break;
+        }
+      }
+    }
+    const action = model?.actions?.find(isStatusAction);
+    if (!action) return d.push("found no workflow with a marketing status action to learn from"), "fail";
+    d.push(`learned from "${model?.name}" (${model?.id}): actionTypeId ${action.actionTypeId}, fields ${JSON.stringify(action.fields)}`);
+    // The same action with the value flipped to non-marketing.
+    const fields = JSON.parse(JSON.stringify(action.fields ?? {}).replace(/"(true|MARKETABLE|MARKETING|SET_AS_MARKETING|marketing)"/g, (_m, v: string) => `"${({ true: "false", MARKETABLE: "NON_MARKETABLE", MARKETING: "NON_MARKETING", SET_AS_MARKETING: "SET_AS_NON_MARKETING", marketing: "non_marketing" } as Record<string, string>)[v]}"`));
+    const body = {
+      type: "CONTACT_FLOW", objectTypeId: "0-1", flowType: "WORKFLOW", isEnabled: false, name: `EM spike · ${tag} · Set to non-marketing`,
+      startActionId: "1", nextAvailableActionId: "2",
+      actions: [{ type: "SINGLE_CONNECTION", actionId: "1", actionTypeVersion: 0, actionTypeId: action.actionTypeId, fields }],
+      enrollmentCriteria: {
+        type: "LIST_BASED", shouldReEnroll: true, unEnrollObjectsNotMeetingCriteria: false, reEnrollmentTriggersFilterBranches: [],
+        listFilterBranch: { filterBranchType: "OR", filters: [], filterBranches: [{ filterBranchType: "AND", filterBranches: [], filters: [{ filterType: "IN_LIST", listId: state.listId, operator: "IN_LIST" }] }] },
+      },
+    };
+    const c = await call("POST", "/automation/v4/flows", body);
+    state.flowId = c.ok ? String((c.body as { id?: string }).id ?? "") || undefined : undefined;
+    const back = state.flowId ? ((await call("GET", `/automation/v4/flows/${state.flowId}`)).body as Flow | null) : null;
+    d.push(`create (disabled): ${c.ok ? `${c.status}, flow ${state.flowId}` : said(c)}`, back ? `read back: fields ${JSON.stringify(back.actions?.[0]?.fields)}` : "");
+    d.splice(0, d.length, ...d.filter(Boolean));
+    return c.ok ? "pass" : "fail";
+  });
+
   await step("behavioural-events", "Can we define and send a custom behavioural event (Enterprise)?", async (d) => {
-    const missing = OPTIONAL_SCOPES.filter((s) => !state.scopes.includes(s));
+    const missing = BEHAVIOURAL_EVENT_SCOPES.filter((s) => !state.scopes.includes(s));
     if (missing.length) return d.push(`not granted: ${missing.join(", ")}`), "skip";
     const r = await call("POST", "/events/v3/event-definitions", {
       label: `EM spike ${tag}`, name: `em_spike_${tag.replace(/-/g, "_")}`, description: "Event manager spike; safe to delete", primaryObject: "CONTACT",
@@ -350,6 +770,8 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
     if (opts.keep) return d.push("kept (--keep)"), "skip";
     const done: string[] = [];
     const del = async (what: string, path: string) => done.push(`${what} ${(await call("DELETE", path)).status}`);
+    // First, as it is enrolled on the segment.
+    if (state.flowId) await del("workflow", `/automation/v4/flows/${state.flowId}`);
     if (state.cloneId && !state.sent) await del("email", `/marketing/v3/emails/${state.cloneId}`);
     if (state.cloneId && state.sent) done.push("sent email kept (HubSpot keeps sent emails)");
     // A sent email references its segment (HubSpot refuses to delete it, run 4) and is still being
@@ -359,6 +781,14 @@ export async function runSpike(opts: SpikeOptions, deps: SpikeDeps): Promise<{ r
     if (state.eventDefinition) await del("event definition", `/events/v3/event-definitions/${state.eventDefinition}`);
     if (state.contactId && !state.sent) await del("contact", `/crm/v3/objects/contacts/${state.contactId}`);
     if (state.sent) done.push(`segment ${state.listId} and contact ${state.contactId} kept for the delivery`);
+    if (state.singleSendOurs && state.singleSendId && !state.singleSent) await del("single-send email", `/marketing/v3/emails/${state.singleSendId}`);
+    for (const r of state.recipients ?? []) {
+      if (!r.contactId || r.which === "plain") continue;
+      if (state.singleSent) done.push(`single-send contact ${r.which} ${r.contactId} kept, to see the send on its timeline`);
+      else await del(`single-send contact ${r.which}`, `/crm/v3/objects/contacts/${r.contactId}`);
+    }
+    if (state.singleSent && state.singleSendOurs) done.push(`single-send email ${state.singleSendId} kept`);
+    if (state.otherTypeEmailId) await del("other-type email", `/marketing/v3/emails/${state.otherTypeEmailId}`);
     d.push(...done);
     return "info";
   });

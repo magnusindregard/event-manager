@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { DomainError, integrations, tenancy } from "@event-manager/domain";
-import { type HubSpotClient, HubSpotError, OPTIONAL_SCOPES, REQUIRED_SCOPES, signState, verifyState } from "@event-manager/hubspot";
+import { BEHAVIOURAL_EVENT_SCOPES, type HubSpotClient, HubSpotError, OPTIONAL_SCOPES, REQUIRED_SCOPES, signState, verifyState } from "@event-manager/hubspot";
 import { HubSpotAuthorize, HubSpotCallback, Integration, IntegrationList, IntegrationSettingsPatch, Problem } from "@event-manager/schemas";
 import { inTenant } from "../plugins/context.js";
 import { expectedVersion, setEtag } from "../plugins/etag.js";
@@ -31,7 +31,7 @@ const dto = (c: integrations.Connection) => ({
   statusReason: c.statusReason,
   portalId: c.portalId,
   scopes: c.scopes,
-  features: { customEvents: OPTIONAL_SCOPES.every((s) => c.scopes.includes(s)) },
+  features: { customEvents: BEHAVIOURAL_EVENT_SCOPES.every((s) => c.scopes.includes(s)) },
   settings: c.settings,
   setup: { status: c.setup.status, error: c.setup.error, at: c.setup.at?.toISOString() ?? null },
   connectedAt: c.connectedAt.toISOString(),
