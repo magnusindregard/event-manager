@@ -3,6 +3,7 @@ import { emit } from "../outbox/index.js";
 import { type ActorContext, DomainError } from "../shared/index.js";
 import { assertCan, recordAudit } from "../tenancy/index.js";
 import type { ConnectionRef, ConnectionSettings } from "./index.js";
+import { markSegments, type ReconcileResult } from "./segments.js";
 
 // What the connector keeps in step in the provider (docs/hubspot.md, milestone 2): contacts,
 // one marketing event per occurrence, and attendance. Each is a row in integrations.sync_item
@@ -262,7 +263,7 @@ export async function marketingEventSources(tx: Tx, occurrenceIds: string[]): Pr
  * (or cancelled) events with occurrences not long past, their invited guests who were sent an
  * invitation, attendees of open registration if the account syncs them, and attendance.
  */
-export async function markForBackfill(tx: Tx, tenantId: string, target: SyncTarget, now = new Date()): Promise<{ contacts: number; events: number; attendance: number }> {
+export async function markForBackfill(tx: Tx, tenantId: string, target: SyncTarget, now = new Date()): Promise<{ contacts: number; events: number; attendance: number; segmentMembers: number }> {
   const since = new Date(now.getTime() - 24 * 3600_000);
   const occurrences = await tx
     .selectFrom("catalog.occurrence as o")
@@ -303,7 +304,10 @@ export async function markForBackfill(tx: Tx, tenantId: string, target: SyncTarg
       attendance++;
     }
   }
-  return { contacts, events: occurrences.length, attendance };
+
+  let segmentMembers = 0;
+  for (const eventId of eventIds) segmentMembers += await markSegments(tx, tenantId, target, eventId);
+  return { contacts, events: occurrences.length, attendance, segmentMembers };
 }
 
 /** Drops the connection's mappings and pending changes (on disconnect). */
@@ -339,12 +343,14 @@ export interface SyncIssue {
 export interface SyncSummary {
   counts: Record<SyncItemKind, SyncCounts>;
   lastSyncedAt: Date | null;
+  /** What the last nightly segment reconcile found and fixed; null before the first. */
+  lastReconcile: ReconcileResult | null;
   /** Items HubSpot refused, latest first (at most 50). */
   issues: SyncIssue[];
 }
 
 async function liveConnection(tx: Tx, provider: "hubspot") {
-  const c = await tx.selectFrom("integrations.connection").select(["id", "status"]).where("provider", "=", provider).executeTakeFirst();
+  const c = await tx.selectFrom("integrations.connection").select(["id", "status", "last_reconcile"]).where("provider", "=", provider).executeTakeFirst();
   if (!c || c.status === "disconnected") throw new DomainError("not_found", "Not connected");
   return c;
 }
@@ -356,7 +362,7 @@ export async function syncSummary(tx: Tx, ctx: ActorContext, provider: "hubspot"
   const rows = await tx
     .selectFrom("integrations.sync_item")
     .select(["kind"])
-    .select(sql<number>`count(*) filter (where not dirty and remote_id is not null or (kind = 'attendance' and not dirty))::int`.as("synced"))
+    .select(sql<number>`count(*) filter (where not dirty and (remote_id is not null or kind in ('attendance', 'segment_member')))::int`.as("synced"))
     .select(sql<number>`count(*) filter (where dirty and attempts < ${MAX_SYNC_ATTEMPTS})::int`.as("pending"))
     .select(sql<number>`count(*) filter (where dirty and attempts >= ${MAX_SYNC_ATTEMPTS})::int`.as("failed"))
     .select(sql<Date | null>`max(last_synced_at)`.as("last_synced_at"))
@@ -364,7 +370,7 @@ export async function syncSummary(tx: Tx, ctx: ActorContext, provider: "hubspot"
     .groupBy("kind")
     .execute();
   const empty = (): SyncCounts => ({ synced: 0, pending: 0, failed: 0 });
-  const counts: Record<SyncItemKind, SyncCounts> = { contact: empty(), marketing_event: empty(), attendance: empty() };
+  const counts: Record<SyncItemKind, SyncCounts> = { contact: empty(), marketing_event: empty(), attendance: empty(), segment: empty(), segment_member: empty() };
   let lastSyncedAt: Date | null = null;
   for (const r of rows) {
     counts[r.kind] = { synced: r.synced, pending: r.pending, failed: r.failed };
@@ -376,7 +382,13 @@ export async function syncSummary(tx: Tx, ctx: ActorContext, provider: "hubspot"
     .leftJoin("catalog.occurrence as o", (j) => j.on(sql`o.id::text`, "=", sql`coalesce(s.data->>'occurrenceId', '')`))
     .select(["s.kind", "s.local_key", "s.data", "s.attempts", "s.last_error", "s.updated_at", "o.start_utc"])
     .select((eb) =>
-      eb.selectFrom("catalog.event_translation as t").select("t.title").whereRef("t.event_id", "=", "o.event_id").orderBy("t.locale").limit(1).as("title"),
+      eb
+        .selectFrom("catalog.event_translation as t")
+        .select("t.title")
+        .where(sql`t.event_id::text`, "=", sql`coalesce(o.event_id::text, s.data->>'eventId')`)
+        .orderBy("t.locale")
+        .limit(1)
+        .as("title"),
     )
     .where("s.connection_id", "=", c.id)
     .where("s.dirty", "=", true)
@@ -388,9 +400,10 @@ export async function syncSummary(tx: Tx, ctx: ActorContext, provider: "hubspot"
   return {
     counts,
     lastSyncedAt,
+    lastReconcile: (c.last_reconcile as ReconcileResult | null) ?? null,
     issues: issues.map((r) => {
       const data = r.data as { email?: string };
-      const email = r.kind === "marketing_event" ? null : (data.email ?? r.local_key);
+      const email = r.kind === "marketing_event" || r.kind === "segment" ? null : (data.email ?? r.local_key);
       const label = [email, r.title].filter(Boolean).join(" · ") || r.local_key;
       return {
         kind: r.kind,

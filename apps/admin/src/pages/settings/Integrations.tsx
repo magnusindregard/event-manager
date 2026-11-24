@@ -181,11 +181,11 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-const KINDS = ["contact", "marketing_event", "attendance"] as const;
+const KINDS = ["contact", "marketing_event", "attendance", "segment", "segment_member"] as const;
 
 /**
- * The sync log (docs/hubspot.md, milestone 2): what is in step with HubSpot, what waits, and what
- * HubSpot refused with its reason. Owners can try refused items again, or push everything again
+ * The sync log (docs/hubspot.md, milestones 2 and 3): what is in step with HubSpot, what waits, and what
+ * HubSpot refused with its reason, and what the nightly segment check fixed. Owners can try refused items again, or push everything again
  * ("Resync") for a portal where someone deleted or changed what we wrote.
  */
 function SyncLog({ live, canEdit }: { live: Integration; canEdit: boolean }) {
@@ -229,6 +229,14 @@ function SyncLog({ live, canEdit }: { live: Integration; canEdit: boolean }) {
           <p className="text-sm text-muted-foreground">
             {data?.lastSyncedAt ? t("integrations.log.lastSynced", { date: fmt.format(new Date(data.lastSyncedAt)) }) : t("integrations.log.never")}
           </p>
+          {data?.lastReconcile && (
+            <p className="text-sm text-muted-foreground">
+              {t("integrations.log.reconciled", { date: fmt.format(new Date(data.lastReconcile.at)), count: data.lastReconcile.segments })}{" "}
+              {data.lastReconcile.added + data.lastReconcile.removed + data.lastReconcile.recreated > 0
+                ? t("integrations.log.reconcileFixed", { added: data.lastReconcile.added, removed: data.lastReconcile.removed, recreated: data.lastReconcile.recreated })
+                : t("integrations.log.reconcileClean")}
+            </p>
+          )}
         </div>
         {canEdit && (
           <div className="flex flex-wrap gap-2">

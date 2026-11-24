@@ -141,6 +141,7 @@ export const integrationRoutes: FastifyPluginAsyncTypebox<{ hubspot: HubSpotDeps
       return {
         counts: s.counts,
         lastSyncedAt: s.lastSyncedAt?.toISOString() ?? null,
+        lastReconcile: s.lastReconcile,
         issues: s.issues.map((i) => ({ ...i, startUtc: i.startUtc?.toISOString() ?? null, updatedAt: i.updatedAt.toISOString() })),
       };
     },

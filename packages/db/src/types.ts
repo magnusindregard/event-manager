@@ -422,6 +422,8 @@ export interface ConnectionTable {
   connected_at: Timestamp;
   generation: Generated<number>;
   disconnected_at: Timestamp | null;
+  /** What the nightly segment reconcile found and fixed (milestone 3). */
+  last_reconcile: ColumnType<unknown, string | null | undefined, string | null>;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -435,7 +437,7 @@ export interface CredentialTable {
   updated_at: GeneratedTimestamp;
 }
 
-export type SyncItemKind = "contact" | "marketing_event" | "attendance";
+export type SyncItemKind = "contact" | "marketing_event" | "attendance" | "segment" | "segment_member";
 
 export interface SyncItemTable {
   tenant_id: string;

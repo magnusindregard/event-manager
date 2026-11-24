@@ -3,6 +3,7 @@ import { type Db, withTenant } from "@event-manager/db";
 import { outbox } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
 import { HORIZON_TASK, horizonTask } from "./horizon.js";
+import { HUBSPOT_RECONCILE_TASK, hubspotReconcileTask } from "./hubspot/reconcile.js";
 import { HUBSPOT_SETUP_TASK, type HubSpotDeps, hubspotSetupTask } from "./hubspot/setup.js";
 import { HUBSPOT_SYNC_TASK, hubspotSyncTask } from "./hubspot/sync.js";
 import { INVITATION_EMAIL_TASK, invitationEmailTask } from "./invitation-email.js";
@@ -56,6 +57,7 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
     // Always registered: jobs queued by a connection never sit unknown when HubSpot is not configured.
     [HUBSPOT_SETUP_TASK]: hubspotSetupTask(db, hubspot),
     [HUBSPOT_SYNC_TASK]: hubspotSyncTask(db, hubspot),
+    [HUBSPOT_RECONCILE_TASK]: hubspotReconcileTask(db, hubspot),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
     ...(registrationEmail
       ? {

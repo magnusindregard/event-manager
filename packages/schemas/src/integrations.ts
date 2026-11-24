@@ -58,7 +58,7 @@ export const IntegrationSettingsPatch = Type.Object(
   { additionalProperties: false, minProperties: 1 },
 );
 
-const SyncKind = Type.Union([Type.Literal("contact"), Type.Literal("marketing_event"), Type.Literal("attendance")]);
+const SyncKind = Type.Union([Type.Literal("contact"), Type.Literal("marketing_event"), Type.Literal("attendance"), Type.Literal("segment"), Type.Literal("segment_member")]);
 const SyncCounts = Type.Object({
   synced: Type.Integer({ description: "In HubSpot and up to date" }),
   pending: Type.Integer({ description: "Waiting to be pushed, including items being retried after a refusal" }),
@@ -66,8 +66,21 @@ const SyncCounts = Type.Object({
 });
 
 export const IntegrationSync = Type.Object({
-  counts: Type.Object({ contact: SyncCounts, marketing_event: SyncCounts, attendance: SyncCounts }),
+  counts: Type.Object({ contact: SyncCounts, marketing_event: SyncCounts, attendance: SyncCounts, segment: SyncCounts, segment_member: SyncCounts }),
   lastSyncedAt: Nullable(DateTime),
+  lastReconcile: Nullable(
+    Type.Object(
+      {
+        at: DateTime,
+        segments: Type.Integer({ description: "Segments checked" }),
+        added: Type.Integer({ description: "Members HubSpot was missing, added back" }),
+        removed: Type.Integer({ description: "Contacts that should not be in a segment, removed (failed updates, hand edits)" }),
+        recreated: Type.Integer({ description: "Segments deleted in HubSpot, made again" }),
+        failed: Type.Integer({ description: "Segments HubSpot refused to read or change" }),
+      },
+      { description: "The last nightly check of the segments against HubSpot" },
+    ),
+  ),
   issues: Type.Array(
     Type.Object({
       kind: SyncKind,

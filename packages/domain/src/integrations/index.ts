@@ -4,6 +4,7 @@ import { type ActorContext, decryptJson, DomainError, encryptJson } from "../sha
 import { assertCan, diffFields, recordAudit } from "../tenancy/index.js";
 import { dropSyncItems } from "./sync.js";
 
+export * from "./segments.js";
 export * from "./sync.js";
 
 // Connections to the account's outside systems (docs/hubspot.md, ADR 0017). One per account

@@ -332,7 +332,9 @@ const resources = {
         callbackWorking: "Kobler til HubSpot …", connected: "HubSpot er koblet til", callbackDenied: "Tilkoblingen ble avbrutt i HubSpot.", backToSettings: "Tilbake til innstillinger",
         log: {
           title: "Synkronisering", lastSynced: "Sist synkronisert {{date}}", never: "Ingenting synkronisert ennå",
-          kinds: { contact: "Kontakter", marketing_event: "Markedsføringshendelser", attendance: "Oppmøte" },
+          kinds: { contact: "Kontakter", marketing_event: "Markedsføringshendelser", attendance: "Oppmøte", segment: "Segmenter", segment_member: "Segmentmedlemskap" },
+          reconciled_one: "Segmentene ble sist sjekket mot HubSpot {{date}} ({{count}} segment).", reconciled_other: "Segmentene ble sist sjekket mot HubSpot {{date}} ({{count}} segmenter).",
+          reconcileClean: "Alt stemte.", reconcileFixed: "Rettet: {{added}} lagt til igjen, {{removed}} fjernet, {{recreated}} segmenter laget på nytt.",
           synced_one: "{{count}} i HubSpot", synced_other: "{{count}} i HubSpot",
           pending_one: "{{count}} venter", pending_other: "{{count}} venter",
           failed_one: "{{count}} feilet", failed_other: "{{count}} feilet",
@@ -754,7 +756,9 @@ const resources = {
         callbackWorking: "Connecting HubSpot …", connected: "HubSpot is connected", callbackDenied: "Connecting was cancelled in HubSpot.", backToSettings: "Back to settings",
         log: {
           title: "Sync", lastSynced: "Last synced {{date}}", never: "Nothing synced yet",
-          kinds: { contact: "Contacts", marketing_event: "Marketing events", attendance: "Attendance" },
+          kinds: { contact: "Contacts", marketing_event: "Marketing events", attendance: "Attendance", segment: "Segments", segment_member: "Segment memberships" },
+          reconciled_one: "Segments last checked against HubSpot {{date}} ({{count}} segment).", reconciled_other: "Segments last checked against HubSpot {{date}} ({{count}} segments).",
+          reconcileClean: "Everything matched.", reconcileFixed: "Fixed: {{added}} added back, {{removed}} removed, {{recreated}} segments made again.",
           synced_one: "{{count}} in HubSpot", synced_other: "{{count}} in HubSpot",
           pending_one: "{{count}} waiting", pending_other: "{{count}} waiting",
           failed_one: "{{count}} failed", failed_other: "{{count}} failed",

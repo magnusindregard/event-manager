@@ -12250,11 +12250,41 @@ export interface operations {
                                 /** @description Refused five times; waits for a retry or a change */
                                 failed: number;
                             };
+                            segment: {
+                                /** @description In HubSpot and up to date */
+                                synced: number;
+                                /** @description Waiting to be pushed, including items being retried after a refusal */
+                                pending: number;
+                                /** @description Refused five times; waits for a retry or a change */
+                                failed: number;
+                            };
+                            segment_member: {
+                                /** @description In HubSpot and up to date */
+                                synced: number;
+                                /** @description Waiting to be pushed, including items being retried after a refusal */
+                                pending: number;
+                                /** @description Refused five times; waits for a retry or a change */
+                                failed: number;
+                            };
                         };
                         lastSyncedAt: string | null;
+                        lastReconcile: {
+                            /** Format: date-time */
+                            at: string;
+                            /** @description Segments checked */
+                            segments: number;
+                            /** @description Members HubSpot was missing, added back */
+                            added: number;
+                            /** @description Contacts that should not be in a segment, removed (failed updates, hand edits) */
+                            removed: number;
+                            /** @description Segments deleted in HubSpot, made again */
+                            recreated: number;
+                            /** @description Segments HubSpot refused to read or change */
+                            failed: number;
+                        } | null;
                         /** @description Items HubSpot refused, latest first (at most 50) */
                         issues: {
-                            kind: "contact" | "marketing_event" | "attendance";
+                            kind: "contact" | "marketing_event" | "attendance" | "segment" | "segment_member";
                             /** @description The contact's email, the event, or both */
                             label: string;
                             email: string | null;

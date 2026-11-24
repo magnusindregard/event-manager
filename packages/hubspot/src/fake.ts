@@ -3,10 +3,12 @@ import {
   type AccountDetails,
   type AttendanceState,
   type ContactInput,
+  type ContactList,
   type ContactResult,
   type HubSpotClient,
   HubSpotError,
   type MarketingEventInput,
+  type MembershipChange,
   type TokenInfo,
   type TokenSet,
 } from "./client.js";
@@ -20,7 +22,11 @@ interface FakePortal {
   events: Map<string, MarketingEventInput & { objectId: string }>;
   /** Attendance records, in the order recorded. */
   attendance: { externalEventId: string; state: AttendanceState; email: string }[];
+  /** Contact lists by list id, with member record ids. */
+  lists: Map<string, ContactList & { members: Set<string> }>;
 }
+
+const emptyPortal = (portalId: string, scopes: string[]): FakePortal => ({ portalId, scopes, contacts: new Map(), events: new Map(), attendance: [], lists: new Map() });
 
 /**
  * HubSpot in memory, for tests and local stacks. `approve` stands in for the owner approving
@@ -61,7 +67,7 @@ export class FakeHubSpot implements HubSpotClient {
 
   /** The owner approves in portal `portalId`; returns the authorization code. */
   approve(portalId: string, scopes: string[]): string {
-    const portal = this.portals.get(portalId) ?? { portalId, scopes, contacts: new Map(), events: new Map(), attendance: [] };
+    const portal = this.portals.get(portalId) ?? emptyPortal(portalId, scopes);
     portal.scopes = scopes;
     this.portals.set(portalId, portal);
     const code = `code-${randomBytes(6).toString("hex")}`;
@@ -154,6 +160,58 @@ export class FakeHubSpot implements HubSpotClient {
     for (const email of emails) portal.attendance.push({ externalEventId, state, email: email.toLowerCase() });
   }
 
+  /** Lists that a sent email uses: HubSpot refuses to delete them. */
+  readonly listsInUse = new Set<string>();
+
+  async findListByName(accessToken: string, name: string): Promise<ContactList | null> {
+    this.calls.push(`findListByName:${name}`);
+    const l = [...this.portalFor(accessToken).lists.values()].find((x) => x.name === name);
+    return l ? { listId: l.listId, name: l.name, processingType: l.processingType } : null;
+  }
+
+  async createList(accessToken: string, name: string): Promise<ContactList> {
+    this.calls.push(`createList:${name}`);
+    const portal = this.portalFor(accessToken);
+    if ([...portal.lists.values()].some((l) => l.name === name)) throw new HubSpotError(`HubSpot POST /crm/v3/lists: 400 a list named ${name} exists`, 400);
+    const list = { listId: String(this.nextId++), name, processingType: "MANUAL" };
+    portal.lists.set(list.listId, { ...list, members: new Set() });
+    return list;
+  }
+
+  async addToList(accessToken: string, listId: string, recordIds: string[]): Promise<MembershipChange> {
+    this.calls.push(`addToList:${listId}:${recordIds.length}`);
+    const portal = this.portalFor(accessToken);
+    const list = this.list(portal, listId);
+    const known = new Set([...portal.contacts.values()].map((c) => c.id));
+    const missing = recordIds.filter((id) => !known.has(id));
+    for (const id of recordIds) if (known.has(id)) list.members.add(id);
+    return { missing };
+  }
+
+  async removeFromList(accessToken: string, listId: string, recordIds: string[]): Promise<MembershipChange> {
+    this.calls.push(`removeFromList:${listId}:${recordIds.length}`);
+    const list = this.list(this.portalFor(accessToken), listId);
+    for (const id of recordIds) list.members.delete(id);
+    return { missing: [] };
+  }
+
+  async listMembers(accessToken: string, listId: string): Promise<string[]> {
+    this.calls.push(`listMembers:${listId}`);
+    return [...this.list(this.portalFor(accessToken), listId).members];
+  }
+
+  async deleteList(accessToken: string, listId: string): Promise<void> {
+    this.calls.push(`deleteList:${listId}`);
+    if (this.listsInUse.has(listId)) throw new HubSpotError(`HubSpot DELETE /crm/v3/lists/${listId}: 400 blocked for deletion due to references`, 400);
+    this.portalFor(accessToken).lists.delete(listId);
+  }
+
+  private list(portal: FakePortal, listId: string) {
+    const l = portal.lists.get(listId);
+    if (!l) throw new HubSpotError(`HubSpot /crm/v3/lists/${listId}: 404 list not found`, 404);
+    return l;
+  }
+
   private issue(portalId: string): Omit<TokenSet, "refreshToken"> {
     const accessToken = `at-${randomBytes(8).toString("hex")}`;
     const expiresAt = new Date(Date.now() + this.accessTokenSeconds * 1000);
@@ -165,7 +223,7 @@ export class FakeHubSpot implements HubSpotClient {
   private localPortal(): FakePortal | null {
     if (!this.local) return null;
     const { portalId } = this.local;
-    if (!this.portals.has(portalId)) this.portals.set(portalId, { portalId, scopes: [], contacts: new Map(), events: new Map(), attendance: [] });
+    if (!this.portals.has(portalId)) this.portals.set(portalId, emptyPortal(portalId, []));
     return this.portals.get(portalId)!;
   }
 

@@ -62,6 +62,18 @@ export interface MarketingEventInput {
 
 export type AttendanceState = "register" | "cancel" | "attend";
 
+/** A HubSpot list (a segment in the UI). The platform's own are static: `processingType` MANUAL. */
+export interface ContactList {
+  listId: string;
+  name: string;
+  processingType: string;
+}
+
+/** What HubSpot did with a membership change; `missing`: record ids it has no contact for. */
+export interface MembershipChange {
+  missing: string[];
+}
+
 /** A HubSpot answer that is not a success. `unauthorized`: the token is refused (uninstalled, revoked). */
 export class HubSpotError extends Error {
   constructor(
@@ -99,9 +111,28 @@ export interface HubSpotClient {
   cancelMarketingEvent(accessToken: string, externalAccountId: string, externalEventId: string): Promise<void>;
   /** Records attendance by email (up to 100); HubSpot processes it in the background (spike run 17). */
   recordAttendance(accessToken: string, externalAccountId: string, externalEventId: string, state: AttendanceState, emails: string[], at: Date): Promise<void>;
+  /** The contact list with this exact name, or null. List names are unique in a portal. */
+  findListByName(accessToken: string, name: string): Promise<ContactList | null>;
+  /** Creates a static contact list. */
+  createList(accessToken: string, name: string): Promise<ContactList>;
+  /** Adds contacts by record id. A list HubSpot no longer has is a 404 HubSpotError. */
+  addToList(accessToken: string, listId: string, recordIds: string[]): Promise<MembershipChange>;
+  /** Removes contacts by record id. A list HubSpot no longer has is a 404 HubSpotError. */
+  removeFromList(accessToken: string, listId: string, recordIds: string[]): Promise<MembershipChange>;
+  /** Every member's record id. A list HubSpot no longer has is a 404 HubSpotError. */
+  listMembers(accessToken: string, listId: string): Promise<string[]>;
+  /** Deletes the list; one HubSpot no longer has is fine. A 400 means something (a sent email) still uses it. */
+  deleteList(accessToken: string, listId: string): Promise<void>;
 }
 
 const API = "https://api.hubapi.com";
+
+interface RawList {
+  listId: string | number;
+  name: string;
+  processingType?: string;
+}
+const toList = (l: RawList): ContactList => ({ listId: String(l.listId), name: l.name, processingType: l.processingType ?? "MANUAL" });
 
 /** The real client: HubSpot's OAuth v1 endpoints and the APIs the connector uses. */
 export class HttpHubSpot implements HubSpotClient {
@@ -205,6 +236,57 @@ export class HttpHubSpot implements HubSpotClient {
       { inputs: emails.map((email) => ({ email, interactionDateTime: at.getTime() })) },
       accessToken,
     );
+  }
+
+  async findListByName(accessToken: string, name: string): Promise<ContactList | null> {
+    try {
+      const r = (await this.call("GET", `/crm/v3/lists/object-type-id/0-1/name/${encodeURIComponent(name)}`, undefined, accessToken)) as { list?: RawList } | null;
+      return r?.list ? toList(r.list) : null;
+    } catch (e) {
+      if (e instanceof HubSpotError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  async createList(accessToken: string, name: string): Promise<ContactList> {
+    const r = (await this.call("POST", "/crm/v3/lists", { name, objectTypeId: "0-1", processingType: "MANUAL" }, accessToken)) as { list?: RawList } | null;
+    if (!r?.list) throw new HubSpotError("HubSpot POST /crm/v3/lists: no list in the answer", 502);
+    return toList(r.list);
+  }
+
+  async addToList(accessToken: string, listId: string, recordIds: string[]): Promise<MembershipChange> {
+    if (!recordIds.length) return { missing: [] };
+    const r = (await this.call("PUT", `/crm/v3/lists/${encodeURIComponent(listId)}/memberships/add`, recordIds, accessToken)) as { recordIdsMissing?: (string | number)[] } | null;
+    return { missing: (r?.recordIdsMissing ?? []).map(String) };
+  }
+
+  async removeFromList(accessToken: string, listId: string, recordIds: string[]): Promise<MembershipChange> {
+    if (!recordIds.length) return { missing: [] };
+    const r = (await this.call("PUT", `/crm/v3/lists/${encodeURIComponent(listId)}/memberships/remove`, recordIds, accessToken)) as { recordIdsMissing?: (string | number)[] } | null;
+    return { missing: (r?.recordIdsMissing ?? []).map(String) };
+  }
+
+  async listMembers(accessToken: string, listId: string): Promise<string[]> {
+    const ids: string[] = [];
+    let after: string | undefined;
+    do {
+      const q = `limit=250${after ? `&after=${encodeURIComponent(after)}` : ""}`;
+      const r = (await this.call("GET", `/crm/v3/lists/${encodeURIComponent(listId)}/memberships?${q}`, undefined, accessToken)) as {
+        results?: { recordId: string | number }[];
+        paging?: { next?: { after?: string } };
+      } | null;
+      for (const m of r?.results ?? []) ids.push(String(m.recordId));
+      after = r?.paging?.next?.after;
+    } while (after);
+    return ids;
+  }
+
+  async deleteList(accessToken: string, listId: string): Promise<void> {
+    try {
+      await this.call("DELETE", `/crm/v3/lists/${encodeURIComponent(listId)}`, undefined, accessToken);
+    } catch (e) {
+      if (!(e instanceof HubSpotError && e.status === 404)) throw e;
+    }
   }
 
   private async token(params: Record<string, string>): Promise<TokenSet> {

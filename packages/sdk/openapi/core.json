@@ -28193,6 +28193,7 @@
                   "required": [
                     "counts",
                     "lastSyncedAt",
+                    "lastReconcile",
                     "issues"
                   ],
                   "properties": {
@@ -28201,7 +28202,9 @@
                       "required": [
                         "contact",
                         "marketing_event",
-                        "attendance"
+                        "attendance",
+                        "segment",
+                        "segment_member"
                       ],
                       "properties": {
                         "contact": {
@@ -28269,6 +28272,50 @@
                               "description": "Refused five times; waits for a retry or a change"
                             }
                           }
+                        },
+                        "segment": {
+                          "type": "object",
+                          "required": [
+                            "synced",
+                            "pending",
+                            "failed"
+                          ],
+                          "properties": {
+                            "synced": {
+                              "type": "integer",
+                              "description": "In HubSpot and up to date"
+                            },
+                            "pending": {
+                              "type": "integer",
+                              "description": "Waiting to be pushed, including items being retried after a refusal"
+                            },
+                            "failed": {
+                              "type": "integer",
+                              "description": "Refused five times; waits for a retry or a change"
+                            }
+                          }
+                        },
+                        "segment_member": {
+                          "type": "object",
+                          "required": [
+                            "synced",
+                            "pending",
+                            "failed"
+                          ],
+                          "properties": {
+                            "synced": {
+                              "type": "integer",
+                              "description": "In HubSpot and up to date"
+                            },
+                            "pending": {
+                              "type": "integer",
+                              "description": "Waiting to be pushed, including items being retried after a refusal"
+                            },
+                            "failed": {
+                              "type": "integer",
+                              "description": "Refused five times; waits for a retry or a change"
+                            }
+                          }
                         }
                       }
                     },
@@ -28277,6 +28324,51 @@
                         {
                           "type": "string",
                           "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "lastReconcile": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "at",
+                            "segments",
+                            "added",
+                            "removed",
+                            "recreated",
+                            "failed"
+                          ],
+                          "properties": {
+                            "at": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "segments": {
+                              "type": "integer",
+                              "description": "Segments checked"
+                            },
+                            "added": {
+                              "type": "integer",
+                              "description": "Members HubSpot was missing, added back"
+                            },
+                            "removed": {
+                              "type": "integer",
+                              "description": "Contacts that should not be in a segment, removed (failed updates, hand edits)"
+                            },
+                            "recreated": {
+                              "type": "integer",
+                              "description": "Segments deleted in HubSpot, made again"
+                            },
+                            "failed": {
+                              "type": "integer",
+                              "description": "Segments HubSpot refused to read or change"
+                            }
+                          },
+                          "description": "The last nightly check of the segments against HubSpot"
                         },
                         {
                           "type": "null"
@@ -28317,6 +28409,18 @@
                                 "type": "string",
                                 "enum": [
                                   "attendance"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "segment"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "segment_member"
                                 ]
                               }
                             ]
