@@ -1,26 +1,28 @@
 # HubSpot connector
 
-*Draft, 20 November 2026; milestone 1 (connection) built 21 November; spike run 22–23 November. Issue #95, part of epic #9. Builds on [docs/registration.md](registration.md). Decisions: [ADR 0017](adr/0017-hubspot-connector.md), [ADR 0008](adr/0008-events-and-webhooks.md).*
+*Draft, 20 November 2026; revised 24 November after the spike (runs 1–16): invitations through HubSpot's single-send API, and cleanup of the contacts that makes marketing. Milestone 1 (connection) built 21 November. Issue #95, part of epic #9. Builds on [docs/registration.md](registration.md). Decisions: [ADR 0017](adr/0017-hubspot-connector.md), [ADR 0008](adr/0008-events-and-webhooks.md).*
 
 ## Goal
 
 Let an account connect its HubSpot portal, so that:
 
 - **contacts, events and attendance show up in HubSpot**, for segmentation, reporting and the contact timeline;
-- an event can have its **invitations and reminders sent as HubSpot marketing emails**. The platform makes the drafts from the client's own template email and keeps the recipients up to date. The platform keeps sending the transactional emails;
+- an event can have its **invitations and reminders sent through HubSpot**, in the client's own email design, one email per guest through HubSpot's single-send API. The platform keeps sending the transactional emails;
+- the platform **takes back what sending through HubSpot does to the portal**: contacts it created are deleted, contacts it made marketing contacts are set back, and in the meantime none of them get the client's other marketing;
 - a **HubSpot list can be the source of an event's guest list**, instead of a CSV exported from HubSpot.
 
-The platform stays the source of truth for invitations, RSVPs and registrations. HubSpot gets copies and audiences; nothing in HubSpot changes a registration.
+The platform stays the source of truth for invitations, RSVPs and registrations. HubSpot gets copies and sends emails for the platform; nothing in HubSpot changes a registration.
 
 ## Scope
 
 ### In
 
 - **Connection**: our own HubSpot app, OAuth, one portal per account, connect and disconnect from the admin.
-- **Contacts**: upsert of invited guests and (if the account opts in) open-registration attendees, with name, email, locale and a **guest key**.
+- **Contacts**: upsert of invited guests and (if the account opts in) open-registration attendees, with name, email and locale, remembering which contacts the platform created.
 - **Marketing events**: one per occurrence, with attendance (registered, cancelled, attended).
-- **Segments**: static segments per event that the platform keeps in step with RSVPs.
-- **HubSpot emails**: per event, invitations, invitation reminders and the reminder before the event can be HubSpot regular emails. The platform drafts them from a template and sends or schedules them through the API.
+- **Segments**: static segments per event, kept in step with RSVPs, for the client's own lists and workflows; and the two segments the cleanup uses.
+- **HubSpot sending** (Marketing Hub Enterprise): invitations, reminders (to guests who have not answered) and the welcome (the reminder before the event), sent per guest through the single-send API from the client's own template, with the platform's own email as fallback for guests HubSpot refuses.
+- **Cleanup**: deleting contacts the platform created, setting contacts it made marketing back to non-marketing, and keeping them out of other marketing while they are marketing because of us.
 - **Guest list import from a HubSpot list**, with the existing import and re-import rules.
 - **Custom behavioural events** for portals on Marketing Hub Enterprise.
 - Sync log in the admin, with retries, dead letter and replay.
@@ -30,11 +32,12 @@ The platform stays the source of truth for invitations, RSVPs and registrations.
 | Out of scope | Prepared by |
 |---|---|
 | Marketplace listing | The app is a developer platform project app; private distribution now (up to 10 portals), switch distribution to marketplace and certify when we pass that |
-| Workflows and automated emails | Segments and custom events are what a client's own workflow would enrol on; nothing in our design needs one |
+| HubSpot sending on portals without Enterprise | The platform sends the invitations there; mirroring, segments and list import work on every plan |
+| Client workflows and automated emails | Segments and custom events are what a client's own workflow would enrol on. The only workflow the platform makes is its own, for the cleanup |
 | Transactional emails from HubSpot (confirmation with QR, changes, cancels) | They stay in the platform (ADR 0010); the account's own template comes with #100 |
 | Live sync of a guest list from a HubSpot list | "Refresh from HubSpot" re-runs the import; the list is remembered on the event |
 | Anything flowing from HubSpot into registrations | RSVPs only happen on our pages; HubSpot never writes back |
-| Deleting contacts in HubSpot when we anonymise | The client is the controller of their portal; documented in the setup guide |
+| Contacts the client has taken into use | The cleanup leaves them (kept, with the reason in the sync log); the client is the controller of their portal |
 | Companies, deals, tickets | Contacts only |
 
 ## Connecting
@@ -46,11 +49,11 @@ We own one HubSpot app on HubSpot's developer platform (built and deployed with 
 ### OAuth
 
 1. Settings → Integrations → **Connect HubSpot** (owner only). `POST /v1/integrations/hubspot/authorize` returns HubSpot's install URL with a signed `state` (account, user, ten-minute expiry; HMAC with a key derived from the app's client secret, so no table), and the admin sends the browser there.
-2. The portal admin picks the portal and approves the scopes.
+2. The portal admin picks the portal and approves the scopes. **Optional scopes are locked until a portal admin allows them in the app's admin settings** (run 15); the connection page says so before the button, with a link to HubSpot's help.
 3. HubSpot sends the browser back to the **admin's** callback page, `<admin>/integrations/hubspot/callback`, which posts `code` and `state` to `POST /v1/integrations/hubspot/callback` with the signed-in owner's own token. The API refuses a `state` for another account or started by another user, so a link someone else started cannot connect their portal to your account, or yours to theirs. It then exchanges the code, reads the portal id and granted scopes, and stores the refresh and access token encrypted. An install missing a required scope is refused and revoked again.
 4. A setup job creates what we need in the portal (below); the backfill comes with milestone 2.
 
-**Disconnect** deletes our tokens and mappings and stops all sync. What we wrote to HubSpot stays there. Guest keys stop working, so HubSpot email links already sent lead to "link not valid"; the personal links from the platform's own emails keep working.
+**Disconnect** offers **Clean up and disconnect** (see Cleanup) or a plain disconnect. Either deletes our tokens and mappings and stops all sync; a plain one leaves what we wrote in HubSpot, and the admin says how many contacts are still marketing because of us. Links in HubSpot emails already sent are the platform's own invitation links and keep working.
 
 A token HubSpot refuses (app uninstalled, access revoked) sets the connection to `needs_reconnect`: sync pauses, nothing is dropped, and the admin shows a banner.
 
@@ -59,36 +62,36 @@ A token HubSpot refuses (app uninstalled, access revoked) sets the connection to
 | Scope | For | Required |
 |---|---|---|
 | `oauth` | Install | Yes |
-| `crm.objects.contacts.read`, `crm.objects.contacts.write` | Contacts | Yes |
-| `crm.schemas.contacts.write` | Our property group and `em_guest_key` | Yes |
+| `crm.objects.contacts.read`, `crm.objects.contacts.write` | Contacts, and deleting the ones we created | Yes |
 | `crm.lists.read`, `crm.lists.write` | Segments, guest list import | Yes |
 | `crm.objects.marketing_events.read`, `crm.objects.marketing_events.write` | Marketing events and attendance | Yes |
-| `content`, `marketing-email` | Template emails, drafts, sending | Yes |
+| `content`, `marketing-email` | Template emails, per-event clones, single-send | Yes |
 | `analytics.behavioral_events.send`, `behavioral_events.event_definitions.read_write` | Custom behavioural events | Optional (Enterprise) |
-| `communication_preferences.read_write`, `communication_preferences.statuses.batch.read`, `communication_preferences.statuses.batch.write` | Subscription types: the event type picker, and keeping temporary marketing contacts out of other marketing (see "Cleanup after HubSpot sending") | Optional; a portal admin must allow them for the app first |
-| `automation` | The workflow that sets contacts back to non-marketing | Optional; a portal admin must allow it for the app first |
+| `communication_preferences.read_write`, `communication_preferences.statuses.batch.read`, `communication_preferences.statuses.batch.write` | Subscription types: the event type picker, and keeping temporary marketing contacts out of other marketing | Optional; needed for HubSpot sending |
+| `automation` | The workflow that sets contacts back to non-marketing | Optional; needed for HubSpot sending |
 
-Optional scopes are only granted on portals that have them. The connection records what was granted, and features follow from that. The list lives in `packages/hubspot/src/index.ts` and must match the app definition in `integrations/hubspot-app/` (a test checks).
+Optional scopes are only granted where a portal admin allowed them. The connection records what was granted, and features follow from that: **HubSpot sending is offered only with all four cleanup scopes**, since sending without the cleanup would leave marketing contacts behind. The list lives in `packages/hubspot/src/index.ts` (`BEHAVIOURAL_EVENT_SCOPES`, `CLEANUP_SCOPES`) and must match the app definition in `integrations/hubspot-app/` (a test checks).
 
 ### What HubSpot's plans allow
 
 | | Any Marketing Hub plan | Marketing Hub Enterprise |
 |---|---|---|
 | Contacts, marketing events, attendance, segments, list import | ✓ | ✓ |
-| Drafts made by the platform | ✓ | ✓ |
-| Send or schedule from the platform | – (the manager sends in HubSpot) | ✓ |
+| Cleanup of contacts the platform created | ✓ | ✓ |
+| HubSpot sending (single-send API) | – (the platform sends) | ✓, with the cleanup scopes |
 | Custom behavioural events | – | ✓ |
 
-Sending a regular email through the API needs Marketing Hub Enterprise (or HubSpot's transactional email add-on). The connection page shows which column the portal is in, found by a capability check after connecting, so nobody discovers it at send time.
+The account details do not show the Marketing Hub tier (run 1), so the connection page finds out by a capability check after connecting (listing single-send emails, and a send the platform can tell apart from a plan refusal), so nobody discovers it at send time.
 
 ### Setup in the portal
 
 Idempotent, rerun from the admin ("Repair setup"):
 
-- Contact property group **Event manager** (`event_manager`), with the property `em_guest_key` (single-line text, not a form field). Whether it can be made read-only in the HubSpot UI is for the spike.
-- Custom event definitions, if the optional scopes were granted.
+- Custom event definitions, if the behavioural event scopes were granted.
+- With the cleanup scopes: the static segments **`EM · Temporary marketing contacts`** and **`EM · Set to non-marketing`**, and the workflow **`EM · Set to non-marketing`**: a contact workflow enrolled on that segment (`filterType: IN_LIST`), re-enrolling, with the action *Set marketing contact status* (`actionTypeId 0-31`, `marketableType: NON_MARKETABLE`), enabled. Run 16 created it through the automation API. "Repair setup" re-enables or recreates it.
+- A check that our token reaches the connected portal (`/account-info/v3/details`). Milestone 1 created the property group **Event manager** with `em_guest_key` instead; milestone 2 removed that, along with the `crm.schemas.contacts.write` scope, and leaves the property in portals that have it.
 
-## Contacts and the guest key
+## Contacts
 
 ### What we write
 
@@ -96,37 +99,21 @@ Idempotent, rerun from the admin ("Repair setup"):
 |---|---|
 | `email` | Guest email, the match key |
 | `firstname`, `lastname` | Split from the guest name; only written if empty in HubSpot, never overwriting the client's data |
-| `hs_language` | Guest locale, same rule |
-| `em_guest_key` | The guest key, below |
+| `hs_language` | Not written yet: HubSpot's language codes differ from the platform's locales (open question 4) |
 
-Nothing else. **No event, invitation or RSVP data on the contact**: a contact can be invited to several events at the same time, and single-valued properties would overwrite each other. Per-event state lives in segments, marketing event attendance and custom events. Form answers never leave the platform.
+Nothing else. **No event, invitation or RSVP data on the contact**: a contact can be invited to several events at the same time, and single-valued properties would overwrite each other. Per-event state lives in segments, marketing event attendance and custom events. Form answers never leave the platform. The personal invitation link goes only into the single send (below), never onto the contact.
 
-Contacts are matched on the HubSpot record id when we have one (`external_contact_id` from a HubSpot import, or our own mapping), else on email. Upserts are batched: a keyed job per contact with a short delay, collected into batch calls, which keeps us inside HubSpot's rate limits during an import of thousands of guests.
+Contacts are matched on the HubSpot record id when we have one (`external_contact_id` from a HubSpot import, or our own mapping), else on email. Upserts are batched: a keyed job per contact with a short delay, collected into batch calls, which keeps us inside HubSpot's rate limits during an import of thousands of guests. The upsert's `new: true` tells the platform it created the contact, which it records for the cleanup.
 
 Who is synced is an account setting: invited guests (default on) and open-registration attendees (default off).
 
-### Why a guest key
-
-A HubSpot email can only personalise with the recipient's properties. The personal invitation link needs a secret per recipient, so that secret has to be a contact property. To work for every event at once, it is **per contact, not per invitation**, and the event goes in the link itself:
-
-```
-https://<attendee host>/h/<eventId>/{{ contact.em_guest_key }}
-```
-
-- The key is a token from `registration/tokens.ts` with a new purpose `guest_key`: HMAC under the account's token key over (account, HubSpot contact id, key version). It is written on the contact's first sync and never changes unless rotated.
-- The event id is put into the link when the platform makes the draft, so each draft has its event's link and the contact token fills in the rest.
-- `GET /h/<eventId>/<key>` on the attendee app checks the key, finds the HubSpot contact, then the event's invitation for that contact, and shows the same page as `/i/<token>`. Accepting, declining and the confirmation email work as today.
-- Not invited to that event, a key from another account, a rotated key, or a disconnected portal: the existing "link not valid" page, with no hint of why.
-- **Rotation** ("Reset guest key" on a guest, or for all guests on disconnect and reconnect) bumps the version and rewrites the property. Rotating an invitation's own link (`rotateInvitationLink`) does not affect the guest key, and the other way round.
-
-The key opens only invitations the platform has for that contact. Someone who forwards a HubSpot email forwards the invitation, exactly as with the platform's own emails.
-
 ## Marketing events and attendance
 
-- **One marketing event per occurrence**: `externalAccountId` = account id, `externalEventId` = occurrence id, name, start and end, organiser (account name), type (`In person`), URL to the public event page.
+- **One marketing event per occurrence**: `externalAccountId` = account id, `externalEventId` = occurrence id, name (the event's title in the account's default locale), start and end, organiser (account name), type (`In person`), and the event's external URL when it has one (the platform has no public event page of its own).
 - Created when the event is published, updated on `event.changed`, `occurrence.changed` and `occurrence.relocated`, marked cancelled on `occurrence.cancelled` and `event.cancelled`, restored when restored.
 - **Attendance** by email: `register` on `registration.confirmed`, `cancel` on `registration.cancelled` and when moved to another occurrence (with `register` on the new one), `attend` on check-in when scanning lands (#7). Waitlisted and offered registrations are not registered until confirmed.
-- Marketing events work on every HubSpot plan and show on the contact's timeline, which covers "did this person come to our events" without Enterprise.
+- HubSpot records attendance in the background: it shows in reads about 30 seconds after the call (run 17), so the platform never reads it back to confirm a call.
+- Marketing events work on every HubSpot plan and show on the contact's timeline, which covers "did this person come to our events" without Enterprise. Deleting a contact we created (Cleanup) takes its attendance off the timeline.
 
 ### Custom behavioural events (Enterprise)
 
@@ -145,81 +132,181 @@ Each with event id and name, occurrence id and start, channel (`platform`, `hubs
 
 ## Segments
 
-When an event's channel is set to HubSpot, the platform creates static segments for it in the portal, named `EM · <event name> · …`:
+The platform keeps static segments in the portal, named `EM · …`. HubSpot sending does not use them (it is per guest); they are for the client's own lists, reports and workflows, and for the cleanup:
 
-| Segment | Members | Used by |
+| Segment | Members | For |
 |---|---|---|
-| **Invitation recipients** | The guests picked in "Send invitations" (not yet sent, or named for a resend). Rebuilt for each send | Invitation email |
-| **Awaiting reply** | Sent an invitation, not accepted or declined | Invitation reminder |
-| **Confirmed · <occurrence>** | Confirmed registrations of that occurrence | Reminder before the event |
+| **`EM · <event> · Awaiting reply`** | Sent an invitation, not accepted or declined | The client's own follow-up |
+| **`EM · <event> · Confirmed · <occurrence>`** | Confirmed registrations of that occurrence | The client's own follow-up and reporting |
+| **`EM · Temporary marketing contacts`** | Contacts that are marketing contacts because of us | For the client to exclude from their own lists and workflows (Cleanup) |
+| **`EM · Set to non-marketing`** | Contacts being set back to non-marketing | Enrols them in our workflow (Cleanup) |
 
 ### Kept in step under the hood
 
 An outbox handler updates memberships on every change that affects them: `invitation.sent`, `invitation.declined`, `registration.confirmed`, `registration.cancelled`, `registration.changed` (moved to another occurrence), `registration.waitlisted` and `registration.offered`. Changes are collected per segment in a keyed job with a few seconds' delay and applied as batch add and remove calls, so a busy RSVP hour costs a handful of calls, not one per guest.
 
-### Reconciled before every send
+A nightly reconcile reads each segment, compares it with the platform's own list and fixes the difference, which catches failed updates and hand edits in HubSpot; the sync log reports what it fixed. A guest whose contact could not be synced (an invalid email by HubSpot's rules, a sync error) is flagged in the guest list, never silently left out.
 
-Incremental updates can lag or fail. So every send first **reconciles**: it reads the segment, compares it with the platform's own list and adds and removes the difference, then sends. The audience of a send is always what the platform says at that moment. A nightly reconcile also catches drift, such as someone adding contacts to the segment by hand in HubSpot; the sync log reports what it fixed.
+The segments are ours: renaming them in HubSpot is fine, editing their members is undone by the next reconcile, and deleting one makes the platform create it again. An event's segments are deleted when the event is archived.
 
-A guest whose contact could not be synced (an invalid email by HubSpot's rules, a sync error) is flagged in the guest list and listed before a send, never silently left out.
-
-The segments are ours: renaming them in HubSpot is fine, editing their members is undone by the next reconcile, and deleting one makes the platform create it again. They are archived when the event is archived.
-
-## HubSpot emails
+## HubSpot sending
 
 ### Choosing the channel
 
-Event setting **Invitations and reminders sent from**: *the platform* (default) or *HubSpot*, offered when the account is connected. It covers the invitation, the invitation reminder and the reminder before the event. Everything else stays in the platform: registration confirmation with the QR code, changes, cancellations, moved and cancelled occurrences, and waitlist emails.
+Event setting **Invitations and reminders sent from**: *the platform* (default) or *HubSpot*, offered when the portal has Enterprise, the cleanup scopes and an event subscription type (below). It covers the invitation, the reminder and the welcome. Everything else stays in the platform: registration confirmation with the QR code, changes, cancellations, moved and cancelled occurrences, and waitlist emails.
 
-The channel can change until the first invitation is sent; after that it is locked, so one event never mixes two senders for the same email.
+Choosing HubSpot shows, before anything is sent, how many of the event's guests are not marketing contacts yet and would become ones, with the billing note from the Cleanup section.
+
+The channel can change until the first invitation is sent; after that it is locked, so one event never mixes two senders for the same email (except the per-guest fallback below).
+
+### The event subscription type
+
+The account picks the **subscription type for event emails** in Settings → Integrations, for example "Invitasjoner og arrangementer". Every HubSpot email the platform sends uses it, and nothing else may: the cleanup unsubscribes our temporary contacts from every other type. The platform warns when the portal's other emails use the event type, and when a template uses another type.
 
 ### Template emails
 
-The account chooses a **default HubSpot email per kind** (invitation, invitation reminder, reminder before the event) in Settings → Integrations, picked from the portal's marketing emails. An event can choose others.
-
-A template is an ordinary HubSpot email the client designs, with two placeholders as literal text, typically as button URLs:
+The account chooses a **default single-send email per kind** (invitation, reminder, welcome) in Settings → Integrations, picked from the portal's emails of type `MARKETING_SINGLE_SEND_API` (run 10). An event can choose others. A template is an email the client designs in HubSpot and saves for the single-send API, with the event subscription type, and with placeholders as literal text, typically as button URLs:
 
 | Placeholder | Becomes |
 |---|---|
-| `[[em:invitation_link]]` | `https://<attendee host>/h/<eventId>/{{ contact.em_guest_key }}` |
+| `[[em:invitation_link]]` | `<attendee host>/i/{{ custom.invitation_token }}` |
 | `[[em:event_link]]` | The public event page |
 
-Event details (title, date, place) are written into the email by hand in HubSpot, or the template uses its own text; we do not generate body copy. The platform warns when a template has no `[[em:invitation_link]]`.
+The template can also use the custom properties every send carries: `{{ custom.event_title }}`, `{{ custom.event_date }}`, `{{ custom.event_place }}` and `{{ custom.guest_name }}`, so one template can serve every event. The platform warns when a template has no `[[em:invitation_link]]`.
 
-### Making a draft
+### The event's own emails
 
-From the event's guest list, **Create HubSpot draft** for a kind. The platform opens a small form, prefilled from the event, and then:
+When the channel is set to HubSpot, the platform makes the event's emails from the templates:
 
-1. **Clones** the template email.
-2. Sets the **email name** (`EM · <event> · Invitation`, `· Invitation reminder`, `· Reminder <occurrence date>`), **subject** and **preview text** from the form.
-3. Sets the **recipients** to the matching segment.
-4. Replaces the **placeholders** with the event's links.
-5. Associates it with the account's HubSpot **campaign**, if one is set on the event.
+1. **Clones** the template (a clone stays a single-send email, run 10).
+2. Names it `EM · <event> · Invitation` (`· Reminder`, `· Welcome <occurrence date>`), and sets subject and preview text (a module in the content, run 1) from a form prefilled from the event.
+3. Replaces the **placeholders** with the event's links.
+4. **Publishes** it. A draft cannot be sent (run 7); publishing sends nothing, and HubSpot accepts sends some seconds later.
 
-The draft is stored on the event, and the guest list links straight to it in HubSpot for design changes. Subject and preview text can be changed again from the platform until the email is sent; anything else is edited in HubSpot. One draft per kind (and per occurrence for the reminder before the event); making it again replaces an unsent draft.
+The guest list links to each email in HubSpot for design changes. Subject and preview text can be changed from the platform until the first send. One email per kind (and per occurrence for the welcome); making it again replaces it until it has been sent from. The event's emails are deleted when the event is archived (a published single-send email can be deleted, runs 7–14); the sends stay on the contacts' timelines.
 
-### Sending (Enterprise)
+### Sending to a guest
 
-**Send now** or **Schedule** from the guest list:
+"Send invitations", the reminder and the welcome (see "When emails go out") pick guests with the same rules as the platform's own sending. Per guest, a keyed job:
 
-1. For an invitation, the recipients segment is rebuilt from the guests picked, with the same rules as the platform's own sending (not sent yet, or named for a resend; skip those who answered).
-2. The segment is reconciled.
-3. The email is published, which sends it or schedules it in HubSpot.
-4. One send per recipient is logged through the same path as `markSentExternally`, with `channel: "hubspot"`, which emits `invitation.sent.v1` and moves the guests into *Awaiting reply*.
+1. **Before the contact's first HubSpot send**: upserts the contact, reads its marketing status and subscription statuses, and unsubscribes it from every type but the event type if it is not a marketing contact already (Cleanup).
+2. **Decides the channel for this guest**. The platform sends instead, without asking HubSpot, when the address has a `+` (HubSpot refuses those, run 12) or the contact is unsubscribed from the event type or from all email: a refused send still makes the contact a marketing contact (runs 7–9), so it is never tried.
+3. **Sends**: `POST /marketing/email-campaigns/2026-09/single-send` with the event's email, the guest's address, `sendId` = the invitation send's id, and the custom properties, `invitation_token` being the invitation's own token from `registration/tokens.ts`.
+4. **Reads the result** from `GET /marketing/v3/email/send-statuses/{statusId}`:
+   - `SENT`: one `invitation_send` with `channel: "hubspot"`, which emits `invitation.sent.v1`.
+   - `IDEMPOTENT_IGNORE`: the same `sendId` was sent before, whichever request HubSpot processed first (run 14); treated as sent.
+   - Anything else (`VALIDATION_FAILED`, `PREVIOUSLY_UNSUBSCRIBED_*`, `PREVIOUSLY_BOUNCED`, …): the platform sends its own email, and the guest list says why.
 
-A scheduled email is reconciled again just before its send time. Cancelling a scheduled send in the platform unschedules it in HubSpot.
+Sends are spread over jobs at a steady rate per second, to stay within HubSpot's rate limits (the daily limit of 1,000,000, run 7, is not the constraint).
 
-### Reminder before the event
+### When emails go out
 
-The platform still schedules it from the event's `reminderMinBefore`, as today. On the HubSpot channel the job at reminder time reconciles *Confirmed · <occurrence>* and sends that occurrence's prepared reminder draft. A week before (or at once, if sooner) the guest list warns about occurrences with no draft; without one, nothing is sent and the sync log says so. The HubSpot email links to the manage page, which shows the QR code.
+The single-send API sends at once and has no scheduling, so **the platform owns all timing**, as it does for its own emails. Nothing is scheduled in HubSpot. Each send decides its channel when it runs, with the rules in "Sending to a guest", so the timing below is the same whichever channel the event uses.
 
-### Without Enterprise
+The three kinds, in the words used with the client:
 
-The platform makes the drafts and keeps the segments; the manager sends or schedules in HubSpot. The platform checks the email's state every few minutes after a draft is made and, once HubSpot reports it sent, logs the sends as above. Until then the guests stay "not sent" in the guest list. The reminder before the event cannot be timed by the platform here; the manager schedules it in HubSpot and the segment is kept current until it goes.
+| Kind | In the platform | When it goes out |
+|---|---|---|
+| **Invitation** | `invitation` send | When staff send it ("Send invitations") |
+| **Reminder** (the RSVP reminder) | `reminder` send | When staff send it, to guests who have not answered |
+| **Welcome** (the reminder before the event) | The registration reminder (`registration.reminder`) | Scheduled: `reminderMinBefore` before the guest's occurrence starts |
+
+So only the welcome is scheduled, and that is enough for now.
+
+**The welcome** keeps the platform's existing pattern (`apps/worker/src/reminder.ts`): one job per registration, keyed by it and set to run at the welcome time. Anything that moves the time queues it again under the same key, which replaces it: a new registration, a moved occurrence, the event (re)published, a changed reminder setting. The job checks the time and the registration again when it runs, so a stale job reschedules itself or does nothing. On the HubSpot channel the job sends that occurrence's welcome email, per guest as above; the welcome links to the manage page, which shows the QR code. A week before (or at once, if sooner) the guest list warns about occurrences with no welcome email in HubSpot; without one, the platform sends its own welcome and the sync log says so.
+
+**Invitations and reminders** go out when staff send them, as today: `requestSends` logs one send per guest and queues one job per send, which runs at once.
+
+Every send keeps its own `invitation_send` row (or the registration's reminder mark), and its id is the `sendId`, so a retried or replayed job never sends twice, at our end or HubSpot's. A guest becomes a marketing contact when an email goes, not when it is scheduled.
+
+**Later: staff-scheduled sends.** "Send the invitations on Tuesday at 09:00" or "remind those who have not answered on Friday" would queue the **schedule**, not the sends: a `registration.send_schedule` row (event, kind, time, audience rule, who scheduled it, status) with one keyed job for its time. Only when it runs does it work out who the email goes to (guests who answered meanwhile get no reminder, guests added since get the invitation) and fan out per guest as above. Changing or cancelling a schedule changes the row and re-keys its job; nothing per guest has to be undone. The guest list would show what is scheduled, with Edit and Cancel, for both channels. Not needed now.
 
 ### Delivery
 
-The guest list shows "Sent via HubSpot". Bounces, unsubscribes and opens stay in HubSpot. HubSpot only delivers marketing email to marketing contacts with the right subscription, so a guest who has unsubscribed from the client's marketing gets nothing; the setup guide explains this, and the send summary lists recipients HubSpot excluded where the API reports them.
+The guest list shows "Sent via HubSpot", or "Sent by the platform" with HubSpot's reason. Opens and clicks stay in HubSpot, where the send shows on the contact's timeline; HubSpot does not keep the HTML that was sent. HubSpot does not deliver to contacts unsubscribed from the event type, which the platform checks before sending.
+
+## Cleanup after HubSpot sending
+
+When HubSpot sends invitations, the platform puts people into the client's portal as marketing contacts who would not otherwise be there. The platform takes that back afterwards, and keeps those people from getting the client's other marketing in the meantime:
+
+- **Contacts the platform created are deleted.**
+- **Contacts the platform turned into marketing contacts are set back to non-marketing.**
+- **While they are marketing contacts because of us, they get no other marketing email** from the portal: no newsletters, no automated emails, nothing but the event's own emails.
+
+Contacts that were marketing contacts before the platform touched them are the client's: the platform changes nothing about them, neither during nor after.
+
+### What HubSpot allows
+
+| Need | HubSpot | Source |
+|---|---|---|
+| Delete a contact | `DELETE /crm/v3/objects/contacts/{id}` (restorable for 90 days in HubSpot), or the GDPR delete for a permanent one | Runs 1–14 |
+| Set a contact to non-marketing | **Not through the API**: `hs_marketable_status` is read-only (run 5), and a `PATCH` answers `200` and changes nothing (run 15). Only in the UI (Marketing contacts → Clean up contacts, or the contacts index) or with the workflow action *Set marketing contact status* | HubSpot knowledge base |
+| When non-marketing takes effect | At the portal's next **update date**: the renewal day each month for monthly plans, the first of each month for yearly ones. Until then the contact counts as marketing (`hs_marketable_until_renewal` is true) | HubSpot knowledge base |
+| What it costs | The marketing contact tier goes up automatically when exceeded and never down before renewal. Deleting a marketing contact frees capacity, but HubSpot does not say whether at once or at the update date | HubSpot knowledge base |
+| Keep a contact from other marketing | Every marketing email has a **subscription type**, and HubSpot does not send it to a contact unsubscribed from that type. The v4 subscriptions API sets a contact's status per type (`SUBSCRIBED`, `UNSUBSCRIBED`, `NOT_SPECIFIED`); in portals with data privacy settings on, every write needs `legalBasis` and `legalBasisExplanation` | v4 subscriptions guide |
+| Unsubscribe from everything | `…/statuses/batch/unsubscribe-all` exists, but would block the event's own emails too; there is no "all but one" | v4 subscriptions guide |
+
+So deleting is in our hands; setting back to non-marketing needs a workflow in the portal; keeping people from other marketing is done through subscription types.
+
+### Remembering what the platform did
+
+The cleanup can only undo what the platform knows it did, so it records it in `integrations.contact_state` (see Data model): whether it created the contact at the contact's first sync, and the rest **before the first HubSpot send to the contact**.
+
+| Field | Meaning |
+|---|---|
+| `created_by_us` | No contact had the email when the platform first synced it (the upsert's `new: true`, run 15) |
+| `marketable_before` | `hs_marketable_status` before the first send |
+| `subscriptions_before` | The contact's status per subscription type before the platform changed any |
+| `subscriptions_set` | The types the platform unsubscribed |
+| `marketing_by_us_at` | When a send of ours made the contact a marketing contact |
+| `needed_until` | When the platform last needs the contact, for a HubSpot send or mirroring (below) |
+| `cleanup_status` | `none`, `pending`, `deleted`, `restored`, `kept` (with reason), `failed` |
+
+A contact that was already a marketing contact gets `marketable_before: true` and nothing more: the platform does not touch its subscriptions and never cleans it up.
+
+### While a guest is a marketing contact because of us
+
+1. **A subscription type of its own for event emails.** The account picks one in Settings → Integrations, for example "Invitasjoner og arrangementer". The platform's HubSpot emails use only that type, and the setup guide says no other email may use it. The platform warns if the type is also used by emails it did not make (it can list the portal's emails and their `subscriptionDetails`).
+2. **Unsubscribe from every other type** before the first send, for contacts with `created_by_us` or `marketable_before: false`: the platform reads the portal's subscription types and sets every one except the event type to `UNSUBSCRIBED`, recording what it changed. Every marketing email, including the client's automated emails and newsletters, carries a type, so this keeps the guest out of all of them.
+3. **New subscription types** created in the portal later are not covered by step 2. The nightly reconcile reads the types again and unsubscribes our temporary contacts from new ones.
+4. **A static segment `EM · Temporary marketing contacts`** holds all of them, for the client to exclude from lists and workflows as well. This is belt and braces; the subscription types are what actually stops the emails.
+
+Legal basis: the sandbox needed none (run 15). In a portal with data privacy settings on, each unsubscribe is written with a legal basis (`LEGITIMATE_INTEREST_OTHER` unless HubSpot asks for another) and the explanation "Event manager: temporary contact for an event invitation; not for other marketing".
+
+### When a contact is no longer needed
+
+`needed_until` is the latest of, over all the contact's invitations and registrations in the account: the end of the occurrence plus a grace period (default 7 days, an account setting), so the welcome and any later email go out first; and the time of any email still scheduled to the contact (staff-scheduled sends, when they come). It moves when the guest is invited to another event, registers for another occurrence, or an event is moved. A guest who declines and has nothing else open is needed until the invitation's last reminder would have gone, which in practice is soon.
+
+A nightly job picks up contacts whose `needed_until` has passed.
+
+### Cleaning up a contact
+
+**Created by us:**
+
+1. Check that the client has not taken the contact into use since: no associations (companies, deals, tickets), no owner, no form submissions, no list memberships other than our own segments, and no marketing event attendance other than our events. If any of these holds, the contact is the client's now: treat it as "turned into marketing by us" below and mark it `kept (in use)` in the sync log.
+2. Otherwise delete it, and drop the platform's mapping. The platform's own registration data is unaffected.
+
+**Turned into marketing by us** (`marketable_before: false`):
+
+1. Put the subscriptions back to `subscriptions_before`, only for the types the platform changed, and only where the contact has not changed them since (it is the guest's own choice then).
+2. Add the contact to the static segment `EM · Set to non-marketing`. A workflow in the portal, enrolled on that segment, runs *Set marketing contact status → non-marketing* and removes the contact from the segment. The status changes at the next update date.
+3. Remove the contact from `EM · Temporary marketing contacts`.
+
+The workflow lives in the portal, but the platform creates it during setup through the automation API (scope `automation`; run 16 showed it can) and checks it on "Repair setup". The connection page checks that the segment empties itself; contacts left in it for more than a day show as a warning.
+
+**Already marketing before** (`marketable_before: true`): nothing.
+
+**Created by us, never sent to through HubSpot** (contacts made only for mirroring, on events with the platform channel): non-marketing all along, so nothing to set back. They are deleted the same way, after the same checks, unless the account turns off "Delete contacts the platform created" for mirrored contacts (default on). Deleting them takes their marketing event attendance off HubSpot's timeline; that is the trade the account makes.
+
+**Anonymised in the platform**: a contact the platform created is cleaned up at once, whatever its `needed_until`. A contact the client keeps is theirs.
+
+### Billing, honestly
+
+A marketing contact counts for the billing period it was marketing in, and setting it back only takes effect at the next update date. So each guest invited through HubSpot costs the client a marketing contact for at least the rest of that period, and the portal's tier can go up for the year if a big invitation pushes it over. The admin says so when the HubSpot channel is chosen, with the number of guests who are not marketing contacts yet, before anything is sent. Cleaning up promptly keeps the count from growing period after period; it does not undo the current one.
+
+### Disconnecting
+
+Disconnect offers **Clean up and disconnect**: it runs the cleanup at once for every pending contact (deleting, restoring subscriptions, queuing the non-marketing workflow), waits for it to finish, then disconnects. A plain disconnect leaves the contacts as they are, and the admin says how many.
 
 ## Guest list from a HubSpot list
 
@@ -228,7 +315,7 @@ The guest import (`GuestImport.tsx`) gains a source: **From HubSpot**.
 1. Pick a list or segment from the portal (searched by name).
 2. The platform fetches its members (email, name, the locale property chosen in the column mapping, record id) into the existing staging (`registration.guest_import`).
 3. Preview and commit as for a file: row errors, duplicates, re-import matched on email, removals listed and never silent.
-4. `external_contact_id` is set to the HubSpot record id, so later syncs match on it.
+4. `external_contact_id` is set to the HubSpot record id, so later syncs match on it. These contacts existed before, so the cleanup never deletes them.
 
 The list is remembered on the event; **Refresh from HubSpot** re-runs the import with the same rules. There is no live sync.
 
@@ -236,47 +323,52 @@ The list is remembered on the event; **Refresh from HubSpot** re-runs the import
 
 New module `integrations` (ADR 0001), schema `integrations`:
 
-- `connection`: `tenant_id`, `provider` (`hubspot`), `status` (`active`, `needs_reconnect`, `disconnected`) and `status_reason`, `external_account_id` (portal id), `scopes[]`, `settings` (who to sync; default templates later), `setup_status`/`setup_error`/`setup_at`, `connected_by`, `connected_at`, `disconnected_at`, and `generation`, bumped on every connect and disconnect: the worker writes tokens, setup results and `needs_reconnect` back only to the generation it loaded, so a job that outlives a reconnect to another portal cannot touch it. One row per account and provider, kept on disconnect. Features (`customEvents`, later `sendApi`) are derived from the scopes and capability checks, not stored. Reconnecting the same portal reuses the row; another portal needs a disconnect first.
+- `connection`: `tenant_id`, `provider` (`hubspot`), `status` (`active`, `needs_reconnect`, `disconnected`) and `status_reason`, `external_account_id` (portal id), `scopes[]`, `settings` (who to sync, the event subscription type, default templates, the cleanup's grace period and whether mirrored contacts are deleted), `setup_status`/`setup_error`/`setup_at`, `connected_by`, `connected_at`, `disconnected_at`, and `generation`, bumped on every connect and disconnect: the worker writes tokens, setup results and `needs_reconnect` back only to the generation it loaded, so a job that outlives a reconnect to another portal cannot touch it. One row per account and provider, kept on disconnect. Features (`customEvents`, `sending`) are derived from the scopes and capability checks, not stored. Reconnecting the same portal reuses the row; another portal needs a disconnect first.
 - `credential`: refresh and access token as one ciphertext under the account's data key, bound to the connection id, plus the access token's expiry.
-- `sync_item` (milestone 2): `kind` (`contact`, `marketing_event`, `segment`, `email`), `local_id`, `remote_id`, `last_synced_at`, `last_error`.
-- `delivery` (milestone 2): `outbox_event_id`, `handler`, `status`, `attempts`, `last_error`, `next_attempt_at`. The sync log, dead letter and replay. Shaped so outgoing webhooks (#94) can use it too.
+- `sync_item` (milestone 2, built): one row per thing kept in step, per connection: `kind` (`contact` by email, `marketing_event` by occurrence, `attendance` by occurrence and email; `segment`, `email` and `workflow` come later), `local_key`, `remote_id`, `data` (what it should be), `created_by_us` (contacts, from the first upsert's `new`), `synced_state` (attendance), `dirty`, `attempts`, `last_error`, `last_synced_at`. The row is both the id mapping and the pending change; disconnecting deletes the connection's rows.
+- `contact_state` (milestone 4): per contact, what the platform did to it, with the fields in "Remembering what the platform did". Kept until the cleanup has finished with the contact.
+- The **sync log** is `sync_item` itself (built): each item's state, attempts and HubSpot's last answer is what the log shows, and retrying resets the item. An item refused five times is given up (the dead letter) until an owner retries it or it changes again. A separate `delivery` table per outbox event and handler, as first planned, is left for outgoing webhooks (#94), which need delivery per event; the connector does not.
 
 Changes elsewhere:
 
 - Envelope encryption moves from `registration/secrets.ts` to `shared/secrets.ts` (`encryptJson`/`decryptJson` with a context string), and `registration.data_key` to `platform.data_key`, with the stored format unchanged, so both modules use it.
-- `catalog.event`: `invitation_channel` (`platform` | `hubspot`), HubSpot template overrides and campaign id (as settings, read only by the connector).
-- `registration`: `guest_key` token purpose; `invitation_send` gains `channel`; the `/h/<eventId>/<key>` lookup by HubSpot contact.
+- `catalog.event`: `invitation_channel` (`platform` | `hubspot`) and HubSpot template overrides (as settings, read only by the connector).
+- `registration`: `invitation_send` gains `channel` (`platform` | `hubspot`), HubSpot's `statusId` and result, and the fallback reason.
 
 ## Worker
 
 - `packages/hubspot`: the `HubSpotClient` interface, the real `HttpHubSpot` and `FakeHubSpot` (like `Mailer` and `FakeMailer`), shared by the API (OAuth) and the worker. The worker's `withHubSpot` (`apps/worker/src/hubspot/session.ts`) refreshes a token about to expire, and once more if HubSpot refuses one anyway; only a refused refresh sets `needs_reconnect`. `429` and `5xx` fail the job so graphile-worker retries with backoff; honouring rate limit headers within a job comes with the batch calls in milestone 2.
-- One `InternalHandler` in `handlers.ts` subscribed to `invitation.*`, `registration.*`, `event.*`, `occurrence.*` (and `admission.*` when #93 lands). It only enqueues keyed jobs; the jobs call HubSpot.
-- Idempotent on outbox event id (ADR 0008): replaying an event never registers twice or adds a send twice.
-- Retries with backoff, dead letter after the limit, replay from the sync log.
+- One `InternalHandler` (`apps/worker/src/hubspot/sync.ts`) subscribed to `invitation.sent`, `registration.*`, `event.*`, `occurrence.*` and `integration.connected`/`resync_requested` (and `admission.*` when #93 lands). It only marks `sync_item` rows dirty and queues one keyed `hubspot.sync` job per account, five seconds later (`preserve_run_at`, so a stream of changes cannot postpone it). The job pushes contacts (100 per batch), then marketing events, then attendance only for contacts and events HubSpot already has (recording it by email would otherwise create the contact behind our back), and queues itself again while it makes progress. A refusal of an item is recorded on it and retried by later runs, up to five times.
+- Jobs for HubSpot sending: one per guest and email (prepare the contact, send, read the result, fall back), keyed on the invitation send so a retry never sends twice; `sendId` makes HubSpot's side idempotent too.
+- Nightly: reconcile the segments, unsubscribe temporary contacts from new subscription types, check that the cleanup workflow is enabled and its segment empties, and clean up contacts whose `needed_until` has passed.
+- Idempotent on outbox event id (ADR 0008): replaying an event never registers twice or sends twice.
+- Retries with backoff: a refusal of HubSpot as a whole (rate limit, outage) fails the job, which graphile-worker retries; a refusal of an item is recorded on it and retried by later runs, up to five times, then given up until an owner retries (`POST /v1/integrations/hubspot/sync/retry`) or it changes. "Resync" (`POST /v1/integrations/hubspot/resync`) marks everything again, as after connecting. The log is `GET /v1/integrations/hubspot/sync`.
 - **Backfill** after connecting and on **Resync**: published events with upcoming occurrences, their marketing events, attendance, guests and segments.
 
 ## Admin
 
-- **Settings → Integrations**: connect and disconnect, portal and plan features, who to sync, default template emails, "Repair setup", "Resync", and the sync log with retry and replay.
-- **Event**: the channel setting and, on HubSpot, template overrides and campaign.
-- **Guest list**: "Create HubSpot draft", the draft's state and link, "Send now" or "Schedule" (Enterprise), warnings for guests not synced and occurrences with no reminder draft, "Sent via HubSpot" in the send column.
+- **Settings → Integrations**: connect and disconnect (with "Clean up and disconnect"), portal and plan features, which cleanup scopes are missing and how to allow them, who to sync, the event subscription type, default template emails, the cleanup settings and how many contacts are pending, "Repair setup", and the sync log: per kind how many items are in HubSpot, waiting and given up, when it last synced, what HubSpot refused and why, with "Try again" and "Resync everything" (built).
+- **Event**: the channel setting, with how many guests would become marketing contacts, and on HubSpot, template overrides.
+- **Guest list**: the event's HubSpot emails, their state and links; "Sent via HubSpot" or "Sent by the platform" with the reason in the send column; warnings for guests not synced and occurrences with no reminder email.
 - **Guest import**: the "From HubSpot" source and "Refresh from HubSpot".
 
 ## Data protection
 
-- Syncing is opt-in per account, with separate switches for invited guests and open-registration attendees. The client is the controller for what lands in their portal; we write only name, email, locale, the guest key and event attendance.
-- The platform's anonymisation does not reach into HubSpot. The setup guide says so, and that the client's own retention applies there.
-- Disconnecting deletes our tokens and mappings and invalidates guest keys.
+- Syncing is opt-in per account, with separate switches for invited guests and open-registration attendees. The client is the controller for what lands in their portal; we write only name, email, locale and event attendance, and invitation links travel only inside the single send.
+- HubSpot sending makes guests marketing contacts in the client's portal, for the client's lawful basis to cover; the platform keeps them out of other marketing and undoes it afterwards (Cleanup). Subscription changes are written with a legal basis where the portal asks for one.
+- Contacts the platform created are deleted after their last event, and at once when the platform anonymises the guest. Contacts the client keeps are theirs, and the client's own retention applies there; the setup guide says so.
+- Disconnecting deletes our tokens and mappings, after an optional cleanup.
 
 ## Milestones
 
-0. **Spike** on a HubSpot developer test portal: current API version and scope names; clone and draft update, including the recipient field and replacing link text in content; publish and schedule through the API on Enterprise; `{{ contact.em_guest_key }}` inside a link URL; segment membership limits; marketing event attendance by email. Results go back into this document.
-1. **Connection**: integrations module, shared encryption, OAuth, setup job, Settings → Integrations.
-2. **Contacts and marketing events**: contact sync with the guest key, `/h/<eventId>/<key>`, marketing events and attendance, backfill, sync log.
-3. **Segments**: incremental updates and reconcile.
-4. **HubSpot emails**: channel setting, templates, drafts, send and schedule, reminder before the event; client setup guide.
-5. **Guest list from HubSpot**.
-6. **Custom behavioural events** (Enterprise).
+0. **Spike** on a HubSpot test portal: done, runs 1–16 (below).
+1. **Connection**: integrations module, shared encryption, OAuth, setup job, Settings → Integrations. Built; the cleanup scopes were added as optional on 24 November.
+2. **Contacts and marketing events**: contact sync recording who created each contact, marketing events and attendance, backfill, sync log. `em_guest_key` leaves the setup. *Built on 24 November: setup without the guest key, `sync_item`, the outbox handler and the batched sync job (contacts, marketing events, attendance including moves and cancels), backfill on connect, the sync log with "Try again" and "Resync everything" (API and admin). Left: `attend` with scanning (#7), and a run against the sandbox portal with the real client.*
+3. **Segments**: per event, incremental updates and the nightly reconcile.
+4. **Cleanup**: `contact_state`, the event subscription type, unsubscribing temporary contacts from other types, the cleanup segments and workflow in setup, the nightly cleanup, "Clean up and disconnect". Before sending, which depends on it.
+5. **HubSpot sending**: channel setting, single-send templates and the event's own emails, per-guest sends with fallback, reminders, client setup guide.
+6. **Guest list from HubSpot**.
+7. **Custom behavioural events** (Enterprise).
 
 Depends on #93 (`admission.issued`, `reminder.due`) and #7 (`attend`). #94 reuses the `delivery` log.
 
@@ -371,102 +463,7 @@ What single-send would change: no guest key (the platform's own invitation token
 
 Left in the sandbox by these runs, to see the sends there: the published clones and their test contacts, all named `EM spike · <tag>`.
 
-### What the spike leaves to decide
-
-HubSpot sending works, but **only for marketing contacts, which an app cannot create** (runs 5–6). In the museum case many invitees (lenders, the artist's family, other museums) should not be in HubSpot at all, let alone as billable marketing contacts. The options on the table, not yet decided:
-
-1. **Keep HubSpot sending, with a client workflow** that makes our contacts marketing contacts and cleans them up after X days, explained by dialogues in the admin. Caveats: marketing contacts are likely billed at the period's peak even if removed, it creates CRM records for people outside the client's marketing (GDPR), and it relies on workflows the platform cannot see.
-2. **Split per recipient**: HubSpot sends to marketing contacts, the platform to the rest. Every guest is reached, but invitations come from two senders in two designs.
-3. **Drop HubSpot sending, keep the rest**: the platform sends all invitations with account-branded templates (as planned for #100); HubSpot keeps marketing events, attendance, segments and custom events. One sender, consistent branding, no marketing contact problem; clients lose HubSpot's designer and email reporting for invitations.
-4. **Drop the integration** and build email templating in the platform.
-5. **Single-send API** (runs 7–14): the platform sends each guest's invitation and reminders through HubSpot, one call per guest, with the guest's own link as a custom property. HubSpot makes every recipient a marketing contact by itself, so no client workflow is needed to send. It replaces drafts, segments-for-sending, the guest key and polling, and gives a result per guest with the platform's own email as fallback. It is Enterprise only, and every guest becomes a billable marketing contact for at least one billing period, which makes the cleanup below a requirement.
-
-Options 1 and 5 both turn guests into marketing contacts, so both need the cleanup below.
-
-ADR 0017 and the "HubSpot emails" section above follow option 1 as written and need revising once this is decided. Milestones 2 and 3 (contacts, marketing events, segments) hold under options 1–3.
-
-Still open: attendance read later; a coded template; publishing on a non-Enterprise portal.
-
-### Cleanup after HubSpot sending (draft, 24 November 2026)
-
-When HubSpot sends invitations, the platform puts people into the client's portal as marketing contacts who would not otherwise be there. The platform takes that back afterwards, and keeps those people from getting the client's other marketing in the meantime:
-
-- **Contacts the platform created are deleted.**
-- **Contacts the platform turned into marketing contacts are set back to non-marketing.**
-- **While they are marketing contacts because of us, they get no other marketing email** from the portal: no newsletters, no automated emails, nothing but the event's own emails.
-
-Contacts that were marketing contacts before the platform touched them are the client's: the platform changes nothing about them, neither during nor after.
-
-#### What HubSpot allows
-
-| Need | HubSpot | Source |
-|---|---|---|
-| Delete a contact | `DELETE /crm/v3/objects/contacts/{id}` (restorable for 90 days in HubSpot), or the GDPR delete for a permanent one | Runs 1–14 |
-| Set a contact to non-marketing | **Not through the API**: `hs_marketable_status` is read-only (run 5). Only in the UI (Marketing contacts → Clean up contacts, or the contacts index) or with the workflow action *Set marketing contact status* | HubSpot knowledge base |
-| When non-marketing takes effect | At the portal's next **update date**: the renewal day each month for monthly plans, the first of each month for yearly ones. Until then the contact counts as marketing (`hs_marketable_until_renewal` is true) | HubSpot knowledge base |
-| What it costs | The marketing contact tier goes up automatically when exceeded and never down before renewal. Deleting a marketing contact frees capacity, but HubSpot does not say whether at once or at the update date | HubSpot knowledge base |
-| Keep a contact from other marketing | Every marketing email has a **subscription type**, and HubSpot does not send it to a contact unsubscribed from that type. The v4 subscriptions API sets a contact's status per type (`SUBSCRIBED`, `UNSUBSCRIBED`, `NOT_SPECIFIED`); in portals with data privacy settings on, every write needs `legalBasis` and `legalBasisExplanation` | v4 subscriptions guide |
-| Unsubscribe from everything | `…/statuses/batch/unsubscribe-all` exists, but would block the event's own emails too; there is no "all but one" | v4 subscriptions guide |
-
-So deleting is in our hands; setting back to non-marketing needs a workflow in the portal; keeping people from other marketing is done through subscription types.
-
-#### Remembering what the platform did
-
-The cleanup can only undo what the platform knows it did, so it records it **before the first HubSpot send to a contact**. Per contact (in `integrations.sync_item`, kind `contact`, or a table of its own):
-
-| Field | Meaning |
-|---|---|
-| `created_by_us` | No contact had the email when the platform first synced it (the upsert's `new` flag, or a search before a single-send) |
-| `marketable_before` | `hs_marketable_status` before the first send |
-| `subscriptions_before` | The contact's status per subscription type before the platform changed any |
-| `subscriptions_set` | The types the platform unsubscribed |
-| `marketing_by_us_at` | When a send of ours made the contact a marketing contact |
-| `needed_until` | When the platform last needs to email this contact through HubSpot (below) |
-| `cleanup_status` | `none`, `pending`, `deleted`, `restored`, `kept` (with reason), `failed` |
-
-A contact that was already a marketing contact gets `marketable_before: true` and nothing more: the platform does not touch its subscriptions and never cleans it up.
-
-#### While a guest is a marketing contact because of us
-
-1. **A subscription type of its own for event emails.** The account picks one in Settings → Integrations, for example "Invitasjoner og arrangementer". The platform's HubSpot emails use only that type, and the setup guide says no other email may use it. The platform warns if the type is also used by emails it did not make (it can list the portal's emails and their `subscriptionDetails`).
-2. **Unsubscribe from every other type** before the first send, for contacts with `created_by_us` or `marketable_before: false`: the platform reads the portal's subscription types and sets every one except the event type to `UNSUBSCRIBED`, recording what it changed. Every marketing email, including the client's automated emails and newsletters, carries a type, so this keeps the guest out of all of them.
-3. **New subscription types** created in the portal later are not covered by step 2. The nightly reconcile reads the types again and unsubscribes our temporary contacts from new ones.
-4. **A static segment `EM · Temporary marketing contacts`** holds all of them, for the client to exclude from lists and workflows as well. This is belt and braces; the subscription types are what actually stops the emails.
-
-Legal basis: in a portal with data privacy settings on, each unsubscribe is written with a legal basis and the explanation "Event manager: temporary contact for an event invitation; not for other marketing". Which legal basis HubSpot accepts for an unsubscribe is for the spike.
-
-#### When a contact is no longer needed
-
-`needed_until` is the latest of, over all the contact's invitations and registrations sent through HubSpot in the account: the end of the occurrence plus a grace period (default 7 days, an account setting), so the reminder and any after-event email go out first. It moves when the guest is invited to another event, registers for another occurrence, or an event is moved. A guest who declines and has nothing else open is needed until the invitation's last reminder would have gone, which in practice is soon.
-
-A nightly job picks up contacts whose `needed_until` has passed.
-
-#### Cleaning up a contact
-
-**Created by us:**
-
-1. Check that the client has not taken the contact into use since: no associations (companies, deals, tickets), no owner, no form submissions, no list memberships other than our own segments, and no marketing event attendance other than our events. If any of these holds, the contact is the client's now: treat it as "turned into marketing by us" below and mark it `kept (in use)` in the sync log.
-2. Otherwise delete it, and drop the platform's mapping. The platform's own registration data is unaffected.
-
-**Turned into marketing by us** (`marketable_before: false`):
-
-1. Put the subscriptions back to `subscriptions_before`, only for the types the platform changed, and only where the contact has not changed them since (it is the guest's own choice then).
-2. Add the contact to the static segment `EM · Set to non-marketing`. A workflow in the portal, enrolled on that segment, runs *Set marketing contact status → non-marketing* and removes the contact from the segment. The status changes at the next update date.
-3. Remove the contact from `EM · Temporary marketing contacts`.
-
-The workflow lives in the portal, but the platform creates it during setup through the automation API (scope `automation`; run 16 showed it can) and checks it on "Repair setup". The connection page checks that the segment empties itself; contacts left in it for more than a day show as a warning.
-
-**Already marketing before** (`marketable_before: true`): nothing.
-
-#### Billing, honestly
-
-A marketing contact counts for the billing period it was marketing in, and setting it back only takes effect at the next update date. So each guest invited through HubSpot costs the client a marketing contact for at least the rest of that period, and the portal's tier can go up for the year if a big invitation pushes it over. The admin says so when the HubSpot channel is chosen, with the number of guests who are not marketing contacts yet, before anything is sent. Cleaning up promptly keeps the count from growing period after period; it does not undo the current one.
-
-#### Disconnecting
-
-Disconnect offers **Clean up and disconnect**: it runs the cleanup at once for every pending contact (deleting, restoring subscriptions, queuing the non-marketing workflow), waits for it to finish, then disconnects. A plain disconnect leaves the contacts as they are, and the admin says how many.
-
-#### What the spike found (runs 15–16, 24 November 2026)
+**Runs 15–16, 24 November 2026**: the cleanup checks.
 
 After adding the four scopes to the app (`hs project upload`, build #2) and reconnecting the sandbox.
 
@@ -484,18 +481,40 @@ After adding the four scopes to the app (`hs project upload`, build #2) and reco
 
 Still to try: enabling the created workflow and seeing a contact in the segment set to non-marketing at the next update date (the change is only visible then), and a portal with data privacy settings on (which legal basis HubSpot accepts for an unsubscribe).
 
+**Run 17, 24 November 2026**: marketing event attendance, read again over time.
+
+| Question | Finding | What it means for the design |
+|---|---|---|
+| Does recorded attendance show up? | **Yes, about 30 seconds later**: straight after `register` and `attend` every read says `total: 0` (as in runs 1–6); on the next read, the breakdown by external ids, by HubSpot's `objectId` and by contact all show two records for the contact, the last `ATTENDED`. The event's own read carries no counters. `occurredAt` is the event's start, not the `interactionDateTime` we sent | HubSpot processes attendance in the background. The platform treats a `200` from the attendance call as done and never reads back to confirm; the nightly reconcile, if it checks attendance, reads it the next day |
+
+### What the spike decided
+
+HubSpot regular emails reach only guests who are already marketing contacts, which an app cannot create (runs 5–6). The options weighed on 23–24 November:
+
+1. **Keep regular emails, with a client workflow** that makes our contacts marketing contacts.
+2. **Split per recipient**: HubSpot sends to marketing contacts, the platform to the rest.
+3. **Drop HubSpot sending, keep the rest**: the platform sends all invitations with account-branded templates (#100).
+4. **Drop the integration** and build email templating in the platform.
+5. **Single-send API** (runs 7–14), with the cleanup (runs 15–16).
+
+[ADR 0017](adr/0017-hubspot-connector.md) was revised on 24 November to option 5, and the design above follows it; option 3 remains the default channel and the only one on portals without Enterprise. Milestone 1 holds; the guest key and the regular email drafts from the first version are gone.
+
+Still open: a coded template; what a portal without Enterprise answers to a single-send; enabling the cleanup workflow and seeing a contact set to non-marketing at the next update date; a portal with data privacy settings on.
+
 ## Testing
 
-- **Worker** (`apps/worker/test/hubspot.test.ts`, fake client): each outbox event gives the expected calls; replayed events change nothing; segment changes are coalesced; reconcile fixes a drifted segment before a send; a send logs one `invitation_send` per recipient and emits `invitation.sent.v1`; a refused token pauses sync; `429` backs off.
-- **Domain** (`packages/domain/test/acceptance/integrations.test.ts`): connection and encrypted credentials; guest key issue, verify and rotate; a contact invited to two events at once reaches both through `/h/…`.
-- **Attendee** (`apps/attendee/test/hubspot-link.test.ts`): valid key; key for an event the contact is not invited to; rotated key; key from another account; disconnected portal.
-- **API** (`apps/api/test/integrations.test.ts`): OAuth `state` checks and callback; draft, send and schedule endpoints; owner-only connect.
-- **Contract tests** against recorded HubSpot responses for every endpoint we call.
-- **End to end** on a HubSpot test portal in staging: connect, import a list, make an invitation draft from a template, send, accept through the link in the HubSpot email, see *Awaiting reply* and *Confirmed* change and attendance on the marketing event, schedule the reminder, cancel, disconnect.
+- **Worker** (`apps/worker/test/hubspot.test.ts`, fake client): each outbox event gives the expected calls; replayed events change nothing; segment changes are coalesced; the nightly reconcile fixes a drifted segment; a HubSpot send records `created_by_us`, marketing status and subscriptions first, unsubscribes from other types, sends with `sendId`, logs one `invitation_send` with `channel: "hubspot"` and emits `invitation.sent.v1`; `IDEMPOTENT_IGNORE` counts as sent; a refused send falls back to the platform; plus addresses and unsubscribed guests never reach HubSpot; the cleanup deletes a contact we created, keeps one the client took into use, restores subscriptions and queues the non-marketing segment, and never touches a contact that was marketing before; a refused token pauses sync; `429` backs off.
+- **Domain** (`packages/domain/test/acceptance/integrations.test.ts`): connection and encrypted credentials; contact state and `needed_until` across two events; anonymising a guest cleans up a contact we created.
+- **API** (`apps/api/test/integrations.test.ts`): OAuth `state` checks and callback; owner-only connect; the channel offered only with Enterprise and the cleanup scopes; template and subscription type settings.
+- **Spike** (`apps/worker/test/hubspot-spike.test.ts`): the spike runner against a fake HubSpot.
+- **Contract tests** against recorded HubSpot responses for every endpoint we call (the spike's recordings are the start).
+- **End to end** on a HubSpot test portal in staging: connect with the optional scopes, import a list, choose the HubSpot channel, send invitations, accept through the link in the HubSpot email, see *Awaiting reply* and *Confirmed* change and attendance on the marketing event, the welcome, then the cleanup after the grace period, and "Clean up and disconnect".
 
 ## Open questions
 
-1. **Placeholders**: can the clone's content be edited reliably through the API for every kind of template (drag-and-drop and coded), or do we need a custom module in our app that renders the link? To settle in the spike.
-2. **Guest key and existing contacts**: when a guest's email matches a HubSpot contact that already has an `em_guest_key` from another account of ours in the same portal (two accounts, one portal), do we refuse the second connection or namespace the property per account?
-3. **Open registration on HubSpot**: should open events (no invitations) also get a *Confirmed* segment and the reminder before the event from HubSpot, or is the HubSpot channel for invite-only events only?
+1. **Coded templates**: can placeholders be replaced as reliably in a coded single-send template as in a drag-and-drop one, or do we need a custom module in our app?
+2. **Two accounts, one portal**: when two of our accounts connect the same portal, a contact can be temporary for one and needed by the other. Does the cleanup look across accounts on the same portal, or do we refuse the second connection?
+3. **Open registration on HubSpot**: should open events (no invitations) also get the welcome from HubSpot, or is the HubSpot channel for invite-only events only?
 4. **Locale**: write `hs_language` from the guest's locale, or leave language entirely to HubSpot?
+5. **Mirrored contacts**: is deleting contacts the platform created only for mirroring the right default, given it takes their attendance off HubSpot's timeline?
+6. **Deleting and billing**: does deleting a marketing contact free its place in the count at once or only at the update date? HubSpot's documentation does not say.
