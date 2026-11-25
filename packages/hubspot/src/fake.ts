@@ -480,6 +480,12 @@ export class FakeHubSpot implements HubSpotClient {
     return { statusId, status: "PENDING", sendResult: null };
   }
 
+  /** HubSpot finishes every send still processing: the next status read says how it went. */
+  completeSends() {
+    for (const k of this.polls.keys()) this.polls.set(k, 0);
+    this.pendingPolls = 0;
+  }
+
   async sendStatus(accessToken: string, statusId: string): Promise<SendStatus> {
     this.calls.push(`sendStatus:${statusId}`);
     const s = this.portalFor(accessToken).sends.find((x) => x.statusId === statusId);

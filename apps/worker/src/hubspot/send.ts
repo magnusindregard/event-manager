@@ -1,5 +1,8 @@
-import { type Db, withTenant } from "@event-manager/db";
-import { integrations } from "@event-manager/domain";
+import { type Db, sql, withTenant } from "@event-manager/db";
+import { integrations, registration } from "@event-manager/domain";
+import type { InternalHandler } from "../handlers.js";
+import { INVITATION_EMAIL_TASK } from "../invitation-email.js";
+import { REMINDER_TASK } from "../reminder.js";
 import { CLEANUP_SCOPES, HubSpotError, SENT_RESULTS, type SendStatus } from "@event-manager/hubspot";
 import { prepareForSend } from "./cleanup.js";
 import { queueEventEmails } from "./emails.js";
@@ -31,7 +34,14 @@ export interface GuestSend {
   lastAttempt: boolean;
 }
 
-export type GuestSendResult = { sent: true; statusId: string } | { sent: false; reason: string };
+/**
+ * `pending`: HubSpot took the send but we could not read whether it went (our access went). It
+ * is neither sent nor refused: the caller leaves it as it is, and a reconnect checks it again.
+ */
+export type GuestSendResult =
+  | { sent: true; statusId: string }
+  | { sent: false; pending?: false; reason: string }
+  | { sent: false; pending: true; statusId: string; reason: string };
 
 /** Reads of a send's status per job attempt before the job tries again later. */
 const POLLS = 5;
@@ -39,6 +49,7 @@ const POLLS = 5;
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const draft = (e: unknown) => e instanceof HubSpotError && e.status === 400 && /draft state/i.test(e.message);
 const fallback = (reason: string): GuestSendResult => ({ sent: false, reason });
+const unresolved = (statusId: string, reason: string): GuestSendResult => ({ sent: false, pending: true, statusId, reason });
 
 /** HubSpot refuses addresses with a plus (spike run 12): the platform sends to those without asking. */
 export const hubspotRefusesAddress = (email: string) => (email.split("@")[0] ?? "").includes("+");
@@ -113,14 +124,18 @@ export async function sendThroughHubSpot(db: Db, tenantId: string, deps: HubSpot
       throw new Error(`HubSpot is still processing send ${statusId}`);
     });
     if (run) return run.value;
-    // HubSpot took the send before our access went (disconnected, refused): it may well deliver
-    // it, so the platform does not send a second email. Only a refusal HubSpot confirms falls back.
-    if (taken) return { sent: true, statusId: taken };
+    // HubSpot took the send before our access went (disconnected, refused): it may still deliver
+    // it, or cancel it. The platform sends no second email, and nothing counts as sent until
+    // HubSpot says so: the job tries again, and after its last try a reconnect resumes it.
+    if (taken) {
+      if (!g.lastAttempt) throw new Error(`HubSpot access is gone; send ${taken} is read again later`);
+      return unresolved(taken, "HubSpot took the send, but our access went before it said whether it went out. Reconnecting checks it again");
+    }
     return fallback("HubSpot is not connected, or refuses our access");
   } catch (e) {
     if (!g.lastAttempt) throw e;
-    // Out of attempts. If HubSpot took the send, the guest has it (or will); otherwise the platform sends.
-    if (taken) return { sent: true, statusId: taken };
+    // Out of attempts. If HubSpot took the send, it is unresolved; otherwise the platform sends.
+    if (taken) return unresolved(taken, `HubSpot took the send, but did not say whether it went out: ${e instanceof Error ? e.message : String(e)}`);
     return fallback(draft(e) ? "HubSpot did not accept the published email in time" : `HubSpot did not answer: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
@@ -129,3 +144,33 @@ function result(s: SendStatus): GuestSendResult {
   if (s.status === "COMPLETE" && s.sendResult && (SENT_RESULTS as readonly string[]).includes(s.sendResult)) return { sent: true, statusId: s.statusId };
   return fallback(`HubSpot did not send it: ${s.sendResult ?? s.status}`);
 }
+
+// ── Sends left unresolved ───────────────────────────────────────────────────
+
+/**
+ * Once HubSpot is connected again, the sends it took but never confirmed are read again: their
+ * jobs are queued anew under their own keys, and find HubSpot's status id on the send.
+ */
+export const resumeHubSpotSends: InternalHandler = {
+  name: "resume-hubspot-sends",
+  types: ["integration.connected.v1"],
+  async handle(tx, event, log) {
+    if ((event.data as { provider?: string }).provider !== "hubspot") return;
+    const { sends, welcomes } = await registration.unresolvedProviderSends(tx);
+    for (const id of sends) {
+      await sql`select graphile_worker.add_job(
+        ${INVITATION_EMAIL_TASK},
+        json_build_object('tenantId', ${event.tenantId}::text, 'sendId', ${id}::text),
+        job_key := ${`invsend:${id}`},
+        max_attempts := 8)`.execute(tx);
+    }
+    for (const id of welcomes) {
+      await sql`select graphile_worker.add_job(
+        ${REMINDER_TASK},
+        json_build_object('tenantId', ${event.tenantId}::text, 'registrationId', ${id}::text),
+        job_key := ${`reminder:${id}`},
+        max_attempts := 10)`.execute(tx);
+    }
+    if (sends.length || welcomes.length) log.info("unresolved HubSpot sends queued again", { sends: sends.length, welcomes: welcomes.length });
+  },
+};

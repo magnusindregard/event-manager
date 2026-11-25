@@ -137,6 +137,13 @@ export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => D
           helpers.logger.info(`registration ${registrationId}: welcome sent through HubSpot`);
           return;
         }
+        if (r.pending) {
+          // Neither sent nor refused: released, and a reconnect queues it again.
+          await release();
+          await withTenant(db, { tenantId }, (tx) => registration.recordReminderChannel(tx, registrationId, null, r.reason));
+          helpers.logger.warn(`registration ${registrationId}: welcome left unresolved (${r.reason})`);
+          return;
+        }
         fallbackReason = r.reason;
       }
     }

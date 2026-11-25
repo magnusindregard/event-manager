@@ -143,7 +143,8 @@ export interface PreparedContact {
 /**
  * Before the first HubSpot send to a contact (milestone 5 calls this through the worker): what it
  * was, and what the platform changed. A contact that was a marketing contact already is the
- * client's and is never cleaned up (`none`); the others are `pending`.
+ * client's and is never cleaned up (`none`); the others are `pending`. A contact that has a snapshot
+ * already keeps it.
  */
 export async function recordPrepared(tx: Tx, tenantId: string, ref: ConnectionRef, contacts: readonly PreparedContact[], now = new Date()): Promise<void> {
   for (const c of contacts) {
@@ -163,7 +164,9 @@ export async function recordPrepared(tx: Tx, tenantId: string, ref: ConnectionRe
     await tx
       .insertInto("integrations.contact_state")
       .values({ tenant_id: tenantId, connection_id: ref.id, email: contactKey(c.email), ...values })
-      .onConflict((oc) => oc.columns(["connection_id", "email"]).doUpdateSet(values))
+      // The first snapshot wins (overlapping sends to one address): a row without one is the
+      // nightly cleanup's record of a contact made for mirroring, and takes it.
+      .onConflict((oc) => oc.columns(["connection_id", "email"]).doUpdateSet(values).where("integrations.contact_state.marketable_before", "is", null))
       .execute();
   }
 }

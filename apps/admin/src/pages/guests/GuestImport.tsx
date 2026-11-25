@@ -174,8 +174,15 @@ export function GuestImport({ eventId, open, onClose, onDone, hubspot = false, r
   });
   useEffect(() => {
     const s = sourceQuery.data;
+    if (!fetching || !s) return;
     // The page caches this query: until the fresh read comes back it may still show the last fetch's result.
-    if (!fetching || !s || s.requestedAt !== fetching || s.status === "fetching") return;
+    if (s.requestedAt < fetching) return;
+    // Someone (another tab) asked for a fetch since: this one's result will never come.
+    if (s.requestedAt > fetching) {
+      setFetching(null);
+      return setError(t("guests.import.superseded"));
+    }
+    if (s.status === "fetching") return;
     setFetching(null);
     if (s.status === "failed") return setError(s.error ?? t("error.generic"));
     if (!s.importId) return setError(t("guests.import.expired"));

@@ -111,59 +111,64 @@ export async function prepareForSend(
 
   const out = new Map<string, boolean>();
   const fresh: { email: string; contactId: string }[] = [];
-  // Recorded before, but its HubSpot writes did not all go through (a 429, a timeout): finished
-  // below from what was recorded, before anything is sent.
-  const unfinished: { email: string; contactId: string; set: string[] }[] = [];
+  // Recorded, but its HubSpot writes did not all go through (a 429, a timeout, or another job
+  // still making them): finished from what was recorded, before anything is sent.
+  const unfinished: { email: string; contactId: string }[] = [];
   for (const g of guests) {
     const email = integrations.contactKey(g.email);
     const s = states.get(email);
     if (s?.status === "kept") out.set(email, true);
     else if (s && s.marketableBefore !== null) {
       out.set(email, s.marketableBefore);
-      if (s.marketableBefore === false && !s.preparedAt) unfinished.push({ email, contactId: s.contactId ?? g.contactId, set: s.subscriptionsSet });
+      if (s.marketableBefore === false && !s.preparedAt) unfinished.push({ email, contactId: s.contactId ?? g.contactId });
     } else fresh.push({ email, contactId: g.contactId });
   }
-  if (unfinished.length) {
-    const redo = unfinished.flatMap((u) => u.set.map((id) => ({ email: u.email, subscriptionId: id, status: "UNSUBSCRIBED" as const })));
-    if (redo.length) await client.setSubscriptionStatuses(accessToken, redo);
-    await client.addToList(accessToken, setup.temporaryListId!, unfinished.map((u) => u.contactId));
-    await t((tx) => integrations.recordPreparedDone(tx, ref, unfinished.map((u) => u.email)));
-  }
-  if (!fresh.length) return out;
 
-  const marketable = new Map<string, boolean>();
-  for (let i = 0; i < fresh.length; i += 100) {
-    for (const [id, m] of await client.marketableStatuses(accessToken, fresh.slice(i, i + 100).map((g) => g.contactId))) marketable.set(id, m);
-  }
-  const temporary = fresh.filter((g) => marketable.get(g.contactId) === false);
-  const types = (await client.subscriptionTypes(accessToken)).filter((x) => x.active && x.id !== eventType);
-  const statuses = await client.subscriptionStatuses(accessToken, temporary.map((g) => g.email));
-
-  const writes: SubscriptionWrite[] = [];
-  const prepared: integrations.PreparedContact[] = [];
-  for (const g of fresh) {
-    const before: Record<string, string> = {};
-    const set: string[] = [];
-    const isTemporary = marketable.get(g.contactId) === false;
-    if (isTemporary) {
-      const current = statuses.get(g.email) ?? new Map<string, SubscriptionState>();
-      for (const type of types) {
-        const was = current.get(type.id) ?? "NOT_SPECIFIED";
-        if (was === "UNSUBSCRIBED") continue;
-        before[type.id] = was;
-        set.push(type.id);
-        writes.push({ email: g.email, subscriptionId: type.id, status: "UNSUBSCRIBED" });
+  if (fresh.length) {
+    const marketable = new Map<string, boolean>();
+    for (let i = 0; i < fresh.length; i += 100) {
+      for (const [id, m] of await client.marketableStatuses(accessToken, fresh.slice(i, i + 100).map((g) => g.contactId))) marketable.set(id, m);
+    }
+    const temporary = fresh.filter((g) => marketable.get(g.contactId) === false);
+    const types = (await client.subscriptionTypes(accessToken)).filter((x) => x.active && x.id !== eventType);
+    const statuses = await client.subscriptionStatuses(accessToken, temporary.map((g) => g.email));
+    const prepared: integrations.PreparedContact[] = fresh.map((g) => {
+      const before: Record<string, string> = {};
+      const set: string[] = [];
+      if (marketable.get(g.contactId) === false) {
+        const current = statuses.get(g.email) ?? new Map<string, SubscriptionState>();
+        for (const type of types) {
+          const was = current.get(type.id) ?? "NOT_SPECIFIED";
+          if (was === "UNSUBSCRIBED") continue;
+          before[type.id] = was;
+          set.push(type.id);
+        }
+      }
+      return { email: g.email, contactId: g.contactId, createdByUs: created.has(g.email), marketableBefore: marketable.get(g.contactId) !== false, subscriptionsBefore: before, subscriptionsSet: set };
+    });
+    // Recorded before anything changes, so a failure half way leaves the cleanup knowing what to
+    // undo. The first snapshot of a contact wins: a job that read HubSpot after another job's
+    // changes recorded after it, so the one kept is always from before anything changed.
+    await t((tx) => integrations.recordPrepared(tx, tenantId, ref, prepared));
+    const saved = await t((tx) => integrations.contactStates(tx, ref.id, fresh.map((g) => g.email)));
+    for (const g of fresh) {
+      const s = saved.get(g.email);
+      if (s?.status === "kept") out.set(g.email, true);
+      else if (s && s.marketableBefore !== null) {
+        out.set(g.email, s.marketableBefore);
+        if (s.marketableBefore === false && !s.preparedAt) unfinished.push({ email: g.email, contactId: s.contactId ?? g.contactId });
       }
     }
-    prepared.push({ email: g.email, contactId: g.contactId, createdByUs: created.has(g.email), marketableBefore: !isTemporary, subscriptionsBefore: before, subscriptionsSet: set });
-    out.set(g.email, !isTemporary);
   }
-  // Recorded before anything changes, so a failure half way leaves the cleanup knowing what to undo.
-  await t((tx) => integrations.recordPrepared(tx, tenantId, ref, prepared));
+  if (!unfinished.length) return out;
+
+  // Every write comes from the saved snapshot, whichever job saved it.
+  const plan = await t((tx) => integrations.contactStates(tx, ref.id, unfinished.map((u) => u.email)));
+  const writes: SubscriptionWrite[] = unfinished.flatMap((u) => (plan.get(u.email)?.subscriptionsSet ?? []).map((id) => ({ email: u.email, subscriptionId: id, status: "UNSUBSCRIBED" as const })));
   if (writes.length) await client.setSubscriptionStatuses(accessToken, writes);
-  if (temporary.length) await client.addToList(accessToken, setup.temporaryListId!, temporary.map((g) => g.contactId));
+  await client.addToList(accessToken, setup.temporaryListId!, unfinished.map((u) => u.contactId));
   // Only now can these be sent to; a failure above leaves them unfinished for the retry.
-  await t((tx) => integrations.recordPreparedDone(tx, ref, temporary.map((g) => g.email)));
+  await t((tx) => integrations.recordPreparedDone(tx, ref, unfinished.map((u) => u.email)));
   return out;
 }
 

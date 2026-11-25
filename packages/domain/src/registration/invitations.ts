@@ -392,7 +392,7 @@ export interface SentVia {
 
 export async function recordSent(tx: Tx, tenantId: string, sendId: string, messageId: string | null, now: Date = new Date(), via: SentVia = { channel: "platform" }): Promise<void> {
   const send = await tx.updateTable("registration.invitation_send")
-    .set({ sent_at: now, message_id: messageId, delivery_status: "sent", delivery_at: now, channel: via.channel, fallback_reason: via.fallbackReason?.slice(0, 500) ?? null })
+    .set({ sent_at: now, message_id: messageId, delivery_status: "sent", delivery_detail: null, delivery_at: now, channel: via.channel, fallback_reason: via.fallbackReason?.slice(0, 500) ?? null })
     .where("id", "=", sendId).where("sent_at", "is", null)
     .returning(["invitation_id", "kind"]).executeTakeFirst();
   if (!send) return;
@@ -406,6 +406,23 @@ export async function recordSent(tx: Tx, tenantId: string, sendId: string, messa
     type: "invitation.sent.v1", subject: `invitation/${send.invitation_id}`,
     data: { invitationId: send.invitation_id, eventId: inv?.event_id ?? null, kind: send.kind, sendId, channel: via.channel === "hubspot" ? "hubspot" : "email" },
   });
+}
+
+/** HubSpot took the send but has not said whether it went (our access went): it stays queued, with why. */
+export async function recordSendUnresolved(tx: Tx, sendId: string, detail: string): Promise<void> {
+  await tx.updateTable("registration.invitation_send").set({ delivery_detail: detail.slice(0, 500) }).where("id", "=", sendId).where("sent_at", "is", null).execute();
+}
+
+/**
+ * Sends HubSpot took but never confirmed: invitation sends still queued with a status id, and
+ * welcomes with a status id that nobody recorded as sent. For queuing them again on reconnect.
+ */
+export async function unresolvedProviderSends(tx: Tx): Promise<{ sends: string[]; welcomes: string[] }> {
+  const [sends, welcomes] = await Promise.all([
+    tx.selectFrom("registration.invitation_send").select("id").where("provider_status_id", "is not", null).where("sent_at", "is", null).where("delivery_status", "=", "queued").execute(),
+    tx.selectFrom("registration.registration").select("id").where("reminder_status_id", "is not", null).where("reminder_channel", "is", null).where("reminded_at", "is", null).execute(),
+  ]);
+  return { sends: sends.map((r) => r.id), welcomes: welcomes.map((r) => r.id) };
 }
 
 /** HubSpot accepted the send: its status id, so a retry reads the result rather than sending again. */

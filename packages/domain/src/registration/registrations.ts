@@ -540,7 +540,7 @@ export async function recordReminderStatus(tx: Tx, id: string, statusId: string)
 }
 
 /** Who sent the welcome, and why the platform did when the event sends through HubSpot. */
-export async function recordReminderChannel(tx: Tx, id: string, channel: SendChannel, detail: string | null): Promise<void> {
+export async function recordReminderChannel(tx: Tx, id: string, channel: SendChannel | null, detail: string | null): Promise<void> {
   await tx.updateTable("registration.registration").set({ reminder_channel: channel, reminder_detail: detail?.slice(0, 500) ?? null }).where("id", "=", id).execute();
 }
 

@@ -151,6 +151,11 @@ export function invitationEmailTask(db: Db, deps: RegistrationEmailDeps, hubspot
           helpers.logger.info(`invitation send ${sendId}: ${message.send.kind} sent through HubSpot`);
           return;
         }
+        if (r.pending) {
+          await withTenant(db, { tenantId }, (tx) => registration.recordSendUnresolved(tx, sendId, r.reason));
+          helpers.logger.warn(`invitation send ${sendId}: left unresolved (${r.reason})`);
+          return;
+        }
         fallbackReason = r.reason;
         helpers.logger.info(`invitation send ${sendId}: the platform sends it (${r.reason})`);
       }

@@ -307,7 +307,7 @@ describe("sending to a guest", () => {
     expect(mailer.sent).toEqual([]);
   });
 
-  it("does not send a second email when HubSpot took the send and our access went before its result was read", async () => {
+  it("leaves a send HubSpot took unresolved while our access is gone, and reads it again on reconnect", async () => {
     await connect();
     const { event } = await hubspotEvent("Frakoblet");
     await addGuests(event.id, "kari@example.com");
@@ -318,12 +318,52 @@ describe("sending to a guest", () => {
     expect(taken).toMatchObject({ channel: "hubspot", sent_at: null });
     expect(taken!.provider_status_id).not.toBeNull();
 
+    // Access goes. The job tries until its last attempt, then leaves the send as it is: not sent, not refused.
     await run((tx) => integrations.disconnect(tx, ctx, "hubspot"));
+    await drain(10);
+    const [waiting] = await sends();
+    expect(waiting).toMatchObject({ channel: "hubspot", sent_at: null, delivery_status: "queued", fallback_reason: null, provider_status_id: taken!.provider_status_id });
+    const detail = await run((tx) => tx.selectFrom("registration.invitation_send").select("delivery_detail").where("id", "=", taken!.id).executeTakeFirstOrThrow());
+    expect(detail.delivery_detail).toMatch(/Reconnecting checks it again/);
+    expect(mailer.sent).toEqual([]);
+
+    // HubSpot finishes it meanwhile; reconnecting reads it again, and it counts as sent through HubSpot.
+    hubspot.completeSends();
+    const t = await hubspot.exchangeCode(hubspot.approve(PORTAL, ALL_SCOPES));
+    await run((tx) => integrations.saveConnection(tx, ctx, { provider: "hubspot", portalId: PORTAL, scopes: ALL_SCOPES, tokens: { ...t, accessExpiresAt: t.expiresAt }, requiredScopes: REQUIRED_SCOPES }));
     await drain();
     const [send] = await sends();
     expect(send).toMatchObject({ channel: "hubspot", delivery_status: "sent", fallback_reason: null });
     expect(portal().sends).toHaveLength(1);
     expect(mailer.sent).toEqual([]);
+  });
+
+  it("finishes a contact's preparation from the first snapshot when two sends prepare it at once", async () => {
+    await connect();
+    const { event } = await hubspotEvent("Samtidig");
+    portal().contacts.set("lender@museum.test", { id: "771", email: "lender@museum.test", firstname: "L", lastname: null, marketable: false });
+    portal().subscriptions.set("lender@museum.test", new Map([[NEWSLETTER, "SUBSCRIBED"]]));
+    // Another send prepared the contact first, and broke off before its HubSpot writes.
+    const c = await connection();
+    await run((tx) => integrations.recordPrepared(tx, ctx.tenantId, { id: c.id, generation: c.generation }, [
+      { email: "lender@museum.test", contactId: "771", createdByUs: false, marketableBefore: false, subscriptionsBefore: { [NEWSLETTER]: "SUBSCRIBED" }, subscriptionsSet: [NEWSLETTER] },
+    ]));
+    // This send's own read would now see nothing to unsubscribe, and must not overwrite that snapshot.
+    portal().subscriptions.get("lender@museum.test")!.set(NEWSLETTER, "UNSUBSCRIBED");
+    await run((tx) => integrations.recordPrepared(tx, ctx.tenantId, { id: c.id, generation: c.generation }, [
+      { email: "lender@museum.test", contactId: "771", createdByUs: false, marketableBefore: false, subscriptionsBefore: {}, subscriptionsSet: [] },
+    ]));
+    const kept = (await run((tx) => integrations.contactStates(tx, c.id, ["lender@museum.test"]))).get("lender@museum.test")!;
+    expect(kept).toMatchObject({ subscriptionsBefore: { [NEWSLETTER]: "SUBSCRIBED" }, subscriptionsSet: [NEWSLETTER], preparedAt: null });
+
+    portal().subscriptions.get("lender@museum.test")!.set(NEWSLETTER, "SUBSCRIBED");
+    await addGuests(event.id, "lender@museum.test");
+    await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation" }));
+    await drain();
+    // The send finished the preparation from the saved snapshot before it went.
+    expect(portal().subscriptions.get("lender@museum.test")?.get(NEWSLETTER)).toBe("UNSUBSCRIBED");
+    expect((await sends())[0]).toMatchObject({ channel: "hubspot", delivery_status: "sent" });
+    expect((await run((tx) => integrations.contactStates(tx, c.id, ["lender@museum.test"]))).get("lender@museum.test")!.preparedAt).not.toBeNull();
   });
 
   it("sends the reminder from the event's reminder email to guests who have not answered", async () => {
