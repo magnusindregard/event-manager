@@ -10,7 +10,7 @@ Let clients sell paid tickets through **the sales channels they already have** (
 - Each account maps its offers to the **SKUs** its web shop and ERP know, so the shop sells a thin product shell and takes price, line name and stock from the platform.
 - The channel **reserves** tickets while the buyer pays, **confirms** them once it has charged the buyer, and **cancels** them if the buyer gives up or is refunded. Confirming issues admissions with QR codes, exactly as registrations do.
 
-The platform takes **no payments** in this edition. Cart, checkout, payment, receipts and refunds of money stay in the client's channel. Hosted checkout is epic #17 (phase 3).
+In this edition, the platform takes **no payments** through these channels. Cart, checkout, payment, receipts and refunds of money stay in the client's channel. For clients without a shop, the hosted checkout (epic #17, [docs/checkout.md](checkout.md), ADR 0018) is a platform channel that takes payment with Vipps MobilePay on the client's own merchant.
 
 ## Scope
 
@@ -30,7 +30,7 @@ The platform takes **no payments** in this edition. Cart, checkout, payment, rec
 
 | Out of scope | Prepared by |
 |---|---|
-| Checkout and payment (epic #17) | Reservations are the basket: a hosted checkout becomes one more channel that reserves and confirms |
+| Checkout and payment (epic #17) | Reservations are the basket: the hosted checkout ([checkout.md](checkout.md)) is one more channel, of kind `hosted`, that reserves and confirms |
 | Refunds of money | Cancel takes the channel's refund reference; the money moves in the channel |
 | Discount codes, bundles, memberships | Prices are resolved per (offer, occurrence) and frozen in the snapshot; a discount is a later adjustment on the line. Group prices for members: [user-groups.md](user-groups.md) |
 | Seat maps, reserved seating | Lines draw from pools; a seat is a pool of one |

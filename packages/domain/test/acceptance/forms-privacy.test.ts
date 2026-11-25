@@ -2,7 +2,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Db, type Tx, withTenant } from "@event-manager/db";
 import { startTestDatabase, type TestDatabase } from "@event-manager/db/testing";
-import { type ActorContext, catalog, DomainError, registration, tenancy } from "../../src/index.js";
+import { type ActorContext, catalog, configureMasterKeys, DomainError, parseMasterKeys, registration, rewrapDataKey, tenancy } from "../../src/index.js";
 
 // Registration milestone 4 (docs/registration.md): form fields, sensitive answers encrypted
 // per tenant, the guest-data permissions, the door list and retention.
@@ -51,7 +51,7 @@ beforeAll(async () => {
   db = createDb(tdb.appUrl, { max: 10 });
   su = new pg.Client({ connectionString: tdb.superuserUrl });
   await su.connect();
-  registration.configureMasterKeys(`k1:${Buffer.alloc(32, 7).toString("base64")}`);
+  configureMasterKeys(`k1:${Buffer.alloc(32, 7).toString("base64")}`);
   const a = await tenancy.createAccount(db, { slug: "forms", name: "Forms", ownerEmail: "owner@forms.test" });
   const userId = await tenancy.login(db, { issuer: "https://idp.test", subject: "owner@forms.test", email: "owner@forms.test", name: null });
   ctx = { tenantId: a.id, userId, clientId: null, roles: ["owner"] };
@@ -260,11 +260,11 @@ describe("encryption and tenants", () => {
     const theirs = await gala(other, [{ id: "diet", type: "dietary", label: { nb: "Mat" } }, { id: "org", type: "text", label: { nb: "Org" } }]);
     const theirInv = await run((tx) => registration.createInvitation(tx, other, theirs.event.id, { email: "x@example.com", name: "X" }), other);
     await run((tx) => registration.acceptInvitation(tx, other.tenantId, theirInv.id, { occurrenceId: theirs.occ.id, consent: true, answers: { diet: "Soya", org: "Y" } }, NOW), other);
-    const keys = await su.query<{ wrapped: Buffer }>("select wrapped from registration.data_key order by tenant_id");
+    const keys = await su.query<{ wrapped: Buffer }>("select wrapped from platform.data_key order by tenant_id");
     expect(keys.rowCount).toBe(2);
     expect(keys.rows[0]!.wrapped.equals(keys.rows[1]!.wrapped)).toBe(false);
 
-    for (const table of ["registration.answer", "registration.sensitive_answer", "registration.data_key", "registration.form_version"] as const) {
+    for (const table of ["registration.answer", "registration.sensitive_answer", "platform.data_key", "registration.form_version"] as const) {
       const seen = await run((tx) => tx.selectFrom(table).select("tenant_id").execute(), other);
       expect(seen.length, table).toBeGreaterThan(0);
       expect(seen.every((r) => r.tenant_id === other.tenantId), table).toBe(true);
@@ -274,17 +274,17 @@ describe("encryption and tenants", () => {
 
   it("parses master keys and refuses bad ones", () => {
     const k = Buffer.alloc(32, 1).toString("base64");
-    expect(registration.parseMasterKeys(`new:${k}, old:${k}`).currentId).toBe("new");
-    expect(() => registration.parseMasterKeys("k1:c2hvcnQ=")).toThrow(/32 bytes/);
-    expect(() => registration.parseMasterKeys(`k1:${k},k1:${k}`)).toThrow(/duplicate/);
+    expect(parseMasterKeys(`new:${k}, old:${k}`).currentId).toBe("new");
+    expect(() => parseMasterKeys("k1:c2hvcnQ=")).toThrow(/32 bytes/);
+    expect(() => parseMasterKeys(`k1:${k},k1:${k}`)).toThrow(/duplicate/);
   });
 
   it("rewraps the data key under a new master key and still decrypts", async () => {
     const { event, occ } = await gala();
     const { reg } = await acceptWith(event.id, occ.id, "j@example.com", { consent: true, answers: { org: "A", diet: "Sennep" } });
-    registration.configureMasterKeys(`k2:${Buffer.alloc(32, 9).toString("base64")},k1:${Buffer.alloc(32, 7).toString("base64")}`);
-    expect(await run((tx) => registration.rewrapDataKey(tx, ctx.tenantId))).toBe(true);
-    registration.configureMasterKeys(`k2:${Buffer.alloc(32, 9).toString("base64")}`);
+    configureMasterKeys(`k2:${Buffer.alloc(32, 9).toString("base64")},k1:${Buffer.alloc(32, 7).toString("base64")}`);
+    expect(await run((tx) => rewrapDataKey(tx, ctx.tenantId))).toBe(true);
+    configureMasterKeys(`k2:${Buffer.alloc(32, 9).toString("base64")}`);
     expect(await answersOf(reg.id, { kind: "attendee" })).toMatchObject({ diet: "Sennep" });
   });
 });

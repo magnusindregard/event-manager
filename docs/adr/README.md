@@ -20,5 +20,6 @@ Short records of significant decisions: context, decision, consequences. One fil
 | [0014](0014-infrastructure-as-code.md) | Bicep, deployed from GitHub Actions | Accepted |
 | [0015](0015-admin-ui-shadcn.md) | Admin UI: shadcn/ui on Tailwind, TanStack Table for grids | Accepted |
 | [0016](0016-mcp-in-core-api.md) | MCP server inside the core API; tools are curated /v1 operations | Accepted |
+| [0018](0018-hosted-checkout-and-payments.md) | Hosted checkout: Vipps MobilePay on the client's own merchant; authorise, confirm, capture | Accepted |
 
 Architecture diagrams: FigJam board "Event-Management".

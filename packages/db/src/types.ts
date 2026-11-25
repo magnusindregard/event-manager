@@ -23,6 +23,10 @@ export interface AccountTable {
   horizon_months: Generated<number>;
   anonymise_after_months: Generated<number>;
   sensitive_delete_after_days: Generated<number>;
+  merchant_legal_name: string | null;
+  merchant_org_number: string | null;
+  merchant_address: string | null;
+  merchant_vat_registered: Generated<boolean>;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -518,7 +522,7 @@ export interface EffectivePriceTable {
   available_rule_id: string | null;
 }
 
-export type ChannelKind = "ecom" | "pos";
+export type ChannelKind = "ecom" | "pos" | "hosted";
 
 export interface SalesChannelTable {
   id: string;
@@ -671,6 +675,72 @@ export interface TicketTable {
   updated_at: GeneratedTimestamp;
 }
 
+export type PaymentProviderName = "vipps";
+export type ProviderEnvironment = "test" | "production";
+export type ProviderAccountStatus = "active" | "invalid" | "disconnected";
+export type PaymentState = "created" | "authorized" | "captured" | "cancelled" | "expired" | "failed";
+export type RefundState = "pending" | "done" | "failed";
+
+export interface ProviderAccountTable {
+  id: string;
+  tenant_id: string;
+  provider: PaymentProviderName;
+  environment: ProviderEnvironment;
+  merchant_serial_number: string;
+  client_id: string;
+  credentials: Buffer | null;
+  webhook_id: string | null;
+  webhook_secret: Buffer | null;
+  status: ProviderAccountStatus;
+  status_reason: string | null;
+  verified_at: Timestamp | null;
+  connected_by: string | null;
+  connected_at: Timestamp;
+  disconnected_at: Timestamp | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface PaymentTable {
+  id: string;
+  tenant_id: string;
+  provider_account_id: string;
+  reservation_id: string;
+  provider: PaymentProviderName;
+  reference: string;
+  amount: number;
+  currency: string;
+  state: Generated<PaymentState>;
+  redirect_url: string | null;
+  aggregate: ColumnType<unknown, string | null | undefined, string | null>;
+  buyer_name: string | null;
+  buyer_email: string | null;
+  buyer_phone: string | null;
+  receipt_sent_at: Timestamp | null;
+  failure_reason: string | null;
+  authorized_at: Timestamp | null;
+  captured_at: Timestamp | null;
+  cancelled_at: Timestamp | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface RefundTable {
+  id: string;
+  tenant_id: string;
+  payment_id: string;
+  amount: number;
+  ticket_ids: ColumnType<string[], string[] | undefined, string[]>;
+  idempotency_key: string;
+  state: Generated<RefundState>;
+  failure_reason: string | null;
+  created_by: string | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
 export interface DB {
   "tenancy.tag_vocabulary": TagVocabularyTable;
   "tenancy.tag": TagTable;
@@ -697,7 +767,7 @@ export interface DB {
   "registration.form_version": FormVersionTable;
   "registration.answer": AnswerTable;
   "registration.sensitive_answer": SensitiveAnswerTable;
-  "registration.data_key": DataKeyTable;
+  "platform.data_key": DataKeyTable;
   "admission.admission": AdmissionTable;
   "offers.vat_class": VatClassTable;
   "offers.offer": OfferTable;
@@ -723,4 +793,7 @@ export interface DB {
   "tenancy.api_key": ApiKeyTable;
   "outbox.event": OutboxEventTable;
   "outbox.handled": OutboxHandledTable;
+  "payments.provider_account": ProviderAccountTable;
+  "payments.payment": PaymentTable;
+  "payments.refund": RefundTable;
 }

@@ -8,6 +8,10 @@ export interface Config {
   attendeeUrl: string;
   postmarkWebhook: { user: string; password: string } | null;
   mcp: { authorizationServers: string[]; scopes: string[]; publicUrl?: string; adminUrl?: string };
+  /** VIPPS=http calls Vipps; fake (the default outside production) uses an in-memory Vipps; off leaves payments off. */
+  vipps: "http" | "fake" | "off";
+  /** The API's public base URL, for webhooks from Vipps. */
+  publicUrl: string | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -21,7 +25,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const publicUrl = env.PUBLIC_URL || undefined;
   // Links to events in the admin in MCP tool results; none in production unless set.
   const adminUrl = env.ADMIN_URL || (production ? undefined : "http://localhost:5173/");
+  const vipps = env.VIPPS === "http" || env.VIPPS === "fake" || env.VIPPS === "off" ? env.VIPPS : production ? "off" : "fake";
+  if (production && vipps === "fake") throw new Error("VIPPS=fake must not be used in production");
   return {
+    vipps,
+    publicUrl: publicUrl ?? null,
     port: Number(env.PORT ?? 3000),
     databaseUrl,
     oidc,

@@ -154,6 +154,9 @@ importers:
       '@event-manager/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
+      '@event-manager/vipps':
+        specifier: workspace:*
+        version: link:../../packages/vipps
       '@fastify/cors':
         specifier: ^11.0.0
         version: 11.4.3
@@ -395,6 +398,12 @@ importers:
       openapi-typescript:
         specifier: ^7.13.0
         version: 7.13.0(typescript@6.0.3)
+
+  packages/vipps:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.0
+        version: 22.20.5
 
 packages:
 

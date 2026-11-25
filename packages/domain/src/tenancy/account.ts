@@ -16,17 +16,32 @@ export interface Account {
   anonymiseAfterMonths: number;
   /** Sensitive answers are deleted this many days after their occurrence. */
   sensitiveDeleteAfterDays: number;
+  /** Printed on receipts from the hosted checkout (docs/checkout.md, "Receipts"). */
+  merchant: MerchantDetails;
   version: number;
   updatedAt: Date;
 }
 
-export type AccountSettingsPatch = Partial<Pick<Account, "name" | "defaultTimezone" | "defaultLocale" | "locales" | "horizonMonths" | "anonymiseAfterMonths" | "sensitiveDeleteAfterDays">>;
+export interface MerchantDetails {
+  legalName: string | null;
+  /** Norwegian organisation number, 9 digits. */
+  orgNumber: string | null;
+  address: string | null;
+  /** Registered for VAT (MVA): receipts then show VAT per rate and "MVA" after the number. */
+  vatRegistered: boolean;
+}
 
-const columns = ["id", "slug", "name", "default_timezone", "default_locale", "locales", "horizon_months", "anonymise_after_months", "sensitive_delete_after_days", "version", "updated_at"] as const;
+export type AccountSettingsPatch = Partial<Pick<Account, "name" | "defaultTimezone" | "defaultLocale" | "locales" | "horizonMonths" | "anonymiseAfterMonths" | "sensitiveDeleteAfterDays">> & {
+  merchant?: Partial<MerchantDetails>;
+};
+
+const columns = ["id", "slug", "name", "default_timezone", "default_locale", "locales", "horizon_months", "anonymise_after_months", "sensitive_delete_after_days",
+  "merchant_legal_name", "merchant_org_number", "merchant_address", "merchant_vat_registered", "version", "updated_at"] as const;
 
 type Row = {
   id: string; slug: string; name: string; default_timezone: string; default_locale: string;
-  locales: string[]; horizon_months: number; anonymise_after_months: number; sensitive_delete_after_days: number; version: number; updated_at: Date;
+  locales: string[]; horizon_months: number; anonymise_after_months: number; sensitive_delete_after_days: number;
+  merchant_legal_name: string | null; merchant_org_number: string | null; merchant_address: string | null; merchant_vat_registered: boolean; version: number; updated_at: Date;
 };
 
 const toAccount = (r: Row): Account => ({
@@ -39,9 +54,19 @@ const toAccount = (r: Row): Account => ({
   horizonMonths: r.horizon_months,
   anonymiseAfterMonths: r.anonymise_after_months,
   sensitiveDeleteAfterDays: r.sensitive_delete_after_days,
+  merchant: { legalName: r.merchant_legal_name, orgNumber: r.merchant_org_number, address: r.merchant_address, vatRegistered: r.merchant_vat_registered },
   version: r.version,
   updatedAt: r.updated_at,
 });
+
+/** Mod-11 check of a Norwegian organisation number (Brønnøysundregistrene). */
+export function validOrgNumber(n: string): boolean {
+  if (!/^[89][0-9]{8}$/.test(n)) return false;
+  const w = [3, 2, 7, 6, 5, 4, 3, 2];
+  const sum = w.reduce((s, x, i) => s + x * Number(n[i]), 0);
+  const check = 11 - (sum % 11);
+  return (check === 11 ? 0 : check) === Number(n[8]) && check !== 10;
+}
 
 export function isValidTimezone(tz: string): boolean {
   try {
@@ -82,6 +107,14 @@ export async function updateAccountSettings(
   if ((patch.sensitiveDeleteAfterDays ?? before.sensitiveDeleteAfterDays) > (patch.anonymiseAfterMonths ?? before.anonymiseAfterMonths) * 31) {
     throw new DomainError("validation_failed", "Sensitive answers cannot be kept longer than the registrations", { field: "sensitiveDeleteAfterDays" });
   }
+  const m = patch.merchant;
+  const text = (v: string | null | undefined) => (v === undefined ? undefined : v === null || !v.trim() ? null : v.trim());
+  const legalName = text(m?.legalName);
+  const orgNumber = m?.orgNumber === undefined ? undefined : m.orgNumber === null || !m.orgNumber.trim() ? null : m.orgNumber.replace(/\s/g, "");
+  const address = text(m?.address);
+  if (legalName && legalName.length > 200) throw new DomainError("validation_failed", "At most 200 characters", { field: "merchant.legalName" });
+  if (address && address.length > 500) throw new DomainError("validation_failed", "At most 500 characters", { field: "merchant.address" });
+  if (orgNumber && !validOrgNumber(orgNumber)) throw new DomainError("validation_failed", "Not a valid organisation number (9 digits)", { field: "merchant.orgNumber" });
   if (locales.length === 0 || !locales.includes(defaultLocale)) {
     throw new DomainError("validation_failed", "defaultLocale must be one of locales", { field: "defaultLocale" });
   }
@@ -96,6 +129,10 @@ export async function updateAccountSettings(
       horizon_months: patch.horizonMonths,
       anonymise_after_months: patch.anonymiseAfterMonths,
       sensitive_delete_after_days: patch.sensitiveDeleteAfterDays,
+      merchant_legal_name: legalName,
+      merchant_org_number: orgNumber,
+      merchant_address: address,
+      merchant_vat_registered: m?.vatRegistered,
       version: sql<number>`version + 1`,
     })
     .where("id", "=", ctx.tenantId)
@@ -105,7 +142,10 @@ export async function updateAccountSettings(
   if (!row) throw new DomainError("version_conflict", "Account was changed by someone else", { currentVersion: before.version });
 
   const after = toAccount(row);
-  const diff = diffFields(before as unknown as Record<string, unknown>, patch as Record<string, unknown>);
+  const { merchant: _merchant, ...rest } = patch;
+  const diff = diffFields(before as unknown as Record<string, unknown>, rest as Record<string, unknown>);
+  const merchantAfter = { legalName, orgNumber, address, vatRegistered: m?.vatRegistered };
+  for (const [k, v] of Object.entries(diffFields(before.merchant as unknown as Record<string, unknown>, merchantAfter))) diff[`merchant.${k}`] = v;
   await recordAudit(tx, ctx, { action: "account.updated", entityType: "account", entityId: after.id, diff });
   await emit(tx, ctx.tenantId, { type: "account.changed.v1", subject: `account/${after.id}`, data: { id: after.id, changed: Object.keys(diff) } });
   return after;

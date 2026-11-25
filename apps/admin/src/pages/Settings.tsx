@@ -14,6 +14,7 @@ import { type Account, ApiProblem, unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
 import { useAccount } from "../queries.js";
 import { ApiKeys } from "./settings/ApiKeys.js";
+import { Payments } from "./settings/Payments.js";
 import { SalesChannels, SkuMappings } from "./settings/SalesChannels.js";
 import { TagVocabularies } from "./settings/TagVocabularies.js";
 import { UserGroups } from "./settings/UserGroups.js";
@@ -175,6 +176,7 @@ export function Settings() {
       <VatClasses canEdit={canEdit} />
       <SalesChannels canEdit={canEdit} />
       <SkuMappings canEdit={canEdit} />
+      <Payments canEdit={canEdit} />
       {canEdit && <ApiKeys />}
 
       <ConflictDialog open={conflict} onOpenChange={setConflict} onReload={() => void query.refetch()} />

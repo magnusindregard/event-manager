@@ -14,6 +14,8 @@ const verifiers = [
   ...(config.devAuthSecret ? [devVerifier(config.devAuthSecret)] : []),
 ];
 const db = createDb(config.databaseUrl);
+const { FakeVipps, HttpVipps } = await import("@event-manager/vipps");
+const vipps = config.vipps === "http" ? new HttpVipps() : config.vipps === "fake" ? new FakeVipps() : null;
 const app = await buildApp({
   db,
   verifier: anyVerifier(verifiers),
@@ -21,6 +23,7 @@ const app = await buildApp({
   attendeeUrl: config.attendeeUrl,
   postmarkWebhook: config.postmarkWebhook,
   mcp: config.mcp,
+  payments: vipps ? { provider: vipps, webhookBaseUrl: config.publicUrl } : null,
   logger: { level: process.env.LOG_LEVEL ?? "info" },
 });
 

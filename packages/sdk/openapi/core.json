@@ -313,6 +313,7 @@
                     "horizonMonths",
                     "anonymiseAfterMonths",
                     "sensitiveDeleteAfterDays",
+                    "merchant",
                     "version",
                     "updatedAt"
                   ],
@@ -367,6 +368,42 @@
                       "minimum": 1,
                       "maximum": 365,
                       "description": "Sensitive answers are deleted this many days after their occurrence"
+                    },
+                    "merchant": {
+                      "type": "object",
+                      "required": [
+                        "legalName",
+                        "orgNumber",
+                        "address",
+                        "vatRegistered"
+                      ],
+                      "properties": {
+                        "legalName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The legal name on receipts"
+                        },
+                        "orgNumber": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Norwegian organisation number, 9 digits"
+                        },
+                        "address": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "vatRegistered": {
+                          "type": "boolean",
+                          "description": "Registered for VAT: receipts show VAT per rate and MVA after the organisation number"
+                        }
+                      },
+                      "description": "Printed on receipts from the hosted checkout"
                     },
                     "version": {
                       "type": "integer"
@@ -499,6 +536,36 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 365
+                  },
+                  "merchant": {
+                    "type": "object",
+                    "properties": {
+                      "legalName": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 200
+                      },
+                      "orgNumber": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 20
+                      },
+                      "address": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 500
+                      },
+                      "vatRegistered": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
                   }
                 },
                 "additionalProperties": false,
@@ -530,6 +597,7 @@
                     "horizonMonths",
                     "anonymiseAfterMonths",
                     "sensitiveDeleteAfterDays",
+                    "merchant",
                     "version",
                     "updatedAt"
                   ],
@@ -584,6 +652,42 @@
                       "minimum": 1,
                       "maximum": 365,
                       "description": "Sensitive answers are deleted this many days after their occurrence"
+                    },
+                    "merchant": {
+                      "type": "object",
+                      "required": [
+                        "legalName",
+                        "orgNumber",
+                        "address",
+                        "vatRegistered"
+                      ],
+                      "properties": {
+                        "legalName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "The legal name on receipts"
+                        },
+                        "orgNumber": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "Norwegian organisation number, 9 digits"
+                        },
+                        "address": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "vatRegistered": {
+                          "type": "boolean",
+                          "description": "Registered for VAT: receipts show VAT per rate and MVA after the organisation number"
+                        }
+                      },
+                      "description": "Printed on receipts from the hosted checkout"
                     },
                     "version": {
                       "type": "integer"
@@ -24432,8 +24536,15 @@
                                 "enum": [
                                   "pos"
                                 ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "hosted"
+                                ]
                               }
-                            ]
+                            ],
+                            "description": "hosted: the platform's own checkout (docs/checkout.md); created by enabling it under Payments, at most one per account"
                           },
                           "holdMinutes": {
                             "type": "integer",
@@ -24648,8 +24759,15 @@
                           "enum": [
                             "pos"
                           ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "hosted"
+                          ]
                         }
-                      ]
+                      ],
+                      "description": "hosted: the platform's own checkout (docs/checkout.md); created by enabling it under Payments, at most one per account"
                     },
                     "holdMinutes": {
                       "type": "integer",
@@ -24869,8 +24987,15 @@
                           "enum": [
                             "pos"
                           ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "hosted"
+                          ]
                         }
-                      ]
+                      ],
+                      "description": "hosted: the platform's own checkout (docs/checkout.md); created by enabling it under Payments, at most one per account"
                     },
                     "holdMinutes": {
                       "type": "integer",
@@ -25059,8 +25184,15 @@
                           "enum": [
                             "pos"
                           ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "hosted"
+                          ]
                         }
-                      ]
+                      ],
+                      "description": "hosted: the platform's own checkout (docs/checkout.md); created by enabling it under Payments, at most one per account"
                     },
                     "holdMinutes": {
                       "type": "integer",
@@ -37282,6 +37414,900 @@
             }
           },
           "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments": {
+      "get": {
+        "operationId": "getPaymentsSettings",
+        "summary": "The account's payment provider (Vipps MobilePay), if connected",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "vipps"
+                  ],
+                  "properties": {
+                    "vipps": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "id",
+                            "provider",
+                            "environment",
+                            "merchantSerialNumber",
+                            "clientId",
+                            "status",
+                            "statusReason",
+                            "webhookRegistered",
+                            "verifiedAt",
+                            "connectedAt",
+                            "version",
+                            "updatedAt"
+                          ],
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "enum": [
+                                "vipps"
+                              ]
+                            },
+                            "environment": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "test"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "production"
+                                  ]
+                                }
+                              ],
+                              "description": "test: the Vipps test environment (MT); production: real money"
+                            },
+                            "merchantSerialNumber": {
+                              "type": "string"
+                            },
+                            "clientId": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "active"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "invalid"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "disconnected"
+                                  ]
+                                }
+                              ],
+                              "description": "active: the keys work. invalid: Vipps refused them when last verified; enter new ones"
+                            },
+                            "statusReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "webhookRegistered": {
+                              "type": "boolean",
+                              "description": "Vipps tells the platform at once when a payment changes; without it, payments are checked by polling"
+                            },
+                            "verifiedAt": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "format": "date-time"
+                            },
+                            "connectedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "version": {
+                              "type": "integer"
+                            },
+                            "updatedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/vipps": {
+      "put": {
+        "operationId": "connectVipps",
+        "summary": "Connect the account's Vipps MobilePay merchant (owner). The keys are checked with Vipps first; a merchant already connected is replaced.",
+        "tags": [
+          "payments"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "environment",
+                  "merchantSerialNumber",
+                  "clientId",
+                  "clientSecret",
+                  "subscriptionKey"
+                ],
+                "properties": {
+                  "environment": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "test"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "production"
+                        ]
+                      }
+                    ],
+                    "description": "test: the Vipps test environment (MT); production: real money"
+                  },
+                  "merchantSerialNumber": {
+                    "type": "string",
+                    "pattern": "^[0-9]{4,10}$",
+                    "description": "MSN, from the Vipps portal"
+                  },
+                  "clientId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "clientSecret": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "writeOnly": true
+                  },
+                  "subscriptionKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500,
+                    "writeOnly": true,
+                    "description": "Ocp-Apim-Subscription-Key"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "provider",
+                    "environment",
+                    "merchantSerialNumber",
+                    "clientId",
+                    "status",
+                    "statusReason",
+                    "webhookRegistered",
+                    "verifiedAt",
+                    "connectedAt",
+                    "version",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "vipps"
+                      ]
+                    },
+                    "environment": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "test"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "production"
+                          ]
+                        }
+                      ],
+                      "description": "test: the Vipps test environment (MT); production: real money"
+                    },
+                    "merchantSerialNumber": {
+                      "type": "string"
+                    },
+                    "clientId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "active"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "invalid"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "disconnected"
+                          ]
+                        }
+                      ],
+                      "description": "active: the keys work. invalid: Vipps refused them when last verified; enter new ones"
+                    },
+                    "statusReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "webhookRegistered": {
+                      "type": "boolean",
+                      "description": "Vipps tells the platform at once when a payment changes; without it, payments are checked by polling"
+                    },
+                    "verifiedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "connectedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "disconnectVipps",
+        "summary": "Disconnect Vipps MobilePay (owner): deletes the keys and the webhook. Payments already made stay. Requires If-Match.",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/vipps/verify": {
+      "post": {
+        "operationId": "verifyVipps",
+        "summary": "Check the stored keys with Vipps again and register the webhook if it is missing (owner)",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "provider",
+                    "environment",
+                    "merchantSerialNumber",
+                    "clientId",
+                    "status",
+                    "statusReason",
+                    "webhookRegistered",
+                    "verifiedAt",
+                    "connectedAt",
+                    "version",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "vipps"
+                      ]
+                    },
+                    "environment": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "test"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "production"
+                          ]
+                        }
+                      ],
+                      "description": "test: the Vipps test environment (MT); production: real money"
+                    },
+                    "merchantSerialNumber": {
+                      "type": "string"
+                    },
+                    "clientId": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "active"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "invalid"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "disconnected"
+                          ]
+                        }
+                      ],
+                      "description": "active: the keys work. invalid: Vipps refused them when last verified; enter new ones"
+                    },
+                    "statusReason": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "webhookRegistered": {
+                      "type": "boolean",
+                      "description": "Vipps tells the platform at once when a payment changes; without it, payments are checked by polling"
+                    },
+                    "verifiedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "connectedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
             "description": "Default Response",
             "content": {
               "application/json": {

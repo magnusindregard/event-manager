@@ -21,6 +21,7 @@ import { postmarkWebhookRoutes } from "./routes/postmark-webhook.js";
 import { registrationRoutes } from "./routes/registrations.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { salesRoutes } from "./routes/sales.js";
+import { type PaymentsDeps, paymentRoutes } from "./routes/payments.js";
 
 export interface AppDeps {
   db: Db;
@@ -33,6 +34,8 @@ export interface AppDeps {
   postmarkWebhook?: { user: string; password: string } | null;
   /** MCP server at /mcp (docs/mcp.md): where clients sign in, the scopes they ask for, and the admin to link events to. */
   mcp?: { authorizationServers: string[]; scopes: string[]; publicUrl?: string; adminUrl?: string };
+  /** Payment providers (docs/checkout.md); null or missing leaves payments off. */
+  payments?: PaymentsDeps | null;
 }
 
 /** Operations whose request body may be left out. */
@@ -109,6 +112,7 @@ export async function buildApp(deps: AppDeps) {
       await v1.register(invitationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
       await v1.register(reservationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
       await v1.register(salesRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
+      await v1.register(paymentRoutes, { payments: deps.payments ?? null });
       v1.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: "/v1" },
