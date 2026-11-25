@@ -27,21 +27,23 @@ export interface GuestSend {
   /** Our id for the send (the invitation send, or the registration for the welcome): HubSpot's `sendId`. */
   sendId: string;
   customProperties: Record<string, string>;
-  /** HubSpot's status id from an earlier attempt of this job. */
-  statusId: string | null;
-  saveStatusId(statusId: string): Promise<void>;
+  /** What HubSpot took earlier for this send, if it did: its status id and the portal that took it. */
+  taken: { statusId: string; portalId: string | null } | null;
+  saveStatusId(statusId: string, portalId: string): Promise<void>;
   /** The job's last attempt: give up on HubSpot and let the platform send, rather than fail. */
   lastAttempt: boolean;
 }
 
 /**
- * `pending`: HubSpot took the send but we could not read whether it went (our access went). It
- * is neither sent nor refused: the caller leaves it as it is, and a reconnect checks it again.
+ * `pending`: HubSpot took the send and has not said whether it went. Neither sent nor refused,
+ * so the platform sends nothing. `recheck`: we are connected to the portal that took it, so the
+ * caller checks again later; otherwise (our access to that portal went) it stays unresolved
+ * until that portal is connected again.
  */
 export type GuestSendResult =
   | { sent: true; statusId: string }
   | { sent: false; pending?: false; reason: string }
-  | { sent: false; pending: true; statusId: string; reason: string };
+  | { sent: false; pending: true; recheck: boolean; statusId: string; reason: string };
 
 /** Reads of a send's status per job attempt before the job tries again later. */
 const POLLS = 5;
@@ -49,7 +51,8 @@ const POLLS = 5;
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const draft = (e: unknown) => e instanceof HubSpotError && e.status === 400 && /draft state/i.test(e.message);
 const fallback = (reason: string): GuestSendResult => ({ sent: false, reason });
-const unresolved = (statusId: string, reason: string): GuestSendResult => ({ sent: false, pending: true, statusId, reason });
+const unresolved = (statusId: string, recheck: boolean, reason: string): GuestSendResult => ({ sent: false, pending: true, recheck, statusId, reason });
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** HubSpot refuses addresses with a plus (spike run 12): the platform sends to those without asking. */
 export const hubspotRefusesAddress = (email: string) => (email.split("@")[0] ?? "").includes("+");
@@ -64,22 +67,30 @@ function splitName(name: string | null): { firstname: string | null; lastname: s
  * Sends one guest's email through HubSpot, or says why the platform should send it instead.
  * Throws (so the job is retried) when HubSpot is down, rate limits us, has not accepted the
  * published email yet, or has not finished the send; on the job's last attempt it gives up instead.
+ *
+ * Once HubSpot has taken the send, only HubSpot's own answer settles it: the platform never sends
+ * a second email for it. Without that answer the send is `pending` (see GuestSendResult).
  */
-export async function sendThroughHubSpot(db: Db, tenantId: string, deps: HubSpotDeps, g: GuestSend): Promise<GuestSendResult> {
+export async function sendThroughHubSpot(db: Db, tenantId: string, deps: HubSpotDeps | null, g: GuestSend): Promise<GuestSendResult> {
   const t = <T>(fn: Parameters<typeof withTenant<T>>[2]) => withTenant(db, { tenantId }, fn);
   const email = integrations.contactKey(g.email);
-  if (!g.statusId && hubspotRefusesAddress(email)) return fallback("HubSpot does not send to addresses with a +");
+  let taken = g.taken;
+  if (!deps) {
+    return taken ? unresolved(taken.statusId, false, "HubSpot took the send, but HubSpot is not configured on this platform any more") : fallback("HubSpot is not configured on this platform");
+  }
+  if (!taken && hubspotRefusesAddress(email)) return fallback("HubSpot does not send to addresses with a +");
   const pollMs = deps.pollMs ?? 2000;
-  // Set once HubSpot has taken the send: from then on the guest has it, or will.
-  let taken = g.statusId;
 
   try {
     const run = await withHubSpot(db, tenantId, deps.client, async (accessToken, connection): Promise<GuestSendResult> => {
       const ref = { id: connection.id, generation: connection.generation };
       const client = deps.client;
-      let statusId = g.statusId;
+      // Only the portal that took a send can say how it went.
+      if (taken?.portalId && taken.portalId !== connection.portalId) {
+        return unresolved(taken.statusId, false, `HubSpot portal ${taken.portalId} took the send, and another portal is connected now. Reconnecting portal ${taken.portalId} checks it again`);
+      }
 
-      if (!statusId) {
+      if (!taken) {
         const blocker = integrations.sendingBlocker(connection, CLEANUP_SCOPES);
         if (blocker) return fallback(blocker);
         const ready = await t((tx) => integrations.readyEmail(tx, connection.id, g.eventId, g.kind));
@@ -107,36 +118,41 @@ export async function sendThroughHubSpot(db: Db, tenantId: string, deps: HubSpot
           if (e instanceof HubSpotError && (e.status === 403 || (!e.retryable && !e.unauthorized && !draft(e)))) return fallback(`HubSpot refused the send: ${e.message}`);
           throw e;
         }
-        statusId = accepted.statusId;
-        taken = statusId;
-        await g.saveStatusId(statusId);
+        taken = { statusId: accepted.statusId, portalId: connection.portalId };
+        await g.saveStatusId(accepted.statusId, connection.portalId);
         await t((tx) => integrations.markEmailSentFrom(tx, connection.id, g.eventId, g.kind));
-        if (accepted.status === "COMPLETE") return result(accepted);
+        if (accepted.status === "COMPLETE" || accepted.status === "CANCELED") return result(accepted);
       }
 
-      for (let i = 0; i < POLLS; i++) {
-        if (pollMs) await sleep(pollMs);
-        const s = await client.sendStatus(accessToken, statusId);
-        if (s.status === "COMPLETE" || s.status === "CANCELED") return result(s);
+      const statusId = taken.statusId;
+      try {
+        for (let i = 0; i < POLLS; i++) {
+          if (pollMs) await sleep(pollMs);
+          const s = await client.sendStatus(accessToken, statusId);
+          if (s.status === "COMPLETE" || s.status === "CANCELED") return result(s);
+        }
+      } catch (e) {
+        // Connected, but HubSpot failed to answer: check again later rather than give up.
+        if (!g.lastAttempt) throw e;
+        return unresolved(statusId, true, `HubSpot did not say how the send went: ${message(e)}. Checked again later`);
       }
-      // HubSpot accepted it and is still working on it: it will most likely go.
-      if (g.lastAttempt) return { sent: true, statusId };
-      throw new Error(`HubSpot is still processing send ${statusId}`);
+      // Still processing: HubSpot can yet cancel it, so it is not sent until HubSpot says so.
+      if (!g.lastAttempt) throw new Error(`HubSpot is still processing send ${statusId}`);
+      return unresolved(statusId, true, "HubSpot is still processing the send. Checked again later");
     });
     if (run) return run.value;
     // HubSpot took the send before our access went (disconnected, refused): it may still deliver
-    // it, or cancel it. The platform sends no second email, and nothing counts as sent until
-    // HubSpot says so: the job tries again, and after its last try a reconnect resumes it.
+    // it, or cancel it. The job tries again, and after its last try a reconnect resumes it.
     if (taken) {
-      if (!g.lastAttempt) throw new Error(`HubSpot access is gone; send ${taken} is read again later`);
-      return unresolved(taken, "HubSpot took the send, but our access went before it said whether it went out. Reconnecting checks it again");
+      if (!g.lastAttempt) throw new Error(`HubSpot access is gone; send ${taken.statusId} is read again later`);
+      return unresolved(taken.statusId, false, "HubSpot took the send, but our access went before it said whether it went out. Reconnecting checks it again");
     }
     return fallback("HubSpot is not connected, or refuses our access");
   } catch (e) {
     if (!g.lastAttempt) throw e;
-    // Out of attempts. If HubSpot took the send, it is unresolved; otherwise the platform sends.
-    if (taken) return unresolved(taken, `HubSpot took the send, but did not say whether it went out: ${e instanceof Error ? e.message : String(e)}`);
-    return fallback(draft(e) ? "HubSpot did not accept the published email in time" : `HubSpot did not answer: ${e instanceof Error ? e.message : String(e)}`);
+    // Out of attempts. If HubSpot took the send, it is unresolved and checked again later; otherwise the platform sends.
+    if (taken) return unresolved(taken.statusId, true, `HubSpot took the send, but did not say whether it went out: ${message(e)}. Checked again later`);
+    return fallback(draft(e) ? "HubSpot did not accept the published email in time" : `HubSpot did not answer: ${message(e)}`);
   }
 }
 
@@ -148,15 +164,17 @@ function result(s: SendStatus): GuestSendResult {
 // ── Sends left unresolved ───────────────────────────────────────────────────
 
 /**
- * Once HubSpot is connected again, the sends it took but never confirmed are read again: their
+ * Once a portal is connected again, the sends it took but never confirmed are read again: their
  * jobs are queued anew under their own keys, and find HubSpot's status id on the send.
  */
 export const resumeHubSpotSends: InternalHandler = {
   name: "resume-hubspot-sends",
   types: ["integration.connected.v1"],
   async handle(tx, event, log) {
-    if ((event.data as { provider?: string }).provider !== "hubspot") return;
-    const { sends, welcomes } = await registration.unresolvedProviderSends(tx);
+    const { provider, portalId } = event.data as { provider?: string; portalId?: string };
+    if (provider !== "hubspot" || !portalId) return;
+    // Only sends the reconnected portal took: another portal cannot say how they went.
+    const { sends, welcomes } = await registration.unresolvedProviderSends(tx, portalId);
     for (const id of sends) {
       await sql`select graphile_worker.add_job(
         ${INVITATION_EMAIL_TASK},

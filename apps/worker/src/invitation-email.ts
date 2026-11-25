@@ -1,5 +1,5 @@
 import type { Task } from "graphile-worker";
-import { type Db, sql, withTenant } from "@event-manager/db";
+import { type Db, sql, type Tx, withTenant } from "@event-manager/db";
 import { integrations, registration } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
 import { sendThroughHubSpot } from "./hubspot/send.js";
@@ -20,6 +20,19 @@ import { esc, formatWhen, type RegistrationEmailDeps } from "./registration-emai
 
 /** HubSpot sends queued per second. */
 const HUBSPOT_SENDS_PER_SECOND = 5;
+/** A send HubSpot is still working on is read again this much later, for at most two days. */
+const RECHECK_SECONDS = 600;
+const RECHECK_FOR_MS = 2 * 86_400_000;
+
+/** Queues one send's job. Run from inside that job, it queues a fresh one (graphile-worker moves the key off a running job). */
+async function queueSend(tx: Tx, tenantId: string, sendId: string, delaySeconds = 0) {
+  await sql`select graphile_worker.add_job(
+    ${INVITATION_EMAIL_TASK},
+    json_build_object('tenantId', ${tenantId}::text, 'sendId', ${sendId}::text),
+    run_at := now() + make_interval(secs => ${delaySeconds}),
+    job_key := ${`invsend:${sendId}`},
+    max_attempts := 8)`.execute(tx);
+}
 
 export const INVITATION_EMAIL_TASK = "registration.invitation_email";
 
@@ -138,27 +151,40 @@ export function invitationEmailTask(db: Db, deps: RegistrationEmailDeps, hubspot
 
     // The event sends through HubSpot: try that first.
     let fallbackReason: string | null = null;
-    if (loaded.channel === "hubspot") {
-      if (!hubspot) fallbackReason = "HubSpot is not configured on this platform";
-      else {
-        const r = await sendThroughHubSpot(db, tenantId, hubspot, {
-          kind: message.send.kind, eventId: message.event.id, email: message.invitation.email, name: message.invitation.name, sendId,
-          customProperties: invitationProperties(message), statusId: message.send.providerStatusId, lastAttempt,
-          saveStatusId: (statusId) => withTenant(db, { tenantId }, (tx) => registration.recordProviderStatus(tx, sendId, statusId)),
-        });
-        if (r.sent) {
-          await withTenant(db, { tenantId }, (tx) => registration.recordSent(tx, tenantId, sendId, null, new Date(), { channel: "hubspot" }));
-          helpers.logger.info(`invitation send ${sendId}: ${message.send.kind} sent through HubSpot`);
-          return;
-        }
-        if (r.pending) {
-          await withTenant(db, { tenantId }, (tx) => registration.recordSendUnresolved(tx, sendId, r.reason));
-          helpers.logger.warn(`invitation send ${sendId}: left unresolved (${r.reason})`);
-          return;
-        }
-        fallbackReason = r.reason;
-        helpers.logger.info(`invitation send ${sendId}: the platform sends it (${r.reason})`);
+    // A send HubSpot took already goes back to HubSpot for its result, whatever the event's
+    // channel is now: only HubSpot's answer settles it, and the platform never sends a second email.
+    const taken = message.send.providerStatusId ? { statusId: message.send.providerStatusId, portalId: message.send.providerPortalId } : null;
+    if (loaded.channel === "hubspot" || taken) {
+      const r = await sendThroughHubSpot(db, tenantId, hubspot, {
+        kind: message.send.kind, eventId: message.event.id, email: message.invitation.email, name: message.invitation.name, sendId,
+        customProperties: invitationProperties(message), taken, lastAttempt,
+        saveStatusId: (statusId, portalId) => withTenant(db, { tenantId }, (tx) => registration.recordProviderStatus(tx, sendId, statusId, portalId)),
+      });
+      if (r.sent) {
+        await withTenant(db, { tenantId }, (tx) => registration.recordSent(tx, tenantId, sendId, null, new Date(), { channel: "hubspot" }));
+        helpers.logger.info(`invitation send ${sendId}: ${message.send.kind} sent through HubSpot`);
+        return;
       }
+      if (r.pending) {
+        // Connected to the portal that took it: look again later, for a while. Otherwise (or after
+        // that) it is unresolved: staff see it and may send again, and a reconnect of that portal resumes it.
+        const recheck = r.recheck && Date.now() - message.send.requestedAt.getTime() < RECHECK_FOR_MS;
+        await withTenant(db, { tenantId }, async (tx) => {
+          await registration.recordSendUnresolved(tx, sendId, recheck ? r.reason : r.reason.replace(/\. Checked again later$/, ""), !recheck);
+          if (recheck) await queueSend(tx, tenantId, sendId, RECHECK_SECONDS);
+        });
+        helpers.logger.warn(`invitation send ${sendId}: ${recheck ? "checked again later" : "left unresolved"} (${r.reason})`);
+        return;
+      }
+      // Staff were told this one was unresolved and may have sent again: a late refusal is
+      // recorded, not followed by the platform's own email.
+      if (message.send.providerUnresolved) {
+        await withTenant(db, { tenantId }, (tx) => registration.recordNotSent(tx, sendId, `hubspot_refused: ${r.reason}`));
+        helpers.logger.info(`invitation send ${sendId}: HubSpot did not send it after all (${r.reason})`);
+        return;
+      }
+      fallbackReason = r.reason;
+      helpers.logger.info(`invitation send ${sendId}: the platform sends it (${r.reason})`);
     }
 
     const mail = invitationEmail(message, `${base}/i/${message.token}`);

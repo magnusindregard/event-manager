@@ -63,6 +63,9 @@ const sends = () =>
       .select(["i.email", "s.id", "s.kind", "s.channel", "s.sent_at", "s.fallback_reason", "s.provider_status_id", "s.delivery_status"]).orderBy("i.email").orderBy("s.requested_at").execute(),
   );
 
+const jobRunAt = async (key: string) =>
+  (await admin.query<{ run_at: Date }>(`select run_at from graphile_worker._private_jobs where key = $1`, [key])).rows[0]?.run_at ?? null;
+
 let invitationTemplate: MarketingEmail;
 let welcomeTemplate: MarketingEmail;
 
@@ -322,7 +325,8 @@ describe("sending to a guest", () => {
     await run((tx) => integrations.disconnect(tx, ctx, "hubspot"));
     await drain(10);
     const [waiting] = await sends();
-    expect(waiting).toMatchObject({ channel: "hubspot", sent_at: null, delivery_status: "queued", fallback_reason: null, provider_status_id: taken!.provider_status_id });
+    // Unresolved: out of the queue (staff may send again), not sent, and no platform email.
+    expect(waiting).toMatchObject({ channel: "hubspot", sent_at: null, delivery_status: "failed", fallback_reason: null, provider_status_id: taken!.provider_status_id });
     const detail = await run((tx) => tx.selectFrom("registration.invitation_send").select("delivery_detail").where("id", "=", taken!.id).executeTakeFirstOrThrow());
     expect(detail.delivery_detail).toMatch(/Reconnecting checks it again/);
     expect(mailer.sent).toEqual([]);
@@ -336,6 +340,76 @@ describe("sending to a guest", () => {
     expect(send).toMatchObject({ channel: "hubspot", delivery_status: "sent", fallback_reason: null });
     expect(portal().sends).toHaveLength(1);
     expect(mailer.sent).toEqual([]);
+  });
+
+  it("keeps reading a send HubSpot took through HubSpot, even if the event's channel changed since", async () => {
+    await connect();
+    const { event } = await hubspotEvent("Byttet");
+    await addGuests(event.id, "kari@example.com");
+    hubspot.pendingPolls = 100;
+    await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation" }));
+    await drain(1);
+    // HubSpot has the send: the channel is settled, through the API and the domain alike.
+    expect((await sending(event.id)).locked).toBe(true);
+    await expect(setSending(event.id, { channel: "platform" })).rejects.toMatchObject({ code: "conflict" });
+    // Even if it were changed (by hand here), the retry asks HubSpot rather than send the platform's email.
+    await admin.query(`update integrations.event_sending set channel = 'platform' where event_id = $1`, [event.id]);
+    hubspot.completeSends();
+    await drain();
+    expect((await sends())[0]).toMatchObject({ channel: "hubspot", delivery_status: "sent" });
+    expect(mailer.sent).toEqual([]);
+  });
+
+  it("checks a send HubSpot is still processing again later, instead of calling it sent", async () => {
+    await connect();
+    const { event } = await hubspotEvent("Venter");
+    await addGuests(event.id, "kari@example.com");
+    hubspot.pendingPolls = 1000;
+    await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation" }));
+    // Every attempt of the job, the last included: HubSpot still says PROCESSING.
+    for (let i = 0; i < 8; i++) {
+      await admin.query(`update graphile_worker._private_jobs set run_at = now() where locked_at is null and key like 'invsend:%'`);
+      await runOnce({
+        connectionString: tdb.appUrl,
+        taskList: buildTaskList(db, defaultHandlers, { directory: new FakeDirectory(), mailer, adminUrl: "https://admin.test/" }, { mailer, attendeeUrl: "https://attend.test/" }, { client: hubspot, pollMs: 0 }),
+      });
+    }
+    const [send] = await sends();
+    expect(send).toMatchObject({ channel: "hubspot", sent_at: null, delivery_status: "queued" });
+    const later = await jobRunAt(`invsend:${send!.id}`);
+    expect(later).not.toBeNull();
+    expect(later!.getTime()).toBeGreaterThan(Date.now() + 5 * 60_000);
+    expect(mailer.sent).toEqual([]);
+
+    hubspot.completeSends();
+    await drain();
+    expect((await sends())[0]).toMatchObject({ channel: "hubspot", delivery_status: "sent" });
+  });
+
+  it("reads a send only with the portal that took it, and lets staff send again if that portal stays away", async () => {
+    await connect();
+    const { event } = await hubspotEvent("Annen portal");
+    await addGuests(event.id, "kari@example.com");
+    hubspot.pendingPolls = 100;
+    await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation" }));
+    await drain(1);
+    await run((tx) => integrations.disconnect(tx, ctx, "hubspot"));
+    // Another portal is connected instead.
+    const t = await hubspot.exchangeCode(hubspot.approve("777", [...REQUIRED_SCOPES]));
+    await run((tx) => integrations.saveConnection(tx, ctx, { provider: "hubspot", portalId: "777", scopes: [...REQUIRED_SCOPES], tokens: { ...t, accessExpiresAt: t.expiresAt }, requiredScopes: REQUIRED_SCOPES }));
+    const calls = hubspot.calls.length;
+    await drain(10);
+    expect(hubspot.calls.slice(calls).filter((c) => c.startsWith("sendStatus"))).toEqual([]);
+    const [send] = await sends();
+    expect(send).toMatchObject({ channel: "hubspot", sent_at: null, delivery_status: "failed" });
+    const row = await run((tx) => tx.selectFrom("registration.invitation_send").select(["provider_portal_id", "provider_unresolved_at", "delivery_detail"]).where("id", "=", send!.id).executeTakeFirstOrThrow());
+    expect(row).toMatchObject({ provider_portal_id: PORTAL, delivery_detail: expect.stringContaining(`portal ${PORTAL}`) });
+    expect(row.provider_unresolved_at).not.toBeNull();
+    const list = await run((tx) => registration.listInvitations(tx, ctx, event.id));
+    expect(list.items[0]!.lastSend).toMatchObject({ unresolved: true });
+    expect(mailer.sent).toEqual([]);
+    // Staff may send again.
+    expect(await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation", ids: [list.items[0]!.id] }))).toMatchObject({ queued: 1 });
   });
 
   it("finishes a contact's preparation from the first snapshot when two sends prepare it at once", async () => {

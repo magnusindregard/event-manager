@@ -21,7 +21,7 @@ const dto = (i: registration.GuestInvitation | registration.GuestInvitationView)
   id: i.id, eventId: i.eventId, email: i.email, name: i.name, locale: i.locale, guestAllowed: i.guestAllowed, externalContactId: i.externalContactId,
   status: i.status, firstSentAt: iso(i.firstSentAt), lastSentAt: iso(i.lastSentAt), respondedAt: iso(i.respondedAt),
   lastSend: "lastSend" in i && i.lastSend
-    ? { kind: i.lastSend.kind, requestedAt: i.lastSend.requestedAt.toISOString(), sentAt: iso(i.lastSend.sentAt), deliveryStatus: i.lastSend.deliveryStatus, deliveryDetail: i.lastSend.deliveryDetail, deliveryAt: iso(i.lastSend.deliveryAt), channel: i.lastSend.channel, fallbackReason: i.lastSend.fallbackReason }
+    ? { kind: i.lastSend.kind, requestedAt: i.lastSend.requestedAt.toISOString(), sentAt: iso(i.lastSend.sentAt), deliveryStatus: i.lastSend.deliveryStatus, deliveryDetail: i.lastSend.deliveryDetail, deliveryAt: iso(i.lastSend.deliveryAt), channel: i.lastSend.channel, fallbackReason: i.lastSend.fallbackReason, unresolved: i.lastSend.unresolved }
     : null,
   registration: "registration" in i ? i.registration : null,
   version: i.version, createdAt: i.createdAt.toISOString(), updatedAt: i.updatedAt.toISOString(),

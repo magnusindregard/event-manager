@@ -186,7 +186,10 @@ export function GuestList({ event }: { event: CatalogEvent }) {
       cell: ({ row }) => {
         const s = row.original.lastSend;
         if (!s) return <span className="text-muted-foreground text-xs">{t("guests.notSent")}</span>;
-        if (!s.sentAt && s.deliveryStatus === "queued") return <span className="text-muted-foreground text-xs">{t("guests.queued")}</span>;
+        if (!s.sentAt && s.unresolved) {
+          return <span className="max-w-64 text-xs text-destructive" title={s.deliveryDetail ?? undefined}>{t("guests.unresolved")}</span>;
+        }
+        if (!s.sentAt && s.deliveryStatus === "queued") return <span className="text-muted-foreground text-xs" title={s.deliveryDetail ?? undefined}>{t("guests.queued")}</span>;
         // Never sent: show when it failed and why, not the time it was asked for as if it went out.
         if (!s.sentAt && s.deliveryStatus === "failed") {
           return (

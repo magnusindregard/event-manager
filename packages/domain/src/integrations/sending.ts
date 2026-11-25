@@ -153,14 +153,14 @@ export async function eventEmails(tx: Tx, connectionId: string, eventId: string)
   return rows.map(toEmail).sort((a, b) => EMAIL_KINDS.indexOf(a.kind) - EMAIL_KINDS.indexOf(b.kind));
 }
 
-/** An invitation of the event has gone out (by any channel): the channel is settled. */
+/** An invitation of the event has gone out by any channel, or HubSpot has taken one: the channel is settled. */
 async function invitationsSent(tx: Tx, eventId: string): Promise<boolean> {
   const r = await tx
     .selectFrom("registration.invitation_send as s")
     .innerJoin("registration.guest_invitation as i", "i.id", "s.invitation_id")
     .select("s.id")
     .where("i.event_id", "=", eventId)
-    .where("s.sent_at", "is not", null)
+    .where((eb) => eb.or([eb("s.sent_at", "is not", null), eb("s.provider_status_id", "is not", null)]))
     .limit(1)
     .executeTakeFirst();
   return !!r;

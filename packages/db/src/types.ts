@@ -311,6 +311,7 @@ export interface RegistrationTable {
   reminder_channel: SendChannel | null;
   reminder_status_id: string | null;
   reminder_detail: string | null;
+  reminder_portal_id: string | null;
   form_version: number | null;
   sensitive_consent_at: Timestamp | null;
   anonymised_at: Timestamp | null;
@@ -359,6 +360,8 @@ export interface InvitationSendTable {
   channel: ColumnType<SendChannel, SendChannel | undefined, SendChannel>;
   provider_status_id: string | null;
   fallback_reason: string | null;
+  provider_portal_id: string | null;
+  provider_unresolved_at: Timestamp | null;
 }
 
 export interface GuestImportTable {

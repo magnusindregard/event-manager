@@ -45,6 +45,7 @@ const resources = {
       guests: {
         viaHubSpot: "via HubSpot",
         byPlatform: "Sendt av plattformen: {{reason}}",
+        unresolved: "HubSpot tok imot eposten, men vi vet ikke om den ble sendt (portalen er ikke tilkoblet). Send på nytt om nødvendig.",
         guest: "Gjest", status: "Status", lastSent: "Sist sendt", notSent: "Ikke sendt", queued: "Sendes …", noName: "Uten navn",
         statuses: { pending: "Ikke sendt", sent: "Venter på svar", accepted: "Kommer", declined: "Takket nei" },
         kinds: { invitation: "Invitasjon", reminder: "Påminnelse" }, external: "sendt fra eget verktøy",
@@ -525,6 +526,7 @@ const resources = {
       guests: {
         viaHubSpot: "via HubSpot",
         byPlatform: "Sent by the platform: {{reason}}",
+        unresolved: "HubSpot took the email, but we do not know whether it went out (the portal is not connected). Send again if needed.",
         guest: "Guest", status: "Status", lastSent: "Last sent", notSent: "Not sent", queued: "Sending …", noName: "No name",
         statuses: { pending: "Not sent", sent: "Awaiting reply", accepted: "Coming", declined: "Declined" },
         kinds: { invitation: "Invitation", reminder: "Reminder" }, external: "sent from your own tool",

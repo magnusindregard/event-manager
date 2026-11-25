@@ -14966,6 +14966,8 @@ export interface operations {
                                 channel: "platform" | "hubspot";
                                 /** @description Why the platform sent it although the event sends through HubSpot */
                                 fallbackReason: string | null;
+                                /** @description HubSpot took it, but the platform could not find out whether it went (its portal is not connected). deliveryDetail says why; staff may send again */
+                                unresolved: boolean;
                             };
                             registration: null | {
                                 /** Format: uuid */
@@ -15100,6 +15102,8 @@ export interface operations {
                             channel: "platform" | "hubspot";
                             /** @description Why the platform sent it although the event sends through HubSpot */
                             fallbackReason: string | null;
+                            /** @description HubSpot took it, but the platform could not find out whether it went (its portal is not connected). deliveryDetail says why; staff may send again */
+                            unresolved: boolean;
                         };
                         registration: null | {
                             /** Format: uuid */
@@ -15260,6 +15264,8 @@ export interface operations {
                             channel: "platform" | "hubspot";
                             /** @description Why the platform sent it although the event sends through HubSpot */
                             fallbackReason: string | null;
+                            /** @description HubSpot took it, but the platform could not find out whether it went (its portal is not connected). deliveryDetail says why; staff may send again */
+                            unresolved: boolean;
                         };
                         registration: null | {
                             /** Format: uuid */

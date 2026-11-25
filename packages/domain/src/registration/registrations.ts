@@ -529,14 +529,15 @@ export async function markReminded(tx: Tx, id: string, now: Date = new Date()): 
 }
 
 /** What the welcome's HubSpot send left: its status id, if HubSpot accepted it (docs/hubspot.md). */
-export async function reminderStatusId(tx: Tx, id: string): Promise<string | null> {
-  const r = await tx.selectFrom("registration.registration").select("reminder_status_id").where("id", "=", id).executeTakeFirst();
-  return r?.reminder_status_id ?? null;
+export async function reminderStatusId(tx: Tx, id: string): Promise<{ statusId: string; portalId: string | null } | null> {
+  const r = await tx.selectFrom("registration.registration").select(["reminder_status_id", "reminder_portal_id", "reminder_channel"]).where("id", "=", id).executeTakeFirst();
+  // Resolved already (sent by either channel): nothing left to read.
+  return r?.reminder_status_id && !r.reminder_channel ? { statusId: r.reminder_status_id, portalId: r.reminder_portal_id } : null;
 }
 
 /** HubSpot accepted the welcome: kept so a retry reads the result instead of sending again. */
-export async function recordReminderStatus(tx: Tx, id: string, statusId: string): Promise<void> {
-  await tx.updateTable("registration.registration").set({ reminder_status_id: statusId }).where("id", "=", id).execute();
+export async function recordReminderStatus(tx: Tx, id: string, statusId: string, portalId: string): Promise<void> {
+  await tx.updateTable("registration.registration").set({ reminder_status_id: statusId, reminder_portal_id: portalId }).where("id", "=", id).execute();
 }
 
 /** Who sent the welcome, and why the platform did when the event sends through HubSpot. */

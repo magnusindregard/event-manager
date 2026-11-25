@@ -37,6 +37,7 @@ export const GuestInvitation = Type.Object({
     deliveryAt: Nullable(DateTime),
     channel: Type.Union([Type.Literal("platform"), Type.Literal("hubspot")], { description: "Who sent it: the platform's mail service, or HubSpot (docs/hubspot.md)" }),
     fallbackReason: Nullable(Type.String({ description: "Why the platform sent it although the event sends through HubSpot" })),
+    unresolved: Type.Boolean({ description: "HubSpot took it, but the platform could not find out whether it went (its portal is not connected). deliveryDetail says why; staff may send again" }),
   })),
   registration: Nullable(Type.Object({ id: Uuid, occurrenceId: Uuid, partySize: Type.Integer() })),
   version: Type.Integer(),

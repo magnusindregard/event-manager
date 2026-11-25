@@ -201,7 +201,7 @@ The guest list links to each email in HubSpot for design changes. Subject and pr
    - `SENT`: one `invitation_send` with `channel: "hubspot"`, which emits `invitation.sent.v1`.
    - `IDEMPOTENT_IGNORE`: the same `sendId` was sent before, whichever request HubSpot processed first (run 14); treated as sent.
    - Anything else (`VALIDATION_FAILED`, `PREVIOUSLY_UNSUBSCRIBED_*`, `PREVIOUSLY_BOUNCED`, …): the platform sends its own email, and the guest list says why.
-   - No answer because our access went after HubSpot took the send: neither sent nor refused. The send stays queued with HubSpot's status id and why, the platform sends nothing, and reconnecting queues the job again to read the result.
+   - No answer yet. Once HubSpot has taken a send, only HubSpot's answer settles it, and the platform never sends a second email for it. The send keeps HubSpot's status id and the portal that took it, and always goes back to HubSpot, whatever the event's channel is now; a taken send also settles the channel. While that portal is connected, a send still processing is read again every 10 minutes, for up to two days. If our access to that portal goes, or another portal is connected, the send is **unresolved**: out of the queue, shown on the guest list with why, and staff may send again. Reconnecting the portal that took it reads it again; a refusal found then is recorded and not followed by the platform's email, as staff were told to resend.
 
 Sends are spread over jobs at a steady rate per second, to stay within HubSpot's rate limits (the daily limit of 1,000,000, run 7, is not the constraint).
 

@@ -44,6 +44,8 @@ export interface InvitationSend {
   channel: SendChannel;
   /** Why the platform sent it although the event sends through HubSpot. */
   fallbackReason: string | null;
+  /** HubSpot took it, but the platform could not find out whether it went (our access to that portal went). Staff may send again. */
+  unresolved: boolean;
 }
 
 /** An invitation as the guest list shows it: with its last send and its registration. */
@@ -145,7 +147,7 @@ export async function listInvitations(tx: Tx, ctx: ActorContext, eventId: string
     ? await Promise.all([
         tx.selectFrom("registration.invitation_send")
           .distinctOn("invitation_id")
-          .select(["invitation_id", "id", "kind", "requested_at", "sent_at", "delivery_status", "delivery_detail", "delivery_at", "channel", "fallback_reason"])
+          .select(["invitation_id", "id", "kind", "requested_at", "sent_at", "delivery_status", "delivery_detail", "delivery_at", "channel", "fallback_reason", "provider_unresolved_at"])
           .where("invitation_id", "in", ids)
           .orderBy("invitation_id").orderBy("requested_at", "desc").orderBy("id", "desc")
           .execute(),
@@ -163,7 +165,7 @@ export async function listInvitations(tx: Tx, ctx: ActorContext, eventId: string
       lastSend: s
         ? {
             id: s.id, kind: s.kind, requestedAt: s.requested_at, sentAt: s.sent_at, deliveryStatus: s.delivery_status, deliveryDetail: s.delivery_detail, deliveryAt: s.delivery_at,
-            channel: s.channel, fallbackReason: s.fallback_reason,
+            channel: s.channel, fallbackReason: s.fallback_reason, unresolved: s.provider_unresolved_at !== null,
           }
         : null,
       registration: g ? { id: g.id, occurrenceId: g.occurrence_id, partySize: g.party_size } : null,
@@ -287,7 +289,9 @@ export async function requestSends(tx: Tx, ctx: ActorContext, eventId: string, r
   // A guest whose email of this kind is still waiting in the queue does not get a second one.
   const waiting = rows.length
     ? new Set((await tx.selectFrom("registration.invitation_send").select("invitation_id")
-        .where("invitation_id", "in", rows.map((r) => r.id)).where("kind", "=", req.kind).where("delivery_status", "=", "queued").execute()).map((s) => s.invitation_id))
+        .where("invitation_id", "in", rows.map((r) => r.id)).where("kind", "=", req.kind).where("delivery_status", "=", "queued")
+        // A send HubSpot took and nobody can resolve any more (its portal is gone) does not stop staff sending again.
+        .where("provider_unresolved_at", "is", null).execute()).map((s) => s.invitation_id))
     : new Set<string>();
   const targets = rows.filter((r) => statuses.includes(r.status) && !waiting.has(r.id)).map((r) => r.id);
   const skipped = (req.ids ? req.ids.length : rows.length) - targets.length;
@@ -348,8 +352,11 @@ export async function invitationLinks(tx: Tx, ctx: ActorContext, eventId: string
 // ── Worker: sending ───────────────────────────────────────────────────────────
 
 export interface InvitationMessage {
-  /** `providerStatusId`: HubSpot accepted the send already (a retried job reads its result instead of sending again). */
-  send: { id: string; kind: SendKind; sentAt: Date | null; providerStatusId: string | null };
+  /**
+   * `providerStatusId`: HubSpot took the send already, in portal `providerPortalId`; a retried job
+   * reads its result instead of sending again, whatever the event's channel is now.
+   */
+  send: { id: string; kind: SendKind; sentAt: Date | null; requestedAt: Date; providerStatusId: string | null; providerPortalId: string | null; providerUnresolved: boolean };
   invitation: GuestInvitation;
   event: catalog.CatalogEvent;
   /** Occurrences still to come, soonest first. */
@@ -361,7 +368,7 @@ export interface InvitationMessage {
 
 /** Everything an invitation email needs; null when the send or its guest is gone. */
 export async function loadInvitationMessage(tx: Tx, tenantId: string, sendId: string, now: Date = new Date()): Promise<InvitationMessage | null> {
-  const send = await tx.selectFrom("registration.invitation_send").select(["id", "kind", "sent_at", "invitation_id", "provider_status_id"]).where("id", "=", sendId).executeTakeFirst();
+  const send = await tx.selectFrom("registration.invitation_send").select(["id", "kind", "sent_at", "requested_at", "invitation_id", "provider_status_id", "provider_portal_id", "provider_unresolved_at"]).where("id", "=", sendId).executeTakeFirst();
   if (!send) return null;
   const row = await tx.selectFrom("registration.guest_invitation").select(invitationColumns).where("id", "=", send.invitation_id).executeTakeFirst();
   if (!row) return null;
@@ -371,7 +378,7 @@ export async function loadInvitationMessage(tx: Tx, tenantId: string, sendId: st
   ]);
   const locale = invitation.locale && account.locales.includes(invitation.locale) ? invitation.locale : account.defaultLocale;
   return {
-    send: { id: send.id, kind: send.kind, sentAt: send.sent_at, providerStatusId: send.provider_status_id },
+    send: { id: send.id, kind: send.kind, sentAt: send.sent_at, requestedAt: send.requested_at, providerStatusId: send.provider_status_id, providerPortalId: send.provider_portal_id, providerUnresolved: send.provider_unresolved_at !== null },
     invitation, event, occurrences, account: { name: account.name, defaultLocale: account.defaultLocale }, locale,
     token: await invitationToken(tx, tenantId, invitation),
   };
@@ -392,7 +399,7 @@ export interface SentVia {
 
 export async function recordSent(tx: Tx, tenantId: string, sendId: string, messageId: string | null, now: Date = new Date(), via: SentVia = { channel: "platform" }): Promise<void> {
   const send = await tx.updateTable("registration.invitation_send")
-    .set({ sent_at: now, message_id: messageId, delivery_status: "sent", delivery_detail: null, delivery_at: now, channel: via.channel, fallback_reason: via.fallbackReason?.slice(0, 500) ?? null })
+    .set({ sent_at: now, message_id: messageId, delivery_status: "sent", delivery_detail: null, delivery_at: now, provider_unresolved_at: null, channel: via.channel, fallback_reason: via.fallbackReason?.slice(0, 500) ?? null })
     .where("id", "=", sendId).where("sent_at", "is", null)
     .returning(["invitation_id", "kind"]).executeTakeFirst();
   if (!send) return;
@@ -408,31 +415,44 @@ export async function recordSent(tx: Tx, tenantId: string, sendId: string, messa
   });
 }
 
-/** HubSpot took the send but has not said whether it went (our access went): it stays queued, with why. */
-export async function recordSendUnresolved(tx: Tx, sendId: string, detail: string): Promise<void> {
-  await tx.updateTable("registration.invitation_send").set({ delivery_detail: detail.slice(0, 500) }).where("id", "=", sendId).where("sent_at", "is", null).execute();
+/**
+ * HubSpot took the send and has not said whether it went. `final`: the worker stops checking
+ * (our access to that portal went), so staff see it as unresolved and may send again; otherwise
+ * only the reason is noted while a later check is due.
+ */
+export async function recordSendUnresolved(tx: Tx, sendId: string, detail: string, final: boolean, now = new Date()): Promise<void> {
+  // Final: no longer waiting in the queue (`failed`, so staff can send again), but marked, so a
+  // reconnect of the portal that took it still reads it.
+  await tx.updateTable("registration.invitation_send")
+    .set({ delivery_detail: detail.slice(0, 500), ...(final ? { provider_unresolved_at: now, delivery_status: "failed" as const, delivery_at: now } : {}) })
+    .where("id", "=", sendId).where("sent_at", "is", null).execute();
 }
 
 /**
  * Sends HubSpot took but never confirmed: invitation sends still queued with a status id, and
  * welcomes with a status id that nobody recorded as sent. For queuing them again on reconnect.
  */
-export async function unresolvedProviderSends(tx: Tx): Promise<{ sends: string[]; welcomes: string[] }> {
+export async function unresolvedProviderSends(tx: Tx, portalId: string): Promise<{ sends: string[]; welcomes: string[] }> {
+  // Only the portal that took a send can say how it went.
   const [sends, welcomes] = await Promise.all([
-    tx.selectFrom("registration.invitation_send").select("id").where("provider_status_id", "is not", null).where("sent_at", "is", null).where("delivery_status", "=", "queued").execute(),
-    tx.selectFrom("registration.registration").select("id").where("reminder_status_id", "is not", null).where("reminder_channel", "is", null).where("reminded_at", "is", null).execute(),
+    tx.selectFrom("registration.invitation_send").select("id").where("provider_status_id", "is not", null).where("provider_portal_id", "=", portalId)
+      .where("sent_at", "is", null)
+      .where((eb) => eb.or([eb("delivery_status", "=", "queued"), eb("provider_unresolved_at", "is not", null)])).execute(),
+    tx.selectFrom("registration.registration").select("id").where("reminder_status_id", "is not", null).where("reminder_portal_id", "=", portalId)
+      .where("reminder_channel", "is", null).where("reminded_at", "is", null).execute(),
   ]);
   return { sends: sends.map((r) => r.id), welcomes: welcomes.map((r) => r.id) };
 }
 
 /** HubSpot accepted the send: its status id, so a retry reads the result rather than sending again. */
-export async function recordProviderStatus(tx: Tx, sendId: string, statusId: string): Promise<void> {
-  await tx.updateTable("registration.invitation_send").set({ provider_status_id: statusId, channel: "hubspot" }).where("id", "=", sendId).where("sent_at", "is", null).execute();
+export async function recordProviderStatus(tx: Tx, sendId: string, statusId: string, portalId: string): Promise<void> {
+  await tx.updateTable("registration.invitation_send").set({ provider_status_id: statusId, provider_portal_id: portalId, channel: "hubspot" }).where("id", "=", sendId).where("sent_at", "is", null).execute();
 }
 
 /** Marks a send that will not go out (the guest answered or the event was unpublished meanwhile, or the mail service refused it). */
 export async function recordNotSent(tx: Tx, sendId: string, detail: string, fallbackReason: string | null = null): Promise<void> {
-  await tx.updateTable("registration.invitation_send").set({ delivery_status: "failed", delivery_detail: detail.slice(0, 500), delivery_at: new Date(), ...(fallbackReason ? { fallback_reason: fallbackReason.slice(0, 500) } : {}) })
+  // Settled: no longer unresolved, whatever it was.
+  await tx.updateTable("registration.invitation_send").set({ delivery_status: "failed", delivery_detail: detail.slice(0, 500), delivery_at: new Date(), provider_unresolved_at: null, ...(fallbackReason ? { fallback_reason: fallbackReason.slice(0, 500) } : {}) })
     .where("id", "=", sendId).where("sent_at", "is", null).execute();
 }
 
