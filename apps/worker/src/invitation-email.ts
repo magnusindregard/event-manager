@@ -135,12 +135,16 @@ export function invitationEmailTask(db: Db, deps: RegistrationEmailDeps, hubspot
     const { tenantId, sendId } = payload;
     const loaded = await withTenant(db, { tenantId }, async (tx) => {
       const m = await registration.loadInvitationMessage(tx, tenantId, sendId);
-      if (!m) return null;
-      if (!registration.shouldSend(m)) {
-        if (!m.send.sentAt) await registration.recordNotSent(tx, sendId, m.event.status !== "published" ? "event_not_published" : `guest_${m.invitation.status}`);
+      if (!m || m.send.sentAt) return null;
+      // Whether the guest still needs the email decides a new email (the first send, or the
+      // platform's fallback), never whether the result of one HubSpot has taken is read.
+      const eligible = registration.shouldSend(m);
+      const notDue = m.event.status !== "published" ? "event_not_published" : `guest_${m.invitation.status}`;
+      if (!eligible && !m.send.providerStatusId) {
+        await registration.recordNotSent(tx, sendId, notDue);
         return null;
       }
-      return { m, channel: await integrations.eventChannel(tx, m.event.id) };
+      return { m, channel: await integrations.eventChannel(tx, m.event.id), eligible, notDue };
     });
     if (!loaded) {
       helpers.logger.info(`invitation send ${sendId}: not sent (gone, answered or sent already)`);
@@ -174,6 +178,13 @@ export function invitationEmailTask(db: Db, deps: RegistrationEmailDeps, hubspot
           if (recheck) await queueSend(tx, tenantId, sendId, RECHECK_SECONDS);
         });
         helpers.logger.warn(`invitation send ${sendId}: ${recheck ? "checked again later" : "left unresolved"} (${r.reason})`);
+        return;
+      }
+      // HubSpot did not send it, and the guest no longer needs it (answered, or the event was
+      // unpublished, while HubSpot worked on it): recorded, no platform email.
+      if (!loaded.eligible) {
+        await withTenant(db, { tenantId }, (tx) => registration.recordNotSent(tx, sendId, `${loaded.notDue}: HubSpot did not send it (${r.reason})`));
+        helpers.logger.info(`invitation send ${sendId}: HubSpot did not send it, and it is no longer due (${r.reason})`);
         return;
       }
       // Staff were told this one was unresolved and may have sent again: a late refusal is

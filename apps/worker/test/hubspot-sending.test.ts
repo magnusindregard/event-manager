@@ -412,6 +412,25 @@ describe("sending to a guest", () => {
     expect(await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation", ids: [list.items[0]!.id] }))).toMatchObject({ queued: 1 });
   });
 
+  it("reads HubSpot's result for an invitation it took even after the guest answered, and sends nothing new when HubSpot did not send it", async () => {
+    await connect();
+    const { event } = await hubspotEvent("Svarte");
+    const [kari] = await addGuests(event.id, "kari@example.com");
+    hubspot.pendingPolls = 100;
+    await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation" }));
+    await drain(1);
+    // The guest declines (from a link sent earlier) while HubSpot is still working; then HubSpot cancels the send.
+    await run((tx) => registration.declineInvitation(tx, ctx.tenantId, kari!.id));
+    portal().sends[0]!.sendResult = "CANCELED";
+    hubspot.completeSends();
+    const calls = hubspot.calls.length;
+    await drain();
+    expect(hubspot.calls.slice(calls).some((c) => c.startsWith("sendStatus"))).toBe(true);
+    const row = await run((tx) => tx.selectFrom("registration.invitation_send").select(["delivery_status", "delivery_detail", "provider_unresolved_at"]).executeTakeFirstOrThrow());
+    expect(row).toMatchObject({ delivery_status: "failed", delivery_detail: expect.stringMatching(/^guest_declined: HubSpot did not send it/), provider_unresolved_at: null });
+    expect(mailer.sent).toEqual([]);
+  });
+
   it("finishes a contact's preparation from the first snapshot when two sends prepare it at once", async () => {
     await connect();
     const { event } = await hubspotEvent("Samtidig");
@@ -454,6 +473,41 @@ describe("sending to a guest", () => {
     expect(hs.map((s) => s.to)).toEqual(["kari@example.com"]);
     expect((await sends()).filter((s) => s.kind === "reminder").map((s) => [s.email, s.channel])).toEqual([["kari@example.com", "hubspot"]]);
     expect(kari).toBeDefined();
+  });
+
+  it("sends no platform welcome when HubSpot did not send one to a guest who cancelled meanwhile, and stops reading after two days", async () => {
+    await connect();
+    const { event, occ } = await hubspotEvent("Avlyst velkomst", { start: new Date(Date.now() + 3 * DAY), reminderMinBefore: 24 * 60 });
+    const [kari, ola] = await addGuests(event.id, "kari@example.com", "ola@example.com");
+    const regs: registration.Registration[] = [];
+    for (const g of [kari!, ola!]) regs.push(await run((tx) => registration.acceptInvitation(tx, ctx.tenantId, g.id, { occurrenceId: occ.id })));
+    await drain();
+    hubspot.pendingPolls = 1000;
+    await admin.query(`update registration.registration set created_at = now() - interval '2 days', confirmed_at = now() - interval '2 days' where event_id = $1`, [event.id]);
+    const o = await run((tx) => catalog.getOccurrence(tx, occ.id));
+    await run((tx) => catalog.updateOccurrence(tx, ctx, occ.id, o.version, { startUtc: new Date(Date.now() + DAY / 2), endUtc: new Date(Date.now() + DAY / 2 + 3_600_000) }));
+    await drain(2);
+    const welcome = (await sending(event.id)).emails.find((e) => e.kind === "welcome")!;
+    expect(portal().sends.filter((x) => x.emailId === welcome.remoteId)).toHaveLength(2);
+    mailer.sent.length = 0;
+
+    // Kari cancels while HubSpot works on it, and HubSpot then cancels the send: no platform welcome.
+    await run((tx) => registration.cancelRegistration(tx, ctx.tenantId, regs[0]!.id, { kind: "attendee" }));
+    portal().sends.find((x) => x.sendId === `welcome-${regs[0]!.id}`)!.sendResult = "CANCELED";
+    // Ola's welcome is never settled; HubSpot took it more than two days ago.
+    await admin.query(`update registration.registration set reminder_status_at = now() - interval '3 days' where id = $1`, [regs[1]!.id]);
+    hubspot.completeSends();
+    hubspot.holdSend(portal().sends.find((x) => x.sendId === `welcome-${regs[1]!.id}`)!.statusId);
+    await drain(12);
+
+    expect(mailer.sent.filter((m) => m.subject.startsWith("Påminnelse"))).toEqual([]);
+    const rows = await run((tx) => tx.selectFrom("registration.registration").select(["id", "reminder_channel", "reminder_detail", "reminded_at"]).where("event_id", "=", event.id).execute());
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    expect(byId.get(regs[0]!.id)).toMatchObject({ reminder_channel: null, reminder_detail: expect.stringMatching(/no longer due/) });
+    expect(byId.get(regs[1]!.id)).toMatchObject({ reminder_channel: null, reminder_detail: expect.stringMatching(/^Unresolved/) });
+    expect(byId.get(regs[1]!.id)!.reminded_at).not.toBeNull();
+    // Nothing left that reads it again.
+    expect(await jobRunAt(`reminder:${regs[1]!.id}`)).toBeNull();
   });
 
   it("sends the welcome before the event through HubSpot, with a link to the guest's manage page", async () => {

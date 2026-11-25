@@ -480,6 +480,11 @@ export class FakeHubSpot implements HubSpotClient {
     return { statusId, status: "PENDING", sendResult: null };
   }
 
+  /** HubSpot never finishes this send: every status read says PROCESSING. */
+  holdSend(statusId: string) {
+    this.polls.set(statusId, Number.MAX_SAFE_INTEGER);
+  }
+
   /** HubSpot finishes every send still processing: the next status read says how it went. */
   completeSends() {
     for (const k of this.polls.keys()) this.polls.set(k, 0);

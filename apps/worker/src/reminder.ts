@@ -28,6 +28,8 @@ const EARLY_MS = 60_000;
 const TIME_FIELDS = ["startUtc", "endUtc", "reattached"];
 /** A welcome HubSpot is still working on is read again this much later. */
 const RECHECK_MS = 10 * 60_000;
+/** A welcome HubSpot has not settled this long after taking it is left unresolved. */
+const RECHECK_FOR_MS = 2 * 86_400_000;
 
 async function enqueue(tx: Tx, tenantId: string, plans: { id: string; runAt: Date }[]) {
   for (const p of plans) {
@@ -96,7 +98,10 @@ export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => D
       if (!message) return null;
       // A welcome HubSpot took already goes back to HubSpot for its result, whenever this runs.
       const taken = await registration.reminderStatusId(tx, registrationId);
-      const at = taken ? now : registration.reminderTime(message.registration, message.target, now);
+      // Whether a welcome is due decides a new email (the first send, or the platform's fallback),
+      // never whether the result of one HubSpot has taken is read.
+      const due = registration.reminderTime(message.registration, message.target, now);
+      const at = taken ? now : due;
       if (!at) return null;
       if (at.getTime() - now.getTime() > EARLY_MS) {
         // The occurrence moved later, or the setting changed: try again at the new time.
@@ -108,7 +113,7 @@ export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => D
         registration.admissionToken(tx, tenantId, message.registration),
         integrations.eventChannel(tx, message.target.event.id),
       ]);
-      return { message, manage, admission, channel, taken };
+      return { message, manage, admission, channel, taken, eligible: due !== null };
     });
     if (!prepared) {
       helpers.logger.info(`registration ${registrationId}: no reminder now`);
@@ -139,6 +144,13 @@ export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => D
         return;
       }
       if (r.pending) {
+        const takenAt = prepared.taken?.takenAt ?? now;
+        if (r.recheck && now.getTime() - takenAt.getTime() >= RECHECK_FOR_MS) {
+          // HubSpot never settled it: unresolved for good. Kept as reminded, so nothing reads or sends it again.
+          await withTenant(db, { tenantId }, (tx) => registration.recordReminderChannel(tx, registrationId, null, `Unresolved: ${r.reason.replace(/\. Checked again later$/, "")}`));
+          helpers.logger.warn(`registration ${registrationId}: welcome left unresolved after ${RECHECK_FOR_MS / 3_600_000} hours (${r.reason})`);
+          return;
+        }
         // Neither sent nor refused: released. Connected to the portal that took it: read again
         // later; otherwise a reconnect of that portal queues it again.
         await release();
@@ -147,6 +159,13 @@ export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => D
           if (r.recheck) await enqueue(tx, tenantId, [{ id: registrationId, runAt: new Date(now.getTime() + RECHECK_MS) }]);
         });
         helpers.logger.warn(`registration ${registrationId}: welcome ${r.recheck ? "checked again later" : "left unresolved"} (${r.reason})`);
+        return;
+      }
+      if (!prepared.eligible) {
+        // HubSpot did not send it, and a welcome is no longer due (cancelled, or the event has
+        // started): recorded, and kept as reminded, with no platform email.
+        await withTenant(db, { tenantId }, (tx) => registration.recordReminderChannel(tx, registrationId, null, `HubSpot did not send it (${r.reason}), and it is no longer due`));
+        helpers.logger.info(`registration ${registrationId}: HubSpot did not send the welcome, and it is no longer due`);
         return;
       }
       fallbackReason = r.reason;
