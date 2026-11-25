@@ -235,6 +235,8 @@ export interface PublicOccurrenceFilter {
   tagId?: string;
   status?: OccurrenceStatus;
   after?: { startUtc: Date; id: string };
+  /** One occurrence by id; like asking for its event, this finds unlisted events too. */
+  occurrenceId?: string;
   limit: number;
 }
 
@@ -261,8 +263,9 @@ export async function listPublicOccurrences(
     .limit(f.limit);
   if (f.to) q = q.where("o.start_utc", "<", f.to);
   // Unlisted events (closed events) stay out of listings, but asking for the event by id or slug finds them.
+  if (f.occurrenceId) q = q.where("o.id", "=", f.occurrenceId);
   if (f.event) q = UUID_RE.test(f.event) ? q.where("e.id", "=", f.event) : q.where("e.slug", "=", f.event);
-  else q = q.where("e.listed", "=", true);
+  else if (!f.occurrenceId) q = q.where("e.listed", "=", true);
   if (f.status === "cancelled") q = q.where((eb) => eb.or([eb("o.status", "=", "cancelled"), eb("e.status", "=", "cancelled")]));
   if (f.status === "scheduled") q = q.where("o.status", "=", "scheduled").where("e.status", "<>", "cancelled");
   if (f.after) {

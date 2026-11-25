@@ -64,6 +64,7 @@ export async function getChannel(tx: Tx, id: string): Promise<SalesChannel> {
 export async function createChannel(tx: Tx, ctx: ActorContext, input: SalesChannelInput): Promise<SalesChannel> {
   assertCan(ctx, "account.write");
   if (!CODE_RE.test(input.code ?? "")) throw invalid("code", "Use lowercase letters, digits, - and _");
+  // The hosted channel comes from enabling the checkout (enableHostedChannel), one per account.
   if (!KINDS.includes(input.kind)) throw invalid("kind", "ecom or pos");
   if (input.name === undefined) throw invalid("name", "Name the channel");
   validateName(input.name);
@@ -101,6 +102,48 @@ export async function updateChannel(tx: Tx, ctx: ActorContext, id: string, expec
   await recordAudit(tx, ctx, { action: "sales_channel.updated", entityType: "account", entityId: ctx.tenantId, diff: { id, code: before.code, ...diff } });
   await emit(tx, ctx.tenantId, { type: "sales_channel.changed.v1", subject: `sales-channel/${id}`, data: { id, change: "updated" } });
   return after;
+}
+
+// ── The hosted checkout's channel ───────────────────────────────────────────────
+
+/** The code of the hosted checkout's channel (docs/checkout.md); staff cannot create kind hosted themselves. */
+export const HOSTED_CHANNEL_CODE = "hosted-checkout";
+/** At least this long, so the hold outlives the Vipps payment (the buyer has a few minutes to approve). */
+export const HOSTED_HOLD_MINUTES = 20;
+
+/** The account's hosted checkout channel, active or not; null until the checkout is enabled. */
+export async function hostedChannel(tx: Tx): Promise<SalesChannel | null> {
+  const r = await tx.selectFrom("offers.sales_channel").select(columns).where("kind", "=", "hosted").executeTakeFirst();
+  return r ? toChannel(r) : null;
+}
+
+/**
+ * Enables the hosted checkout (owner): creates its channel, or activates it again. The channel
+ * emails the tickets. VAT classes without a SKU on it get a default one (TICKET-<code>), which
+ * staff can change. Offers are then put on sale there like on any channel.
+ */
+export async function enableHostedChannel(tx: Tx, ctx: ActorContext): Promise<SalesChannel> {
+  assertCan(ctx, "account.write");
+  let channel = await hostedChannel(tx);
+  if (!channel) {
+    const id = newId();
+    const taken = await tx.selectFrom("offers.sales_channel").select("id").where("code", "=", HOSTED_CHANNEL_CODE).executeTakeFirst();
+    await tx.insertInto("offers.sales_channel").values({
+      id, tenant_id: ctx.tenantId, code: taken ? `${HOSTED_CHANNEL_CODE}-${id.slice(-6)}` : HOSTED_CHANNEL_CODE, name: "Checkout", kind: "hosted",
+      hold_minutes: HOSTED_HOLD_MINUTES, send_tickets: true,
+    }).execute();
+    await recordAudit(tx, ctx, { action: "sales_channel.created", entityType: "account", entityId: ctx.tenantId, diff: { id, code: HOSTED_CHANNEL_CODE, kind: "hosted" } });
+    await emit(tx, ctx.tenantId, { type: "sales_channel.changed.v1", subject: `sales-channel/${id}`, data: { id, change: "created" } });
+    channel = await getChannel(tx, id);
+  } else if (!channel.active) {
+    channel = await updateChannel(tx, ctx, channel.id, channel.version, { active: true });
+  }
+  const mapped = new Set((await listSkuMappings(tx)).filter((m) => m.channelId === channel.id).map((m) => m.vatClassId));
+  const vat = await tx.selectFrom("offers.vat_class").select(["id", "code"]).execute();
+  for (const v of vat.filter((x) => !mapped.has(x.id))) {
+    await setSkuMapping(tx, ctx, v.id, channel.id, `TICKET-${v.code.toUpperCase()}`.slice(0, 100));
+  }
+  return channel;
 }
 
 // ── Channel keys ───────────────────────────────────────────────────────────────

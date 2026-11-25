@@ -373,6 +373,9 @@ importers:
         specifier: ^2.8.1
         version: 2.8.1
     devDependencies:
+      '@event-manager/vipps':
+        specifier: workspace:*
+        version: link:../vipps
       '@testcontainers/postgresql':
         specifier: ^11.14.0
         version: 11.14.0(bare-buffer@3.7.2)

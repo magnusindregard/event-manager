@@ -1,0 +1,463 @@
+import { type Db, newId, type PaymentState, sql, type Tx, withTenant } from "@event-manager/db";
+import * as catalog from "../catalog/index.js";
+import * as offers from "../offers/index.js";
+import { emit } from "../outbox/index.js";
+import * as registration from "../registration/index.js";
+import * as sales from "../sales/index.js";
+import { DomainError } from "../shared/index.js";
+import { getAccount } from "../tenancy/index.js";
+import { credentialsFor, getProviderAccount } from "./accounts.js";
+import { type PaymentProvider, type ProviderCredentials, type ProviderPayment, providerMessage, providerUnavailable } from "./provider.js";
+
+// The hosted checkout (docs/checkout.md, ADR 0018): authorise → confirm → capture.
+//
+//   startCheckout   reserves on the hosted channel, holds the places long enough, and creates
+//                   the Vipps payment for exactly the reservation's total.
+//   processPayment  reads the payment at Vipps (the source of truth) and moves it on:
+//                   authorised → confirm (tickets) → capture; confirm failing → cancel the
+//                   authorisation, so no money moves; rejected or expired → release the places.
+//
+// processPayment is idempotent. The return page, the webhook job and the reconcile job all call
+// it, in any order and as often as they like. Each decision is taken under a lock on the payment
+// row. Calls to Vipps happen outside the transactions, with an idempotency key per payment and
+// action, so a retried capture or cancel moves no more money.
+
+const MIN = 60_000;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export interface CheckoutDeps {
+  provider: PaymentProvider;
+  /** The attendee app's base URL; Vipps sends the buyer back to its return page. */
+  attendeeUrl: string;
+}
+
+const caller = (tenantId: string, channelId: string): sales.ChannelCaller => ({ tenantId, channelId, signingKey: null });
+const returnUrl = (deps: CheckoutDeps, token: string) => `${deps.attendeeUrl.replace(/\/+$/, "")}/b/return/${token}`;
+const invalid = (field: string, message: string) => new DomainError("validation_failed", message, { field });
+const TERMINAL: readonly PaymentState[] = ["captured", "cancelled", "expired", "failed"];
+
+// ── The buy page ──────────────────────────────────────────────────────────────
+
+export interface CheckoutPage {
+  occurrence: catalog.PublicOccurrence;
+  accountName: string;
+  locale: string;
+  locales: string[];
+  /** The checkout is enabled and Vipps is connected; otherwise the page shows the offers but cannot sell. */
+  open: boolean;
+}
+
+/** What the buy page shows: the occurrence's offers on the hosted channel, at their public prices. Null for an unknown occurrence. */
+export async function checkoutPage(tx: Tx, occurrenceId: string, locale: string | undefined, now: Date = new Date()): Promise<CheckoutPage | null> {
+  const channel = await offers.hostedChannel(tx);
+  const account = await getAccount(tx);
+  if (!channel) return null;
+  const { locale: picked, items } = await catalog.listPublicOccurrences(tx, { preview: false, locale, channelId: channel.id, now }, { from: now, occurrenceId, limit: 1 });
+  const occurrence = items[0];
+  if (!occurrence || occurrence.admission.mode !== "tickets") return null;
+  const provider = await getProviderAccount(tx);
+  return { occurrence, accountName: account.name, locale: picked, locales: account.locales, open: channel.active && provider?.status === "active" };
+}
+
+// ── Starting a checkout ───────────────────────────────────────────────────────
+
+export interface CheckoutInput {
+  occurrenceId: string;
+  lines: { offerId: string; quantity: number }[];
+  buyer: { name: string; email: string; phone?: string | null };
+  locale?: string;
+}
+
+export type StartedCheckout =
+  /** Send the buyer here to pay. */
+  | { kind: "pay"; redirectUrl: string; paymentId: string; token: string }
+  /** Nothing to pay (free tickets): confirmed at once. */
+  | { kind: "free"; reservationId: string; token: string };
+
+/** Digits with the country code, as Vipps takes it; 8 digits are taken as Norwegian. Null when left out. */
+export function normalizePhone(raw: string | null | undefined): string | null {
+  const s = (raw ?? "").replace(/[\s().-]/g, "");
+  if (!s) return null;
+  const digits = s.replace(/^\+/, "").replace(/^00/, "");
+  if (!/^[0-9]+$/.test(digits)) throw invalid("buyer.phone", "Enter a phone number with digits only");
+  const full = digits.length === 8 ? `47${digits}` : digits;
+  if (full.length < 10 || full.length > 15) throw invalid("buyer.phone", "Enter a phone number, with country code outside Norway");
+  return full;
+}
+
+function buyerOf(b: CheckoutInput["buyer"]) {
+  const name = (b?.name ?? "").replace(/\s+/g, " ").trim();
+  const email = (b?.email ?? "").trim().toLowerCase();
+  if (!name || name.length > 200) throw invalid("buyer.name", "Enter your name");
+  if (!email || email.length > 254 || !EMAIL_RE.test(email)) throw invalid("buyer.email", "Enter a valid email address");
+  return { name, email, phone: normalizePhone(b.phone) };
+}
+
+/**
+ * Reserves on the hosted channel and creates the Vipps payment (docs/checkout.md, "The buy
+ * flow"). Throws the reservation's errors (sold_out, quantity_out_of_range, not_on_sale …), and
+ * not_on_sale when the checkout is closed or Vipps is not connected. If Vipps cannot create the
+ * payment, the places are released again.
+ */
+export async function startCheckout(db: Db, tenantId: string, input: CheckoutInput, deps: CheckoutDeps, now: Date = new Date()): Promise<StartedCheckout> {
+  const buyer = buyerOf(input.buyer);
+  const lines = (input.lines ?? []).filter((l) => l.quantity > 0).map((l) => ({ occurrenceId: input.occurrenceId, offerId: l.offerId, quantity: l.quantity }));
+  if (!lines.length) throw invalid("lines", "Choose at least one ticket");
+
+  const prep = await withTenant(db, { tenantId }, async (tx) => {
+    const channel = await offers.hostedChannel(tx);
+    if (!channel?.active) throw new DomainError("not_on_sale", "The checkout is closed");
+    const account = await getProviderAccount(tx);
+    if (account?.status !== "active") throw new DomainError("not_on_sale", "Payment is not available right now");
+    const c = caller(tenantId, channel.id);
+    let r = await sales.reserve(tx, c, { lines, locale: input.locale }, now);
+
+    if (r.total.amount === 0) {
+      const done = await sales.confirm(tx, c, r.id, { externalOrderRef: `free-${r.id}`, buyer: { name: buyer.name, email: buyer.email, locale: r.locale } }, now);
+      return { free: done };
+    }
+    if (r.expiresAt.getTime() < now.getTime() + offers.HOSTED_HOLD_MINUTES * MIN) {
+      r = await sales.extendReservation(tx, c, r.id, { minutes: offers.HOSTED_HOLD_MINUTES }, now);
+    }
+    const id = newId();
+    const reference = `em-${r.id.replace(/-/g, "")}`;
+    await tx.insertInto("payments.payment").values({
+      id, tenant_id: tenantId, provider_account_id: account.id, reservation_id: r.id, provider: "vipps", reference,
+      amount: r.total.amount, currency: r.total.currency, buyer_name: buyer.name, buyer_email: buyer.email, buyer_phone: buyer.phone, created_at: now, updated_at: now,
+    }).execute();
+    const creds = (await credentialsFor(tx, tenantId, account.id))!;
+    const token = await registration.issueToken(tx, tenantId, "checkout", id, 1);
+    const shop = (await getAccount(tx)).name;
+    const description = `${shop}: ${[...new Set(r.lines.map((l) => l.name))].join(", ")}`.slice(0, 100);
+    return { free: null, id, reference, creds, token, amount: r.total, description, reservationId: r.id, channelId: channel.id };
+  });
+
+  if (prep.free) {
+    const token = await withTenant(db, { tenantId }, (tx) => registration.issueToken(tx, tenantId, "checkout", prep.free.id, 0));
+    return { kind: "free", reservationId: prep.free.id, token };
+  }
+
+  let redirectUrl: string;
+  try {
+    redirectUrl = (await deps.provider.createPayment(prep.creds, {
+      reference: prep.reference, amount: { currency: prep.amount.currency, value: prep.amount.amount },
+      returnUrl: returnUrl(deps, prep.token), description: prep.description, phoneNumber: buyer.phone,
+    }, `create-${prep.id}`)).redirectUrl;
+  } catch (e) {
+    await withTenant(db, { tenantId }, async (tx) => {
+      await sales.cancelReservation(tx, caller(tenantId, prep.channelId), prep.reservationId, {}, now).catch(() => undefined);
+      await setState(tx, prep.id, "failed", { failure_reason: `Vipps could not create the payment: ${providerMessage(e)}`.slice(0, 500) });
+    });
+    throw new DomainError("conflict", "Vipps could not start the payment; try again");
+  }
+  await withTenant(db, { tenantId }, (tx) => tx.updateTable("payments.payment").set({ redirect_url: redirectUrl }).where("id", "=", prep.id).execute());
+  return { kind: "pay", redirectUrl, paymentId: prep.id, token: prep.token };
+}
+
+// ── Processing ────────────────────────────────────────────────────────────────
+
+type PaymentRow = {
+  id: string; reservation_id: string; provider_account_id: string; reference: string; amount: number; currency: string; state: PaymentState;
+  buyer_name: string | null; buyer_email: string | null;
+};
+const rowColumns = ["id", "reservation_id", "provider_account_id", "reference", "amount", "currency", "state", "buyer_name", "buyer_email"] as const;
+
+async function setState(tx: Tx, id: string, state: PaymentState, extra: Partial<{ failure_reason: string | null; authorized_at: Date; captured_at: Date; cancelled_at: Date; aggregate: string }> = {}) {
+  await tx.updateTable("payments.payment").set({ state, ...extra, version: sql<number>`version + 1` }).where("id", "=", id).execute();
+}
+
+const paymentEvent = async (tx: Tx, tenantId: string, type: string, row: PaymentRow, data: Record<string, unknown> = {}) =>
+  emit(tx, tenantId, {
+    type, subject: `payment/${row.id}`,
+    data: { paymentId: row.id, reservationId: row.reservation_id, reference: row.reference, amount: { amount: row.amount, currency: row.currency }, ...data },
+  });
+
+/** Runs `fn` so that a failure rolls back only what it did. */
+async function inSavepoint<T>(tx: Tx, fn: () => Promise<T>): Promise<T> {
+  await sql`savepoint checkout_step`.execute(tx);
+  try {
+    const r = await fn();
+    await sql`release savepoint checkout_step`.execute(tx);
+    return r;
+  } catch (e) {
+    await sql`rollback to savepoint checkout_step`.execute(tx);
+    throw e;
+  }
+}
+
+type Action = { kind: "none" } | { kind: "capture" } | { kind: "cancel"; reason: string };
+
+/**
+ * Moves a payment on from what Vipps says about it (docs/checkout.md, the state table). Returns
+ * the payment's state afterwards, or null for an unknown payment. Vipps not answering leaves
+ * the payment as it was; the reconcile job tries again.
+ */
+export async function processPayment(db: Db, tenantId: string, paymentId: string, deps: { provider: PaymentProvider }, now: Date = new Date()): Promise<PaymentState | null> {
+  const first = await withTenant(db, { tenantId }, async (tx) => {
+    const row = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).executeTakeFirst();
+    if (!row) return null;
+    return { row, creds: TERMINAL.includes(row.state) ? null : await credentialsFor(tx, tenantId, row.provider_account_id) };
+  });
+  if (!first) return null;
+  if (!first.creds) return first.row.state;
+  const creds = first.creds;
+
+  let remote: ProviderPayment;
+  try {
+    remote = await deps.provider.getPayment(creds, first.row.reference);
+  } catch (e) {
+    if (providerUnavailable(e)) return first.row.state;
+    throw e;
+  }
+
+  const { row, action } = await withTenant(db, { tenantId }, async (tx) => {
+    const row = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).forUpdate().executeTakeFirstOrThrow();
+    const action = await decide(tx, tenantId, row, remote, now);
+    return { row, action };
+  });
+
+  if (action.kind === "capture") {
+    try {
+      await deps.provider.capture(creds, row.reference, { currency: row.currency, value: row.amount }, `capture-${row.id}`);
+    } catch (e) {
+      // The tickets are issued; the reconcile job captures later. A refused capture needs staff.
+      await withTenant(db, { tenantId }, (tx) => tx.updateTable("payments.payment").set({ failure_reason: `Capture failed: ${providerMessage(e)}`.slice(0, 500) }).where("id", "=", row.id).execute());
+      return "authorized";
+    }
+    return withTenant(db, { tenantId }, async (tx) => {
+      const locked = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).forUpdate().executeTakeFirstOrThrow();
+      if (locked.state === "captured") return "captured" as const;
+      await setState(tx, row.id, "captured", { captured_at: now, failure_reason: null });
+      await paymentEvent(tx, tenantId, "payment.captured.v1", row);
+      return "captured" as const;
+    });
+  }
+
+  if (action.kind === "cancel") {
+    try {
+      await deps.provider.cancel(creds, row.reference, `cancel-${row.id}`);
+    } catch (e) {
+      if (providerUnavailable(e)) return row.state;
+      // Already cancelled, expired or terminated at Vipps: nothing left to cancel.
+    }
+    return withTenant(db, { tenantId }, async (tx) => {
+      const locked = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).forUpdate().executeTakeFirstOrThrow();
+      if (TERMINAL.includes(locked.state)) return locked.state;
+      await releaseReservation(tx, tenantId, row.reservation_id, now);
+      await setState(tx, row.id, "cancelled", { cancelled_at: now, failure_reason: action.reason.slice(0, 500) });
+      await paymentEvent(tx, tenantId, "payment.cancelled.v1", row, { reason: action.reason });
+      return "cancelled" as const;
+    });
+  }
+
+  return withTenant(db, { tenantId }, async (tx) => (await tx.selectFrom("payments.payment").select("state").where("id", "=", paymentId).executeTakeFirstOrThrow()).state);
+}
+
+/** Decides what to do, under the lock on the payment, and records what needs no call to Vipps. */
+async function decide(tx: Tx, tenantId: string, row: PaymentRow, remote: ProviderPayment, now: Date): Promise<Action> {
+  if (TERMINAL.includes(row.state)) return { kind: "none" };
+  await tx.updateTable("payments.payment").set({ aggregate: JSON.stringify({ state: remote.state, ...remote.aggregate }) }).where("id", "=", row.id).execute();
+  const agg = remote.aggregate;
+
+  if (remote.state === "CREATED") return { kind: "none" };
+
+  if (remote.state === "AUTHORIZED") {
+    if (agg.capturedAmount.value >= row.amount) {
+      // Captured at Vipps but not recorded here (we crashed after capturing).
+      await setState(tx, row.id, "captured", { captured_at: now, failure_reason: null });
+      await paymentEvent(tx, tenantId, "payment.captured.v1", row);
+      return { kind: "none" };
+    }
+    if (agg.cancelledAmount.value > 0) {
+      await releaseReservation(tx, tenantId, row.reservation_id, now);
+      await setState(tx, row.id, "cancelled", { cancelled_at: now });
+      await paymentEvent(tx, tenantId, "payment.cancelled.v1", row, { reason: "cancelled at Vipps" });
+      return { kind: "none" };
+    }
+    if (row.state === "authorized") return { kind: "capture" };
+    const channelId = await reservationChannel(tx, row.reservation_id);
+    try {
+      await inSavepoint(tx, async () => {
+        const locale = (await tx.selectFrom("sales.reservation").select("locale").where("id", "=", row.reservation_id).executeTakeFirstOrThrow()).locale;
+        await sales.confirm(tx, caller(tenantId, channelId), row.reservation_id, { externalOrderRef: row.reference, buyer: { name: row.buyer_name, email: row.buyer_email, locale } }, now);
+      });
+    } catch (e) {
+      if (!(e instanceof DomainError)) throw e;
+      return { kind: "cancel", reason: `The tickets could not be issued (${e.code}); the payment was cancelled` };
+    }
+    await setState(tx, row.id, "authorized", { authorized_at: now });
+    await paymentEvent(tx, tenantId, "payment.authorized.v1", row);
+    return { kind: "capture" };
+  }
+
+  // ABORTED (the buyer said no), EXPIRED (no answer), TERMINATED (cancelled).
+  // If confirm had issued tickets (the authorisation went away before capture), they go too.
+  const state: PaymentState = remote.state === "ABORTED" ? "failed" : remote.state === "EXPIRED" ? "expired" : "cancelled";
+  await releaseReservation(tx, tenantId, row.reservation_id, now);
+  await setState(tx, row.id, state, state === "cancelled" ? { cancelled_at: now } : {});
+  await paymentEvent(tx, tenantId, state === "cancelled" ? "payment.cancelled.v1" : "payment.failed.v1", row, { providerState: remote.state });
+  return { kind: "none" };
+}
+
+async function reservationChannel(tx: Tx, reservationId: string): Promise<string> {
+  return (await tx.selectFrom("sales.reservation").select("channel_id").where("id", "=", reservationId).executeTakeFirstOrThrow()).channel_id;
+}
+
+/**
+ * Releases the places, or cancels the tickets if confirm already issued them. Nothing when the
+ * reservation is cancelled already. With the channel deactivated meanwhile, a held reservation
+ * is left to the sweeper, which releases it at expiry.
+ */
+async function releaseReservation(tx: Tx, tenantId: string, reservationId: string, now: Date) {
+  const r = await tx.selectFrom("sales.reservation").select(["status", "channel_id"]).where("id", "=", reservationId).executeTakeFirstOrThrow();
+  if (r.status === "cancelled" || !(await offers.activeChannel(tx, r.channel_id))) return;
+  try {
+    await inSavepoint(tx, () => sales.cancelReservation(tx, caller(tenantId, r.channel_id), reservationId, {}, now));
+  } catch (e) {
+    // occurrence_started: tickets for a show that has begun stay; staff settle it.
+    if (!(e instanceof DomainError)) throw e;
+  }
+}
+
+// ── Status, for the return page ─────────────────────────────────────────────────
+
+export interface CheckoutStatus {
+  state: PaymentState | "free";
+  reservation: sales.Reservation;
+  accountName: string;
+  /** VAT per rate, for the receipt. */
+  vat: { ratePct: number; amount: number }[];
+  reference: string | null;
+}
+
+/** The payment behind a checkout token (or the free reservation), with the reservation. Null for an invalid token. */
+export async function checkoutStatus(tx: Tx, token: string, now: Date = new Date()): Promise<CheckoutStatus | null> {
+  const account = await getAccount(tx);
+  if (checkoutTokenTenant(token) !== account.id) return null;
+  const claims = await registration.verifyToken(tx, token, "checkout");
+  if (!claims) return null;
+  // Version 0: a free checkout, whose subject is the reservation; version 1: a payment.
+  let reservationId = claims.subjectId;
+  let state: CheckoutStatus["state"] = "free";
+  let reference: string | null = null;
+  if (claims.tokenVersion !== 0) {
+    const p = await tx.selectFrom("payments.payment").select(["reservation_id", "state", "reference"]).where("id", "=", claims.subjectId).executeTakeFirst();
+    if (!p) return null;
+    ({ reservation_id: reservationId, state, reference } = p);
+  }
+  const r = await tx.selectFrom("sales.reservation").select("channel_id").where("id", "=", reservationId).executeTakeFirst();
+  if (!r) return null;
+  const reservation = await sales.getReservation(tx, caller(claims.tenantId, r.channel_id), reservationId, now);
+  return { state, reservation, accountName: account.name, vat: vatPerRate(reservation.lines), reference };
+}
+
+/** The tenant a checkout token names, unverified: the caller opens that tenant's transaction to verify it. */
+export function checkoutTokenTenant(token: string): string | null {
+  const c = registration.peekToken(token);
+  return c?.purpose === "checkout" ? c.tenantId : null;
+}
+
+/** Verifies a checkout token and gives its payment id; null for a free checkout or an invalid token. */
+export async function paymentOfToken(tx: Tx, token: string): Promise<string | null> {
+  if (checkoutTokenTenant(token) !== (await getAccount(tx)).id) return null;
+  const c = await registration.verifyToken(tx, token, "checkout");
+  return c && c.tokenVersion !== 0 ? c.subjectId : null;
+}
+
+// ── Receipts ──────────────────────────────────────────────────────────────────
+
+/** VAT included in an amount at a rate (minor units, rounded). */
+export const vatIn = (amount: number, ratePct: number) => Math.round((amount * ratePct) / (100 + ratePct));
+
+export function vatPerRate(lines: readonly { amount: number; vatRatePct: number }[]): { ratePct: number; amount: number }[] {
+  const by = new Map<number, number>();
+  for (const l of lines) by.set(l.vatRatePct, (by.get(l.vatRatePct) ?? 0) + l.amount);
+  return [...by.entries()].sort((a, b) => b[0] - a[0]).map(([ratePct, amount]) => ({ ratePct, amount: vatIn(amount, ratePct) }));
+}
+
+export interface Receipt {
+  paymentId: string;
+  reference: string;
+  capturedAt: Date;
+  locale: string;
+  buyer: { name: string | null; email: string | null };
+  merchant: { name: string; legalName: string | null; orgNumber: string | null; address: string | null; vatRegistered: boolean };
+  lines: { name: string; quantity: number; unitPrice: number; amount: number; vatRatePct: number; vat: number }[];
+  total: { amount: number; currency: string };
+  vat: { ratePct: number; amount: number }[];
+  /** Already sent (email and Vipps app). */
+  sentAt: Date | null;
+}
+
+/** The receipt for a captured payment, from the frozen snapshot and the merchant details. Null until captured. */
+export async function receiptFor(tx: Tx, paymentId: string): Promise<Receipt | null> {
+  const p = await tx.selectFrom("payments.payment")
+    .select(["id", "reference", "state", "captured_at", "reservation_id", "buyer_name", "buyer_email", "amount", "currency", "receipt_sent_at"])
+    .where("id", "=", paymentId).executeTakeFirst();
+  if (!p || p.state !== "captured" || !p.captured_at) return null;
+  const account = await getAccount(tx);
+  const r = await tx.selectFrom("sales.reservation").select("locale").where("id", "=", p.reservation_id).executeTakeFirstOrThrow();
+  const lines = (await tx.selectFrom("sales.reservation_line").select(["line_name", "quantity", "unit_price", "vat_rate_pct"]).where("reservation_id", "=", p.reservation_id).orderBy("line_no").execute())
+    .map((l) => {
+      const amount = l.unit_price * l.quantity;
+      const rate = Number(l.vat_rate_pct);
+      return { name: l.line_name, quantity: l.quantity, unitPrice: l.unit_price, amount, vatRatePct: rate, vat: vatIn(amount, rate) };
+    });
+  return {
+    paymentId: p.id, reference: p.reference, capturedAt: p.captured_at, locale: r.locale,
+    buyer: { name: p.buyer_name, email: p.buyer_email },
+    merchant: { name: account.name, ...account.merchant },
+    lines, total: { amount: p.amount, currency: p.currency }, vat: vatPerRate(lines), sentAt: p.receipt_sent_at,
+  };
+}
+
+/** Marks the receipt sent; false if it already was (another job got there first). */
+export async function markReceiptSent(tx: Tx, paymentId: string, now: Date = new Date()): Promise<boolean> {
+  const r = await tx.updateTable("payments.payment").set({ receipt_sent_at: now }).where("id", "=", paymentId).where("receipt_sent_at", "is", null).executeTakeFirst();
+  return Number(r.numUpdatedRows) > 0;
+}
+
+/** Sends the receipt to the buyer's Vipps app (Order Management). Best effort: the email is the receipt of record. */
+export async function sendReceiptToProvider(db: Db, tenantId: string, paymentId: string, deps: { provider: PaymentProvider }): Promise<void> {
+  const prep = await withTenant(db, { tenantId }, async (tx) => {
+    const receipt = await receiptFor(tx, paymentId);
+    if (!receipt) return null;
+    const p = await tx.selectFrom("payments.payment").select("provider_account_id").where("id", "=", paymentId).executeTakeFirstOrThrow();
+    return { receipt, creds: await credentialsFor(tx, tenantId, p.provider_account_id) };
+  });
+  if (!prep?.creds) return;
+  const creds: ProviderCredentials = prep.creds;
+  const { receipt } = prep;
+  await deps.provider.sendReceipt(creds, receipt.reference, {
+    currency: receipt.total.currency,
+    receiptNumber: receipt.reference,
+    lines: receipt.lines.map((l, i) => ({
+      name: l.name, id: String(i + 1), totalAmount: l.amount, totalAmountExcludingTax: l.amount - l.vat, totalTaxAmount: l.vat,
+      taxPercentage: Math.round(l.vatRatePct), unitPrice: l.unitPrice, quantity: l.quantity,
+    })),
+  });
+}
+
+// ── Reconcile ─────────────────────────────────────────────────────────────────
+
+/** Accounts with payments not settled since `before`; runs without a tenant (SECURITY DEFINER lookup). */
+export async function openPaymentTenants(tx: Tx, before: Date): Promise<string[]> {
+  const r = await sql<{ id: string }>`select payments.open_payment_tenants(${before}) as id`.execute(tx);
+  return r.rows.map((x) => x.id);
+}
+
+/** A tenant's payments in created or authorized, unchanged since `before`, oldest first. */
+export async function openPayments(tx: Tx, before: Date, limit = 200): Promise<string[]> {
+  const rows = await tx.selectFrom("payments.payment").select("id").where("state", "in", ["created", "authorized"]).where("updated_at", "<=", before).orderBy("updated_at").limit(limit).execute();
+  return rows.map((r) => r.id);
+}
+
+/** The payment for a reservation, if it was made in the hosted checkout. */
+export async function paymentForReservation(tx: Tx, reservationId: string): Promise<{ id: string; state: PaymentState } | null> {
+  return (await tx.selectFrom("payments.payment").select(["id", "state"]).where("reservation_id", "=", reservationId).executeTakeFirst()) ?? null;
+}
+
+/** The payment with a Vipps reference (webhooks name it). */
+export async function paymentByReference(tx: Tx, reference: string): Promise<string | null> {
+  return (await tx.selectFrom("payments.payment").select("id").where("reference", "=", reference).executeTakeFirst())?.id ?? null;
+}

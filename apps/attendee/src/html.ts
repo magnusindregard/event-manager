@@ -77,7 +77,7 @@ label.option span.where { display: block; color: var(--muted); font-size: .875re
 img.hero { width: 100%; border-radius: .75rem; margin-bottom: 1rem; }
 `;
 
-export function page(opts: { locale: string; title: string; account?: string; langLinks?: { locale: string; href: string }[]; body: Raw }): string {
+export function page(opts: { locale: string; title: string; account?: string; langLinks?: { locale: string; href: string }[]; body: Raw; head?: Raw }): string {
   return `<!doctype html>${html`<html lang="${opts.locale}">
 <head>
 <meta charset="utf-8">
@@ -85,6 +85,7 @@ export function page(opts: { locale: string; title: string; account?: string; la
 <meta name="robots" content="noindex">
 <title>${opts.title}${opts.account ? ` · ${opts.account}` : ""}</title>
 <style>${raw(STYLE)}</style>
+${opts.head ?? ""}
 </head>
 <body><main>
 <header><span>${opts.account ?? ""}</span>${opts.langLinks?.length ? html`<nav>${opts.langLinks.map((l) => html`<a href="${l.href}" lang="${l.locale}" hreflang="${l.locale}">${l.locale.toUpperCase()}</a>`)}</nav>` : ""}</header>
