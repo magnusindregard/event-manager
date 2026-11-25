@@ -8,6 +8,8 @@ import { dropSyncItems } from "./sync.js";
 export * from "./cleanup.js";
 export * from "./segments.js";
 export * from "./sending.js";
+export * from "./session.js";
+export * from "./guest-lists.js";
 export * from "./sync.js";
 
 // Connections to the account's outside systems (docs/hubspot.md, ADR 0017). One per account

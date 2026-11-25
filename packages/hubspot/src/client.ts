@@ -67,6 +67,14 @@ export interface ContactList {
   listId: string;
   name: string;
   processingType: string;
+  /** Members, where HubSpot says (searches do). */
+  size?: number | null;
+}
+
+/** A contact read by record id, with the properties asked for. */
+export interface ContactRecord {
+  id: string;
+  properties: Record<string, string | null>;
 }
 
 /** A subscription type (communication preferences v4). */
@@ -180,6 +188,19 @@ export class HubSpotError extends Error {
   }
 }
 
+/**
+ * How HubSpot refreshes tokens and refuses them: the auth a connection session needs
+ * (`integrations.withProvider` in the domain), shared by the API and the worker.
+ */
+export function hubspotAuth(client: Pick<HubSpotClient, "refresh">) {
+  return {
+    refresh: (refreshToken: string) => client.refresh(refreshToken),
+    // HubSpot answers 400 to a refresh token it no longer accepts.
+    refusedRefresh: (e: unknown) => e instanceof HubSpotError && (e.unauthorized || e.status === 400),
+    refusedAccess: (e: unknown) => e instanceof HubSpotError && e.unauthorized,
+  };
+}
+
 export interface HubSpotClient {
   /** The install URL an owner is sent to. */
   authorizeUrl(state: string, scopes: { required: readonly string[]; optional: readonly string[] }): string;
@@ -209,6 +230,12 @@ export interface HubSpotClient {
   removeFromList(accessToken: string, listId: string, recordIds: string[]): Promise<MembershipChange>;
   /** Every member's record id. A list HubSpot no longer has is a 404 HubSpotError. */
   listMembers(accessToken: string, listId: string): Promise<string[]>;
+  /** Contact lists (segments) whose name contains `query`, most recently changed first; at most 50. */
+  searchLists(accessToken: string, query: string): Promise<ContactList[]>;
+  /** One list by id, or null if HubSpot has none. */
+  getList(accessToken: string, listId: string): Promise<ContactList | null>;
+  /** Contacts by record id (up to 100) with these properties; ids HubSpot no longer has are left out. */
+  readContacts(accessToken: string, ids: string[], properties: string[]): Promise<ContactRecord[]>;
   /** Deletes the list; one HubSpot no longer has is fine. A 400 means something (a sent email) still uses it. */
   deleteList(accessToken: string, listId: string): Promise<void>;
   /** The portal's subscription types. */
@@ -253,6 +280,9 @@ interface RawList {
   listId: string | number;
   name: string;
   processingType?: string;
+  objectTypeId?: string;
+  size?: number;
+  additionalProperties?: { hs_list_size?: string | number | null };
 }
 interface RawFlow {
   id?: string | number;
@@ -286,7 +316,10 @@ const toStatus = (r: { statusId?: string | number; status?: string; sendResult?:
 /** The single-send endpoint that worked in the spike (runs 12–14). */
 const SINGLE_SEND_PATH = "/marketing/email-campaigns/2026-09/single-send";
 
-const toList = (l: RawList): ContactList => ({ listId: String(l.listId), name: l.name, processingType: l.processingType ?? "MANUAL" });
+const toList = (l: RawList): ContactList => ({
+  listId: String(l.listId), name: l.name, processingType: l.processingType ?? "MANUAL",
+  size: l.additionalProperties?.hs_list_size != null ? Number(l.additionalProperties.hs_list_size) : (l.size ?? null),
+});
 
 /** The real client: HubSpot's OAuth v1 endpoints and the APIs the connector uses. */
 export class HttpHubSpot implements HubSpotClient {
@@ -433,6 +466,29 @@ export class HttpHubSpot implements HubSpotClient {
       after = r?.paging?.next?.after;
     } while (after);
     return ids;
+  }
+
+  async searchLists(accessToken: string, query: string): Promise<ContactList[]> {
+    const r = (await this.call("POST", "/crm/v3/lists/search", { query, count: 50, offset: 0, additionalProperties: ["hs_list_size"] }, accessToken)) as { lists?: RawList[] } | null;
+    return (r?.lists ?? []).filter((l) => (l.objectTypeId ?? "0-1") === "0-1").map(toList);
+  }
+
+  async getList(accessToken: string, listId: string): Promise<ContactList | null> {
+    try {
+      const r = (await this.call("GET", `/crm/v3/lists/${encodeURIComponent(listId)}?includeFilters=false`, undefined, accessToken)) as { list?: RawList } | null;
+      return r?.list ? toList(r.list) : null;
+    } catch (e) {
+      if (e instanceof HubSpotError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  async readContacts(accessToken: string, ids: string[], properties: string[]): Promise<ContactRecord[]> {
+    if (!ids.length) return [];
+    const r = (await this.call("POST", "/crm/v3/objects/contacts/batch/read", { properties, inputs: ids.map((id) => ({ id })) }, accessToken)) as {
+      results?: { id: string | number; properties?: Record<string, string | null> }[];
+    } | null;
+    return (r?.results ?? []).map((c) => ({ id: String(c.id), properties: c.properties ?? {} }));
   }
 
   async deleteList(accessToken: string, listId: string): Promise<void> {

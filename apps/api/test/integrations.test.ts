@@ -200,6 +200,24 @@ describe("/v1/integrations", () => {
     expect((await call("GET", url, { as: "owner@b.test", account: B })).status).toBe(404);
   });
 
+  it("searches the portal's lists and fetches one as an event's guest list, for staff who manage guests", async () => {
+    const listId = hubspot.addClientList("4711", "Långivere", [{ id: "801", email: "kari@example.com", firstname: "Kari", lastname: null }]);
+    hubspot.addClientList("4711", "EM · Långivere · Awaiting reply", []);
+    const found = await call("GET", "/v1/integrations/hubspot/lists?q=giv", { as: "manager@a.test" });
+    expect(found).toMatchObject({ status: 200, body: { items: [{ listId, name: "Långivere", size: 1 }] } });
+
+    const ev = await call("POST", "/v1/events", { body: { translations: { nb: { title: "Utlånsgalla" } }, admissionMode: "registration" } });
+    const url = `/v1/events/${ev.body.id}/guest-source`;
+    expect((await call("GET", url)).body).toEqual({ source: null });
+    expect((await call("POST", `${url}/refresh`)).status).toBe(422);
+    expect((await call("POST", url, { body: { listId: "abc", listName: "X" } })).status).toBe(400);
+    const r = await call("POST", url, { as: "manager@a.test", body: { listId, listName: "Långivere" } });
+    expect(r).toMatchObject({ status: 202, body: { source: { listId, listName: "Långivere", status: "fetching", importId: null } } });
+    expect((await call("POST", `${url}/refresh`)).status).toBe(202);
+    expect((await call("GET", url, { as: "owner@b.test", account: B })).status).toBe(404);
+    expect((await call("GET", "/v1/guest-imports/00000000-0000-4000-8000-000000000000")).status).toBe(404);
+  });
+
   it("repairs setup on request, and disconnects, revoking our token at HubSpot", async () => {
     expect((await call("POST", "/v1/integrations/hubspot/setup")).status).toBe(202);
     const revokes = hubspot.calls.filter((c) => c === "revoke").length;

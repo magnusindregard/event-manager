@@ -522,6 +522,21 @@ export interface EventEmailTable {
   updated_at: GeneratedTimestamp;
 }
 
+export interface GuestListSourceTable {
+  tenant_id: string;
+  event_id: string;
+  provider: "hubspot";
+  list_id: string;
+  list_name: string;
+  status: ColumnType<"fetching" | "ready" | "failed", "fetching" | "ready" | "failed" | undefined, "fetching" | "ready" | "failed">;
+  import_id: string | null;
+  error: string | null;
+  member_count: number | null;
+  requested_by: string | null;
+  requested_at: GeneratedTimestamp;
+  fetched_at: Timestamp | null;
+}
+
 export interface TokenKeyTable {
   tenant_id: string;
   key: Buffer;
@@ -848,4 +863,5 @@ export interface DB {
   "integrations.contact_state": ContactStateTable;
   "integrations.event_sending": EventSendingTable;
   "integrations.event_email": EventEmailTable;
+  "integrations.guest_list_source": GuestListSourceTable;
 }

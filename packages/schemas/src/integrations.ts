@@ -218,3 +218,31 @@ export const IntegrationSync = Type.Object({
 export type IntegrationSync = Static<typeof IntegrationSync>;
 
 export const IntegrationSyncRetry = Type.Object({ retried: Type.Integer({ description: "Items queued to be tried again" }) });
+
+export const HubSpotListList = Type.Object({
+  items: Type.Array(Type.Object({
+    listId: Type.String(),
+    name: Type.String(),
+    processingType: Type.String({ description: "MANUAL: a static list; DYNAMIC: an active one, whose members are read as they are when fetched" }),
+    size: Nullable(Type.Integer()),
+  })),
+});
+
+export const GuestListSource = Type.Object({
+  provider: Type.Literal("hubspot"),
+  listId: Type.String(),
+  listName: Type.String(),
+  status: Type.Union([Type.Literal("fetching"), Type.Literal("ready"), Type.Literal("failed")], { description: "ready: importId is staged for mapping, preview and commit" }),
+  importId: Nullable(Type.String({ format: "uuid", description: "The staged import from the last fetch; null once committed, discarded or expired" })),
+  error: Nullable(Type.String()),
+  memberCount: Nullable(Type.Integer()),
+  requestedAt: DateTime,
+  fetchedAt: Nullable(DateTime),
+}, { description: "The HubSpot list the event's guest list comes from (docs/hubspot.md, milestone 6)" });
+
+export const GuestListSourceBody = Type.Object({ source: Nullable(GuestListSource) });
+
+export const GuestListRequest = Type.Object(
+  { listId: Type.String({ pattern: "^[0-9]{1,20}$" }), listName: Type.String({ minLength: 1, maxLength: 300 }) },
+  { additionalProperties: false },
+);

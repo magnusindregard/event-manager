@@ -5,6 +5,7 @@ import type { InternalHandler } from "./handlers.js";
 import { HORIZON_TASK, horizonTask } from "./horizon.js";
 import { HUBSPOT_CLEANUP_TASK, HUBSPOT_NIGHTLY_CLEANUP_TASK, hubspotCleanupTask, hubspotNightlyCleanupTask } from "./hubspot/cleanup.js";
 import { HUBSPOT_EMAILS_TASK, HUBSPOT_MARKETING_CHECK_TASK, hubspotEmailsTask, hubspotMarketingCheckTask } from "./hubspot/emails.js";
+import { HUBSPOT_GUEST_LIST_TASK, hubspotGuestListTask } from "./hubspot/guest-lists.js";
 import { HUBSPOT_RECONCILE_TASK, hubspotReconcileTask } from "./hubspot/reconcile.js";
 import { HUBSPOT_SETUP_TASK, type HubSpotDeps, hubspotSetupTask } from "./hubspot/setup.js";
 import { HUBSPOT_SYNC_TASK, hubspotSyncTask } from "./hubspot/sync.js";
@@ -66,6 +67,7 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
     [HUBSPOT_NIGHTLY_CLEANUP_TASK]: hubspotNightlyCleanupTask(db, hubspot),
     [HUBSPOT_EMAILS_TASK]: hubspotEmailsTask(db, hubspot),
     [HUBSPOT_MARKETING_CHECK_TASK]: hubspotMarketingCheckTask(db, hubspot),
+    [HUBSPOT_GUEST_LIST_TASK]: hubspotGuestListTask(db, hubspot),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
     ...(registrationEmail
       ? {

@@ -1,9 +1,9 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { DomainError, integrations, tenancy } from "@event-manager/domain";
-import { BEHAVIOURAL_EVENT_SCOPES, CLEANUP_SCOPES, type HubSpotClient, HubSpotError, OPTIONAL_SCOPES, REQUIRED_SCOPES, signState, verifyState } from "@event-manager/hubspot";
+import { BEHAVIOURAL_EVENT_SCOPES, CLEANUP_SCOPES, type HubSpotClient, HubSpotError, hubspotAuth, OPTIONAL_SCOPES, REQUIRED_SCOPES, signState, verifyState } from "@event-manager/hubspot";
 import {
-  EventSending, EventSendingPatch, HubSpotAuthorize, HubSpotCallback, Integration, IntegrationList, IntegrationSettingsPatch, IntegrationSync, IntegrationSyncRetry, Problem, Uuid,
+  EventSending, EventSendingPatch, GuestListRequest, GuestListSourceBody, HubSpotAuthorize, HubSpotListList, HubSpotCallback, Integration, IntegrationList, IntegrationSettingsPatch, IntegrationSync, IntegrationSyncRetry, Problem, Uuid,
 } from "@event-manager/schemas";
 import { inTenant } from "../plugins/context.js";
 import { expectedVersion, setEtag } from "../plugins/etag.js";
@@ -73,6 +73,9 @@ const sendingDto = (s: integrations.EventSending) => ({
   version: s.version,
 });
 const IdParams = Type.Object({ id: Uuid });
+
+const sourceDto = (s: integrations.GuestListSource | null) =>
+  s ? { ...s, requestedAt: s.requestedAt.toISOString(), fetchedAt: s.fetchedAt?.toISOString() ?? null } : null;
 
 export const integrationRoutes: FastifyPluginAsyncTypebox<{ hubspot: HubSpotDeps | null }> = async (app, opts) => {
   app.addHook("preHandler", app.requireAccount);
@@ -212,6 +215,68 @@ export const integrationRoutes: FastifyPluginAsyncTypebox<{ hubspot: HubSpotDeps
     async (req, reply) => {
       const c = await inTenant(app, req, (tx, ctx) => integrations.requestCleanupAndDisconnect(tx, ctx, "hubspot"));
       return reply.status(202).send(dto(c));
+    },
+  );
+
+  app.get(
+    "/integrations/hubspot/lists",
+    {
+      schema: {
+        operationId: "searchHubSpotLists", tags: ["integrations"], ...accountScoped,
+        summary: "The portal's contact lists (segments) whose name contains q, to import as a guest list. The platform's own (EM · …) are left out",
+        querystring: Type.Object({ q: Type.Optional(Type.String({ maxLength: 200 })) }),
+        response: { 200: HubSpotListList, ...writeErrors },
+      },
+    },
+    async (req) => {
+      const { client } = hubspot();
+      const ctx = req.actor!;
+      tenancy.assertCan(ctx, "registrations.write");
+      const run = await integrations.withProvider(app.db, ctx.tenantId, "hubspot", hubspotAuth(client), (token) => client.searchLists(token, (req.query.q ?? "").trim()));
+      if (!run) throw new DomainError("conflict", "HubSpot is not connected, or refuses our access");
+      return { items: run.value.filter((l) => !l.name.startsWith("EM · ")).map((l) => ({ listId: l.listId, name: l.name, processingType: l.processingType, size: l.size ?? null })) };
+    },
+  );
+
+  app.get(
+    "/events/:id/guest-source",
+    {
+      schema: {
+        operationId: "getGuestListSource", tags: ["guest list"], ...accountScoped, params: IdParams,
+        summary: "The HubSpot list the event's guest list comes from, and how the last fetch went",
+        response: { 200: GuestListSourceBody, ...errors },
+      },
+    },
+    async (req) => ({ source: sourceDto(await inTenant(app, req, (tx, ctx) => integrations.getGuestListSource(tx, ctx, req.params.id))) }),
+  );
+
+  app.post(
+    "/events/:id/guest-source",
+    {
+      schema: {
+        operationId: "importGuestListFromHubSpot", tags: ["guest list"], ...accountScoped, params: IdParams, body: GuestListRequest,
+        summary: "Fetch a HubSpot list's members as the event's guest list, and remember the list. Runs in the background; once ready, the staged import is mapped, previewed and committed as for a file",
+        response: { 202: GuestListSourceBody, ...writeErrors },
+      },
+    },
+    async (req, reply) => {
+      const s = await inTenant(app, req, (tx, ctx) => integrations.requestGuestList(tx, ctx, req.params.id, req.body));
+      return reply.status(202).send({ source: sourceDto(s) });
+    },
+  );
+
+  app.post(
+    "/events/:id/guest-source/refresh",
+    {
+      schema: {
+        operationId: "refreshGuestListFromHubSpot", tags: ["guest list"], ...accountScoped, params: IdParams,
+        summary: "Fetch the remembered HubSpot list again (Refresh from HubSpot). Imported with the same rules: nobody is removed unless staff choose to",
+        response: { 202: GuestListSourceBody, ...writeErrors },
+      },
+    },
+    async (req, reply) => {
+      const s = await inTenant(app, req, (tx, ctx) => integrations.requestGuestList(tx, ctx, req.params.id));
+      return reply.status(202).send({ source: sourceDto(s) });
     },
   );
 

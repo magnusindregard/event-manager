@@ -200,6 +200,18 @@ export const invitationRoutes: FastifyPluginAsyncTypebox<{ attendeeUrl: string }
     },
   );
 
+  app.get(
+    "/guest-imports/:id",
+    {
+      schema: {
+        operationId: "getGuestImport", tags: ["guest list"], ...accountScoped,
+        summary: "A staged import, as the upload returned it: for one staged in the background (a HubSpot list)",
+        params: IdParams, response: { 200: GuestImportDraft, ...writeErrors },
+      },
+    },
+    async (req) => draftDto(await inTenant(app, req, (tx, ctx) => registration.getImportDraft(tx, ctx, req.params.id))),
+  );
+
   app.post(
     "/guest-imports/:id/preview",
     {

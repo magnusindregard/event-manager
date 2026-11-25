@@ -4,6 +4,7 @@ import {
   type AttendanceState,
   type ContactInput,
   type ContactList,
+  type ContactRecord,
   type ContactUsage,
   type ContactResult,
   type EmailPatch,
@@ -57,6 +58,8 @@ export interface FakeContact {
   owner?: boolean;
   associations?: number;
   conversions?: number;
+  /** hs_language. */
+  language?: string | null;
 }
 
 const emptyPortal = (portalId: string, scopes: string[]): FakePortal => ({ portalId, scopes, contacts: new Map(), events: new Map(), attendance: [], lists: new Map(), subscriptionTypes: [], subscriptions: new Map(), workflows: new Map(), emails: new Map(), sends: [] });
@@ -231,6 +234,40 @@ export class FakeHubSpot implements HubSpotClient {
   async listMembers(accessToken: string, listId: string): Promise<string[]> {
     this.calls.push(`listMembers:${listId}`);
     return [...this.list(this.portalFor(accessToken), listId).members];
+  }
+
+  async searchLists(accessToken: string, query: string): Promise<ContactList[]> {
+    this.calls.push(`searchLists:${query}`);
+    const q = query.toLowerCase();
+    return [...this.portalFor(accessToken).lists.values()]
+      .filter((l) => l.name.toLowerCase().includes(q))
+      .slice(0, 50)
+      .map((l) => ({ listId: l.listId, name: l.name, processingType: l.processingType, size: l.members.size }));
+  }
+
+  async getList(accessToken: string, listId: string): Promise<ContactList | null> {
+    this.calls.push(`getList:${listId}`);
+    const l = this.portalFor(accessToken).lists.get(listId);
+    return l ? { listId: l.listId, name: l.name, processingType: l.processingType, size: l.members.size } : null;
+  }
+
+  async readContacts(accessToken: string, ids: string[], properties: string[]): Promise<ContactRecord[]> {
+    this.calls.push(`readContacts:${ids.length}`);
+    const byId = new Map([...this.portalFor(accessToken).contacts.values()].map((c) => [c.id, c]));
+    return ids.filter((id) => byId.has(id)).map((id) => {
+      const c = byId.get(id)!;
+      const all: Record<string, string | null> = { email: c.email, firstname: c.firstname, lastname: c.lastname, hs_language: c.language ?? null };
+      return { id, properties: Object.fromEntries(properties.map((p) => [p, all[p] ?? null])) };
+    });
+  }
+
+  /** A list of the client's own with these contacts, as a segment made in HubSpot; returns its id. */
+  addClientList(portalId: string, name: string, contacts: FakeContact[], processingType = "DYNAMIC"): string {
+    const portal = this.portals.get(portalId)!;
+    const listId = String(this.nextId++);
+    for (const c of contacts) portal.contacts.set(c.email.toLowerCase(), c);
+    portal.lists.set(listId, { listId, name, processingType, members: new Set(contacts.map((c) => c.id)) });
+    return listId;
   }
 
   async deleteList(accessToken: string, listId: string): Promise<void> {

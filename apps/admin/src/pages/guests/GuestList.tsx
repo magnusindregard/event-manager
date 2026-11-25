@@ -41,13 +41,21 @@ export function GuestList({ event }: { event: CatalogEvent }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [importing, setImporting] = useState(false);
+  const [importing, setImporting] = useState<false | "new" | "refresh">(false);
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const key = ["invitations", accountId, event.id];
   const published = event.status === "published";
   const canWrite = can("registrations.write");
 
+  // HubSpot connected: the import offers a HubSpot list, and the remembered list can be fetched again.
+  const integrations = useQuery({ queryKey: ["integrations", accountId], queryFn: async () => unwrap(await api.GET("/v1/integrations")) });
+  const hubspot = integrations.data?.items.some((c) => c.provider === "hubspot" && c.status === "active") ?? false;
+  const guestSource = useQuery({
+    queryKey: ["guest-source", event.id],
+    enabled: hubspot,
+    queryFn: async () => unwrap(await api.GET("/v1/events/{id}/guest-source", { params: { path: { id: event.id } } })).source,
+  });
   const query = useQuery({
     queryKey: key,
     queryFn: async () => unwrap(await api.GET("/v1/events/{id}/invitations", { params: { path: { id: event.id } } })),
@@ -266,7 +274,12 @@ export function GuestList({ event }: { event: CatalogEvent }) {
       <div className="flex flex-wrap items-center gap-2">
         {canWrite && (
           <>
-            <Button onClick={() => setImporting(true)}><FileUp /> {t("guests.import.open")}</Button>
+            <Button onClick={() => setImporting("new")}><FileUp /> {t("guests.import.open")}</Button>
+            {hubspot && guestSource.data && (
+              <Button variant="outline" onClick={() => setImporting("refresh")} title={t("guests.import.refreshHint", { name: guestSource.data.listName })}>
+                <RefreshCw /> {t("guests.import.refresh")}
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setAdding(true)}><UserPlus /> {t("guests.add")}</Button>
             <Button variant="outline" disabled={!published || pendingCount === 0} onClick={() => setConfirm({ kind: "invitation", count: pendingCount })}>
               <Send /> {t("guests.sendAll", { count: pendingCount })}
@@ -318,7 +331,8 @@ export function GuestList({ event }: { event: CatalogEvent }) {
 
       <DataTable columns={columns} data={rows} loading={query.isLoading} empty={items.length ? t("common.noResults") : t("guests.empty")} getRowId={(r) => r.id} />
 
-      <GuestImport eventId={event.id} open={importing} onClose={() => setImporting(false)} onDone={refresh} />
+      <GuestImport eventId={event.id} open={!!importing} hubspot={hubspot} refresh={importing === "refresh"} onClose={() => setImporting(false)}
+        onDone={() => { refresh(); void guestSource.refetch(); }} />
       <AddGuest event={event} open={adding} onClose={() => setAdding(false)} onDone={refresh} />
 
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>

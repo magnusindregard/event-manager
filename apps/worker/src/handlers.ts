@@ -2,6 +2,7 @@ import type { Tx } from "@event-manager/db";
 import type { outbox } from "@event-manager/domain";
 import { queueHubSpotCleanup } from "./hubspot/cleanup.js";
 import { queueHubSpotEmails } from "./hubspot/emails.js";
+import { queueHubSpotGuestList } from "./hubspot/guest-lists.js";
 import { queueHubSpotSetup } from "./hubspot/setup.js";
 import { queueHubSpotSync } from "./hubspot/sync.js";
 import { queueInvitationEmails } from "./invitation-email.js";
@@ -40,4 +41,4 @@ export const auditTrailHandler: InternalHandler = {
   },
 };
 
-export const defaultHandlers: InternalHandler[] = [auditTrailHandler, enqueueProvisioning, queueResolution, queueRegistrationEmail, queueOccurrenceNotices, queueInvitationEmails, queueReminders, queueWaitlistWork, queueTicketsEmail, queueHubSpotSetup, queueHubSpotSync, queueHubSpotCleanup, queueHubSpotEmails];
+export const defaultHandlers: InternalHandler[] = [auditTrailHandler, enqueueProvisioning, queueResolution, queueRegistrationEmail, queueOccurrenceNotices, queueInvitationEmails, queueReminders, queueWaitlistWork, queueTicketsEmail, queueHubSpotSetup, queueHubSpotSync, queueHubSpotCleanup, queueHubSpotEmails, queueHubSpotGuestList];
