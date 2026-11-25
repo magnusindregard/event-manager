@@ -307,6 +307,25 @@ describe("sending to a guest", () => {
     expect(mailer.sent).toEqual([]);
   });
 
+  it("does not send a second email when HubSpot took the send and our access went before its result was read", async () => {
+    await connect();
+    const { event } = await hubspotEvent("Frakoblet");
+    await addGuests(event.id, "kari@example.com");
+    hubspot.pendingPolls = 100;
+    await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation" }));
+    await drain(2);
+    const [taken] = await sends();
+    expect(taken).toMatchObject({ channel: "hubspot", sent_at: null });
+    expect(taken!.provider_status_id).not.toBeNull();
+
+    await run((tx) => integrations.disconnect(tx, ctx, "hubspot"));
+    await drain();
+    const [send] = await sends();
+    expect(send).toMatchObject({ channel: "hubspot", delivery_status: "sent", fallback_reason: null });
+    expect(portal().sends).toHaveLength(1);
+    expect(mailer.sent).toEqual([]);
+  });
+
   it("sends the reminder from the event's reminder email to guests who have not answered", async () => {
     await connect();
     const { event } = await hubspotEvent("Purring");

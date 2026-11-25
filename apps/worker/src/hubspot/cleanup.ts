@@ -111,12 +111,23 @@ export async function prepareForSend(
 
   const out = new Map<string, boolean>();
   const fresh: { email: string; contactId: string }[] = [];
+  // Recorded before, but its HubSpot writes did not all go through (a 429, a timeout): finished
+  // below from what was recorded, before anything is sent.
+  const unfinished: { email: string; contactId: string; set: string[] }[] = [];
   for (const g of guests) {
     const email = integrations.contactKey(g.email);
     const s = states.get(email);
     if (s?.status === "kept") out.set(email, true);
-    else if (s && s.marketableBefore !== null) out.set(email, s.marketableBefore);
-    else fresh.push({ email, contactId: g.contactId });
+    else if (s && s.marketableBefore !== null) {
+      out.set(email, s.marketableBefore);
+      if (s.marketableBefore === false && !s.preparedAt) unfinished.push({ email, contactId: s.contactId ?? g.contactId, set: s.subscriptionsSet });
+    } else fresh.push({ email, contactId: g.contactId });
+  }
+  if (unfinished.length) {
+    const redo = unfinished.flatMap((u) => u.set.map((id) => ({ email: u.email, subscriptionId: id, status: "UNSUBSCRIBED" as const })));
+    if (redo.length) await client.setSubscriptionStatuses(accessToken, redo);
+    await client.addToList(accessToken, setup.temporaryListId!, unfinished.map((u) => u.contactId));
+    await t((tx) => integrations.recordPreparedDone(tx, ref, unfinished.map((u) => u.email)));
   }
   if (!fresh.length) return out;
 
@@ -151,6 +162,8 @@ export async function prepareForSend(
   await t((tx) => integrations.recordPrepared(tx, tenantId, ref, prepared));
   if (writes.length) await client.setSubscriptionStatuses(accessToken, writes);
   if (temporary.length) await client.addToList(accessToken, setup.temporaryListId!, temporary.map((g) => g.contactId));
+  // Only now can these be sent to; a failure above leaves them unfinished for the retry.
+  await t((tx) => integrations.recordPreparedDone(tx, ref, temporary.map((g) => g.email)));
   return out;
 }
 
@@ -169,6 +182,9 @@ function inUse(u: ContactUsage, ownLists: Set<string>, tenantId: string): string
 /** Puts back the subscription types the platform unsubscribed, where the guest has not changed them since; then queues non-marketing. */
 async function restore(client: HubSpotClient, accessToken: string, setup: integrations.PortalSetup, c: integrations.CleanupCandidate): Promise<string | null> {
   if (!setup.nonMarketingListId || !setup.temporaryListId) throw new HubSpotError("The cleanup is not set up in the portal: repair setup", 409);
+  // Without the workflow, adding the contact to its segment sets nothing back: the contact stays
+  // pending (recorded as failed) and is tried again once the setup is repaired.
+  if (!setup.workflowId || setup.workflowEnabled === false) throw new HubSpotError(`The workflow ${NON_MARKETING_WORKFLOW} is off or missing in HubSpot: repair setup`, 409);
   if (!c.contactId) throw new HubSpotError("No HubSpot contact id is known for the contact", 409);
   const current = (await client.subscriptionStatuses(accessToken, [c.email])).get(c.email) ?? new Map<string, SubscriptionState>();
   const back = c.subscriptionsSet.filter((id) => (current.get(id) ?? "NOT_SPECIFIED") === "UNSUBSCRIBED");

@@ -50,8 +50,8 @@ export function GuestImport({ eventId, open, onClose, onDone, hubspot = false, r
   const { t } = useTranslation();
   const { api } = useApp();
   const [source, setSource] = useState<"file" | "hubspot">("file");
-  /** Waiting for the worker to fetch a HubSpot list. */
-  const [fetching, setFetching] = useState(false);
+  /** Waiting for the worker to fetch a HubSpot list: the request's time, to tell its result from an earlier fetch's. */
+  const [fetching, setFetching] = useState<string | null>(null);
   const [draft, setDraft] = useState<GuestImportDraft | null>(null);
   const [mapping, setMapping] = useState<ImportMapping>({});
   const [preview, setPreview] = useState<GuestImportPreview | null>(null);
@@ -59,7 +59,7 @@ export function GuestImport({ eventId, open, onClose, onDone, hubspot = false, r
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
-    setFetching(false);
+    setFetching(null);
     setSource("file");
     setDraft(null);
     setMapping({});
@@ -163,19 +163,20 @@ export function GuestImport({ eventId, open, onClose, onDone, hubspot = false, r
       setPreview(null);
       setError(null);
     },
-    onSuccess: () => setFetching(true),
+    onSuccess: (r) => setFetching(r.source?.requestedAt ?? null),
     onError: (e) => setError(problem(e)),
   });
   const sourceQuery = useQuery({
     queryKey: ["guest-source", eventId],
-    enabled: open && fetching,
+    enabled: open && !!fetching,
     queryFn: async () => unwrap(await api.GET("/v1/events/{id}/guest-source", { params: { path: { id: eventId } } })).source,
     refetchInterval: 1500,
   });
   useEffect(() => {
     const s = sourceQuery.data;
-    if (!fetching || !s || s.status === "fetching") return;
-    setFetching(false);
+    // The page caches this query: until the fresh read comes back it may still show the last fetch's result.
+    if (!fetching || !s || s.requestedAt !== fetching || s.status === "fetching") return;
+    setFetching(null);
     if (s.status === "failed") return setError(s.error ?? t("error.generic"));
     if (!s.importId) return setError(t("guests.import.expired"));
     void (async () => {
@@ -218,7 +219,7 @@ export function GuestImport({ eventId, open, onClose, onDone, hubspot = false, r
             </div>
           )}
           {source === "hubspot" ? (
-            <HubSpotListPicker disabled={fetchList.isPending || fetching} onPick={(l) => fetchList.mutate(l)} hideSearch={refresh} />
+            <HubSpotListPicker disabled={fetchList.isPending || !!fetching} onPick={(l) => fetchList.mutate(l)} hideSearch={refresh} />
           ) : (
           <div className="flex flex-wrap items-center gap-3">
             <Button asChild variant={draft ? "outline" : "default"} disabled={upload.isPending}>
@@ -231,7 +232,7 @@ export function GuestImport({ eventId, open, onClose, onDone, hubspot = false, r
             {draft && <span className="text-sm">{t("guests.import.fileInfo", { name: draft.fileName, count: draft.rowCount })}</span>}
           </div>
           )}
-          {(fetchList.isPending || fetching) && (
+          {(fetchList.isPending || !!fetching) && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground"><RefreshCw className="size-4 animate-spin" /> {t("guests.import.fetching")}</p>
           )}
           {source === "hubspot" && draft && <p className="text-sm">{t("guests.import.fileInfo", { name: draft.fileName, count: draft.rowCount })}</p>}

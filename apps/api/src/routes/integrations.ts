@@ -141,8 +141,9 @@ export const integrationRoutes: FastifyPluginAsyncTypebox<{ hubspot: HubSpotDeps
           }),
         );
       } catch (e) {
-        // Not stored, so uninstall again rather than leave the app installed with nobody using it.
-        await revoke(tokens.refreshToken);
+        // Not stored, so uninstall again rather than leave the app installed with nobody using it;
+        // unless another account uses this install, which revoking would cut off.
+        if (!(e instanceof DomainError && e.details?.reason === integrations.PORTAL_TAKEN)) await revoke(tokens.refreshToken);
         throw e;
       }
       setEtag(reply, c.version);

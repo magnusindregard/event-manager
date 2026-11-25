@@ -112,7 +112,11 @@ export async function sendThroughHubSpot(db: Db, tenantId: string, deps: HubSpot
       if (g.lastAttempt) return { sent: true, statusId };
       throw new Error(`HubSpot is still processing send ${statusId}`);
     });
-    return run?.value ?? fallback("HubSpot is not connected, or refuses our access");
+    if (run) return run.value;
+    // HubSpot took the send before our access went (disconnected, refused): it may well deliver
+    // it, so the platform does not send a second email. Only a refusal HubSpot confirms falls back.
+    if (taken) return { sent: true, statusId: taken };
+    return fallback("HubSpot is not connected, or refuses our access");
   } catch (e) {
     if (!g.lastAttempt) throw e;
     // Out of attempts. If HubSpot took the send, the guest has it (or will); otherwise the platform sends.

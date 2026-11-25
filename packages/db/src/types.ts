@@ -485,6 +485,7 @@ export interface ContactStateTable {
   cleanup_status: ColumnType<CleanupStatus, CleanupStatus | undefined, CleanupStatus>;
   cleanup_reason: string | null;
   cleanup_at: Timestamp | null;
+  prepared_at: Timestamp | null;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
 }

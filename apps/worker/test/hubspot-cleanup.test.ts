@@ -277,6 +277,54 @@ describe("contacts made marketing by a HubSpot send", () => {
     expect((await states()).map((s) => s.email)).toEqual(["fan@example.com"]);
   });
 
+  it("finishes a preparation HubSpot broke off before the contact counts as prepared", async () => {
+    await connect();
+    const { event } = await gala("Halvveis");
+    portal().contacts.set("lender@museum.test", { id: "511", email: "lender@museum.test", firstname: "L", lastname: null, marketable: false });
+    await invite(event.id, "lender@museum.test");
+    const write = hubspot.setSubscriptionStatuses.bind(hubspot);
+    hubspot.setSubscriptionStatuses = async () => {
+      throw new HubSpotError("HubSpot POST /communication-preferences/v4/statuses/batch/write: 429 too many requests", 429);
+    };
+    try {
+      await expect(prepare("lender@museum.test")).rejects.toThrow(/429/);
+    } finally {
+      hubspot.setSubscriptionStatuses = write;
+    }
+    // What it was is known; the writes are not done, so it does not count as prepared.
+    const half = await run((tx) => tx.selectFrom("integrations.contact_state").select(["marketable_before", "prepared_at", "subscriptions_set"]).where("email", "=", "lender@museum.test").executeTakeFirstOrThrow());
+    expect(half).toMatchObject({ marketable_before: false, prepared_at: null, subscriptions_set: [NEWSLETTER] });
+    expect(portal().subscriptions.get("lender@museum.test")?.get(NEWSLETTER)).not.toBe("UNSUBSCRIBED");
+
+    // The retry finishes the writes from what was recorded.
+    expect(await prepare("lender@museum.test")).toEqual(new Map([["lender@museum.test", false]]));
+    expect(portal().subscriptions.get("lender@museum.test")?.get(NEWSLETTER)).toBe("UNSUBSCRIBED");
+    expect([...listNamed(TEMPORARY_LIST)!.members]).toEqual(["511"]);
+    const done = await run((tx) => tx.selectFrom("integrations.contact_state").select(["prepared_at"]).where("email", "=", "lender@museum.test").executeTakeFirstOrThrow());
+    expect(done.prepared_at).not.toBeNull();
+  });
+
+  it("keeps a contact pending while the workflow that sets it back is off, and sets it back once repaired", async () => {
+    await connect();
+    const { event } = await gala("Av");
+    portal().contacts.set("lender@museum.test", { id: "521", email: "lender@museum.test", firstname: "L", lastname: null, marketable: false });
+    await invite(event.id, "lender@museum.test");
+    await prepare("lender@museum.test");
+    portal().contacts.get("lender@museum.test")!.marketable = true;
+    const [flow] = [...portal().workflows.values()];
+    flow!.enabled = false;
+
+    expect((await cleanup())!.result).toMatchObject({ restored: 0, failed: 1 });
+    expect(await states()).toEqual([expect.objectContaining({ email: "lender@museum.test", cleanup_status: "failed", cleanup_reason: expect.stringMatching(/workflow/) })]);
+    expect([...listNamed(NON_MARKETING_LIST)!.members]).toEqual([]);
+    expect(portal().subscriptions.get("lender@museum.test")?.get(NEWSLETTER)).toBe("UNSUBSCRIBED");
+
+    await run((tx) => integrations.requestSetup(tx, ctx, "hubspot"));
+    await drain();
+    expect((await cleanup())!.result).toMatchObject({ restored: 1, failed: 0 });
+    expect([...listNamed(NON_MARKETING_LIST)!.members]).toEqual(["521"]);
+  });
+
   it("leaves a type the guest changed themselves since", async () => {
     await connect();
     const { event } = await gala("Valg");

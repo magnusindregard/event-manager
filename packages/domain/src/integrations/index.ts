@@ -114,6 +114,11 @@ const toConnection = (r: Row): Connection => ({
 
 const credentialAad = (tenantId: string, connectionId: string) => `integration-credential:${tenantId}:${connectionId}`;
 
+/** DomainError details.reason when a portal is connected to another account: the install is that account's too, so the caller must not revoke it. */
+export const PORTAL_TAKEN = "portal_connected_elsewhere";
+const isPortalTaken = (e: unknown) =>
+  typeof e === "object" && e !== null && (e as { code?: unknown }).code === "23505" && (e as { constraint?: unknown }).constraint === "connection_portal_live";
+
 /** The connection, without a permission check: for other parts of the module and the worker. */
 export const loadConnection = (tx: Tx, provider: IntegrationProvider): Promise<Connection | null> => load(tx, provider);
 
@@ -181,12 +186,21 @@ export async function saveConnection(tx: Tx, ctx: ActorContext, input: ConnectIn
     disconnected_at: null,
   };
   let id: string;
-  if (before) {
-    id = before.id;
-    await tx.updateTable("integrations.connection").set({ ...values, generation: sql<number>`generation + 1`, version: sql<number>`version + 1` }).where("id", "=", id).execute();
-  } else {
-    id = newId();
-    await tx.insertInto("integrations.connection").values({ id, tenant_id: ctx.tenantId, provider: input.provider, ...values }).execute();
+  try {
+    if (before) {
+      id = before.id;
+      await tx.updateTable("integrations.connection").set({ ...values, generation: sql<number>`generation + 1`, version: sql<number>`version + 1` }).where("id", "=", id).execute();
+    } else {
+      id = newId();
+      await tx.insertInto("integrations.connection").values({ id, tenant_id: ctx.tenantId, provider: input.provider, ...values }).execute();
+    }
+  } catch (e) {
+    // Another account has this portal connected (the index sees every account): two accounts
+    // would prepare and clean up the same contacts, and one could undo what the other needs.
+    if (isPortalTaken(e)) {
+      throw new DomainError("conflict", "This HubSpot portal is connected to another account on the platform. Disconnect it there first", { field: "portalId", reason: PORTAL_TAKEN });
+    }
+    throw e;
   }
   await writeTokens(tx, ctx.tenantId, id, input.tokens);
   await recordAudit(tx, ctx, { action: "integration.connected", entityType: "account", entityId: ctx.tenantId, diff: { provider: input.provider, portalId: input.portalId, scopes: values.scopes } });

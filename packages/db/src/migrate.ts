@@ -29,6 +29,7 @@ import * as m0024 from "./migrations/0024_hubspot_segments.js";
 import * as m0025 from "./migrations/0025_hubspot_cleanup.js";
 import * as m0026 from "./migrations/0026_hubspot_sending.js";
 import * as m0027 from "./migrations/0027_hubspot_guest_lists.js";
+import * as m0028 from "./migrations/0028_hubspot_review_fixes.js";
 
 /** By name, in order. Exported for tests that run one migration down and up again. */
 export const migrations: Record<string, Migration> = {
@@ -58,6 +59,7 @@ export const migrations: Record<string, Migration> = {
   "0025_hubspot_cleanup": m0025,
   "0026_hubspot_sending": m0026,
   "0027_hubspot_guest_lists": m0027,
+  "0028_hubspot_review_fixes": m0028,
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

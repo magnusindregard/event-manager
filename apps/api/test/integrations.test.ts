@@ -114,6 +114,15 @@ describe("/v1/integrations", () => {
     expect(hubspot.calls.filter((c) => c === "revoke").length).toBe(revokes + 1);
   });
 
+  it("refuses a portal another account has connected, without revoking that account's install", async () => {
+    const revokes = hubspot.calls.filter((c) => c === "revoke").length;
+    const code = hubspot.approve("4711", REQUIRED_SCOPES.slice());
+    const r = await call("POST", "/v1/integrations/hubspot/callback", { as: "owner@b.test", account: B, body: { code, state: await start("owner@b.test", B) } });
+    expect(r).toMatchObject({ status: 409, body: { code: "conflict", title: expect.stringMatching(/another account/), details: { reason: "portal_connected_elsewhere" } } });
+    expect(hubspot.calls.filter((c) => c === "revoke").length).toBe(revokes);
+    expect((await call("GET", "/v1/integrations")).body.items[0]).toMatchObject({ status: "active", portalId: "4711" });
+  });
+
   it("changes who to sync with If-Match, owners only", async () => {
     expect((await call("PATCH", "/v1/integrations/hubspot", { body: { syncOpenAttendees: true } })).status).toBe(428);
     expect((await call("PATCH", "/v1/integrations/hubspot", { as: "manager@a.test", body: { syncOpenAttendees: true }, headers: { "if-match": '"1"' } })).status).toBe(403);

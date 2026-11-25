@@ -68,6 +68,8 @@ export interface ContactState {
   neededUntil: Date | null;
   status: CleanupStatus;
   reason: string | null;
+  /** When the preparation for the first HubSpot send finished; null while its HubSpot writes are not all done. */
+  preparedAt: Date | null;
 }
 
 /** Merges what the setup found into `portal_setup`, for the generation that ran it. */
@@ -88,7 +90,7 @@ export async function recordCleanup(tx: Tx, ref: ConnectionRef, result: CleanupR
 
 const toState = (r: {
   email: string; contact_id: string | null; created_by_us: boolean; marketable_before: boolean | null; subscriptions_before: unknown; subscriptions_set: string[];
-  marketing_by_us_at: Date | null; needed_until: Date | null; cleanup_status: CleanupStatus; cleanup_reason: string | null;
+  marketing_by_us_at: Date | null; needed_until: Date | null; cleanup_status: CleanupStatus; cleanup_reason: string | null; prepared_at: Date | null;
 }): ContactState => ({
   email: r.email,
   contactId: r.contact_id,
@@ -100,10 +102,11 @@ const toState = (r: {
   neededUntil: r.needed_until,
   status: r.cleanup_status,
   reason: r.cleanup_reason,
+  preparedAt: r.prepared_at,
 });
 
 const stateColumns = [
-  "email", "contact_id", "created_by_us", "marketable_before", "subscriptions_before", "subscriptions_set", "marketing_by_us_at", "needed_until", "cleanup_status", "cleanup_reason",
+  "email", "contact_id", "created_by_us", "marketable_before", "subscriptions_before", "subscriptions_set", "marketing_by_us_at", "needed_until", "cleanup_status", "cleanup_reason", "prepared_at",
 ] as const;
 
 /** The state of these contacts, by email. */
@@ -154,6 +157,8 @@ export async function recordPrepared(tx: Tx, tenantId: string, ref: ConnectionRe
       marketing_by_us_at: marketing ? now : null,
       cleanup_status: (marketing ? "pending" : "none") as CleanupStatus,
       cleanup_reason: null,
+      // A contact that is marketing already needs no HubSpot writes: prepared now. The others once the worker has made them.
+      prepared_at: marketing ? null : now,
     };
     await tx
       .insertInto("integrations.contact_state")
@@ -161,6 +166,18 @@ export async function recordPrepared(tx: Tx, tenantId: string, ref: ConnectionRe
       .onConflict((oc) => oc.columns(["connection_id", "email"]).doUpdateSet(values))
       .execute();
   }
+}
+
+/** The HubSpot writes of a contact's preparation are all done: from now on it can be sent to. */
+export async function recordPreparedDone(tx: Tx, ref: ConnectionRef, emails: readonly string[], now = new Date()): Promise<void> {
+  if (!emails.length) return;
+  await tx
+    .updateTable("integrations.contact_state")
+    .set({ prepared_at: now })
+    .where("connection_id", "=", ref.id)
+    .where("email", "in", emails.map(contactKey))
+    .where("prepared_at", "is", null)
+    .execute();
 }
 
 /** Temporary contacts the platform unsubscribed, for the nightly check of new subscription types. */
