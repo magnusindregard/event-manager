@@ -118,6 +118,50 @@ export interface MembershipChange {
   missing: string[];
 }
 
+/** The kinds of email the platform can send through HubSpot (docs/hubspot.md, "HubSpot sending"). */
+export type EmailKind = "invitation" | "reminder" | "welcome";
+
+/** How the API shows an email saved for the single-send API (spike run 10). */
+export const SINGLE_SEND_TYPE = "MARKETING_SINGLE_SEND_API";
+
+/** A marketing email as the connector reads it. */
+export interface MarketingEmail {
+  id: string;
+  name: string;
+  type: string | null;
+  /** `AUTOMATED_DRAFT` until published, then `AUTOMATED` (single-send). */
+  state: string | null;
+  subject: string | null;
+  subscriptionId: string | null;
+  /** The content as HubSpot holds it (widgets, flex areas); placeholders are literal text in it. Null in listings. */
+  content: unknown;
+}
+
+export interface EmailPatch {
+  name?: string;
+  subject?: string;
+  content?: unknown;
+}
+
+export interface SingleSendInput {
+  emailId: string;
+  to: string;
+  /** Our own id for the send: HubSpot ignores a repeat (`IDEMPOTENT_IGNORE`, spike run 14). */
+  sendId: string;
+  /** `{{ custom.<name> }}` in the email. HubSpot does not store them. */
+  customProperties: Record<string, string>;
+}
+
+/** A single send's state. `status` COMPLETE or CANCELED when done; `sendResult` then says what happened. */
+export interface SendStatus {
+  statusId: string;
+  status: string;
+  sendResult: string | null;
+}
+
+/** Send results that mean the guest got (or already had) the email. */
+export const SENT_RESULTS = ["SENT", "IDEMPOTENT_IGNORE"] as const;
+
 /** A HubSpot answer that is not a success. `unauthorized`: the token is refused (uninstalled, revoked). */
 export class HubSpotError extends Error {
   constructor(
@@ -185,6 +229,22 @@ export interface HubSpotClient {
   createNonMarketingWorkflow(accessToken: string, name: string, listId: string): Promise<Workflow>;
   /** Turns a workflow on. */
   enableWorkflow(accessToken: string, flowId: string): Promise<void>;
+  /** hs_marketable_status and contact id by email, for contacts HubSpot has (up to 100); creates nothing. */
+  contactsByEmail(accessToken: string, emails: string[]): Promise<Map<string, { id: string; marketable: boolean }>>;
+  /** The portal's marketing emails, without content. */
+  listEmails(accessToken: string): Promise<MarketingEmail[]>;
+  /** One email with its content, or null if HubSpot has none by that id. */
+  getEmail(accessToken: string, emailId: string): Promise<MarketingEmail | null>;
+  /** A copy of the email, as a draft; a clone of a single-send email stays one (spike run 10). Returns its id. */
+  cloneEmail(accessToken: string, emailId: string, name: string): Promise<string>;
+  updateEmail(accessToken: string, emailId: string, patch: EmailPatch): Promise<void>;
+  /** Publishing a single-send email sends nothing; HubSpot accepts sends some seconds later (run 7). */
+  publishEmail(accessToken: string, emailId: string): Promise<void>;
+  /** Deletes an email; one HubSpot no longer has is fine. */
+  deleteEmail(accessToken: string, emailId: string): Promise<void>;
+  /** One email to one recipient. A draft is refused with a 400 ("draft state"). */
+  singleSend(accessToken: string, input: SingleSendInput): Promise<SendStatus>;
+  sendStatus(accessToken: string, statusId: string): Promise<SendStatus>;
 }
 
 const API = "https://api.hubapi.com";
@@ -200,6 +260,32 @@ interface RawFlow {
   isEnabled?: boolean;
   [k: string]: unknown;
 }
+interface RawEmail {
+  id: string | number;
+  name?: string;
+  type?: string;
+  state?: string;
+  subject?: string;
+  subscriptionDetails?: { subscriptionId?: string | number | null };
+  content?: unknown;
+}
+const toEmail = (e: RawEmail, withContent: boolean): MarketingEmail => ({
+  id: String(e.id),
+  name: e.name ?? "",
+  type: e.type ?? null,
+  state: e.state ?? null,
+  subject: e.subject ?? null,
+  subscriptionId: e.subscriptionDetails?.subscriptionId != null ? String(e.subscriptionDetails.subscriptionId) : null,
+  content: withContent ? (e.content ?? null) : null,
+});
+const toStatus = (r: { statusId?: string | number; status?: string; sendResult?: string } | null, statusId = ""): SendStatus => ({
+  statusId: r?.statusId !== undefined ? String(r.statusId) : statusId,
+  status: r?.status ?? "PENDING",
+  sendResult: r?.sendResult ?? null,
+});
+/** The single-send endpoint that worked in the spike (runs 12–14). */
+const SINGLE_SEND_PATH = "/marketing/email-campaigns/2026-09/single-send";
+
 const toList = (l: RawList): ContactList => ({ listId: String(l.listId), name: l.name, processingType: l.processingType ?? "MANUAL" });
 
 /** The real client: HubSpot's OAuth v1 endpoints and the APIs the connector uses. */
@@ -472,6 +558,67 @@ export class HttpHubSpot implements HubSpotClient {
     const f = (await this.call("GET", `/automation/v4/flows/${encodeURIComponent(flowId)}`, undefined, accessToken)) as RawFlow | null;
     if (!f) throw new HubSpotError(`HubSpot GET /automation/v4/flows/${flowId}: empty answer`, 502);
     await this.call("PUT", `/automation/v4/flows/${encodeURIComponent(flowId)}`, { ...f, isEnabled: true }, accessToken);
+  }
+
+  async contactsByEmail(accessToken: string, emails: string[]): Promise<Map<string, { id: string; marketable: boolean }>> {
+    if (!emails.length) return new Map();
+    const r = (await this.call("POST", "/crm/v3/objects/contacts/batch/read", { idProperty: "email", properties: ["email", "hs_marketable_status"], inputs: emails.map((id) => ({ id })) }, accessToken)) as {
+      results?: { id: string; properties?: Record<string, string | null> }[];
+    } | null;
+    return new Map((r?.results ?? []).map((c) => [(c.properties?.email ?? "").toLowerCase(), { id: String(c.id), marketable: c.properties?.hs_marketable_status === "true" }]));
+  }
+
+  async listEmails(accessToken: string): Promise<MarketingEmail[]> {
+    const out: MarketingEmail[] = [];
+    let after: string | undefined;
+    do {
+      const q = `limit=100&includeStats=false${after ? `&after=${encodeURIComponent(after)}` : ""}`;
+      const r = (await this.call("GET", `/marketing/v3/emails?${q}`, undefined, accessToken)) as { results?: RawEmail[]; paging?: { next?: { after?: string } } } | null;
+      for (const e of r?.results ?? []) out.push(toEmail(e, false));
+      after = r?.paging?.next?.after;
+    } while (after && out.length < 2000);
+    return out;
+  }
+
+  async getEmail(accessToken: string, emailId: string): Promise<MarketingEmail | null> {
+    try {
+      const e = (await this.call("GET", `/marketing/v3/emails/${encodeURIComponent(emailId)}`, undefined, accessToken)) as RawEmail | null;
+      return e ? toEmail(e, true) : null;
+    } catch (e) {
+      if (e instanceof HubSpotError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  async cloneEmail(accessToken: string, emailId: string, name: string): Promise<string> {
+    const r = (await this.call("POST", "/marketing/v3/emails/clone", { id: emailId, cloneName: name }, accessToken)) as { id?: string | number } | null;
+    if (r?.id === undefined) throw new HubSpotError("HubSpot POST /marketing/v3/emails/clone: no email in the answer", 502);
+    return String(r.id);
+  }
+
+  async updateEmail(accessToken: string, emailId: string, patch: EmailPatch): Promise<void> {
+    await this.call("PATCH", `/marketing/v3/emails/${encodeURIComponent(emailId)}`, patch, accessToken);
+  }
+
+  async publishEmail(accessToken: string, emailId: string): Promise<void> {
+    await this.call("POST", `/marketing/v3/emails/${encodeURIComponent(emailId)}/publish`, undefined, accessToken);
+  }
+
+  async deleteEmail(accessToken: string, emailId: string): Promise<void> {
+    try {
+      await this.call("DELETE", `/marketing/v3/emails/${encodeURIComponent(emailId)}`, undefined, accessToken);
+    } catch (e) {
+      if (!(e instanceof HubSpotError && e.status === 404)) throw e;
+    }
+  }
+
+  async singleSend(accessToken: string, input: SingleSendInput): Promise<SendStatus> {
+    const body = { emailId: Number(input.emailId), message: { to: input.to, sendId: input.sendId }, customProperties: input.customProperties };
+    return toStatus((await this.call("POST", SINGLE_SEND_PATH, body, accessToken)) as Parameters<typeof toStatus>[0]);
+  }
+
+  async sendStatus(accessToken: string, statusId: string): Promise<SendStatus> {
+    return toStatus((await this.call("GET", `/marketing/v3/email/send-statuses/${encodeURIComponent(statusId)}`, undefined, accessToken)) as Parameters<typeof toStatus>[0], statusId);
   }
 
   private async token(params: Record<string, string>): Promise<TokenSet> {

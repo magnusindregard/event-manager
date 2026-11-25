@@ -39,7 +39,10 @@ export interface SyncItem {
 /** After this many failed pushes an item stops being retried until it changes again or is replayed. */
 export const MAX_SYNC_ATTEMPTS = 5;
 
-const DEFAULTS: ConnectionSettings = { syncInvitedGuests: true, syncOpenAttendees: false, eventSubscriptionTypeId: null, cleanupGraceDays: 7, deleteMirroredContacts: true };
+const DEFAULTS: ConnectionSettings = {
+  syncInvitedGuests: true, syncOpenAttendees: false, eventSubscriptionTypeId: null, cleanupGraceDays: 7, deleteMirroredContacts: true,
+  invitationTemplateId: null, reminderTemplateId: null, welcomeTemplateId: null,
+};
 
 /**
  * The connection to mark changes for: active, or paused for a reconnect (its changes wait and go

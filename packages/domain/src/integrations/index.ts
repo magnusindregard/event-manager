@@ -7,6 +7,7 @@ import { dropSyncItems } from "./sync.js";
 
 export * from "./cleanup.js";
 export * from "./segments.js";
+export * from "./sending.js";
 export * from "./sync.js";
 
 // Connections to the account's outside systems (docs/hubspot.md, ADR 0017). One per account
@@ -27,6 +28,10 @@ export interface ConnectionSettings {
   cleanupGraceDays: number;
   /** Delete contacts the platform created only for mirroring, once no event needs them (default on). */
   deleteMirroredContacts: boolean;
+  /** The account's default single-send template email per kind (milestone 5); an event can choose others. */
+  invitationTemplateId: string | null;
+  reminderTemplateId: string | null;
+  welcomeTemplateId: string | null;
 }
 
 export interface Connection {
@@ -67,7 +72,10 @@ export interface Tokens {
   accessExpiresAt: Date;
 }
 
-export const DEFAULT_SETTINGS: ConnectionSettings = { syncInvitedGuests: true, syncOpenAttendees: false, eventSubscriptionTypeId: null, cleanupGraceDays: 7, deleteMirroredContacts: true };
+export const DEFAULT_SETTINGS: ConnectionSettings = {
+  syncInvitedGuests: true, syncOpenAttendees: false, eventSubscriptionTypeId: null, cleanupGraceDays: 7, deleteMirroredContacts: true,
+  invitationTemplateId: null, reminderTemplateId: null, welcomeTemplateId: null,
+};
 
 const columns = [
   "id", "provider", "status", "external_account_id", "scopes", "settings", "setup_status", "setup_error", "setup_at",
@@ -103,6 +111,9 @@ const toConnection = (r: Row): Connection => ({
 });
 
 const credentialAad = (tenantId: string, connectionId: string) => `integration-credential:${tenantId}:${connectionId}`;
+
+/** The connection, without a permission check: for other parts of the module and the worker. */
+export const loadConnection = (tx: Tx, provider: IntegrationProvider): Promise<Connection | null> => load(tx, provider);
 
 async function load(tx: Tx, provider: IntegrationProvider, lock = false): Promise<Connection | null> {
   let q = tx.selectFrom("integrations.connection").select(columns).where("provider", "=", provider);
@@ -202,6 +213,8 @@ async function closeConnection(tx: Tx, audit: AuditActor, provider: IntegrationP
   // Ids in a portal the account no longer reaches; a reconnect backfills afresh.
   await dropSyncItems(tx, before.id);
   await tx.deleteFrom("integrations.contact_state").where("connection_id", "=", before.id).execute();
+  // The event's emails stay in the portal; a reconnect makes them afresh.
+  await tx.deleteFrom("integrations.event_email").where("connection_id", "=", before.id).execute();
   await tx
     .updateTable("integrations.connection")
     .set({
@@ -275,6 +288,12 @@ export async function updateSettings(tx: Tx, ctx: ActorContext, provider: Integr
     const type = types.find((t) => t.id === patch.eventSubscriptionTypeId);
     if (!type) throw new DomainError("validation_failed", "The portal has no such subscription type. Repair setup to read the portal's types again", { field: "eventSubscriptionTypeId" });
     if (!type.active) throw new DomainError("validation_failed", "The subscription type is not active in HubSpot", { field: "eventSubscriptionTypeId" });
+  }
+  const templates = new Set((before.portalSetup.portalId === before.portalId ? (before.portalSetup.singleSendEmails ?? []) : []).map((t) => t.id));
+  for (const k of ["invitationTemplateId", "reminderTemplateId", "welcomeTemplateId"] as const) {
+    if (patch[k] && !templates.has(patch[k])) {
+      throw new DomainError("validation_failed", "The portal has no single-send email by that id. Repair setup to read the portal's emails again", { field: k });
+    }
   }
   await tx.updateTable("integrations.connection").set({ settings: JSON.stringify(settings), version: sql<number>`version + 1` }).where("id", "=", before.id).execute();
   const diff = diffFields(before.settings as unknown as Record<string, unknown>, settings as unknown as Record<string, unknown>);

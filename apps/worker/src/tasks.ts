@@ -4,6 +4,7 @@ import { outbox } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
 import { HORIZON_TASK, horizonTask } from "./horizon.js";
 import { HUBSPOT_CLEANUP_TASK, HUBSPOT_NIGHTLY_CLEANUP_TASK, hubspotCleanupTask, hubspotNightlyCleanupTask } from "./hubspot/cleanup.js";
+import { HUBSPOT_EMAILS_TASK, HUBSPOT_MARKETING_CHECK_TASK, hubspotEmailsTask, hubspotMarketingCheckTask } from "./hubspot/emails.js";
 import { HUBSPOT_RECONCILE_TASK, hubspotReconcileTask } from "./hubspot/reconcile.js";
 import { HUBSPOT_SETUP_TASK, type HubSpotDeps, hubspotSetupTask } from "./hubspot/setup.js";
 import { HUBSPOT_SYNC_TASK, hubspotSyncTask } from "./hubspot/sync.js";
@@ -47,7 +48,9 @@ export function dispatchTask(db: Db, handlers: InternalHandler[]): Task {
   };
 }
 
-export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: ProvisionDeps, registrationEmail?: RegistrationEmailDeps, hubspot: HubSpotDeps | null = null): TaskList {
+export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: ProvisionDeps, registrationEmail?: RegistrationEmailDeps, hubspotDeps: HubSpotDeps | null = null): TaskList {
+  // The links in the event's HubSpot emails go to the same attendee pages as the platform's own.
+  const hubspot = hubspotDeps ? { ...hubspotDeps, attendeeUrl: hubspotDeps.attendeeUrl ?? registrationEmail?.attendeeUrl } : null;
   return {
     "outbox.dispatch": dispatchTask(db, handlers),
     [HORIZON_TASK]: horizonTask(db),
@@ -61,13 +64,15 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
     [HUBSPOT_RECONCILE_TASK]: hubspotReconcileTask(db, hubspot),
     [HUBSPOT_CLEANUP_TASK]: hubspotCleanupTask(db, hubspot),
     [HUBSPOT_NIGHTLY_CLEANUP_TASK]: hubspotNightlyCleanupTask(db, hubspot),
+    [HUBSPOT_EMAILS_TASK]: hubspotEmailsTask(db, hubspot),
+    [HUBSPOT_MARKETING_CHECK_TASK]: hubspotMarketingCheckTask(db, hubspot),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
     ...(registrationEmail
       ? {
           [REGISTRATION_EMAIL_TASK]: registrationEmailTask(db, registrationEmail),
           [OCCURRENCE_NOTICE_TASK]: occurrenceNoticeTask(db, registrationEmail),
-          [INVITATION_EMAIL_TASK]: invitationEmailTask(db, registrationEmail),
-          [REMINDER_TASK]: reminderTask(db, registrationEmail),
+          [INVITATION_EMAIL_TASK]: invitationEmailTask(db, registrationEmail, hubspot),
+          [REMINDER_TASK]: reminderTask(db, registrationEmail, undefined, hubspot),
           [TICKETS_EMAIL_TASK]: ticketsEmailTask(db, registrationEmail),
         }
       : {}),

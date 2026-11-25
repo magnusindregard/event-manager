@@ -1,4 +1,4 @@
-import { type CancelledBy, newId, type RegistrationSource, type RegistrationStatus, sql, type Tx } from "@event-manager/db";
+import { type CancelledBy, newId, type RegistrationSource, type RegistrationStatus, type SendChannel, sql, type Tx } from "@event-manager/db";
 import * as admission from "../admission/index.js";
 import * as catalog from "../catalog/index.js";
 import * as inventory from "../inventory/index.js";
@@ -526,6 +526,22 @@ export async function unremindedRegistrationIds(tx: Tx, eventId: string, now: Da
 export async function markReminded(tx: Tx, id: string, now: Date = new Date()): Promise<boolean> {
   const r = await tx.updateTable("registration.registration").set({ reminded_at: now }).where("id", "=", id).where("reminded_at", "is", null).executeTakeFirst();
   return Number(r.numUpdatedRows) > 0;
+}
+
+/** What the welcome's HubSpot send left: its status id, if HubSpot accepted it (docs/hubspot.md). */
+export async function reminderStatusId(tx: Tx, id: string): Promise<string | null> {
+  const r = await tx.selectFrom("registration.registration").select("reminder_status_id").where("id", "=", id).executeTakeFirst();
+  return r?.reminder_status_id ?? null;
+}
+
+/** HubSpot accepted the welcome: kept so a retry reads the result instead of sending again. */
+export async function recordReminderStatus(tx: Tx, id: string, statusId: string): Promise<void> {
+  await tx.updateTable("registration.registration").set({ reminder_status_id: statusId }).where("id", "=", id).execute();
+}
+
+/** Who sent the welcome, and why the platform did when the event sends through HubSpot. */
+export async function recordReminderChannel(tx: Tx, id: string, channel: SendChannel, detail: string | null): Promise<void> {
+  await tx.updateTable("registration.registration").set({ reminder_channel: channel, reminder_detail: detail?.slice(0, 500) ?? null }).where("id", "=", id).execute();
 }
 
 /** Releases a claim when sending failed, so the retry sends. */

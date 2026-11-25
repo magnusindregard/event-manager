@@ -1,7 +1,9 @@
 import type { Task } from "graphile-worker";
 import { type Db, sql, withTenant } from "@event-manager/db";
-import { registration } from "@event-manager/domain";
+import { integrations, registration } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
+import { sendThroughHubSpot } from "./hubspot/send.js";
+import type { HubSpotDeps } from "./hubspot/setup.js";
 import { isPermanentMailError, type Mail } from "./identity/mailer.js";
 import { esc, formatWhen, type RegistrationEmailDeps } from "./registration-email.js";
 
@@ -10,6 +12,14 @@ import { esc, formatWhen, type RegistrationEmailDeps } from "./registration-emai
 // queues one job per send. The job checks the guest still needs the email (no answer yet,
 // event still published), sends it with Postmark metadata so delivery reports find the send,
 // and records it. A send that was sent already is never sent again.
+//
+// When the event sends through HubSpot (docs/hubspot.md, milestone 5), the job sends the
+// event's HubSpot email to the guest instead, and the platform's own email only if HubSpot will
+// not take it (a plus address, unsubscribed, refused), with the reason on the send. HubSpot sends
+// are spread out at a steady rate, to stay within HubSpot's limits.
+
+/** HubSpot sends queued per second. */
+const HUBSPOT_SENDS_PER_SECOND = 5;
 
 export const INVITATION_EMAIL_TASK = "registration.invitation_email";
 
@@ -19,17 +29,39 @@ export const queueInvitationEmails: InternalHandler = {
   async handle(tx, event, log) {
     const ids = (event.data as { sendIds?: unknown }).sendIds;
     if (!Array.isArray(ids)) return;
+    const eventId = (event.data as { eventId?: unknown }).eventId;
+    const spread = typeof eventId === "string" && (await integrations.eventChannel(tx, eventId)) === "hubspot";
+    let i = 0;
     for (const id of ids) {
       if (typeof id !== "string") continue;
+      const delay = spread ? Math.floor(i++ / HUBSPOT_SENDS_PER_SECOND) : 0;
       await sql`select graphile_worker.add_job(
         ${INVITATION_EMAIL_TASK},
         json_build_object('tenantId', ${event.tenantId}::text, 'sendId', ${id}::text),
+        run_at := now() + make_interval(secs => ${delay}),
         job_key := ${`invsend:${id}`},
         max_attempts := 8)`.execute(tx);
     }
     log.info("invitation emails queued", { eventId: (event.data as { eventId?: unknown }).eventId, count: ids.length });
   },
 };
+
+/** Pure: the custom properties every HubSpot invitation or reminder carries (docs/hubspot.md, "Template emails"). */
+export function invitationProperties(m: registration.InvitationMessage): Record<string, string> {
+  const t = m.event.translations[m.locale] ?? m.event.translations[m.account.defaultLocale] ?? Object.values(m.event.translations)[0];
+  const nb = m.locale.startsWith("n");
+  const one = m.occurrences.length === 1 ? m.occurrences[0]! : null;
+  const l = one?.location;
+  return {
+    invitation_token: m.token,
+    event_title: t?.title ?? m.event.slug,
+    event_date: one
+      ? formatWhen(m.locale, m.event.timezone, one.occurrence.startUtc, one.occurrence.endUtc)
+      : m.occurrences.length > 1 ? (nb ? `${m.occurrences.length} tidspunkter å velge mellom` : `${m.occurrences.length} times to choose from`) : "",
+    event_place: l ? [l.name, l.venue && l.venue !== l.name ? l.venue : null, l.address].filter(Boolean).join(", ") : "",
+    guest_name: m.invitation.name ?? "",
+  };
+}
 
 /** Pure: subject, text and HTML for an invitation or a reminder of one. */
 export function invitationEmail(m: registration.InvitationMessage, url: string): Omit<Mail, "to"> {
@@ -83,24 +115,47 @@ interface Payload {
 const isPayload = (p: unknown): p is Payload =>
   typeof p === "object" && p !== null && typeof (p as Payload).tenantId === "string" && typeof (p as Payload).sendId === "string";
 
-export function invitationEmailTask(db: Db, deps: RegistrationEmailDeps): Task {
+export function invitationEmailTask(db: Db, deps: RegistrationEmailDeps, hubspot: HubSpotDeps | null = null): Task {
   const base = deps.attendeeUrl.replace(/\/+$/, "");
   return async (payload, helpers) => {
     if (!isPayload(payload)) throw new Error(`Invalid ${INVITATION_EMAIL_TASK} payload`);
     const { tenantId, sendId } = payload;
-    const message = await withTenant(db, { tenantId }, async (tx) => {
+    const loaded = await withTenant(db, { tenantId }, async (tx) => {
       const m = await registration.loadInvitationMessage(tx, tenantId, sendId);
       if (!m) return null;
       if (!registration.shouldSend(m)) {
         if (!m.send.sentAt) await registration.recordNotSent(tx, sendId, m.event.status !== "published" ? "event_not_published" : `guest_${m.invitation.status}`);
         return null;
       }
-      return m;
+      return { m, channel: await integrations.eventChannel(tx, m.event.id) };
     });
-    if (!message) {
+    if (!loaded) {
       helpers.logger.info(`invitation send ${sendId}: not sent (gone, answered or sent already)`);
       return;
     }
+    const message = loaded.m;
+    const lastAttempt = helpers.job.attempts >= helpers.job.max_attempts;
+
+    // The event sends through HubSpot: try that first.
+    let fallbackReason: string | null = null;
+    if (loaded.channel === "hubspot") {
+      if (!hubspot) fallbackReason = "HubSpot is not configured on this platform";
+      else {
+        const r = await sendThroughHubSpot(db, tenantId, hubspot, {
+          kind: message.send.kind, eventId: message.event.id, email: message.invitation.email, name: message.invitation.name, sendId,
+          customProperties: invitationProperties(message), statusId: message.send.providerStatusId, lastAttempt,
+          saveStatusId: (statusId) => withTenant(db, { tenantId }, (tx) => registration.recordProviderStatus(tx, sendId, statusId)),
+        });
+        if (r.sent) {
+          await withTenant(db, { tenantId }, (tx) => registration.recordSent(tx, tenantId, sendId, null, new Date(), { channel: "hubspot" }));
+          helpers.logger.info(`invitation send ${sendId}: ${message.send.kind} sent through HubSpot`);
+          return;
+        }
+        fallbackReason = r.reason;
+        helpers.logger.info(`invitation send ${sendId}: the platform sends it (${r.reason})`);
+      }
+    }
+
     const mail = invitationEmail(message, `${base}/i/${message.token}`);
     let sent;
     try {
@@ -110,17 +165,17 @@ export function invitationEmailTask(db: Db, deps: RegistrationEmailDeps): Task {
       // Refused for good (invalid recipient, account restriction): mark the send failed now
       // instead of retrying, so the guest list shows it and staff can fix it and send again.
       if (isPermanentMailError(e)) {
-        await withTenant(db, { tenantId }, (tx) => registration.recordNotSent(tx, sendId, `mail_rejected: ${detail}`));
+        await withTenant(db, { tenantId }, (tx) => registration.recordNotSent(tx, sendId, `mail_rejected: ${detail}`, fallbackReason));
         helpers.logger.error(`invitation send ${sendId}: rejected by the mail service, not retried: ${detail}`);
         return;
       }
       // Out of retries: the same, after the last attempt.
-      if (helpers.job.attempts >= helpers.job.max_attempts) {
-        await withTenant(db, { tenantId }, (tx) => registration.recordNotSent(tx, sendId, `mail_error: ${detail}`));
+      if (lastAttempt) {
+        await withTenant(db, { tenantId }, (tx) => registration.recordNotSent(tx, sendId, `mail_error: ${detail}`, fallbackReason));
       }
       throw e;
     }
-    await withTenant(db, { tenantId }, (tx) => registration.recordSent(tx, tenantId, sendId, sent.messageId));
+    await withTenant(db, { tenantId }, (tx) => registration.recordSent(tx, tenantId, sendId, sent.messageId, new Date(), { channel: "platform", fallbackReason }));
     helpers.logger.info(`invitation send ${sendId}: ${message.send.kind} sent`);
   };
 }

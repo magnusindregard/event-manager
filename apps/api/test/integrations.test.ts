@@ -166,6 +166,40 @@ describe("/v1/integrations", () => {
     expect(q.body.status).toBe("active");
   });
 
+  it("offers HubSpot sending for an event only when the account is ready for it, and takes the event's choice with If-Match", async () => {
+    const ev = await call("POST", "/v1/events", { body: { translations: { nb: { title: "Gallamiddag" } }, admissionMode: "registration" } });
+    expect(ev.status).toBe(201);
+    const url = `/v1/events/${ev.body.id}/sending`;
+    const first = await call("GET", url, { as: "manager@a.test" });
+    expect(first).toMatchObject({ status: 200, body: { channel: "platform", version: 0, locked: false, emails: [], texts: { invitation: { subject: "Invitasjon: Gallamiddag" } } } });
+    expect(first.headers.etag).toBe('"0"');
+    // Without the cleanup scopes, HubSpot cannot be chosen.
+    expect(first.body.hubspotBlocker).toMatch(/cleanup scopes/);
+    expect((await call("PATCH", url, { body: { channel: "hubspot" }, headers: { "if-match": '"0"' } })).status).toBe(409);
+
+    // The worker's setup found everything (as it would with the cleanup scopes and a single-send email).
+    const su = createDb(tdb.superuserUrl, { max: 1 });
+    const setup = { portalId: "4711", temporaryListId: "1", nonMarketingListId: "2", workflowId: "3", workflowEnabled: true, subscriptionTypes: [{ id: "11", name: "Arrangementer", active: true }],
+      singleSendEmails: [{ id: "900", name: "Invitasjon (mal)", subscriptionId: "11", hasInvitationLink: true, hasManageLink: false }] };
+    await sql`update integrations.connection set scopes = ${[...REQUIRED_SCOPES, ...CLEANUP_SCOPES]}::text[], portal_setup = ${JSON.stringify(setup)}::jsonb where tenant_id = ${A}`.execute(su);
+    await su.destroy();
+    let c = (await call("GET", "/v1/integrations")).body.items[0];
+    expect(c.sending).toMatchObject({ blocker: expect.stringMatching(/subscription type/), templates: [expect.objectContaining({ id: "900" })] });
+    c = (await call("PATCH", "/v1/integrations/hubspot", { body: { eventSubscriptionTypeId: "11" }, headers: { "if-match": `"${c.version}"` } })).body;
+    expect((await call("PATCH", "/v1/integrations/hubspot", { body: { invitationTemplateId: "901" }, headers: { "if-match": `"${c.version}"` } })).status).toBe(422);
+    c = (await call("PATCH", "/v1/integrations/hubspot", { body: { invitationTemplateId: "900" }, headers: { "if-match": `"${c.version}"` } })).body;
+    expect(c).toMatchObject({ features: { sending: true }, sending: { blocker: null }, settings: { invitationTemplateId: "900" } });
+
+    expect((await call("PATCH", url, { body: { channel: "hubspot" } })).status).toBe(428);
+    const r = await call("PATCH", url, { as: "manager@a.test", body: { channel: "hubspot", texts: { invitation: { subject: "Velkommen", previewText: "Lørdag" } } }, headers: { "if-match": '"0"' } });
+    expect(r).toMatchObject({ status: 200, body: { channel: "hubspot", version: 1, effectiveTemplates: { invitation: "900" }, texts: { invitation: { subject: "Velkommen", previewText: "Lørdag" } }, customTexts: ["invitation"] } });
+    expect(r.headers.etag).toBe('"1"');
+    expect((await call("PATCH", url, { body: { templates: { reminder: "901" } }, headers: { "if-match": '"1"' } })).status).toBe(422);
+    expect((await call("PATCH", url, { body: { channel: "platform" }, headers: { "if-match": '"0"' } })).status).toBe(412);
+    expect((await call("POST", `${url}/check`, { as: "manager@a.test" })).status).toBe(202);
+    expect((await call("GET", url, { as: "owner@b.test", account: B })).status).toBe(404);
+  });
+
   it("repairs setup on request, and disconnects, revoking our token at HubSpot", async () => {
     expect((await call("POST", "/v1/integrations/hubspot/setup")).status).toBe(202);
     const revokes = hubspot.calls.filter((c) => c === "revoke").length;

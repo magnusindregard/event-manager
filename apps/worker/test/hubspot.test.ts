@@ -55,7 +55,8 @@ describe("HubSpot setup", () => {
     await connect("100");
     const calls = hubspot.calls.length;
     await drain();
-    expect(hubspot.calls.slice(calls)).toEqual(["accountDetails"]);
+    // The token reaches the portal; then the templates for HubSpot sending are read.
+    expect(hubspot.calls.slice(calls)).toEqual(["accountDetails", "listEmails"]);
     expect((await connection())?.setup).toMatchObject({ status: "done", error: null });
   });
 
@@ -66,7 +67,7 @@ describe("HubSpot setup", () => {
     expect((await connection())?.setup.status).toBe("pending");
     const calls = hubspot.calls.length;
     await drain();
-    expect(hubspot.calls.slice(calls)).toEqual(["refresh", "accountDetails"]);
+    expect(hubspot.calls.slice(calls)).toEqual(["refresh", "accountDetails", "listEmails"]);
     expect((await withTenant(db, ctx, (tx) => integrations.loadForSync(tx, ctx.tenantId, "hubspot")))!.tokens.accessToken).not.toBe(before);
     expect((await connection())?.setup.status).toBe("done");
   });
@@ -76,7 +77,7 @@ describe("HubSpot setup", () => {
     await withTenant(db, ctx, (tx) => integrations.requestSetup(tx, ctx, "hubspot"));
     const calls = hubspot.calls.length;
     await drain();
-    expect(hubspot.calls.slice(calls)).toEqual(["accountDetails", "refresh", "accountDetails"]);
+    expect(hubspot.calls.slice(calls)).toEqual(["accountDetails", "refresh", "accountDetails", "listEmails"]);
     expect(await connection()).toMatchObject({ status: "active", setup: { status: "done" } });
   });
 

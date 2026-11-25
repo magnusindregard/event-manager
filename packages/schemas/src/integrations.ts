@@ -11,6 +11,17 @@ export const IntegrationSettings = Type.Object({
   eventSubscriptionTypeId: Nullable(Type.String({ description: "The subscription type the platform's HubSpot emails use; temporary contacts are unsubscribed from every other" })),
   cleanupGraceDays: Type.Integer({ minimum: 0, maximum: 90, description: "Days after a contact's last occurrence before the cleanup takes back what the platform did" }),
   deleteMirroredContacts: Type.Boolean({ description: "Delete contacts the platform created only for mirroring, once no event needs them" }),
+  invitationTemplateId: Nullable(Type.String({ description: "The default single-send template email for invitations" })),
+  reminderTemplateId: Nullable(Type.String({ description: "The default single-send template email for reminders to guests who have not answered" })),
+  welcomeTemplateId: Nullable(Type.String({ description: "The default single-send template email for the welcome before the event" })),
+});
+
+export const SingleSendTemplate = Type.Object({
+  id: Type.String(),
+  name: Type.String(),
+  subscriptionId: Nullable(Type.String({ description: "The template's subscription type; it should be the type for event emails" })),
+  hasInvitationLink: Type.Boolean({ description: "The content has [[em:invitation_link]]" }),
+  hasManageLink: Type.Boolean({ description: "The content has [[em:manage_link]] (for the welcome)" }),
 });
 
 export const Integration = Type.Object({
@@ -24,7 +35,16 @@ export const Integration = Type.Object({
   scopes: Type.Array(Type.String(), { description: "Scopes granted on install" }),
   features: Type.Object({
     customEvents: Type.Boolean({ description: "Custom behavioural events can be sent (Marketing Hub Enterprise)" }),
+    sending: Type.Boolean({ description: "Events can send their invitations, reminders and welcome through HubSpot" }),
   }),
+  sending: Type.Object(
+    {
+      blocker: Nullable(Type.String({ description: "Why events cannot send through HubSpot yet; null when they can" })),
+      templates: Type.Array(SingleSendTemplate, { description: "The portal's emails saved for the single-send API, as the setup last read them" }),
+      eventTypeUsedBy: Type.Array(Type.Object({ id: Type.String(), name: Type.String() }), { description: "The client's own emails that use the subscription type for event emails, which only the platform's should" }),
+    },
+    { description: "HubSpot sending (docs/hubspot.md)" },
+  ),
   settings: IntegrationSettings,
   cleanup: Type.Object(
     {
@@ -73,6 +93,66 @@ export const IntegrationSettingsPatch = Type.Object(
     eventSubscriptionTypeId: Type.Optional(Nullable(Type.String({ minLength: 1, maxLength: 40 }))),
     cleanupGraceDays: Type.Optional(Type.Integer({ minimum: 0, maximum: 90 })),
     deleteMirroredContacts: Type.Optional(Type.Boolean()),
+    invitationTemplateId: Type.Optional(Nullable(Type.String({ minLength: 1, maxLength: 40 }))),
+    reminderTemplateId: Type.Optional(Nullable(Type.String({ minLength: 1, maxLength: 40 }))),
+    welcomeTemplateId: Type.Optional(Nullable(Type.String({ minLength: 1, maxLength: 40 }))),
+  },
+  { additionalProperties: false, minProperties: 1 },
+);
+
+const EmailKind = Type.Union([Type.Literal("invitation"), Type.Literal("reminder"), Type.Literal("welcome")]);
+const EmailTexts = Type.Object({ subject: Type.String(), previewText: Type.String() });
+const PerKind = <T extends Parameters<typeof Type.Optional>[0]>(t: T) => Type.Object({ invitation: t, reminder: t, welcome: t });
+
+export const EventSending = Type.Object({
+  eventId: Type.String({ format: "uuid" }),
+  channel: Type.Union([Type.Literal("platform"), Type.Literal("hubspot")], { description: "Who sends the invitations, reminders and welcome. Everything else always comes from the platform" }),
+  templates: Type.Object({ invitation: Type.Optional(Type.String()), reminder: Type.Optional(Type.String()), welcome: Type.Optional(Type.String()) }, { description: "The event's own choice of template per kind" }),
+  effectiveTemplates: PerKind(Nullable(Type.String())),
+  texts: PerKind(EmailTexts),
+  customTexts: Type.Array(EmailKind, { description: "Kinds whose subject and preview text were set by staff; the others are made from the event" }),
+  marketingCheck: Nullable(
+    Type.Object(
+      {
+        checkedAt: DateTime,
+        guests: Type.Integer({ description: "Guests HubSpot would send to: not declined, no plus address" }),
+        marketing: Type.Integer({ description: "Already marketing contacts" }),
+        wouldBecome: Type.Integer({ description: "Not marketing contacts yet: a HubSpot send makes them ones, billed for at least this period" }),
+        plusAddresses: Type.Integer({ description: "Addresses with a +, which HubSpot refuses: the platform sends to them" }),
+        error: Type.Optional(Type.String()),
+      },
+      { description: "What the last check of the event's guests in HubSpot found" },
+    ),
+  ),
+  locked: Type.Boolean({ description: "An invitation has been sent: the channel can no longer change" }),
+  emails: Type.Array(
+    Type.Object({
+      kind: EmailKind,
+      templateId: Type.String(),
+      remoteId: Nullable(Type.String({ description: "The email's id in HubSpot" })),
+      url: Nullable(Type.String({ description: "The email in HubSpot, for design changes" })),
+      name: Nullable(Type.String()),
+      subject: Nullable(Type.String()),
+      previewText: Nullable(Type.String()),
+      status: Type.Union([Type.Literal("pending"), Type.Literal("ready"), Type.Literal("failed")]),
+      error: Nullable(Type.String()),
+      warnings: Type.Array(Type.String()),
+      firstSentAt: Nullable(DateTime),
+    }),
+    { description: "The event's own emails in HubSpot" },
+  ),
+  hubspotBlocker: Nullable(Type.String({ description: "Why HubSpot cannot be chosen; null when it can" })),
+  version: Type.Integer({ description: "0 until first saved" }),
+});
+export type EventSending = Static<typeof EventSending>;
+
+const TextsPatch = Nullable(Type.Object({ subject: Type.String({ minLength: 1, maxLength: 200 }), previewText: Type.Optional(Type.String({ maxLength: 300 })) }, { additionalProperties: false }));
+const TemplatePatch = Nullable(Type.String({ minLength: 1, maxLength: 40 }));
+export const EventSendingPatch = Type.Object(
+  {
+    channel: Type.Optional(Type.Union([Type.Literal("platform"), Type.Literal("hubspot")])),
+    templates: Type.Optional(Type.Object({ invitation: Type.Optional(TemplatePatch), reminder: Type.Optional(TemplatePatch), welcome: Type.Optional(TemplatePatch) }, { additionalProperties: false })),
+    texts: Type.Optional(Type.Object({ invitation: Type.Optional(TextsPatch), reminder: Type.Optional(TextsPatch), welcome: Type.Optional(TextsPatch) }, { additionalProperties: false })),
   },
   { additionalProperties: false, minProperties: 1 },
 );

@@ -2,7 +2,9 @@ import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { DomainError, integrations, tenancy } from "@event-manager/domain";
 import { BEHAVIOURAL_EVENT_SCOPES, CLEANUP_SCOPES, type HubSpotClient, HubSpotError, OPTIONAL_SCOPES, REQUIRED_SCOPES, signState, verifyState } from "@event-manager/hubspot";
-import { HubSpotAuthorize, HubSpotCallback, Integration, IntegrationList, IntegrationSettingsPatch, IntegrationSync, IntegrationSyncRetry, Problem } from "@event-manager/schemas";
+import {
+  EventSending, EventSendingPatch, HubSpotAuthorize, HubSpotCallback, Integration, IntegrationList, IntegrationSettingsPatch, IntegrationSync, IntegrationSyncRetry, Problem, Uuid,
+} from "@event-manager/schemas";
 import { inTenant } from "../plugins/context.js";
 import { expectedVersion, setEtag } from "../plugins/etag.js";
 
@@ -31,8 +33,12 @@ const dto = (c: integrations.Connection) => ({
   statusReason: c.statusReason,
   portalId: c.portalId,
   scopes: c.scopes,
-  features: { customEvents: BEHAVIOURAL_EVENT_SCOPES.every((s) => c.scopes.includes(s)) },
+  features: { customEvents: BEHAVIOURAL_EVENT_SCOPES.every((s) => c.scopes.includes(s)), sending: integrations.sendingBlocker(c, CLEANUP_SCOPES) === null },
   settings: c.settings,
+  sending: (() => {
+    const setup = c.portalSetup.portalId === c.portalId ? c.portalSetup : {};
+    return { blocker: integrations.sendingBlocker(c, CLEANUP_SCOPES), templates: setup.singleSendEmails ?? [], eventTypeUsedBy: setup.eventTypeUsedBy ?? [] };
+  })(),
   cleanup: (() => {
     const setup = c.portalSetup.portalId === c.portalId ? c.portalSetup : {};
     return {
@@ -49,6 +55,24 @@ const dto = (c: integrations.Connection) => ({
   version: c.version,
   updatedAt: c.updatedAt.toISOString(),
 });
+
+/** The email's page in HubSpot, where the client changes its design. */
+const emailUrl = (portalId: string | null, emailId: string | null) => (portalId && emailId ? `https://app.hubspot.com/email/${portalId}/edit/${emailId}/content` : null);
+
+const sendingDto = (s: integrations.EventSending) => ({
+  eventId: s.eventId,
+  channel: s.channel,
+  templates: s.templates,
+  effectiveTemplates: s.effectiveTemplates,
+  texts: s.texts,
+  customTexts: s.customTexts,
+  marketingCheck: s.marketingCheck,
+  locked: s.locked,
+  emails: s.emails.map((e) => ({ ...e, url: emailUrl(s.portalId, e.remoteId), firstSentAt: e.firstSentAt?.toISOString() ?? null })),
+  hubspotBlocker: s.hubspotBlocker,
+  version: s.version,
+});
+const IdParams = Type.Object({ id: Uuid });
 
 export const integrationRoutes: FastifyPluginAsyncTypebox<{ hubspot: HubSpotDeps | null }> = async (app, opts) => {
   app.addHook("preHandler", app.requireAccount);
@@ -188,6 +212,54 @@ export const integrationRoutes: FastifyPluginAsyncTypebox<{ hubspot: HubSpotDeps
     async (req, reply) => {
       const c = await inTenant(app, req, (tx, ctx) => integrations.requestCleanupAndDisconnect(tx, ctx, "hubspot"));
       return reply.status(202).send(dto(c));
+    },
+  );
+
+  app.get(
+    "/events/:id/sending",
+    {
+      schema: {
+        operationId: "getEventSending", tags: ["integrations"], ...accountScoped, params: IdParams,
+        summary: "Who sends the event's invitations, reminders and welcome (the platform or HubSpot), and the event's HubSpot emails",
+        response: { 200: EventSending, ...errors },
+      },
+    },
+    async (req, reply) => {
+      const s = await inTenant(app, req, (tx, ctx) => integrations.getEventSending(tx, ctx, req.params.id, CLEANUP_SCOPES));
+      setEtag(reply, s.version);
+      return sendingDto(s);
+    },
+  );
+
+  app.patch(
+    "/events/:id/sending",
+    {
+      schema: {
+        operationId: "updateEventSending", tags: ["integrations"], ...accountScoped, params: IdParams, body: EventSendingPatch,
+        summary: "Choose who sends the event's invitations, reminders and welcome, the template emails, and their subject and preview text. Requires If-Match (\"0\" before the first save). The channel is settled once an invitation has gone out",
+        response: { 200: EventSending, ...writeErrors },
+      },
+    },
+    async (req, reply) => {
+      const v = expectedVersion(req);
+      const s = await inTenant(app, req, (tx, ctx) => integrations.updateEventSending(tx, ctx, req.params.id, v, req.body, CLEANUP_SCOPES));
+      setEtag(reply, s.version);
+      return sendingDto(s);
+    },
+  );
+
+  app.post(
+    "/events/:id/sending/check",
+    {
+      schema: {
+        operationId: "checkEventSending", tags: ["integrations"], ...accountScoped, params: IdParams,
+        summary: "Counts again, in HubSpot, how many of the event's guests would become marketing contacts. Runs in the background",
+        response: { 202: Type.Null(), ...writeErrors },
+      },
+    },
+    async (req, reply) => {
+      await inTenant(app, req, (tx, ctx) => integrations.requestMarketingCheck(tx, ctx, req.params.id));
+      return reply.status(202).send(null);
     },
   );
 

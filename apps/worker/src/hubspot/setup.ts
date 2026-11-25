@@ -1,13 +1,18 @@
 import type { Task } from "graphile-worker";
-import { type Db, sql, withTenant } from "@event-manager/db";
+import { type Db, sql, type Tx, withTenant } from "@event-manager/db";
 import { integrations } from "@event-manager/domain";
 import { type HubSpotClient, HubSpotError } from "@event-manager/hubspot";
 import type { InternalHandler } from "../handlers.js";
 import { setUpCleanup } from "./cleanup.js";
+import { readSingleSendEmails } from "./emails.js";
 import { withHubSpot } from "./session.js";
 
 export interface HubSpotDeps {
   client: HubSpotClient;
+  /** Base of the hosted attendee pages, for the links in the event's HubSpot emails. */
+  attendeeUrl?: string;
+  /** How long to wait between reads of a send's status (tests pass 0). */
+  pollMs?: number;
 }
 
 export const HUBSPOT_SETUP_TASK = "hubspot.setup";
@@ -59,7 +64,9 @@ export function hubspotSetupTask(db: Db, deps: HubSpotDeps | null): Task {
         ref = { id: connection.id, generation: connection.generation };
         const details = await deps.client.accountDetails(accessToken);
         if (details.portalId !== connection.portalId) throw new HubSpotError(`HubSpot answered for portal ${details.portalId}, not the connected portal ${connection.portalId}`, 409);
-        await setUpCleanup(deps.client, accessToken, connection, (fn) => withTenant(db, { tenantId: payload.tenantId }, fn));
+        const t = <T>(fn: (tx: Tx) => Promise<T>) => withTenant(db, { tenantId: payload.tenantId }, fn);
+        await setUpCleanup(deps.client, accessToken, connection, t);
+        await readSingleSendEmails(deps.client, accessToken, connection, t);
         return connection.portalId;
       });
       if (!done?.value) return;

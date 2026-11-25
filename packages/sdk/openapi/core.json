@@ -26610,6 +26610,7 @@
                           "portalId",
                           "scopes",
                           "features",
+                          "sending",
                           "settings",
                           "cleanup",
                           "setup",
@@ -26676,14 +26677,101 @@
                           "features": {
                             "type": "object",
                             "required": [
-                              "customEvents"
+                              "customEvents",
+                              "sending"
                             ],
                             "properties": {
                               "customEvents": {
                                 "type": "boolean",
                                 "description": "Custom behavioural events can be sent (Marketing Hub Enterprise)"
+                              },
+                              "sending": {
+                                "type": "boolean",
+                                "description": "Events can send their invitations, reminders and welcome through HubSpot"
                               }
                             }
+                          },
+                          "sending": {
+                            "type": "object",
+                            "required": [
+                              "blocker",
+                              "templates",
+                              "eventTypeUsedBy"
+                            ],
+                            "properties": {
+                              "blocker": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "Why events cannot send through HubSpot yet; null when they can"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "templates": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "name",
+                                    "subscriptionId",
+                                    "hasInvitationLink",
+                                    "hasManageLink"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "subscriptionId": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "description": "The template's subscription type; it should be the type for event emails"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "hasInvitationLink": {
+                                      "type": "boolean",
+                                      "description": "The content has [[em:invitation_link]]"
+                                    },
+                                    "hasManageLink": {
+                                      "type": "boolean",
+                                      "description": "The content has [[em:manage_link]] (for the welcome)"
+                                    }
+                                  }
+                                },
+                                "description": "The portal's emails saved for the single-send API, as the setup last read them"
+                              },
+                              "eventTypeUsedBy": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "name"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "description": "The client's own emails that use the subscription type for event emails, which only the platform's should"
+                              }
+                            },
+                            "description": "HubSpot sending (docs/hubspot.md)"
                           },
                           "settings": {
                             "type": "object",
@@ -26692,7 +26780,10 @@
                               "syncOpenAttendees",
                               "eventSubscriptionTypeId",
                               "cleanupGraceDays",
-                              "deleteMirroredContacts"
+                              "deleteMirroredContacts",
+                              "invitationTemplateId",
+                              "reminderTemplateId",
+                              "welcomeTemplateId"
                             ],
                             "properties": {
                               "syncInvitedGuests": {
@@ -26723,6 +26814,39 @@
                               "deleteMirroredContacts": {
                                 "type": "boolean",
                                 "description": "Delete contacts the platform created only for mirroring, once no event needs them"
+                              },
+                              "invitationTemplateId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "The default single-send template email for invitations"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "reminderTemplateId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "The default single-send template email for reminders to guests who have not answered"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "welcomeTemplateId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "The default single-send template email for the welcome before the event"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             }
                           },
@@ -27173,6 +27297,7 @@
                     "portalId",
                     "scopes",
                     "features",
+                    "sending",
                     "settings",
                     "cleanup",
                     "setup",
@@ -27239,14 +27364,101 @@
                     "features": {
                       "type": "object",
                       "required": [
-                        "customEvents"
+                        "customEvents",
+                        "sending"
                       ],
                       "properties": {
                         "customEvents": {
                           "type": "boolean",
                           "description": "Custom behavioural events can be sent (Marketing Hub Enterprise)"
+                        },
+                        "sending": {
+                          "type": "boolean",
+                          "description": "Events can send their invitations, reminders and welcome through HubSpot"
                         }
                       }
+                    },
+                    "sending": {
+                      "type": "object",
+                      "required": [
+                        "blocker",
+                        "templates",
+                        "eventTypeUsedBy"
+                      ],
+                      "properties": {
+                        "blocker": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "Why events cannot send through HubSpot yet; null when they can"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "templates": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "subscriptionId",
+                              "hasInvitationLink",
+                              "hasManageLink"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "subscriptionId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "The template's subscription type; it should be the type for event emails"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "hasInvitationLink": {
+                                "type": "boolean",
+                                "description": "The content has [[em:invitation_link]]"
+                              },
+                              "hasManageLink": {
+                                "type": "boolean",
+                                "description": "The content has [[em:manage_link]] (for the welcome)"
+                              }
+                            }
+                          },
+                          "description": "The portal's emails saved for the single-send API, as the setup last read them"
+                        },
+                        "eventTypeUsedBy": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "description": "The client's own emails that use the subscription type for event emails, which only the platform's should"
+                        }
+                      },
+                      "description": "HubSpot sending (docs/hubspot.md)"
                     },
                     "settings": {
                       "type": "object",
@@ -27255,7 +27467,10 @@
                         "syncOpenAttendees",
                         "eventSubscriptionTypeId",
                         "cleanupGraceDays",
-                        "deleteMirroredContacts"
+                        "deleteMirroredContacts",
+                        "invitationTemplateId",
+                        "reminderTemplateId",
+                        "welcomeTemplateId"
                       ],
                       "properties": {
                         "syncInvitedGuests": {
@@ -27286,6 +27501,39 @@
                         "deleteMirroredContacts": {
                           "type": "boolean",
                           "description": "Delete contacts the platform created only for mirroring, once no event needs them"
+                        },
+                        "invitationTemplateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The default single-send template email for invitations"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reminderTemplateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The default single-send template email for reminders to guests who have not answered"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "welcomeTemplateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The default single-send template email for the welcome before the event"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       }
                     },
@@ -27609,6 +27857,42 @@
                   },
                   "deleteMirroredContacts": {
                     "type": "boolean"
+                  },
+                  "invitationTemplateId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "reminderTemplateId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "welcomeTemplateId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "additionalProperties": false,
@@ -27638,6 +27922,7 @@
                     "portalId",
                     "scopes",
                     "features",
+                    "sending",
                     "settings",
                     "cleanup",
                     "setup",
@@ -27704,14 +27989,101 @@
                     "features": {
                       "type": "object",
                       "required": [
-                        "customEvents"
+                        "customEvents",
+                        "sending"
                       ],
                       "properties": {
                         "customEvents": {
                           "type": "boolean",
                           "description": "Custom behavioural events can be sent (Marketing Hub Enterprise)"
+                        },
+                        "sending": {
+                          "type": "boolean",
+                          "description": "Events can send their invitations, reminders and welcome through HubSpot"
                         }
                       }
+                    },
+                    "sending": {
+                      "type": "object",
+                      "required": [
+                        "blocker",
+                        "templates",
+                        "eventTypeUsedBy"
+                      ],
+                      "properties": {
+                        "blocker": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "Why events cannot send through HubSpot yet; null when they can"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "templates": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "subscriptionId",
+                              "hasInvitationLink",
+                              "hasManageLink"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "subscriptionId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "The template's subscription type; it should be the type for event emails"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "hasInvitationLink": {
+                                "type": "boolean",
+                                "description": "The content has [[em:invitation_link]]"
+                              },
+                              "hasManageLink": {
+                                "type": "boolean",
+                                "description": "The content has [[em:manage_link]] (for the welcome)"
+                              }
+                            }
+                          },
+                          "description": "The portal's emails saved for the single-send API, as the setup last read them"
+                        },
+                        "eventTypeUsedBy": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "description": "The client's own emails that use the subscription type for event emails, which only the platform's should"
+                        }
+                      },
+                      "description": "HubSpot sending (docs/hubspot.md)"
                     },
                     "settings": {
                       "type": "object",
@@ -27720,7 +28092,10 @@
                         "syncOpenAttendees",
                         "eventSubscriptionTypeId",
                         "cleanupGraceDays",
-                        "deleteMirroredContacts"
+                        "deleteMirroredContacts",
+                        "invitationTemplateId",
+                        "reminderTemplateId",
+                        "welcomeTemplateId"
                       ],
                       "properties": {
                         "syncInvitedGuests": {
@@ -27751,6 +28126,39 @@
                         "deleteMirroredContacts": {
                           "type": "boolean",
                           "description": "Delete contacts the platform created only for mirroring, once no event needs them"
+                        },
+                        "invitationTemplateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The default single-send template email for invitations"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reminderTemplateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The default single-send template email for reminders to guests who have not answered"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "welcomeTemplateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The default single-send template email for the welcome before the event"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       }
                     },
@@ -28201,6 +28609,7 @@
                     "portalId",
                     "scopes",
                     "features",
+                    "sending",
                     "settings",
                     "cleanup",
                     "setup",
@@ -28267,14 +28676,101 @@
                     "features": {
                       "type": "object",
                       "required": [
-                        "customEvents"
+                        "customEvents",
+                        "sending"
                       ],
                       "properties": {
                         "customEvents": {
                           "type": "boolean",
                           "description": "Custom behavioural events can be sent (Marketing Hub Enterprise)"
+                        },
+                        "sending": {
+                          "type": "boolean",
+                          "description": "Events can send their invitations, reminders and welcome through HubSpot"
                         }
                       }
+                    },
+                    "sending": {
+                      "type": "object",
+                      "required": [
+                        "blocker",
+                        "templates",
+                        "eventTypeUsedBy"
+                      ],
+                      "properties": {
+                        "blocker": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "Why events cannot send through HubSpot yet; null when they can"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "templates": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "subscriptionId",
+                              "hasInvitationLink",
+                              "hasManageLink"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "subscriptionId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "The template's subscription type; it should be the type for event emails"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "hasInvitationLink": {
+                                "type": "boolean",
+                                "description": "The content has [[em:invitation_link]]"
+                              },
+                              "hasManageLink": {
+                                "type": "boolean",
+                                "description": "The content has [[em:manage_link]] (for the welcome)"
+                              }
+                            }
+                          },
+                          "description": "The portal's emails saved for the single-send API, as the setup last read them"
+                        },
+                        "eventTypeUsedBy": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "description": "The client's own emails that use the subscription type for event emails, which only the platform's should"
+                        }
+                      },
+                      "description": "HubSpot sending (docs/hubspot.md)"
                     },
                     "settings": {
                       "type": "object",
@@ -28283,7 +28779,10 @@
                         "syncOpenAttendees",
                         "eventSubscriptionTypeId",
                         "cleanupGraceDays",
-                        "deleteMirroredContacts"
+                        "deleteMirroredContacts",
+                        "invitationTemplateId",
+                        "reminderTemplateId",
+                        "welcomeTemplateId"
                       ],
                       "properties": {
                         "syncInvitedGuests": {
@@ -28314,6 +28813,39 @@
                         "deleteMirroredContacts": {
                           "type": "boolean",
                           "description": "Delete contacts the platform created only for mirroring, once no event needs them"
+                        },
+                        "invitationTemplateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The default single-send template email for invitations"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reminderTemplateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The default single-send template email for reminders to guests who have not answered"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "welcomeTemplateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The default single-send template email for the welcome before the event"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       }
                     },
@@ -29373,6 +29905,7 @@
                     "portalId",
                     "scopes",
                     "features",
+                    "sending",
                     "settings",
                     "cleanup",
                     "setup",
@@ -29439,14 +29972,101 @@
                     "features": {
                       "type": "object",
                       "required": [
-                        "customEvents"
+                        "customEvents",
+                        "sending"
                       ],
                       "properties": {
                         "customEvents": {
                           "type": "boolean",
                           "description": "Custom behavioural events can be sent (Marketing Hub Enterprise)"
+                        },
+                        "sending": {
+                          "type": "boolean",
+                          "description": "Events can send their invitations, reminders and welcome through HubSpot"
                         }
                       }
+                    },
+                    "sending": {
+                      "type": "object",
+                      "required": [
+                        "blocker",
+                        "templates",
+                        "eventTypeUsedBy"
+                      ],
+                      "properties": {
+                        "blocker": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "Why events cannot send through HubSpot yet; null when they can"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "templates": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "subscriptionId",
+                              "hasInvitationLink",
+                              "hasManageLink"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "subscriptionId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "The template's subscription type; it should be the type for event emails"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "hasInvitationLink": {
+                                "type": "boolean",
+                                "description": "The content has [[em:invitation_link]]"
+                              },
+                              "hasManageLink": {
+                                "type": "boolean",
+                                "description": "The content has [[em:manage_link]] (for the welcome)"
+                              }
+                            }
+                          },
+                          "description": "The portal's emails saved for the single-send API, as the setup last read them"
+                        },
+                        "eventTypeUsedBy": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "description": "The client's own emails that use the subscription type for event emails, which only the platform's should"
+                        }
+                      },
+                      "description": "HubSpot sending (docs/hubspot.md)"
                     },
                     "settings": {
                       "type": "object",
@@ -29455,7 +30075,10 @@
                         "syncOpenAttendees",
                         "eventSubscriptionTypeId",
                         "cleanupGraceDays",
-                        "deleteMirroredContacts"
+                        "deleteMirroredContacts",
+                        "invitationTemplateId",
+                        "reminderTemplateId",
+                        "welcomeTemplateId"
                       ],
                       "properties": {
                         "syncInvitedGuests": {
@@ -29486,6 +30109,39 @@
                         "deleteMirroredContacts": {
                           "type": "boolean",
                           "description": "Delete contacts the platform created only for mirroring, once no event needs them"
+                        },
+                        "invitationTemplateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The default single-send template email for invitations"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reminderTemplateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The default single-send template email for reminders to guests who have not answered"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "welcomeTemplateId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The default single-send template email for the welcome before the event"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       }
                     },
@@ -29646,6 +30302,1328 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events/{id}/sending": {
+      "get": {
+        "operationId": "getEventSending",
+        "summary": "Who sends the event's invitations, reminders and welcome (the platform or HubSpot), and the event's HubSpot emails",
+        "tags": [
+          "integrations"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "eventId",
+                    "channel",
+                    "templates",
+                    "effectiveTemplates",
+                    "texts",
+                    "customTexts",
+                    "marketingCheck",
+                    "locked",
+                    "emails",
+                    "hubspotBlocker",
+                    "version"
+                  ],
+                  "properties": {
+                    "eventId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "channel": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "platform"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "hubspot"
+                          ]
+                        }
+                      ],
+                      "description": "Who sends the invitations, reminders and welcome. Everything else always comes from the platform"
+                    },
+                    "templates": {
+                      "type": "object",
+                      "properties": {
+                        "invitation": {
+                          "type": "string"
+                        },
+                        "reminder": {
+                          "type": "string"
+                        },
+                        "welcome": {
+                          "type": "string"
+                        }
+                      },
+                      "description": "The event's own choice of template per kind"
+                    },
+                    "effectiveTemplates": {
+                      "type": "object",
+                      "required": [
+                        "invitation",
+                        "reminder",
+                        "welcome"
+                      ],
+                      "properties": {
+                        "invitation": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reminder": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "welcome": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "texts": {
+                      "type": "object",
+                      "required": [
+                        "invitation",
+                        "reminder",
+                        "welcome"
+                      ],
+                      "properties": {
+                        "invitation": {
+                          "type": "object",
+                          "required": [
+                            "subject",
+                            "previewText"
+                          ],
+                          "properties": {
+                            "subject": {
+                              "type": "string"
+                            },
+                            "previewText": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "reminder": {
+                          "type": "object",
+                          "required": [
+                            "subject",
+                            "previewText"
+                          ],
+                          "properties": {
+                            "subject": {
+                              "type": "string"
+                            },
+                            "previewText": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "welcome": {
+                          "type": "object",
+                          "required": [
+                            "subject",
+                            "previewText"
+                          ],
+                          "properties": {
+                            "subject": {
+                              "type": "string"
+                            },
+                            "previewText": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "customTexts": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "invitation"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "reminder"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "welcome"
+                            ]
+                          }
+                        ]
+                      },
+                      "description": "Kinds whose subject and preview text were set by staff; the others are made from the event"
+                    },
+                    "marketingCheck": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "checkedAt",
+                            "guests",
+                            "marketing",
+                            "wouldBecome",
+                            "plusAddresses"
+                          ],
+                          "properties": {
+                            "checkedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "guests": {
+                              "type": "integer",
+                              "description": "Guests HubSpot would send to: not declined, no plus address"
+                            },
+                            "marketing": {
+                              "type": "integer",
+                              "description": "Already marketing contacts"
+                            },
+                            "wouldBecome": {
+                              "type": "integer",
+                              "description": "Not marketing contacts yet: a HubSpot send makes them ones, billed for at least this period"
+                            },
+                            "plusAddresses": {
+                              "type": "integer",
+                              "description": "Addresses with a +, which HubSpot refuses: the platform sends to them"
+                            },
+                            "error": {
+                              "type": "string"
+                            }
+                          },
+                          "description": "What the last check of the event's guests in HubSpot found"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "locked": {
+                      "type": "boolean",
+                      "description": "An invitation has been sent: the channel can no longer change"
+                    },
+                    "emails": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "templateId",
+                          "remoteId",
+                          "url",
+                          "name",
+                          "subject",
+                          "previewText",
+                          "status",
+                          "error",
+                          "warnings",
+                          "firstSentAt"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "invitation"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "reminder"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "welcome"
+                                ]
+                              }
+                            ]
+                          },
+                          "templateId": {
+                            "type": "string"
+                          },
+                          "remoteId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "The email's id in HubSpot"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "The email in HubSpot, for design changes"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "subject": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "previewText": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "pending"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ready"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "failed"
+                                ]
+                              }
+                            ]
+                          },
+                          "error": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "warnings": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "firstSentAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "description": "The event's own emails in HubSpot"
+                    },
+                    "hubspotBlocker": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Why HubSpot cannot be chosen; null when it can"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "description": "0 until first saved"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateEventSending",
+        "summary": "Choose who sends the event's invitations, reminders and welcome, the template emails, and their subject and preview text. Requires If-Match (\"0\" before the first save). The channel is settled once an invitation has gone out",
+        "tags": [
+          "integrations"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "channel": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "platform"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "enum": [
+                          "hubspot"
+                        ]
+                      }
+                    ]
+                  },
+                  "templates": {
+                    "type": "object",
+                    "properties": {
+                      "invitation": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "reminder": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "welcome": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "texts": {
+                    "type": "object",
+                    "properties": {
+                      "invitation": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "subject"
+                            ],
+                            "properties": {
+                              "subject": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "previewText": {
+                                "type": "string",
+                                "maxLength": 300
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "reminder": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "subject"
+                            ],
+                            "properties": {
+                              "subject": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "previewText": {
+                                "type": "string",
+                                "maxLength": 300
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "welcome": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "required": [
+                              "subject"
+                            ],
+                            "properties": {
+                              "subject": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "previewText": {
+                                "type": "string",
+                                "maxLength": 300
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false,
+                "minProperties": 1
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "eventId",
+                    "channel",
+                    "templates",
+                    "effectiveTemplates",
+                    "texts",
+                    "customTexts",
+                    "marketingCheck",
+                    "locked",
+                    "emails",
+                    "hubspotBlocker",
+                    "version"
+                  ],
+                  "properties": {
+                    "eventId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "channel": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "platform"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "hubspot"
+                          ]
+                        }
+                      ],
+                      "description": "Who sends the invitations, reminders and welcome. Everything else always comes from the platform"
+                    },
+                    "templates": {
+                      "type": "object",
+                      "properties": {
+                        "invitation": {
+                          "type": "string"
+                        },
+                        "reminder": {
+                          "type": "string"
+                        },
+                        "welcome": {
+                          "type": "string"
+                        }
+                      },
+                      "description": "The event's own choice of template per kind"
+                    },
+                    "effectiveTemplates": {
+                      "type": "object",
+                      "required": [
+                        "invitation",
+                        "reminder",
+                        "welcome"
+                      ],
+                      "properties": {
+                        "invitation": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reminder": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "welcome": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "texts": {
+                      "type": "object",
+                      "required": [
+                        "invitation",
+                        "reminder",
+                        "welcome"
+                      ],
+                      "properties": {
+                        "invitation": {
+                          "type": "object",
+                          "required": [
+                            "subject",
+                            "previewText"
+                          ],
+                          "properties": {
+                            "subject": {
+                              "type": "string"
+                            },
+                            "previewText": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "reminder": {
+                          "type": "object",
+                          "required": [
+                            "subject",
+                            "previewText"
+                          ],
+                          "properties": {
+                            "subject": {
+                              "type": "string"
+                            },
+                            "previewText": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "welcome": {
+                          "type": "object",
+                          "required": [
+                            "subject",
+                            "previewText"
+                          ],
+                          "properties": {
+                            "subject": {
+                              "type": "string"
+                            },
+                            "previewText": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "customTexts": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "invitation"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "reminder"
+                            ]
+                          },
+                          {
+                            "type": "string",
+                            "enum": [
+                              "welcome"
+                            ]
+                          }
+                        ]
+                      },
+                      "description": "Kinds whose subject and preview text were set by staff; the others are made from the event"
+                    },
+                    "marketingCheck": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "checkedAt",
+                            "guests",
+                            "marketing",
+                            "wouldBecome",
+                            "plusAddresses"
+                          ],
+                          "properties": {
+                            "checkedAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "guests": {
+                              "type": "integer",
+                              "description": "Guests HubSpot would send to: not declined, no plus address"
+                            },
+                            "marketing": {
+                              "type": "integer",
+                              "description": "Already marketing contacts"
+                            },
+                            "wouldBecome": {
+                              "type": "integer",
+                              "description": "Not marketing contacts yet: a HubSpot send makes them ones, billed for at least this period"
+                            },
+                            "plusAddresses": {
+                              "type": "integer",
+                              "description": "Addresses with a +, which HubSpot refuses: the platform sends to them"
+                            },
+                            "error": {
+                              "type": "string"
+                            }
+                          },
+                          "description": "What the last check of the event's guests in HubSpot found"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "locked": {
+                      "type": "boolean",
+                      "description": "An invitation has been sent: the channel can no longer change"
+                    },
+                    "emails": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "kind",
+                          "templateId",
+                          "remoteId",
+                          "url",
+                          "name",
+                          "subject",
+                          "previewText",
+                          "status",
+                          "error",
+                          "warnings",
+                          "firstSentAt"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "invitation"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "reminder"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "welcome"
+                                ]
+                              }
+                            ]
+                          },
+                          "templateId": {
+                            "type": "string"
+                          },
+                          "remoteId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "The email's id in HubSpot"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "url": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "The email in HubSpot, for design changes"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "subject": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "previewText": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "status": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "pending"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "ready"
+                                ]
+                              },
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "failed"
+                                ]
+                              }
+                            ]
+                          },
+                          "error": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "warnings": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "firstSentAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "description": "The event's own emails in HubSpot"
+                    },
+                    "hubspotBlocker": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "description": "Why HubSpot cannot be chosen; null when it can"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "description": "0 until first saved"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events/{id}/sending/check": {
+      "post": {
+        "operationId": "checkEventSending",
+        "summary": "Counts again, in HubSpot, how many of the event's guests would become marketing contacts. Runs in the background",
+        "tags": [
+          "integrations"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Default Response"
           },
           "400": {
             "description": "Default Response",
@@ -32683,7 +34661,9 @@
                                   "sentAt",
                                   "deliveryStatus",
                                   "deliveryDetail",
-                                  "deliveryAt"
+                                  "deliveryAt",
+                                  "channel",
+                                  "fallbackReason"
                                 ],
                                 "properties": {
                                   "kind": {
@@ -32766,6 +34746,30 @@
                                       "null"
                                     ],
                                     "format": "date-time"
+                                  },
+                                  "channel": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "platform"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "hubspot"
+                                        ]
+                                      }
+                                    ],
+                                    "description": "Who sent it: the platform's mail service, or HubSpot (docs/hubspot.md)"
+                                  },
+                                  "fallbackReason": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ],
+                                    "description": "Why the platform sent it although the event sends through HubSpot"
                                   }
                                 }
                               }
@@ -33116,7 +35120,9 @@
                             "sentAt",
                             "deliveryStatus",
                             "deliveryDetail",
-                            "deliveryAt"
+                            "deliveryAt",
+                            "channel",
+                            "fallbackReason"
                           ],
                           "properties": {
                             "kind": {
@@ -33199,6 +35205,30 @@
                                 "null"
                               ],
                               "format": "date-time"
+                            },
+                            "channel": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "platform"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "hubspot"
+                                  ]
+                                }
+                              ],
+                              "description": "Who sent it: the platform's mail service, or HubSpot (docs/hubspot.md)"
+                            },
+                            "fallbackReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Why the platform sent it although the event sends through HubSpot"
                             }
                           }
                         }
@@ -33563,7 +35593,9 @@
                             "sentAt",
                             "deliveryStatus",
                             "deliveryDetail",
-                            "deliveryAt"
+                            "deliveryAt",
+                            "channel",
+                            "fallbackReason"
                           ],
                           "properties": {
                             "kind": {
@@ -33646,6 +35678,30 @@
                                 "null"
                               ],
                               "format": "date-time"
+                            },
+                            "channel": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "platform"
+                                  ]
+                                },
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "hubspot"
+                                  ]
+                                }
+                              ],
+                              "description": "Who sent it: the platform's mail service, or HubSpot (docs/hubspot.md)"
+                            },
+                            "fallbackReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ],
+                              "description": "Why the platform sent it although the event sends through HubSpot"
                             }
                           }
                         }

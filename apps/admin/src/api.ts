@@ -78,6 +78,7 @@ export type VatClass = Json<"/v1/vat-classes", "get">["items"][number];
 export type UserGroup = Json<"/v1/user-groups", "get">["items"][number];
 export type Integration = Json<"/v1/integrations", "get">["items"][number];
 export type IntegrationSync = Json<"/v1/integrations/hubspot/sync", "get">;
+export type EventSending = Json<"/v1/events/{id}/sending", "get">;
 export type Offer = Json<"/v1/offers/{id}", "get">;
 export type OfferCreate = Body<"/v1/events/{id}/offers", "post">;
 export type OfferPatch = Body<"/v1/offers/{id}", "patch">;

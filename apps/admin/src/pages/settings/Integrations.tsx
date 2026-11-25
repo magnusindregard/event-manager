@@ -167,6 +167,10 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
                 {t("integrations.featureCustomEvents")}
                 <Badge variant="outline">{live.features.customEvents ? t("integrations.featureOn") : t("integrations.featureOff")}</Badge>
               </div>
+              <div className="flex items-center gap-2 text-sm">
+                {t("integrations.featureSending")}
+                <Badge variant="outline">{live.features.sending ? t("integrations.featureOn") : t("integrations.featureOff")}</Badge>
+              </div>
             </div>
             <div className="space-y-2">
               <div className="text-sm font-medium">{t("integrations.sync")}</div>
@@ -179,6 +183,7 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
               ))}
             </div>
             <CleanupSettings live={live} canEdit={canEdit} pending={settings.isPending} save={(body) => settings.mutate({ c: live, body })} />
+            <SendingSettings live={live} canEdit={canEdit} pending={settings.isPending} save={(body) => settings.mutate({ c: live, body })} />
           </>
         )}
 
@@ -276,6 +281,67 @@ function CleanupSettings({ live, canEdit, pending, save }: { live: Integration; 
           onCheckedChange={(v) => save({ deleteMirroredContacts: v })} />
         <Label htmlFor="deleteMirroredContacts">{t("integrations.cleanup.deleteMirrored")}</Label>
       </div>
+    </div>
+  );
+}
+
+const EMAIL_KINDS = ["invitation", "reminder", "welcome"] as const;
+const templateKey = { invitation: "invitationTemplateId", reminder: "reminderTemplateId", welcome: "welcomeTemplateId" } as const;
+
+/**
+ * HubSpot sending (docs/hubspot.md, milestone 5): what still stops events from sending through
+ * HubSpot, and the account's default single-send template per kind, with what is wrong with each.
+ */
+function SendingSettings({ live, canEdit, pending, save }: { live: Integration; canEdit: boolean; pending: boolean; save: (body: Partial<Integration["settings"]>) => void }) {
+  const { t } = useTranslation();
+  const s = live.sending;
+  const eventType = live.settings.eventSubscriptionTypeId;
+  const warningsFor = (kind: (typeof EMAIL_KINDS)[number], id: string | null) => {
+    const tpl = s.templates.find((x) => x.id === id);
+    if (!tpl) return [];
+    const w: string[] = [];
+    if (kind !== "welcome" && !tpl.hasInvitationLink) w.push(t("integrations.sending.noInvitationLink"));
+    if (kind === "welcome" && !tpl.hasManageLink) w.push(t("integrations.sending.noManageLink"));
+    if (eventType && tpl.subscriptionId !== eventType) w.push(t("integrations.sending.otherType"));
+    return w;
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="text-sm font-medium">{t("integrations.sending.title")}</div>
+        <p className="text-sm text-muted-foreground">{t("integrations.sending.hint")}</p>
+      </div>
+      {s.blocker && (
+        <Alert>
+          <CircleAlert />
+          <AlertDescription>{s.blocker}</AlertDescription>
+        </Alert>
+      )}
+      {s.eventTypeUsedBy.length > 0 && (
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertDescription>{t("integrations.sending.typeUsedBy", { names: s.eventTypeUsedBy.map((e) => e.name).join(", ") })}</AlertDescription>
+        </Alert>
+      )}
+      {s.templates.length > 0 && EMAIL_KINDS.map((kind) => {
+        const value = live.settings[templateKey[kind]];
+        const warnings = warningsFor(kind, value);
+        return (
+          <div key={kind} className="grid max-w-md gap-1">
+            <Label htmlFor={`template-${kind}`}>{t(`integrations.sending.template.${kind}`)}</Label>
+            <Select value={value ?? NONE} disabled={!canEdit || pending} onValueChange={(v) => save({ [templateKey[kind]]: v === NONE ? null : v })}>
+              <SelectTrigger id={`template-${kind}`} className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>{t("integrations.sending.noTemplate")}</SelectItem>
+                {s.templates.map((x) => <SelectItem key={x.id} value={x.id}>{x.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {warnings.map((w) => <p key={w} className="text-xs text-destructive">{w}</p>)}
+          </div>
+        );
+      })}
+      <p className="text-xs text-muted-foreground">{t("integrations.sending.templatesHint")}</p>
     </div>
   );
 }

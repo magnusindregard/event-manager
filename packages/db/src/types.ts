@@ -308,6 +308,9 @@ export interface RegistrationTable {
   cancelled_at: Timestamp | null;
   cancelled_by: CancelledBy | null;
   reminded_at: Timestamp | null;
+  reminder_channel: SendChannel | null;
+  reminder_status_id: string | null;
+  reminder_detail: string | null;
   form_version: number | null;
   sensitive_consent_at: Timestamp | null;
   anonymised_at: Timestamp | null;
@@ -318,6 +321,8 @@ export interface RegistrationTable {
 
 export type InvitationStatus = "pending" | "sent" | "accepted" | "declined";
 export type SendKind = "invitation" | "reminder";
+/** Who sent a guest email: the platform's own mail service, or HubSpot's single-send API (docs/hubspot.md). */
+export type SendChannel = "platform" | "hubspot";
 export type DeliveryStatus = "queued" | "sent" | "delivered" | "bounced" | "spam_complaint" | "failed";
 
 export interface GuestInvitationTable {
@@ -351,6 +356,9 @@ export interface InvitationSendTable {
   delivery_status: Generated<DeliveryStatus>;
   delivery_detail: string | null;
   delivery_at: Timestamp | null;
+  channel: ColumnType<SendChannel, SendChannel | undefined, SendChannel>;
+  provider_status_id: string | null;
+  fallback_reason: string | null;
 }
 
 export interface GuestImportTable {
@@ -477,6 +485,39 @@ export interface ContactStateTable {
   cleanup_status: ColumnType<CleanupStatus, CleanupStatus | undefined, CleanupStatus>;
   cleanup_reason: string | null;
   cleanup_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export type HubSpotEmailKind = "invitation" | "reminder" | "welcome";
+
+export interface EventSendingTable {
+  tenant_id: string;
+  event_id: string;
+  channel: ColumnType<SendChannel, SendChannel | undefined, SendChannel>;
+  templates: ColumnType<unknown, string | undefined, string>;
+  texts: ColumnType<unknown, string | undefined, string>;
+  marketing_check: ColumnType<unknown, string | null | undefined, string | null>;
+  updated_by: string | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface EventEmailTable {
+  tenant_id: string;
+  connection_id: string;
+  event_id: string;
+  kind: HubSpotEmailKind;
+  template_id: string;
+  remote_id: string | null;
+  name: string | null;
+  subject: string | null;
+  preview_text: string | null;
+  status: ColumnType<"pending" | "ready" | "failed", "pending" | "ready" | "failed" | undefined, "pending" | "ready" | "failed">;
+  error: string | null;
+  warnings: ColumnType<string[], string[] | undefined, string[]>;
+  first_sent_at: Timestamp | null;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
 }
@@ -805,4 +846,6 @@ export interface DB {
   "integrations.credential": CredentialTable;
   "integrations.sync_item": SyncItemTable;
   "integrations.contact_state": ContactStateTable;
+  "integrations.event_sending": EventSendingTable;
+  "integrations.event_email": EventEmailTable;
 }

@@ -1,4 +1,4 @@
-import { type DeliveryStatus, type InvitationStatus, newId, type SendKind, sql, type Tx } from "@event-manager/db";
+import { type DeliveryStatus, type InvitationStatus, newId, type SendChannel, type SendKind, sql, type Tx } from "@event-manager/db";
 import * as catalog from "../catalog/index.js";
 import { emit } from "../outbox/index.js";
 import { type ActorContext, DomainError } from "../shared/index.js";
@@ -40,6 +40,10 @@ export interface InvitationSend {
   deliveryStatus: DeliveryStatus;
   deliveryDetail: string | null;
   deliveryAt: Date | null;
+  /** Who sent it: the platform's mail service or HubSpot (docs/hubspot.md, "Delivery"). */
+  channel: SendChannel;
+  /** Why the platform sent it although the event sends through HubSpot. */
+  fallbackReason: string | null;
 }
 
 /** An invitation as the guest list shows it: with its last send and its registration. */
@@ -141,7 +145,7 @@ export async function listInvitations(tx: Tx, ctx: ActorContext, eventId: string
     ? await Promise.all([
         tx.selectFrom("registration.invitation_send")
           .distinctOn("invitation_id")
-          .select(["invitation_id", "id", "kind", "requested_at", "sent_at", "delivery_status", "delivery_detail", "delivery_at"])
+          .select(["invitation_id", "id", "kind", "requested_at", "sent_at", "delivery_status", "delivery_detail", "delivery_at", "channel", "fallback_reason"])
           .where("invitation_id", "in", ids)
           .orderBy("invitation_id").orderBy("requested_at", "desc").orderBy("id", "desc")
           .execute(),
@@ -157,7 +161,10 @@ export async function listInvitations(tx: Tx, ctx: ActorContext, eventId: string
     return {
       ...toInvitation(r),
       lastSend: s
-        ? { id: s.id, kind: s.kind, requestedAt: s.requested_at, sentAt: s.sent_at, deliveryStatus: s.delivery_status, deliveryDetail: s.delivery_detail, deliveryAt: s.delivery_at }
+        ? {
+            id: s.id, kind: s.kind, requestedAt: s.requested_at, sentAt: s.sent_at, deliveryStatus: s.delivery_status, deliveryDetail: s.delivery_detail, deliveryAt: s.delivery_at,
+            channel: s.channel, fallbackReason: s.fallback_reason,
+          }
         : null,
       registration: g ? { id: g.id, occurrenceId: g.occurrence_id, partySize: g.party_size } : null,
     };
@@ -341,7 +348,8 @@ export async function invitationLinks(tx: Tx, ctx: ActorContext, eventId: string
 // ── Worker: sending ───────────────────────────────────────────────────────────
 
 export interface InvitationMessage {
-  send: { id: string; kind: SendKind; sentAt: Date | null };
+  /** `providerStatusId`: HubSpot accepted the send already (a retried job reads its result instead of sending again). */
+  send: { id: string; kind: SendKind; sentAt: Date | null; providerStatusId: string | null };
   invitation: GuestInvitation;
   event: catalog.CatalogEvent;
   /** Occurrences still to come, soonest first. */
@@ -353,7 +361,7 @@ export interface InvitationMessage {
 
 /** Everything an invitation email needs; null when the send or its guest is gone. */
 export async function loadInvitationMessage(tx: Tx, tenantId: string, sendId: string, now: Date = new Date()): Promise<InvitationMessage | null> {
-  const send = await tx.selectFrom("registration.invitation_send").select(["id", "kind", "sent_at", "invitation_id"]).where("id", "=", sendId).executeTakeFirst();
+  const send = await tx.selectFrom("registration.invitation_send").select(["id", "kind", "sent_at", "invitation_id", "provider_status_id"]).where("id", "=", sendId).executeTakeFirst();
   if (!send) return null;
   const row = await tx.selectFrom("registration.guest_invitation").select(invitationColumns).where("id", "=", send.invitation_id).executeTakeFirst();
   if (!row) return null;
@@ -363,7 +371,7 @@ export async function loadInvitationMessage(tx: Tx, tenantId: string, sendId: st
   ]);
   const locale = invitation.locale && account.locales.includes(invitation.locale) ? invitation.locale : account.defaultLocale;
   return {
-    send: { id: send.id, kind: send.kind, sentAt: send.sent_at },
+    send: { id: send.id, kind: send.kind, sentAt: send.sent_at, providerStatusId: send.provider_status_id },
     invitation, event, occurrences, account: { name: account.name, defaultLocale: account.defaultLocale }, locale,
     token: await invitationToken(tx, tenantId, invitation),
   };
@@ -376,9 +384,15 @@ export function shouldSend(m: InvitationMessage): boolean {
   return m.send.kind === "invitation" ? m.invitation.status === "pending" || m.invitation.status === "sent" : m.invitation.status === "sent";
 }
 
-export async function recordSent(tx: Tx, tenantId: string, sendId: string, messageId: string | null, now: Date = new Date()): Promise<void> {
+/** How a send went out: by HubSpot, or by the platform (with why, when the event sends through HubSpot). */
+export interface SentVia {
+  channel: SendChannel;
+  fallbackReason?: string | null;
+}
+
+export async function recordSent(tx: Tx, tenantId: string, sendId: string, messageId: string | null, now: Date = new Date(), via: SentVia = { channel: "platform" }): Promise<void> {
   const send = await tx.updateTable("registration.invitation_send")
-    .set({ sent_at: now, message_id: messageId, delivery_status: "sent", delivery_at: now })
+    .set({ sent_at: now, message_id: messageId, delivery_status: "sent", delivery_at: now, channel: via.channel, fallback_reason: via.fallbackReason?.slice(0, 500) ?? null })
     .where("id", "=", sendId).where("sent_at", "is", null)
     .returning(["invitation_id", "kind"]).executeTakeFirst();
   if (!send) return;
@@ -390,13 +404,18 @@ export async function recordSent(tx: Tx, tenantId: string, sendId: string, messa
     .where("id", "=", send.invitation_id).returning(["event_id"]).executeTakeFirst();
   await emit(tx, tenantId, {
     type: "invitation.sent.v1", subject: `invitation/${send.invitation_id}`,
-    data: { invitationId: send.invitation_id, eventId: inv?.event_id ?? null, kind: send.kind, sendId, channel: "email" },
+    data: { invitationId: send.invitation_id, eventId: inv?.event_id ?? null, kind: send.kind, sendId, channel: via.channel === "hubspot" ? "hubspot" : "email" },
   });
 }
 
+/** HubSpot accepted the send: its status id, so a retry reads the result rather than sending again. */
+export async function recordProviderStatus(tx: Tx, sendId: string, statusId: string): Promise<void> {
+  await tx.updateTable("registration.invitation_send").set({ provider_status_id: statusId, channel: "hubspot" }).where("id", "=", sendId).where("sent_at", "is", null).execute();
+}
+
 /** Marks a send that will not go out (the guest answered or the event was unpublished meanwhile, or the mail service refused it). */
-export async function recordNotSent(tx: Tx, sendId: string, detail: string): Promise<void> {
-  await tx.updateTable("registration.invitation_send").set({ delivery_status: "failed", delivery_detail: detail.slice(0, 500), delivery_at: new Date() })
+export async function recordNotSent(tx: Tx, sendId: string, detail: string, fallbackReason: string | null = null): Promise<void> {
+  await tx.updateTable("registration.invitation_send").set({ delivery_status: "failed", delivery_detail: detail.slice(0, 500), delivery_at: new Date(), ...(fallbackReason ? { fallback_reason: fallbackReason.slice(0, 500) } : {}) })
     .where("id", "=", sendId).where("sent_at", "is", null).execute();
 }
 

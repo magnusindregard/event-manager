@@ -948,6 +948,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/events/{id}/sending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Who sends the event's invitations, reminders and welcome (the platform or HubSpot), and the event's HubSpot emails */
+        get: operations["getEventSending"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Choose who sends the event's invitations, reminders and welcome, the template emails, and their subject and preview text. Requires If-Match ("0" before the first save). The channel is settled once an invitation has gone out */
+        patch: operations["updateEventSending"];
+        trace?: never;
+    };
+    "/v1/events/{id}/sending/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Counts again, in HubSpot, how many of the event's guests would become marketing contacts. Runs in the background */
+        post: operations["checkEventSending"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/events/{id}/form": {
         parameters: {
             query?: never;
@@ -11540,6 +11575,27 @@ export interface operations {
                             features: {
                                 /** @description Custom behavioural events can be sent (Marketing Hub Enterprise) */
                                 customEvents: boolean;
+                                /** @description Events can send their invitations, reminders and welcome through HubSpot */
+                                sending: boolean;
+                            };
+                            /** @description HubSpot sending (docs/hubspot.md) */
+                            sending: {
+                                blocker: string | null;
+                                /** @description The portal's emails saved for the single-send API, as the setup last read them */
+                                templates: {
+                                    id: string;
+                                    name: string;
+                                    subscriptionId: string | null;
+                                    /** @description The content has [[em:invitation_link]] */
+                                    hasInvitationLink: boolean;
+                                    /** @description The content has [[em:manage_link]] (for the welcome) */
+                                    hasManageLink: boolean;
+                                }[];
+                                /** @description The client's own emails that use the subscription type for event emails, which only the platform's should */
+                                eventTypeUsedBy: {
+                                    id: string;
+                                    name: string;
+                                }[];
                             };
                             settings: {
                                 /** @description Upsert invited guests as HubSpot contacts */
@@ -11551,6 +11607,9 @@ export interface operations {
                                 cleanupGraceDays: number;
                                 /** @description Delete contacts the platform created only for mirroring, once no event needs them */
                                 deleteMirroredContacts: boolean;
+                                invitationTemplateId: string | null;
+                                reminderTemplateId: string | null;
+                                welcomeTemplateId: string | null;
                             };
                             /** @description Cleanup after HubSpot sending (docs/hubspot.md) */
                             cleanup: {
@@ -11768,6 +11827,27 @@ export interface operations {
                         features: {
                             /** @description Custom behavioural events can be sent (Marketing Hub Enterprise) */
                             customEvents: boolean;
+                            /** @description Events can send their invitations, reminders and welcome through HubSpot */
+                            sending: boolean;
+                        };
+                        /** @description HubSpot sending (docs/hubspot.md) */
+                        sending: {
+                            blocker: string | null;
+                            /** @description The portal's emails saved for the single-send API, as the setup last read them */
+                            templates: {
+                                id: string;
+                                name: string;
+                                subscriptionId: string | null;
+                                /** @description The content has [[em:invitation_link]] */
+                                hasInvitationLink: boolean;
+                                /** @description The content has [[em:manage_link]] (for the welcome) */
+                                hasManageLink: boolean;
+                            }[];
+                            /** @description The client's own emails that use the subscription type for event emails, which only the platform's should */
+                            eventTypeUsedBy: {
+                                id: string;
+                                name: string;
+                            }[];
                         };
                         settings: {
                             /** @description Upsert invited guests as HubSpot contacts */
@@ -11779,6 +11859,9 @@ export interface operations {
                             cleanupGraceDays: number;
                             /** @description Delete contacts the platform created only for mirroring, once no event needs them */
                             deleteMirroredContacts: boolean;
+                            invitationTemplateId: string | null;
+                            reminderTemplateId: string | null;
+                            welcomeTemplateId: string | null;
                         };
                         /** @description Cleanup after HubSpot sending (docs/hubspot.md) */
                         cleanup: {
@@ -12004,6 +12087,9 @@ export interface operations {
                     eventSubscriptionTypeId?: string | null;
                     cleanupGraceDays?: number;
                     deleteMirroredContacts?: boolean;
+                    invitationTemplateId?: string | null;
+                    reminderTemplateId?: string | null;
+                    welcomeTemplateId?: string | null;
                 };
             };
         };
@@ -12029,6 +12115,27 @@ export interface operations {
                         features: {
                             /** @description Custom behavioural events can be sent (Marketing Hub Enterprise) */
                             customEvents: boolean;
+                            /** @description Events can send their invitations, reminders and welcome through HubSpot */
+                            sending: boolean;
+                        };
+                        /** @description HubSpot sending (docs/hubspot.md) */
+                        sending: {
+                            blocker: string | null;
+                            /** @description The portal's emails saved for the single-send API, as the setup last read them */
+                            templates: {
+                                id: string;
+                                name: string;
+                                subscriptionId: string | null;
+                                /** @description The content has [[em:invitation_link]] */
+                                hasInvitationLink: boolean;
+                                /** @description The content has [[em:manage_link]] (for the welcome) */
+                                hasManageLink: boolean;
+                            }[];
+                            /** @description The client's own emails that use the subscription type for event emails, which only the platform's should */
+                            eventTypeUsedBy: {
+                                id: string;
+                                name: string;
+                            }[];
                         };
                         settings: {
                             /** @description Upsert invited guests as HubSpot contacts */
@@ -12040,6 +12147,9 @@ export interface operations {
                             cleanupGraceDays: number;
                             /** @description Delete contacts the platform created only for mirroring, once no event needs them */
                             deleteMirroredContacts: boolean;
+                            invitationTemplateId: string | null;
+                            reminderTemplateId: string | null;
+                            welcomeTemplateId: string | null;
                         };
                         /** @description Cleanup after HubSpot sending (docs/hubspot.md) */
                         cleanup: {
@@ -12182,6 +12292,27 @@ export interface operations {
                         features: {
                             /** @description Custom behavioural events can be sent (Marketing Hub Enterprise) */
                             customEvents: boolean;
+                            /** @description Events can send their invitations, reminders and welcome through HubSpot */
+                            sending: boolean;
+                        };
+                        /** @description HubSpot sending (docs/hubspot.md) */
+                        sending: {
+                            blocker: string | null;
+                            /** @description The portal's emails saved for the single-send API, as the setup last read them */
+                            templates: {
+                                id: string;
+                                name: string;
+                                subscriptionId: string | null;
+                                /** @description The content has [[em:invitation_link]] */
+                                hasInvitationLink: boolean;
+                                /** @description The content has [[em:manage_link]] (for the welcome) */
+                                hasManageLink: boolean;
+                            }[];
+                            /** @description The client's own emails that use the subscription type for event emails, which only the platform's should */
+                            eventTypeUsedBy: {
+                                id: string;
+                                name: string;
+                            }[];
                         };
                         settings: {
                             /** @description Upsert invited guests as HubSpot contacts */
@@ -12193,6 +12324,9 @@ export interface operations {
                             cleanupGraceDays: number;
                             /** @description Delete contacts the platform created only for mirroring, once no event needs them */
                             deleteMirroredContacts: boolean;
+                            invitationTemplateId: string | null;
+                            reminderTemplateId: string | null;
+                            welcomeTemplateId: string | null;
                         };
                         /** @description Cleanup after HubSpot sending (docs/hubspot.md) */
                         cleanup: {
@@ -12693,6 +12827,27 @@ export interface operations {
                         features: {
                             /** @description Custom behavioural events can be sent (Marketing Hub Enterprise) */
                             customEvents: boolean;
+                            /** @description Events can send their invitations, reminders and welcome through HubSpot */
+                            sending: boolean;
+                        };
+                        /** @description HubSpot sending (docs/hubspot.md) */
+                        sending: {
+                            blocker: string | null;
+                            /** @description The portal's emails saved for the single-send API, as the setup last read them */
+                            templates: {
+                                id: string;
+                                name: string;
+                                subscriptionId: string | null;
+                                /** @description The content has [[em:invitation_link]] */
+                                hasInvitationLink: boolean;
+                                /** @description The content has [[em:manage_link]] (for the welcome) */
+                                hasManageLink: boolean;
+                            }[];
+                            /** @description The client's own emails that use the subscription type for event emails, which only the platform's should */
+                            eventTypeUsedBy: {
+                                id: string;
+                                name: string;
+                            }[];
                         };
                         settings: {
                             /** @description Upsert invited guests as HubSpot contacts */
@@ -12704,6 +12859,9 @@ export interface operations {
                             cleanupGraceDays: number;
                             /** @description Delete contacts the platform created only for mirroring, once no event needs them */
                             deleteMirroredContacts: boolean;
+                            invitationTemplateId: string | null;
+                            reminderTemplateId: string | null;
+                            welcomeTemplateId: string | null;
                         };
                         /** @description Cleanup after HubSpot sending (docs/hubspot.md) */
                         cleanup: {
@@ -12733,6 +12891,423 @@ export interface operations {
                         updatedAt: string;
                     };
                 };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getEventSending: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        eventId: string;
+                        /** @description Who sends the invitations, reminders and welcome. Everything else always comes from the platform */
+                        channel: "platform" | "hubspot";
+                        /** @description The event's own choice of template per kind */
+                        templates: {
+                            invitation?: string;
+                            reminder?: string;
+                            welcome?: string;
+                        };
+                        effectiveTemplates: {
+                            invitation: string | null;
+                            reminder: string | null;
+                            welcome: string | null;
+                        };
+                        texts: {
+                            invitation: {
+                                subject: string;
+                                previewText: string;
+                            };
+                            reminder: {
+                                subject: string;
+                                previewText: string;
+                            };
+                            welcome: {
+                                subject: string;
+                                previewText: string;
+                            };
+                        };
+                        /** @description Kinds whose subject and preview text were set by staff; the others are made from the event */
+                        customTexts: ("invitation" | "reminder" | "welcome")[];
+                        marketingCheck: {
+                            /** Format: date-time */
+                            checkedAt: string;
+                            /** @description Guests HubSpot would send to: not declined, no plus address */
+                            guests: number;
+                            /** @description Already marketing contacts */
+                            marketing: number;
+                            /** @description Not marketing contacts yet: a HubSpot send makes them ones, billed for at least this period */
+                            wouldBecome: number;
+                            /** @description Addresses with a +, which HubSpot refuses: the platform sends to them */
+                            plusAddresses: number;
+                            error?: string;
+                        } | null;
+                        /** @description An invitation has been sent: the channel can no longer change */
+                        locked: boolean;
+                        /** @description The event's own emails in HubSpot */
+                        emails: {
+                            kind: "invitation" | "reminder" | "welcome";
+                            templateId: string;
+                            remoteId: string | null;
+                            url: string | null;
+                            name: string | null;
+                            subject: string | null;
+                            previewText: string | null;
+                            status: "pending" | "ready" | "failed";
+                            error: string | null;
+                            warnings: string[];
+                            firstSentAt: string | null;
+                        }[];
+                        hubspotBlocker: string | null;
+                        /** @description 0 until first saved */
+                        version: number;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updateEventSending: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    channel?: "platform" | "hubspot";
+                    templates?: {
+                        invitation?: string | null;
+                        reminder?: string | null;
+                        welcome?: string | null;
+                    };
+                    texts?: {
+                        invitation?: {
+                            subject: string;
+                            previewText?: string;
+                        } | null;
+                        reminder?: {
+                            subject: string;
+                            previewText?: string;
+                        } | null;
+                        welcome?: {
+                            subject: string;
+                            previewText?: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        eventId: string;
+                        /** @description Who sends the invitations, reminders and welcome. Everything else always comes from the platform */
+                        channel: "platform" | "hubspot";
+                        /** @description The event's own choice of template per kind */
+                        templates: {
+                            invitation?: string;
+                            reminder?: string;
+                            welcome?: string;
+                        };
+                        effectiveTemplates: {
+                            invitation: string | null;
+                            reminder: string | null;
+                            welcome: string | null;
+                        };
+                        texts: {
+                            invitation: {
+                                subject: string;
+                                previewText: string;
+                            };
+                            reminder: {
+                                subject: string;
+                                previewText: string;
+                            };
+                            welcome: {
+                                subject: string;
+                                previewText: string;
+                            };
+                        };
+                        /** @description Kinds whose subject and preview text were set by staff; the others are made from the event */
+                        customTexts: ("invitation" | "reminder" | "welcome")[];
+                        marketingCheck: {
+                            /** Format: date-time */
+                            checkedAt: string;
+                            /** @description Guests HubSpot would send to: not declined, no plus address */
+                            guests: number;
+                            /** @description Already marketing contacts */
+                            marketing: number;
+                            /** @description Not marketing contacts yet: a HubSpot send makes them ones, billed for at least this period */
+                            wouldBecome: number;
+                            /** @description Addresses with a +, which HubSpot refuses: the platform sends to them */
+                            plusAddresses: number;
+                            error?: string;
+                        } | null;
+                        /** @description An invitation has been sent: the channel can no longer change */
+                        locked: boolean;
+                        /** @description The event's own emails in HubSpot */
+                        emails: {
+                            kind: "invitation" | "reminder" | "welcome";
+                            templateId: string;
+                            remoteId: string | null;
+                            url: string | null;
+                            name: string | null;
+                            subject: string | null;
+                            previewText: string | null;
+                            status: "pending" | "ready" | "failed";
+                            error: string | null;
+                            warnings: string[];
+                            firstSentAt: string | null;
+                        }[];
+                        hubspotBlocker: string | null;
+                        /** @description 0 until first saved */
+                        version: number;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    checkEventSending: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Default Response */
             400: {
@@ -13906,6 +14481,10 @@ export interface operations {
                                 deliveryDetail: string | null;
                                 /** Format: date-time */
                                 deliveryAt: string | null;
+                                /** @description Who sent it: the platform's mail service, or HubSpot (docs/hubspot.md) */
+                                channel: "platform" | "hubspot";
+                                /** @description Why the platform sent it although the event sends through HubSpot */
+                                fallbackReason: string | null;
                             };
                             registration: null | {
                                 /** Format: uuid */
@@ -14036,6 +14615,10 @@ export interface operations {
                             deliveryDetail: string | null;
                             /** Format: date-time */
                             deliveryAt: string | null;
+                            /** @description Who sent it: the platform's mail service, or HubSpot (docs/hubspot.md) */
+                            channel: "platform" | "hubspot";
+                            /** @description Why the platform sent it although the event sends through HubSpot */
+                            fallbackReason: string | null;
                         };
                         registration: null | {
                             /** Format: uuid */
@@ -14192,6 +14775,10 @@ export interface operations {
                             deliveryDetail: string | null;
                             /** Format: date-time */
                             deliveryAt: string | null;
+                            /** @description Who sent it: the platform's mail service, or HubSpot (docs/hubspot.md) */
+                            channel: "platform" | "hubspot";
+                            /** @description Why the platform sent it although the event sends through HubSpot */
+                            fallbackReason: string | null;
                         };
                         registration: null | {
                             /** Format: uuid */

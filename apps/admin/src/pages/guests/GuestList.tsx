@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ApiProblem, type CatalogEvent, type GuestInvitation, unwrap } from "../../api.js";
 import { useApp } from "../../AppContext.js";
 import { sendFailure } from "../../lib/send-failure.js";
+import { EventSending } from "./EventSending.js";
 import { GuestImport } from "./GuestImport.js";
 
 // Event → Guest list (docs/registration.md, "Admin interface"): import, list with status
@@ -193,7 +194,9 @@ export function GuestList({ event }: { event: CatalogEvent }) {
             <span className="text-muted-foreground">
               {t(`guests.kinds.${s.kind}`)}
               {s.deliveryDetail === "external" ? ` · ${t("guests.external")}` : s.deliveryStatus === "delivered" ? ` · ${t("guests.delivery.delivered")}` : ""}
+              {s.channel === "hubspot" ? ` · ${t("guests.viaHubSpot")}` : ""}
             </span>
+            {s.fallbackReason && <span className="max-w-64 text-muted-foreground" title={s.fallbackReason}>{t("guests.byPlatform", { reason: s.fallbackReason })}</span>}
           </div>
         );
       },
@@ -246,6 +249,7 @@ export function GuestList({ event }: { event: CatalogEvent }) {
       {event.registration.accessPolicy === "open" && (
         <p className="text-muted-foreground text-sm">{t("guests.openHint")}</p>
       )}
+      <EventSending event={event} />
 
       {counts && (
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5" aria-label={t("guests.countsLabel")}>

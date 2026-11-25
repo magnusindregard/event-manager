@@ -1,5 +1,6 @@
 import { type CleanupStatus, sql, type Tx } from "@event-manager/db";
 import type { ConnectionRef } from "./index.js";
+import type { SingleSendTemplate } from "./sending.js";
 import { contactKey } from "./sync.js";
 
 // Cleanup after HubSpot sending (docs/hubspot.md, milestone 4). The platform takes back what it
@@ -31,6 +32,10 @@ export interface PortalSetup {
   workflowEnabled?: boolean;
   /** Contacts still in `EM · Set to non-marketing` from an earlier night: the workflow is not taking them. */
   nonMarketingWaiting?: number;
+  /** The portal's emails saved for the single-send API, the platform's own clones left out (milestone 5). */
+  singleSendEmails?: SingleSendTemplate[];
+  /** The client's own emails that use the event subscription type, which only the platform's should (at most 10). */
+  eventTypeUsedBy?: { id: string; name: string }[];
   checkedAt?: string;
 }
 

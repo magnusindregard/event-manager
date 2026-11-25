@@ -6,6 +6,10 @@ import {
   type ContactList,
   type ContactUsage,
   type ContactResult,
+  type EmailPatch,
+  type MarketingEmail,
+  type SendStatus,
+  type SingleSendInput,
   type HubSpotClient,
   HubSpotError,
   type MarketingEventInput,
@@ -33,6 +37,15 @@ interface FakePortal {
   /** Status by lower-case email and type id; NOT_SPECIFIED where not set. */
   subscriptions: Map<string, Map<string, SubscriptionState>>;
   workflows: Map<string, Workflow & { listId: string }>;
+  /** Marketing emails by id. */
+  emails: Map<string, MarketingEmail>;
+  /** Every single send HubSpot accepted, in order, with its result. */
+  sends: FakeSend[];
+}
+
+export interface FakeSend extends SingleSendInput {
+  statusId: string;
+  sendResult: string;
 }
 
 export interface FakeContact {
@@ -46,7 +59,7 @@ export interface FakeContact {
   conversions?: number;
 }
 
-const emptyPortal = (portalId: string, scopes: string[]): FakePortal => ({ portalId, scopes, contacts: new Map(), events: new Map(), attendance: [], lists: new Map(), subscriptionTypes: [], subscriptions: new Map(), workflows: new Map() });
+const emptyPortal = (portalId: string, scopes: string[]): FakePortal => ({ portalId, scopes, contacts: new Map(), events: new Map(), attendance: [], lists: new Map(), subscriptionTypes: [], subscriptions: new Map(), workflows: new Map(), emails: new Map(), sends: [] });
 
 /**
  * HubSpot in memory, for tests and local stacks. `approve` stands in for the owner approving
@@ -326,6 +339,126 @@ export class FakeHubSpot implements HubSpotClient {
       list.members.clear();
     }
     return n;
+  }
+
+  async contactsByEmail(accessToken: string, emails: string[]): Promise<Map<string, { id: string; marketable: boolean }>> {
+    this.calls.push(`contactsByEmail:${emails.length}`);
+    const portal = this.portalFor(accessToken);
+    const out = new Map<string, { id: string; marketable: boolean }>();
+    for (const e of emails) {
+      const c = portal.contacts.get(e.toLowerCase());
+      if (c) out.set(e.toLowerCase(), { id: c.id, marketable: c.marketable === true });
+    }
+    return out;
+  }
+
+  /** Adds an email of the client's own to the portal (a template saved for single-send by default); returns it. */
+  addEmail(portalId: string, e: Partial<MarketingEmail> & { name: string }): MarketingEmail {
+    const portal = this.portals.get(portalId) ?? emptyPortal(portalId, []);
+    this.portals.set(portalId, portal);
+    const email: MarketingEmail = { id: String(this.nextId++), type: "MARKETING_SINGLE_SEND_API", state: "AUTOMATED", subject: null, subscriptionId: null, content: {}, ...e };
+    portal.emails.set(email.id, email);
+    return email;
+  }
+
+  async listEmails(accessToken: string): Promise<MarketingEmail[]> {
+    this.calls.push("listEmails");
+    return [...this.portalFor(accessToken).emails.values()].map((e) => ({ ...e, content: null }));
+  }
+
+  async getEmail(accessToken: string, emailId: string): Promise<MarketingEmail | null> {
+    this.calls.push(`getEmail:${emailId}`);
+    const e = this.portalFor(accessToken).emails.get(emailId);
+    return e ? structuredClone(e) : null;
+  }
+
+  async cloneEmail(accessToken: string, emailId: string, name: string): Promise<string> {
+    this.calls.push(`cloneEmail:${emailId}`);
+    const portal = this.portalFor(accessToken);
+    const e = portal.emails.get(emailId);
+    if (!e) throw new HubSpotError(`HubSpot POST /marketing/v3/emails/clone: 404 no email ${emailId}`, 404);
+    const id = String(this.nextId++);
+    // A clone starts as a draft, even of a published email (run 10).
+    portal.emails.set(id, { ...structuredClone(e), id, name, state: e.type === "MARKETING_SINGLE_SEND_API" ? "AUTOMATED_DRAFT" : "DRAFT" });
+    return id;
+  }
+
+  async updateEmail(accessToken: string, emailId: string, patch: EmailPatch): Promise<void> {
+    this.calls.push(`updateEmail:${emailId}`);
+    const e = this.email(this.portalFor(accessToken), emailId);
+    if (patch.name !== undefined) e.name = patch.name;
+    if (patch.subject !== undefined) e.subject = patch.subject;
+    if (patch.content !== undefined) e.content = structuredClone(patch.content);
+  }
+
+  /** Sends refused as a draft after publishing, before HubSpot accepts them (run 7: some seconds). */
+  publishLag = 0;
+  private lag = new Map<string, number>();
+
+  async publishEmail(accessToken: string, emailId: string): Promise<void> {
+    this.calls.push(`publishEmail:${emailId}`);
+    const e = this.email(this.portalFor(accessToken), emailId);
+    e.state = e.type === "MARKETING_SINGLE_SEND_API" ? "AUTOMATED" : "PUBLISHED";
+    this.lag.set(emailId, this.publishLag);
+  }
+
+  async deleteEmail(accessToken: string, emailId: string): Promise<void> {
+    this.calls.push(`deleteEmail:${emailId}`);
+    this.portalFor(accessToken).emails.delete(emailId);
+  }
+
+  /** Answers singleSend with this error, as a portal without Enterprise might. */
+  sendRefusal: HubSpotError | null = null;
+  /** Polls of a send's status that still say PROCESSING before it completes. */
+  pendingPolls = 0;
+  private polls = new Map<string, number>();
+
+  async singleSend(accessToken: string, input: SingleSendInput): Promise<SendStatus> {
+    this.calls.push(`singleSend:${input.to}`);
+    const portal = this.portalFor(accessToken);
+    if (this.sendRefusal) throw this.sendRefusal;
+    const e = portal.emails.get(input.emailId);
+    if (!e) throw new HubSpotError(`HubSpot POST single-send: 404 no email ${input.emailId}`, 404);
+    const lag = this.lag.get(input.emailId) ?? 0;
+    if (e.state?.endsWith("DRAFT") || lag > 0) {
+      if (lag > 0) this.lag.set(input.emailId, lag - 1);
+      throw new HubSpotError("HubSpot POST single-send: 400 Email is in a draft state", 400);
+    }
+    const statusId = `st-${this.nextId++}`;
+    const to = input.to.toLowerCase();
+    let sendResult: string;
+    if (portal.sends.some((x) => x.sendId === input.sendId)) sendResult = "IDEMPOTENT_IGNORE";
+    else if (to.includes("+")) sendResult = "VALIDATION_FAILED";
+    else if (e.subscriptionId && portal.subscriptions.get(to)?.get(e.subscriptionId) === "UNSUBSCRIBED") sendResult = "PREVIOUSLY_UNSUBSCRIBED_PORTAL";
+    else sendResult = "SENT";
+    // Every recipient becomes a marketing contact, also when the send fails (runs 7–9).
+    let c = portal.contacts.get(to);
+    if (!c) {
+      c = { id: String(this.nextId++), email: input.to, firstname: null, lastname: null };
+      portal.contacts.set(to, c);
+    }
+    c.marketable = true;
+    portal.sends.push({ ...input, statusId, sendResult });
+    this.polls.set(statusId, this.pendingPolls);
+    return { statusId, status: "PENDING", sendResult: null };
+  }
+
+  async sendStatus(accessToken: string, statusId: string): Promise<SendStatus> {
+    this.calls.push(`sendStatus:${statusId}`);
+    const s = this.portalFor(accessToken).sends.find((x) => x.statusId === statusId);
+    if (!s) throw new HubSpotError(`HubSpot GET send-statuses/${statusId}: 404`, 404);
+    const left = this.polls.get(statusId) ?? 0;
+    if (left > 0) {
+      this.polls.set(statusId, left - 1);
+      return { statusId, status: "PROCESSING", sendResult: null };
+    }
+    return { statusId, status: "COMPLETE", sendResult: s.sendResult };
+  }
+
+  private email(portal: FakePortal, emailId: string): MarketingEmail {
+    const e = portal.emails.get(emailId);
+    if (!e) throw new HubSpotError(`HubSpot /marketing/v3/emails/${emailId}: 404`, 404);
+    return e;
   }
 
   private list(portal: FakePortal, listId: string) {
