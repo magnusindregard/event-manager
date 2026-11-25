@@ -69,6 +69,50 @@ export interface ContactList {
   processingType: string;
 }
 
+/** A subscription type (communication preferences v4). */
+export interface SubscriptionType {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+/** A contact's status for one subscription type. */
+export type SubscriptionState = "SUBSCRIBED" | "UNSUBSCRIBED" | "NOT_SPECIFIED";
+
+export interface SubscriptionWrite {
+  email: string;
+  subscriptionId: string;
+  status: SubscriptionState;
+}
+
+/**
+ * What says the client has taken a contact into use (docs/hubspot.md, "Cleaning up a contact"):
+ * an owner, associations, form submissions, lists and marketing events.
+ */
+export interface ContactUsage {
+  /** HubSpot has no such contact (deleted there). */
+  missing: boolean;
+  marketable: boolean;
+  owner: boolean;
+  associations: number;
+  conversions: number;
+  listIds: string[];
+  /** Marketing events the contact takes part in, by external account and event id where HubSpot says. */
+  marketingEvents: { externalAccountId: string | null; externalEventId: string | null }[];
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  enabled: boolean;
+}
+
+/** The explanation written with an unsubscribe in portals that ask for a legal basis. */
+export const LEGAL_BASIS = {
+  legalBasis: "LEGITIMATE_INTEREST_OTHER",
+  legalBasisExplanation: "Event manager: temporary contact for an event invitation; not for other marketing",
+} as const;
+
 /** What HubSpot did with a membership change; `missing`: record ids it has no contact for. */
 export interface MembershipChange {
   missing: string[];
@@ -123,6 +167,24 @@ export interface HubSpotClient {
   listMembers(accessToken: string, listId: string): Promise<string[]>;
   /** Deletes the list; one HubSpot no longer has is fine. A 400 means something (a sent email) still uses it. */
   deleteList(accessToken: string, listId: string): Promise<void>;
+  /** The portal's subscription types. */
+  subscriptionTypes(accessToken: string): Promise<SubscriptionType[]>;
+  /** Each email's status per subscription type; types HubSpot does not list count as NOT_SPECIFIED. */
+  subscriptionStatuses(accessToken: string, emails: string[]): Promise<Map<string, Map<string, SubscriptionState>>>;
+  /** Sets statuses, with a legal basis where the portal asks for one. */
+  setSubscriptionStatuses(accessToken: string, writes: SubscriptionWrite[]): Promise<void>;
+  /** hs_marketable_status by contact id (up to 100); contacts HubSpot does not have are left out. */
+  marketableStatuses(accessToken: string, contactIds: string[]): Promise<Map<string, boolean>>;
+  /** What the cleanup checks before deleting a contact the platform created. */
+  contactUsage(accessToken: string, contactId: string, email: string): Promise<ContactUsage>;
+  /** Deletes a contact (HubSpot can restore it for 90 days); one HubSpot no longer has is fine. */
+  deleteContact(accessToken: string, contactId: string): Promise<void>;
+  /** The workflow, or null if HubSpot no longer has it. */
+  getWorkflow(accessToken: string, flowId: string): Promise<Workflow | null>;
+  /** Creates the enabled contact workflow that sets contacts enrolled from the list to non-marketing and takes them out of it. */
+  createNonMarketingWorkflow(accessToken: string, name: string, listId: string): Promise<Workflow>;
+  /** Turns a workflow on. */
+  enableWorkflow(accessToken: string, flowId: string): Promise<void>;
 }
 
 const API = "https://api.hubapi.com";
@@ -131,6 +193,12 @@ interface RawList {
   listId: string | number;
   name: string;
   processingType?: string;
+}
+interface RawFlow {
+  id?: string | number;
+  name?: string;
+  isEnabled?: boolean;
+  [k: string]: unknown;
 }
 const toList = (l: RawList): ContactList => ({ listId: String(l.listId), name: l.name, processingType: l.processingType ?? "MANUAL" });
 
@@ -287,6 +355,123 @@ export class HttpHubSpot implements HubSpotClient {
     } catch (e) {
       if (!(e instanceof HubSpotError && e.status === 404)) throw e;
     }
+  }
+
+  async subscriptionTypes(accessToken: string): Promise<SubscriptionType[]> {
+    const r = (await this.call("GET", "/communication-preferences/v4/definitions", undefined, accessToken)) as { results?: { id: string | number; name: string; isActive?: boolean }[] } | null;
+    return (r?.results ?? []).map((d) => ({ id: String(d.id), name: d.name, active: d.isActive !== false }));
+  }
+
+  async subscriptionStatuses(accessToken: string, emails: string[]): Promise<Map<string, Map<string, SubscriptionState>>> {
+    const out = new Map<string, Map<string, SubscriptionState>>();
+    if (!emails.length) return out;
+    const r = (await this.call("POST", "/communication-preferences/v4/statuses/batch/read?channel=EMAIL", { inputs: emails }, accessToken)) as {
+      results?: { subscriberIdString?: string; statuses?: { subscriptionId?: string | number; status?: string }[] }[];
+    } | null;
+    for (const e of emails) out.set(e.toLowerCase(), new Map());
+    for (const res of r?.results ?? []) {
+      const m = out.get((res.subscriberIdString ?? "").toLowerCase());
+      if (!m) continue;
+      for (const st of res.statuses ?? []) if (st.subscriptionId !== undefined && st.status) m.set(String(st.subscriptionId), st.status as SubscriptionState);
+    }
+    return out;
+  }
+
+  async setSubscriptionStatuses(accessToken: string, writes: SubscriptionWrite[]): Promise<void> {
+    for (let i = 0; i < writes.length; i += 100) {
+      const chunk = writes.slice(i, i + 100);
+      const inputs = (legal: boolean) =>
+        chunk.map((w) => ({ subscriberIdString: w.email, subscriptionId: Number(w.subscriptionId), statusState: w.status, channel: "EMAIL", ...(legal ? LEGAL_BASIS : {}) }));
+      try {
+        await this.call("POST", "/communication-preferences/v4/statuses/batch/write", { inputs: inputs(false) }, accessToken);
+      } catch (e) {
+        // Portals with data privacy settings on need a legal basis on every write.
+        if (!(e instanceof HubSpotError && e.status === 400 && /legal/i.test(e.message))) throw e;
+        await this.call("POST", "/communication-preferences/v4/statuses/batch/write", { inputs: inputs(true) }, accessToken);
+      }
+    }
+  }
+
+  async marketableStatuses(accessToken: string, contactIds: string[]): Promise<Map<string, boolean>> {
+    if (!contactIds.length) return new Map();
+    const r = (await this.call("POST", "/crm/v3/objects/contacts/batch/read", { properties: ["hs_marketable_status"], inputs: contactIds.map((id) => ({ id })) }, accessToken)) as {
+      results?: { id: string; properties?: Record<string, string | null> }[];
+    } | null;
+    return new Map((r?.results ?? []).map((c) => [String(c.id), c.properties?.hs_marketable_status === "true"]));
+  }
+
+  async contactUsage(accessToken: string, contactId: string, email: string): Promise<ContactUsage> {
+    let contact: { properties?: Record<string, string | null>; associations?: Record<string, { results?: unknown[] }> } | null;
+    try {
+      contact = (await this.call(
+        "GET",
+        `/crm/v3/objects/contacts/${encodeURIComponent(contactId)}?properties=hubspot_owner_id,num_conversion_events,hs_marketable_status&associations=companies,deals,tickets`,
+        undefined,
+        accessToken,
+      )) as typeof contact;
+    } catch (e) {
+      if (e instanceof HubSpotError && e.status === 404) return { missing: true, marketable: false, owner: false, associations: 0, conversions: 0, listIds: [], marketingEvents: [] };
+      throw e;
+    }
+    const p = contact?.properties ?? {};
+    const associations = Object.values(contact?.associations ?? {}).reduce((n, a) => n + (a.results?.length ?? 0), 0);
+    const lists = (await this.call("GET", `/crm/v3/lists/records/0-1/${encodeURIComponent(contactId)}/memberships`, undefined, accessToken)) as { results?: { listId: string | number }[] } | null;
+    const events = (await this.call("GET", `/marketing/v3/marketing-events/participations/contacts/${encodeURIComponent(email)}/breakdown`, undefined, accessToken)) as {
+      results?: { associations?: { marketingEvent?: { externalAccountId?: string; externalEventId?: string } } }[];
+    } | null;
+    return {
+      missing: false,
+      marketable: p.hs_marketable_status === "true",
+      owner: !!p.hubspot_owner_id,
+      associations,
+      conversions: Number(p.num_conversion_events ?? 0) || 0,
+      listIds: (lists?.results ?? []).map((l) => String(l.listId)),
+      marketingEvents: (events?.results ?? []).map((x) => ({
+        externalAccountId: x.associations?.marketingEvent?.externalAccountId ?? null,
+        externalEventId: x.associations?.marketingEvent?.externalEventId ?? null,
+      })),
+    };
+  }
+
+  async deleteContact(accessToken: string, contactId: string): Promise<void> {
+    try {
+      await this.call("DELETE", `/crm/v3/objects/contacts/${encodeURIComponent(contactId)}`, undefined, accessToken);
+    } catch (e) {
+      if (!(e instanceof HubSpotError && e.status === 404)) throw e;
+    }
+  }
+
+  async getWorkflow(accessToken: string, flowId: string): Promise<Workflow | null> {
+    try {
+      const f = (await this.call("GET", `/automation/v4/flows/${encodeURIComponent(flowId)}`, undefined, accessToken)) as RawFlow | null;
+      return f ? { id: String(f.id), name: String(f.name ?? ""), enabled: f.isEnabled === true } : null;
+    } catch (e) {
+      if (e instanceof HubSpotError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  async createNonMarketingWorkflow(accessToken: string, name: string, listId: string): Promise<Workflow> {
+    // Spike run 16: the action *Set marketing contact status* is actionTypeId 0-31.
+    const body = {
+      type: "CONTACT_FLOW", objectTypeId: "0-1", flowType: "WORKFLOW", isEnabled: true, name,
+      startActionId: "1", nextAvailableActionId: "2",
+      actions: [{ type: "SINGLE_CONNECTION", actionId: "1", actionTypeVersion: 0, actionTypeId: "0-31", fields: { marketableType: "NON_MARKETABLE" } }],
+      enrollmentCriteria: {
+        type: "LIST_BASED", shouldReEnroll: true, unEnrollObjectsNotMeetingCriteria: false, reEnrollmentTriggersFilterBranches: [],
+        listFilterBranch: { filterBranchType: "OR", filters: [], filterBranches: [{ filterBranchType: "AND", filterBranches: [], filters: [{ filterType: "IN_LIST", listId, operator: "IN_LIST" }] }] },
+      },
+    };
+    const f = (await this.call("POST", "/automation/v4/flows", body, accessToken)) as RawFlow | null;
+    if (!f?.id) throw new HubSpotError("HubSpot POST /automation/v4/flows: no flow in the answer", 502);
+    return { id: String(f.id), name, enabled: f.isEnabled === true };
+  }
+
+  async enableWorkflow(accessToken: string, flowId: string): Promise<void> {
+    // v4 updates take the whole flow with its revision.
+    const f = (await this.call("GET", `/automation/v4/flows/${encodeURIComponent(flowId)}`, undefined, accessToken)) as RawFlow | null;
+    if (!f) throw new HubSpotError(`HubSpot GET /automation/v4/flows/${flowId}: empty answer`, 502);
+    await this.call("PUT", `/automation/v4/flows/${encodeURIComponent(flowId)}`, { ...f, isEnabled: true }, accessToken);
   }
 
   private async token(params: Record<string, string>): Promise<TokenSet> {

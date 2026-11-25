@@ -3,6 +3,7 @@ import { type Db, withTenant } from "@event-manager/db";
 import { outbox } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
 import { HORIZON_TASK, horizonTask } from "./horizon.js";
+import { HUBSPOT_CLEANUP_TASK, HUBSPOT_NIGHTLY_CLEANUP_TASK, hubspotCleanupTask, hubspotNightlyCleanupTask } from "./hubspot/cleanup.js";
 import { HUBSPOT_RECONCILE_TASK, hubspotReconcileTask } from "./hubspot/reconcile.js";
 import { HUBSPOT_SETUP_TASK, type HubSpotDeps, hubspotSetupTask } from "./hubspot/setup.js";
 import { HUBSPOT_SYNC_TASK, hubspotSyncTask } from "./hubspot/sync.js";
@@ -58,6 +59,8 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
     [HUBSPOT_SETUP_TASK]: hubspotSetupTask(db, hubspot),
     [HUBSPOT_SYNC_TASK]: hubspotSyncTask(db, hubspot),
     [HUBSPOT_RECONCILE_TASK]: hubspotReconcileTask(db, hubspot),
+    [HUBSPOT_CLEANUP_TASK]: hubspotCleanupTask(db, hubspot),
+    [HUBSPOT_NIGHTLY_CLEANUP_TASK]: hubspotNightlyCleanupTask(db, hubspot),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
     ...(registrationEmail
       ? {

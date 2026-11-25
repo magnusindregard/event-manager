@@ -2,8 +2,10 @@ import { type ConnectionStatus, type IntegrationProvider, newId, sql, type Tx } 
 import { emit } from "../outbox/index.js";
 import { type ActorContext, decryptJson, DomainError, encryptJson } from "../shared/index.js";
 import { assertCan, diffFields, recordAudit } from "../tenancy/index.js";
+import type { CleanupResult, PortalSetup } from "./cleanup.js";
 import { dropSyncItems } from "./sync.js";
 
+export * from "./cleanup.js";
 export * from "./segments.js";
 export * from "./sync.js";
 
@@ -19,6 +21,12 @@ export interface ConnectionSettings {
   syncInvitedGuests: boolean;
   /** Upsert attendees of open registration as contacts (default off). */
   syncOpenAttendees: boolean;
+  /** The subscription type the platform's HubSpot emails use; temporary contacts are unsubscribed from every other (milestone 4). */
+  eventSubscriptionTypeId: string | null;
+  /** Days after a contact's last occurrence ends before the cleanup takes back what the platform did. */
+  cleanupGraceDays: number;
+  /** Delete contacts the platform created only for mirroring, once no event needs them (default on). */
+  deleteMirroredContacts: boolean;
 }
 
 export interface Connection {
@@ -37,6 +45,12 @@ export interface Connection {
   disconnectedAt: Date | null;
   /** Bumped on every (re)connect; see ConnectionRef. */
   generation: number;
+  /** What the setup made or found in the portal: subscription types, the cleanup segments and workflow. */
+  portalSetup: PortalSetup;
+  /** What the last cleanup run did. */
+  lastCleanup: CleanupResult | null;
+  /** An owner asked to clean up and then disconnect; the worker is on it. */
+  cleanupDisconnectRequestedAt: Date | null;
   version: number;
   updatedAt: Date;
 }
@@ -53,17 +67,19 @@ export interface Tokens {
   accessExpiresAt: Date;
 }
 
-const DEFAULT_SETTINGS: ConnectionSettings = { syncInvitedGuests: true, syncOpenAttendees: false };
+export const DEFAULT_SETTINGS: ConnectionSettings = { syncInvitedGuests: true, syncOpenAttendees: false, eventSubscriptionTypeId: null, cleanupGraceDays: 7, deleteMirroredContacts: true };
 
 const columns = [
   "id", "provider", "status", "external_account_id", "scopes", "settings", "setup_status", "setup_error", "setup_at",
   "status_reason", "connected_by", "connected_at", "disconnected_at", "generation", "version", "updated_at",
+  "portal_setup", "last_cleanup", "cleanup_disconnect_requested_at",
 ] as const;
 
 type Row = {
   id: string; provider: IntegrationProvider; status: ConnectionStatus; external_account_id: string; scopes: string[]; settings: unknown;
   setup_status: "pending" | "done" | "failed"; setup_error: string | null; setup_at: Date | null; status_reason: string | null;
   connected_by: string | null; connected_at: Date; disconnected_at: Date | null; generation: number; version: number; updated_at: Date;
+  portal_setup: unknown; last_cleanup: unknown; cleanup_disconnect_requested_at: Date | null;
 };
 
 const toConnection = (r: Row): Connection => ({
@@ -79,6 +95,9 @@ const toConnection = (r: Row): Connection => ({
   connectedAt: r.connected_at,
   disconnectedAt: r.disconnected_at,
   generation: r.generation,
+  portalSetup: (r.portal_setup ?? {}) as PortalSetup,
+  lastCleanup: (r.last_cleanup ?? null) as CleanupResult | null,
+  cleanupDisconnectRequestedAt: r.cleanup_disconnect_requested_at,
   version: r.version,
   updatedAt: r.updated_at,
 });
@@ -170,19 +189,74 @@ export async function disconnect(tx: Tx, ctx: ActorContext, provider: Integratio
   assertCan(ctx, "account.write");
   const before = await load(tx, provider, true);
   if (!before || before.status === "disconnected") throw new DomainError("not_found", "Not connected");
-  const tokens = await readTokens(tx, ctx.tenantId, before.id);
+  return closeConnection(tx, ctx, provider, before, {});
+}
+
+/**
+ * Deletes the tokens and mappings and moves the connection to a new, disconnected generation, so
+ * jobs still running for the old install drop what they would write.
+ */
+async function closeConnection(tx: Tx, audit: AuditActor, provider: IntegrationProvider, before: Connection, extra: Record<string, unknown>): Promise<{ refreshToken: string | null }> {
+  const tokens = await readTokens(tx, audit.tenantId, before.id);
   await tx.deleteFrom("integrations.credential").where("connection_id", "=", before.id).execute();
   // Ids in a portal the account no longer reaches; a reconnect backfills afresh.
   await dropSyncItems(tx, before.id);
-  // A new generation, so jobs still running for the old install drop what they would write.
+  await tx.deleteFrom("integrations.contact_state").where("connection_id", "=", before.id).execute();
   await tx
     .updateTable("integrations.connection")
-    .set({ status: "disconnected", disconnected_at: sql<Date>`now()`, status_reason: null, generation: sql<number>`generation + 1`, version: sql<number>`version + 1` })
+    .set({
+      status: "disconnected", disconnected_at: sql<Date>`now()`, status_reason: null, generation: sql<number>`generation + 1`, version: sql<number>`version + 1`,
+      cleanup_disconnect_requested_at: null, cleanup_disconnect_requested_by: null,
+    })
     .where("id", "=", before.id)
     .execute();
-  await recordAudit(tx, ctx, { action: "integration.disconnected", entityType: "account", entityId: ctx.tenantId, diff: { provider, portalId: before.portalId } });
-  await emit(tx, ctx.tenantId, { type: "integration.disconnected.v1", subject: `integration/${provider}`, data: { connectionId: before.id, provider, portalId: before.portalId } });
+  await recordAudit(tx, audit, { action: "integration.disconnected", entityType: "account", entityId: audit.tenantId, diff: { provider, portalId: before.portalId, ...extra } });
+  await emit(tx, audit.tenantId, { type: "integration.disconnected.v1", subject: `integration/${provider}`, data: { connectionId: before.id, provider, portalId: before.portalId } });
   return { refreshToken: tokens?.refreshToken ?? null };
+}
+
+/** Who the audit log names; the worker's disconnect names the owner who asked, with no roles of its own. */
+type AuditActor = ActorContext;
+
+/**
+ * "Clean up and disconnect" (owner): the worker runs the cleanup for every contact at once and
+ * then disconnects. Refused while sync is paused for a reconnect: the cleanup needs our access.
+ */
+export async function requestCleanupAndDisconnect(tx: Tx, ctx: ActorContext, provider: IntegrationProvider): Promise<Connection> {
+  assertCan(ctx, "account.write");
+  const before = await load(tx, provider, true);
+  if (!before || before.status === "disconnected") throw new DomainError("not_found", "Not connected");
+  if (before.status === "needs_reconnect") throw new DomainError("conflict", "Reconnect first: the cleanup needs our access to the portal", { status: before.status });
+  await tx
+    .updateTable("integrations.connection")
+    .set({ cleanup_disconnect_requested_at: sql<Date>`now()`, cleanup_disconnect_requested_by: ctx.userId })
+    .where("id", "=", before.id)
+    .execute();
+  await recordAudit(tx, ctx, { action: "integration.cleanup_requested", entityType: "account", entityId: ctx.tenantId, diff: { provider, disconnect: true } });
+  await emit(tx, ctx.tenantId, { type: "integration.cleanup_requested.v1", subject: `integration/${provider}`, data: { connectionId: before.id, provider, disconnect: true } });
+  return (await load(tx, provider))!;
+}
+
+/**
+ * The worker finished "Clean up and disconnect": disconnects in the name of the owner who asked,
+ * if the generation it cleaned up is still the live one. Returns the refresh token to revoke, or
+ * null when there was nothing (left) to disconnect.
+ */
+export async function disconnectAfterCleanup(tx: Tx, tenantId: string, ref: ConnectionRef, result: CleanupResult): Promise<{ refreshToken: string | null } | null> {
+  const before = await load(tx, "hubspot", true);
+  if (!before || before.id !== ref.id || before.generation !== ref.generation || before.status === "disconnected" || !before.cleanupDisconnectRequestedAt) return null;
+  const by = await tx.selectFrom("integrations.connection").select("cleanup_disconnect_requested_by").where("id", "=", ref.id).executeTakeFirstOrThrow();
+  return closeConnection(tx, { tenantId, userId: by.cleanup_disconnect_requested_by, clientId: null, roles: [] }, "hubspot", before, { afterCleanup: { deleted: result.deleted, restored: result.restored, kept: result.kept } });
+}
+
+/** The cleanup before a disconnect could not finish: the request is dropped and the connection stays, for the owner to look at. */
+export async function cancelCleanupDisconnect(tx: Tx, ref: ConnectionRef): Promise<void> {
+  await tx
+    .updateTable("integrations.connection")
+    .set({ cleanup_disconnect_requested_at: null, cleanup_disconnect_requested_by: null })
+    .where("id", "=", ref.id)
+    .where("generation", "=", ref.generation)
+    .execute();
 }
 
 /** Who to sync (owner). Requires the version the change was made from. */
@@ -191,10 +265,17 @@ export async function updateSettings(tx: Tx, ctx: ActorContext, provider: Integr
   const before = await load(tx, provider, true);
   if (!before) throw new DomainError("not_found", "Not connected");
   if (before.version !== expectedVersion) throw new DomainError("version_conflict", "The connection was changed by someone else", { currentVersion: before.version });
-  const settings: ConnectionSettings = {
-    syncInvitedGuests: patch.syncInvitedGuests ?? before.settings.syncInvitedGuests,
-    syncOpenAttendees: patch.syncOpenAttendees ?? before.settings.syncOpenAttendees,
-  };
+  const settings: ConnectionSettings = { ...before.settings };
+  for (const k of Object.keys(DEFAULT_SETTINGS) as (keyof ConnectionSettings)[]) if (patch[k] !== undefined) (settings as unknown as Record<string, unknown>)[k] = patch[k];
+  if (!Number.isInteger(settings.cleanupGraceDays) || settings.cleanupGraceDays < 0 || settings.cleanupGraceDays > 90) {
+    throw new DomainError("validation_failed", "The grace period is 0 to 90 days", { field: "cleanupGraceDays" });
+  }
+  if (patch.eventSubscriptionTypeId) {
+    const types = before.portalSetup.subscriptionTypes ?? [];
+    const type = types.find((t) => t.id === patch.eventSubscriptionTypeId);
+    if (!type) throw new DomainError("validation_failed", "The portal has no such subscription type. Repair setup to read the portal's types again", { field: "eventSubscriptionTypeId" });
+    if (!type.active) throw new DomainError("validation_failed", "The subscription type is not active in HubSpot", { field: "eventSubscriptionTypeId" });
+  }
   await tx.updateTable("integrations.connection").set({ settings: JSON.stringify(settings), version: sql<number>`version + 1` }).where("id", "=", before.id).execute();
   const diff = diffFields(before.settings as unknown as Record<string, unknown>, settings as unknown as Record<string, unknown>);
   await recordAudit(tx, ctx, { action: "integration.updated", entityType: "account", entityId: ctx.tenantId, diff: { provider, ...diff } });

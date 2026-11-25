@@ -424,6 +424,11 @@ export interface ConnectionTable {
   disconnected_at: Timestamp | null;
   /** What the nightly segment reconcile found and fixed (milestone 3). */
   last_reconcile: ColumnType<unknown, string | null | undefined, string | null>;
+  /** What the setup made or found in the portal (milestone 4). */
+  portal_setup: ColumnType<unknown, string | undefined, string>;
+  last_cleanup: ColumnType<unknown, string | null | undefined, string | null>;
+  cleanup_disconnect_requested_at: Timestamp | null;
+  cleanup_disconnect_requested_by: string | null;
   version: Generated<number>;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
@@ -452,6 +457,26 @@ export interface SyncItemTable {
   attempts: Generated<number>;
   last_error: string | null;
   last_synced_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export type CleanupStatus = "none" | "pending" | "kept" | "failed";
+
+export interface ContactStateTable {
+  tenant_id: string;
+  connection_id: string;
+  email: string;
+  contact_id: string | null;
+  created_by_us: Generated<boolean>;
+  marketable_before: boolean | null;
+  subscriptions_before: ColumnType<unknown, string | undefined, string>;
+  subscriptions_set: ColumnType<string[], string[] | undefined, string[]>;
+  marketing_by_us_at: Timestamp | null;
+  needed_until: Timestamp | null;
+  cleanup_status: ColumnType<CleanupStatus, CleanupStatus | undefined, CleanupStatus>;
+  cleanup_reason: string | null;
+  cleanup_at: Timestamp | null;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
 }
@@ -779,4 +804,5 @@ export interface DB {
   "integrations.connection": ConnectionTable;
   "integrations.credential": CredentialTable;
   "integrations.sync_item": SyncItemTable;
+  "integrations.contact_state": ContactStateTable;
 }

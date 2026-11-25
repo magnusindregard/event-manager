@@ -3,6 +3,7 @@ import { emit } from "../outbox/index.js";
 import { type ActorContext, DomainError } from "../shared/index.js";
 import { assertCan, recordAudit } from "../tenancy/index.js";
 import type { ConnectionRef, ConnectionSettings } from "./index.js";
+import { type CleanupResult, cleanupCounts } from "./cleanup.js";
 import { markSegments, type ReconcileResult } from "./segments.js";
 
 // What the connector keeps in step in the provider (docs/hubspot.md, milestone 2): contacts,
@@ -38,7 +39,7 @@ export interface SyncItem {
 /** After this many failed pushes an item stops being retried until it changes again or is replayed. */
 export const MAX_SYNC_ATTEMPTS = 5;
 
-const DEFAULTS: ConnectionSettings = { syncInvitedGuests: true, syncOpenAttendees: false };
+const DEFAULTS: ConnectionSettings = { syncInvitedGuests: true, syncOpenAttendees: false, eventSubscriptionTypeId: null, cleanupGraceDays: 7, deleteMirroredContacts: true };
 
 /**
  * The connection to mark changes for: active, or paused for a reconnect (its changes wait and go
@@ -345,12 +346,14 @@ export interface SyncSummary {
   lastSyncedAt: Date | null;
   /** What the last nightly segment reconcile found and fixed; null before the first. */
   lastReconcile: ReconcileResult | null;
+  /** Contacts the cleanup will take back, has left to the client, or could not finish; and its last run. */
+  cleanup: { pending: number; kept: number; failed: number; last: CleanupResult | null };
   /** Items HubSpot refused, latest first (at most 50). */
   issues: SyncIssue[];
 }
 
 async function liveConnection(tx: Tx, provider: "hubspot") {
-  const c = await tx.selectFrom("integrations.connection").select(["id", "status", "last_reconcile"]).where("provider", "=", provider).executeTakeFirst();
+  const c = await tx.selectFrom("integrations.connection").select(["id", "status", "last_reconcile", "last_cleanup"]).where("provider", "=", provider).executeTakeFirst();
   if (!c || c.status === "disconnected") throw new DomainError("not_found", "Not connected");
   return c;
 }
@@ -401,6 +404,7 @@ export async function syncSummary(tx: Tx, ctx: ActorContext, provider: "hubspot"
     counts,
     lastSyncedAt,
     lastReconcile: (c.last_reconcile as ReconcileResult | null) ?? null,
+    cleanup: { ...(await cleanupCounts(tx, c.id)), last: (c.last_cleanup as CleanupResult | null) ?? null },
     issues: issues.map((r) => {
       const data = r.data as { email?: string };
       const email = r.kind === "marketing_event" || r.kind === "segment" ? null : (data.email ?? r.local_key);

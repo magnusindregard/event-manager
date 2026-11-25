@@ -47,7 +47,7 @@ describe("integrations", () => {
 
     const c = await connect("111");
     expect(c).toMatchObject({ provider: "hubspot", status: "active", portalId: "111", scopes: ["crm.objects.contacts.write", "oauth"], setup: { status: "pending" }, connectedBy: ctx.userId, version: 1 });
-    expect(c.settings).toEqual({ syncInvitedGuests: true, syncOpenAttendees: false });
+    expect(c.settings).toEqual({ syncInvitedGuests: true, syncOpenAttendees: false, eventSubscriptionTypeId: null, cleanupGraceDays: 7, deleteMirroredContacts: true });
     expect(await events("integration.connected.v1")).toEqual([{ connectionId: c.id, provider: "hubspot", portalId: "111" }]);
     // Members read it; another account sees nothing.
     expect(await run((tx) => integrations.listConnections(tx, as(["editor"])))).toHaveLength(1);

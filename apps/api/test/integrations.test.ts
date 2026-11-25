@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Db, sql } from "@event-manager/db";
 import { startTestDatabase, type TestDatabase } from "@event-manager/db/testing";
 import { tenancy } from "@event-manager/domain";
-import { FakeHubSpot, OPTIONAL_SCOPES, REQUIRED_SCOPES, signState } from "@event-manager/hubspot";
+import { CLEANUP_SCOPES, FakeHubSpot, OPTIONAL_SCOPES, REQUIRED_SCOPES, signState } from "@event-manager/hubspot";
 import { buildApp } from "../src/app.js";
 import { DEV_ISSUER, devVerifier } from "../src/auth.js";
 
@@ -144,6 +144,26 @@ describe("/v1/integrations", () => {
     expect((await call("POST", "/v1/integrations/hubspot/resync", { as: "manager@a.test" })).status).toBe(403);
     expect((await call("POST", "/v1/integrations/hubspot/resync")).status).toBe(202);
     expect((await call("GET", "/v1/integrations/hubspot/sync", { as: "owner@b.test", account: B })).status).toBe(404);
+  });
+
+  it("shows the cleanup, takes its settings, and queues Clean up and disconnect for owners", async () => {
+    const c = (await call("GET", "/v1/integrations")).body.items[0];
+    // Connected with the required scopes only: the cleanup scopes are missing and nothing is set up.
+    expect(c.cleanup).toEqual({ missingScopes: [...CLEANUP_SCOPES], subscriptionTypes: [], workflowEnabled: null, nonMarketingWaiting: null, disconnectRequestedAt: null });
+    expect(c.settings).toMatchObject({ eventSubscriptionTypeId: null, cleanupGraceDays: 7, deleteMirroredContacts: true });
+    const etag = { "if-match": `"${c.version}"` };
+    expect((await call("PATCH", "/v1/integrations/hubspot", { body: { cleanupGraceDays: 91 }, headers: etag })).status).toBe(400);
+    expect((await call("PATCH", "/v1/integrations/hubspot", { body: { eventSubscriptionTypeId: "123" }, headers: etag })).status).toBe(422);
+    const r = await call("PATCH", "/v1/integrations/hubspot", { body: { cleanupGraceDays: 14, deleteMirroredContacts: false }, headers: etag });
+    expect(r).toMatchObject({ status: 200, body: { settings: { cleanupGraceDays: 14, deleteMirroredContacts: false } } });
+    expect((await call("GET", "/v1/integrations/hubspot/sync")).body.cleanup).toEqual({ pending: 0, kept: 0, failed: 0, last: null });
+
+    expect((await call("POST", "/v1/integrations/hubspot/cleanup-and-disconnect", { as: "manager@a.test" })).status).toBe(403);
+    const q = await call("POST", "/v1/integrations/hubspot/cleanup-and-disconnect");
+    expect(q.status).toBe(202);
+    expect(q.body.cleanup.disconnectRequestedAt).not.toBeNull();
+    // The worker does the rest; here the connection stays until it has.
+    expect(q.body.status).toBe("active");
   });
 
   it("repairs setup on request, and disconnects, revoking our token at HubSpot", async () => {

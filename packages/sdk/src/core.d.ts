@@ -859,7 +859,7 @@ export interface paths {
         delete: operations["disconnectHubSpot"];
         options?: never;
         head?: never;
-        /** Owner only. Who to sync to HubSpot. Requires If-Match */
+        /** Owner only. Who to sync to HubSpot and how the cleanup works. Requires If-Match */
         patch: operations["updateHubSpotIntegration"];
         trace?: never;
     };
@@ -925,6 +925,23 @@ export interface paths {
         put?: never;
         /** Owner only. Pushes everything the connection should show again, as after connecting */
         post: operations["resyncHubSpot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/integrations/hubspot/cleanup-and-disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owner only. Takes back what the platform did in the portal (deletes the contacts it created, sets back those it made marketing), then disconnects. Runs in the background; stays connected if a contact could not be cleaned up */
+        post: operations["cleanUpAndDisconnectHubSpot"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11529,8 +11546,27 @@ export interface operations {
                                 syncInvitedGuests: boolean;
                                 /** @description Upsert attendees of open registration as HubSpot contacts */
                                 syncOpenAttendees: boolean;
+                                eventSubscriptionTypeId: string | null;
+                                /** @description Days after a contact's last occurrence before the cleanup takes back what the platform did */
+                                cleanupGraceDays: number;
+                                /** @description Delete contacts the platform created only for mirroring, once no event needs them */
+                                deleteMirroredContacts: boolean;
                             };
-                            /** @description The setup job in the portal: for now, a check that our token reaches the connected portal */
+                            /** @description Cleanup after HubSpot sending (docs/hubspot.md) */
+                            cleanup: {
+                                /** @description Cleanup scopes a portal admin has not allowed; HubSpot sending needs all of them */
+                                missingScopes: string[];
+                                /** @description The portal's subscription types, as the setup last read them */
+                                subscriptionTypes: {
+                                    id: string;
+                                    name: string;
+                                    active: boolean;
+                                }[];
+                                workflowEnabled: boolean | null;
+                                nonMarketingWaiting: number | null;
+                                disconnectRequestedAt: string | null;
+                            };
+                            /** @description The setup job in the portal: a check that our token reaches the connected portal, and the cleanup segments and workflow */
                             setup: {
                                 status: "pending" | "done" | "failed";
                                 error: string | null;
@@ -11738,8 +11774,27 @@ export interface operations {
                             syncInvitedGuests: boolean;
                             /** @description Upsert attendees of open registration as HubSpot contacts */
                             syncOpenAttendees: boolean;
+                            eventSubscriptionTypeId: string | null;
+                            /** @description Days after a contact's last occurrence before the cleanup takes back what the platform did */
+                            cleanupGraceDays: number;
+                            /** @description Delete contacts the platform created only for mirroring, once no event needs them */
+                            deleteMirroredContacts: boolean;
                         };
-                        /** @description The setup job in the portal: for now, a check that our token reaches the connected portal */
+                        /** @description Cleanup after HubSpot sending (docs/hubspot.md) */
+                        cleanup: {
+                            /** @description Cleanup scopes a portal admin has not allowed; HubSpot sending needs all of them */
+                            missingScopes: string[];
+                            /** @description The portal's subscription types, as the setup last read them */
+                            subscriptionTypes: {
+                                id: string;
+                                name: string;
+                                active: boolean;
+                            }[];
+                            workflowEnabled: boolean | null;
+                            nonMarketingWaiting: number | null;
+                            disconnectRequestedAt: string | null;
+                        };
+                        /** @description The setup job in the portal: a check that our token reaches the connected portal, and the cleanup segments and workflow */
                         setup: {
                             status: "pending" | "done" | "failed";
                             error: string | null;
@@ -11946,6 +12001,9 @@ export interface operations {
                 "application/json": {
                     syncInvitedGuests?: boolean;
                     syncOpenAttendees?: boolean;
+                    eventSubscriptionTypeId?: string | null;
+                    cleanupGraceDays?: number;
+                    deleteMirroredContacts?: boolean;
                 };
             };
         };
@@ -11977,8 +12035,27 @@ export interface operations {
                             syncInvitedGuests: boolean;
                             /** @description Upsert attendees of open registration as HubSpot contacts */
                             syncOpenAttendees: boolean;
+                            eventSubscriptionTypeId: string | null;
+                            /** @description Days after a contact's last occurrence before the cleanup takes back what the platform did */
+                            cleanupGraceDays: number;
+                            /** @description Delete contacts the platform created only for mirroring, once no event needs them */
+                            deleteMirroredContacts: boolean;
                         };
-                        /** @description The setup job in the portal: for now, a check that our token reaches the connected portal */
+                        /** @description Cleanup after HubSpot sending (docs/hubspot.md) */
+                        cleanup: {
+                            /** @description Cleanup scopes a portal admin has not allowed; HubSpot sending needs all of them */
+                            missingScopes: string[];
+                            /** @description The portal's subscription types, as the setup last read them */
+                            subscriptionTypes: {
+                                id: string;
+                                name: string;
+                                active: boolean;
+                            }[];
+                            workflowEnabled: boolean | null;
+                            nonMarketingWaiting: number | null;
+                            disconnectRequestedAt: string | null;
+                        };
+                        /** @description The setup job in the portal: a check that our token reaches the connected portal, and the cleanup segments and workflow */
                         setup: {
                             status: "pending" | "done" | "failed";
                             error: string | null;
@@ -12111,8 +12188,27 @@ export interface operations {
                             syncInvitedGuests: boolean;
                             /** @description Upsert attendees of open registration as HubSpot contacts */
                             syncOpenAttendees: boolean;
+                            eventSubscriptionTypeId: string | null;
+                            /** @description Days after a contact's last occurrence before the cleanup takes back what the platform did */
+                            cleanupGraceDays: number;
+                            /** @description Delete contacts the platform created only for mirroring, once no event needs them */
+                            deleteMirroredContacts: boolean;
                         };
-                        /** @description The setup job in the portal: for now, a check that our token reaches the connected portal */
+                        /** @description Cleanup after HubSpot sending (docs/hubspot.md) */
+                        cleanup: {
+                            /** @description Cleanup scopes a portal admin has not allowed; HubSpot sending needs all of them */
+                            missingScopes: string[];
+                            /** @description The portal's subscription types, as the setup last read them */
+                            subscriptionTypes: {
+                                id: string;
+                                name: string;
+                                active: boolean;
+                            }[];
+                            workflowEnabled: boolean | null;
+                            nonMarketingWaiting: number | null;
+                            disconnectRequestedAt: string | null;
+                        };
+                        /** @description The setup job in the portal: a check that our token reaches the connected portal, and the cleanup segments and workflow */
                         setup: {
                             status: "pending" | "done" | "failed";
                             error: string | null;
@@ -12268,6 +12364,29 @@ export interface operations {
                             };
                         };
                         lastSyncedAt: string | null;
+                        /** @description Cleanup after HubSpot sending */
+                        cleanup: {
+                            /** @description Contacts the cleanup will take back once no event needs them */
+                            pending: number;
+                            /** @description Contacts the platform created that the client has taken into use, left as theirs */
+                            kept: number;
+                            /** @description Contacts HubSpot refused part of the cleanup for; tried again nightly */
+                            failed: number;
+                            last: {
+                                /** Format: date-time */
+                                at: string;
+                                deleted: number;
+                                /** @description Set back to non-marketing, subscriptions put back */
+                                restored: number;
+                                kept: number;
+                                failed: number;
+                                /** @description Still needed by an event */
+                                waiting: number;
+                                /** @description Temporary contacts unsubscribed from subscription types made since */
+                                newTypesCovered: number;
+                                error?: string;
+                            } | null;
+                        };
                         lastReconcile: {
                             /** Format: date-time */
                             at: string;
@@ -12461,6 +12580,159 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    cleanUpAndDisconnectHubSpot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** @enum {string} */
+                        provider: "hubspot";
+                        /** @description needs_reconnect: HubSpot refused our access (app uninstalled, access revoked); sync is paused until an owner connects again */
+                        status: "active" | "needs_reconnect" | "disconnected";
+                        statusReason: string | null;
+                        /** @description The HubSpot portal (hub) id */
+                        portalId: string;
+                        /** @description Scopes granted on install */
+                        scopes: string[];
+                        features: {
+                            /** @description Custom behavioural events can be sent (Marketing Hub Enterprise) */
+                            customEvents: boolean;
+                        };
+                        settings: {
+                            /** @description Upsert invited guests as HubSpot contacts */
+                            syncInvitedGuests: boolean;
+                            /** @description Upsert attendees of open registration as HubSpot contacts */
+                            syncOpenAttendees: boolean;
+                            eventSubscriptionTypeId: string | null;
+                            /** @description Days after a contact's last occurrence before the cleanup takes back what the platform did */
+                            cleanupGraceDays: number;
+                            /** @description Delete contacts the platform created only for mirroring, once no event needs them */
+                            deleteMirroredContacts: boolean;
+                        };
+                        /** @description Cleanup after HubSpot sending (docs/hubspot.md) */
+                        cleanup: {
+                            /** @description Cleanup scopes a portal admin has not allowed; HubSpot sending needs all of them */
+                            missingScopes: string[];
+                            /** @description The portal's subscription types, as the setup last read them */
+                            subscriptionTypes: {
+                                id: string;
+                                name: string;
+                                active: boolean;
+                            }[];
+                            workflowEnabled: boolean | null;
+                            nonMarketingWaiting: number | null;
+                            disconnectRequestedAt: string | null;
+                        };
+                        /** @description The setup job in the portal: a check that our token reaches the connected portal, and the cleanup segments and workflow */
+                        setup: {
+                            status: "pending" | "done" | "failed";
+                            error: string | null;
+                            at: string | null;
+                        };
+                        /** Format: date-time */
+                        connectedAt: string;
+                        disconnectedAt: string | null;
+                        version: number;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
             };
             /** @description Default Response */
             400: {

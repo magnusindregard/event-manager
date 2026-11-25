@@ -1,5 +1,5 @@
 export * from "./client.js";
-export { FakeHubSpot } from "./fake.js";
+export { type FakeContact, FakeHubSpot } from "./fake.js";
 export { type OAuthState, signState, verifyState } from "./state.js";
 
 // Scopes (docs/hubspot.md, "Scopes"). Optional ones are granted only on portals that have the

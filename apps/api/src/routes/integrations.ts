@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { DomainError, integrations, tenancy } from "@event-manager/domain";
-import { BEHAVIOURAL_EVENT_SCOPES, type HubSpotClient, HubSpotError, OPTIONAL_SCOPES, REQUIRED_SCOPES, signState, verifyState } from "@event-manager/hubspot";
+import { BEHAVIOURAL_EVENT_SCOPES, CLEANUP_SCOPES, type HubSpotClient, HubSpotError, OPTIONAL_SCOPES, REQUIRED_SCOPES, signState, verifyState } from "@event-manager/hubspot";
 import { HubSpotAuthorize, HubSpotCallback, Integration, IntegrationList, IntegrationSettingsPatch, IntegrationSync, IntegrationSyncRetry, Problem } from "@event-manager/schemas";
 import { inTenant } from "../plugins/context.js";
 import { expectedVersion, setEtag } from "../plugins/etag.js";
@@ -33,6 +33,16 @@ const dto = (c: integrations.Connection) => ({
   scopes: c.scopes,
   features: { customEvents: BEHAVIOURAL_EVENT_SCOPES.every((s) => c.scopes.includes(s)) },
   settings: c.settings,
+  cleanup: (() => {
+    const setup = c.portalSetup.portalId === c.portalId ? c.portalSetup : {};
+    return {
+      missingScopes: CLEANUP_SCOPES.filter((s) => !c.scopes.includes(s)),
+      subscriptionTypes: setup.subscriptionTypes ?? [],
+      workflowEnabled: setup.workflowId ? (setup.workflowEnabled ?? null) : null,
+      nonMarketingWaiting: setup.nonMarketingWaiting ?? null,
+      disconnectRequestedAt: c.cleanupDisconnectRequestedAt?.toISOString() ?? null,
+    };
+  })(),
   setup: { status: c.setup.status, error: c.setup.error, at: c.setup.at?.toISOString() ?? null },
   connectedAt: c.connectedAt.toISOString(),
   disconnectedAt: c.disconnectedAt?.toISOString() ?? null,
@@ -115,7 +125,7 @@ export const integrationRoutes: FastifyPluginAsyncTypebox<{ hubspot: HubSpotDeps
 
   app.patch(
     "/integrations/hubspot",
-    { schema: { operationId: "updateHubSpotIntegration", tags: ["integrations"], ...accountScoped, summary: "Owner only. Who to sync to HubSpot. Requires If-Match", body: IntegrationSettingsPatch, response: { 200: Integration, ...writeErrors } } },
+    { schema: { operationId: "updateHubSpotIntegration", tags: ["integrations"], ...accountScoped, summary: "Owner only. Who to sync to HubSpot and how the cleanup works. Requires If-Match", body: IntegrationSettingsPatch, response: { 200: Integration, ...writeErrors } } },
     async (req, reply) => {
       const v = expectedVersion(req);
       const c = await inTenant(app, req, (tx, ctx) => integrations.updateSettings(tx, ctx, "hubspot", v, req.body));
@@ -142,6 +152,7 @@ export const integrationRoutes: FastifyPluginAsyncTypebox<{ hubspot: HubSpotDeps
         counts: s.counts,
         lastSyncedAt: s.lastSyncedAt?.toISOString() ?? null,
         lastReconcile: s.lastReconcile,
+        cleanup: s.cleanup,
         issues: s.issues.map((i) => ({ ...i, startUtc: i.startUtc?.toISOString() ?? null, updatedAt: i.updatedAt.toISOString() })),
       };
     },
@@ -162,6 +173,21 @@ export const integrationRoutes: FastifyPluginAsyncTypebox<{ hubspot: HubSpotDeps
     async (req, reply) => {
       await inTenant(app, req, (tx, ctx) => integrations.requestResync(tx, ctx, "hubspot"));
       return reply.status(202).send(null);
+    },
+  );
+
+  app.post(
+    "/integrations/hubspot/cleanup-and-disconnect",
+    {
+      schema: {
+        operationId: "cleanUpAndDisconnectHubSpot", tags: ["integrations"], ...accountScoped,
+        summary: "Owner only. Takes back what the platform did in the portal (deletes the contacts it created, sets back those it made marketing), then disconnects. Runs in the background; stays connected if a contact could not be cleaned up",
+        response: { 202: Integration, ...writeErrors },
+      },
+    },
+    async (req, reply) => {
+      const c = await inTenant(app, req, (tx, ctx) => integrations.requestCleanupAndDisconnect(tx, ctx, "hubspot"));
+      return reply.status(202).send(dto(c));
     },
   );
 

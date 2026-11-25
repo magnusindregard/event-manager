@@ -26,6 +26,7 @@ import * as m0021 from "./migrations/0021_group_prices.js";
 import * as m0022 from "./migrations/0022_integrations.js";
 import * as m0023 from "./migrations/0023_hubspot_sync.js";
 import * as m0024 from "./migrations/0024_hubspot_segments.js";
+import * as m0025 from "./migrations/0025_hubspot_cleanup.js";
 
 /** By name, in order. Exported for tests that run one migration down and up again. */
 export const migrations: Record<string, Migration> = {
@@ -52,6 +53,7 @@ export const migrations: Record<string, Migration> = {
   "0022_integrations": m0022,
   "0023_hubspot_sync": m0023,
   "0024_hubspot_segments": m0024,
+  "0025_hubspot_cleanup": m0025,
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };

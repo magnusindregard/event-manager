@@ -12,7 +12,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { etagOf, type Integration, type IntegrationSync, unwrap } from "../../api.js";
@@ -34,7 +36,7 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
     queryKey: queryKey(accountId),
     queryFn: async () => unwrap(await api.GET("/v1/integrations")),
     // While the worker sets up the portal, look again now and then.
-    refetchInterval: (q) => (q.state.data?.items.some((c) => c.status === "active" && c.setup.status === "pending") ? 3000 : false),
+    refetchInterval: (q) => (q.state.data?.items.some((c) => c.status === "active" && (c.setup.status === "pending" || c.cleanup.disconnectRequestedAt)) ? 3000 : false),
   });
   const refresh = () => void qc.invalidateQueries({ queryKey: queryKey(accountId) });
   const loaded = query.isSuccess;
@@ -50,6 +52,13 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
   const repair = useMutation({
     mutationFn: async () => unwrap(await api.POST("/v1/integrations/hubspot/setup")),
     onSuccess: refresh,
+  });
+  const cleanupAndDisconnect = useMutation({
+    mutationFn: async () => unwrap(await api.POST("/v1/integrations/hubspot/cleanup-and-disconnect")),
+    onSuccess: () => {
+      toast.success(t("integrations.cleanup.disconnectQueued"));
+      refresh();
+    },
   });
   const disconnect = useMutation({
     mutationFn: async () => {
@@ -72,7 +81,10 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
   const hubspot = query.data?.items.find((c) => c.provider === "hubspot");
   const live = hubspot && hubspot.status !== "disconnected" ? hubspot : null;
   const available = query.data?.available.hubspot ?? false;
-  const error = connect.error ?? repair.error ?? disconnect.error ?? settings.error;
+  const error = connect.error ?? repair.error ?? disconnect.error ?? settings.error ?? cleanupAndDisconnect.error;
+  // How many contacts a plain disconnect leaves in the portal, from the sync log.
+  const pendingCleanup = (qc.getQueryData(syncKey(accountId)) as IntegrationSync | undefined)?.cleanup.pending ?? 0;
+  const cleaningUp = !!live?.cleanup.disconnectRequestedAt;
 
   return (
     <Card className="mt-6" id="integrations">
@@ -120,7 +132,7 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
                 </Button>
               )}
               {live && (
-                <Button variant="outline" onClick={() => setConfirm(true)} disabled={disconnect.isPending}>
+                <Button variant="outline" onClick={() => setConfirm(true)} disabled={disconnect.isPending || cleaningUp}>
                   <Unplug /> {t("integrations.disconnect")}
                 </Button>
               )}
@@ -129,6 +141,13 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
         </div>
 
         {!available && !live && <p className="text-sm text-muted-foreground">{t("integrations.notAvailable")}</p>}
+
+        {cleaningUp && (
+          <Alert>
+            <RefreshCw className="animate-spin" />
+            <AlertDescription>{t("integrations.cleanup.running")}</AlertDescription>
+          </Alert>
+        )}
 
         {live?.status === "needs_reconnect" && (
           <Alert variant="destructive">
@@ -159,6 +178,7 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
                 </div>
               ))}
             </div>
+            <CleanupSettings live={live} canEdit={canEdit} pending={settings.isPending} save={(body) => settings.mutate({ c: live, body })} />
           </>
         )}
 
@@ -169,15 +189,94 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
             <AlertDialogHeader>
               <AlertDialogTitle>{t("integrations.disconnect")}</AlertDialogTitle>
               <AlertDialogDescription>{t("integrations.disconnectConfirm")}</AlertDialogDescription>
+              {pendingCleanup > 0 && <AlertDialogDescription>{t("integrations.cleanup.disconnectLeaves", { count: pendingCleanup })}</AlertDialogDescription>}
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-              <AlertDialogAction onClick={() => disconnect.mutate()}>{t("integrations.disconnect")}</AlertDialogAction>
+              {live?.status === "active" && (
+                <AlertDialogAction onClick={() => cleanupAndDisconnect.mutate()}>{t("integrations.cleanup.andDisconnect")}</AlertDialogAction>
+              )}
+              <AlertDialogAction variant="outline" onClick={() => disconnect.mutate()}>{t("integrations.disconnect")}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       </CardContent>
     </Card>
+  );
+}
+
+const NONE = "__none";
+
+/**
+ * The cleanup after HubSpot sending (docs/hubspot.md, milestone 4): which cleanup scopes are
+ * missing, the event subscription type, the grace period, whether mirrored contacts are deleted,
+ * and the state of the workflow that sets contacts back to non-marketing.
+ */
+function CleanupSettings({ live, canEdit, pending, save }: { live: Integration; canEdit: boolean; pending: boolean; save: (body: Partial<Integration["settings"]>) => void }) {
+  const { t } = useTranslation();
+  const [grace, setGrace] = useState(String(live.settings.cleanupGraceDays));
+  useEffect(() => setGrace(String(live.settings.cleanupGraceDays)), [live.settings.cleanupGraceDays]);
+  const c = live.cleanup;
+  const types = c.subscriptionTypes.filter((x) => x.active || x.id === live.settings.eventSubscriptionTypeId);
+  const commitGrace = () => {
+    const n = Number(grace);
+    if (Number.isInteger(n) && n >= 0 && n <= 90 && n !== live.settings.cleanupGraceDays) save({ cleanupGraceDays: n });
+    else setGrace(String(live.settings.cleanupGraceDays));
+  };
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="text-sm font-medium">{t("integrations.cleanup.title")}</div>
+        <p className="text-sm text-muted-foreground">{t("integrations.cleanup.hint")}</p>
+      </div>
+      {c.missingScopes.length > 0 && (
+        <Alert>
+          <CircleAlert />
+          <AlertDescription>{t("integrations.cleanup.missingScopes", { scopes: c.missingScopes.join(", ") })}</AlertDescription>
+        </Alert>
+      )}
+      {c.workflowEnabled === false && (
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertDescription>{t("integrations.cleanup.workflowOff")}</AlertDescription>
+        </Alert>
+      )}
+      {!!c.nonMarketingWaiting && (
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertDescription>{t("integrations.cleanup.workflowStuck", { count: c.nonMarketingWaiting })}</AlertDescription>
+        </Alert>
+      )}
+      {c.missingScopes.length === 0 && (
+        <div className="grid max-w-md gap-1">
+          <Label htmlFor="eventSubscriptionTypeId">{t("integrations.cleanup.eventType")}</Label>
+          <Select
+            value={live.settings.eventSubscriptionTypeId ?? NONE}
+            disabled={!canEdit || pending || !types.length}
+            onValueChange={(v) => save({ eventSubscriptionTypeId: v === NONE ? null : v })}
+          >
+            <SelectTrigger id="eventSubscriptionTypeId" className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>{t("integrations.cleanup.noEventType")}</SelectItem>
+              {types.map((x) => <SelectItem key={x.id} value={x.id}>{x.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">{t("integrations.cleanup.eventTypeHint")}</p>
+        </div>
+      )}
+      <div className="grid max-w-md gap-1">
+        <Label htmlFor="cleanupGraceDays">{t("integrations.cleanup.graceDays")}</Label>
+        <Input id="cleanupGraceDays" type="number" min={0} max={90} className="w-28" value={grace} disabled={!canEdit || pending}
+          onChange={(e) => setGrace(e.target.value)} onBlur={commitGrace} onKeyDown={(e) => e.key === "Enter" && commitGrace()} />
+        <p className="text-xs text-muted-foreground">{t("integrations.cleanup.graceDaysHint")}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch id="deleteMirroredContacts" checked={live.settings.deleteMirroredContacts} disabled={!canEdit || pending}
+          onCheckedChange={(v) => save({ deleteMirroredContacts: v })} />
+        <Label htmlFor="deleteMirroredContacts">{t("integrations.cleanup.deleteMirrored")}</Label>
+      </div>
+    </div>
   );
 }
 
@@ -229,6 +328,14 @@ function SyncLog({ live, canEdit }: { live: Integration; canEdit: boolean }) {
           <p className="text-sm text-muted-foreground">
             {data?.lastSyncedAt ? t("integrations.log.lastSynced", { date: fmt.format(new Date(data.lastSyncedAt)) }) : t("integrations.log.never")}
           </p>
+          {data && (data.cleanup.pending > 0 || data.cleanup.kept > 0 || data.cleanup.failed > 0 || data.cleanup.last) && (
+            <p className="text-sm text-muted-foreground">
+              {t("integrations.cleanup.counts", { pending: data.cleanup.pending, kept: data.cleanup.kept })}
+              {data.cleanup.failed > 0 && <> {t("integrations.cleanup.failedCount", { count: data.cleanup.failed })}</>}
+              {data.cleanup.last && <> {t("integrations.cleanup.last", { date: fmt.format(new Date(data.cleanup.last.at)), deleted: data.cleanup.last.deleted, restored: data.cleanup.last.restored })}</>}
+              {data.cleanup.last?.error && <span className="text-destructive"> {data.cleanup.last.error}</span>}
+            </p>
+          )}
           {data?.lastReconcile && (
             <p className="text-sm text-muted-foreground">
               {t("integrations.log.reconciled", { date: fmt.format(new Date(data.lastReconcile.at)), count: data.lastReconcile.segments })}{" "}

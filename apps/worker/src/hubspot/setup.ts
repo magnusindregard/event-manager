@@ -3,6 +3,7 @@ import { type Db, sql, withTenant } from "@event-manager/db";
 import { integrations } from "@event-manager/domain";
 import { type HubSpotClient, HubSpotError } from "@event-manager/hubspot";
 import type { InternalHandler } from "../handlers.js";
+import { setUpCleanup } from "./cleanup.js";
 import { withHubSpot } from "./session.js";
 
 export interface HubSpotDeps {
@@ -34,9 +35,10 @@ const isPayload = (p: unknown): p is Payload =>
   typeof p === "object" && p !== null && typeof (p as Payload).tenantId === "string" && typeof (p as Payload).connectionId === "string";
 
 /**
- * Sets the portal up for the connector (docs/hubspot.md, "Setup in the portal"). For now it checks
- * that our token reaches the portal we connected; the cleanup segments and workflow (milestone 4)
- * and custom event definitions (milestone 7) join here. Idempotent. Rate limits and HubSpot
+ * Sets the portal up for the connector (docs/hubspot.md, "Setup in the portal"): checks that our
+ * token reaches the portal we connected, then, with the cleanup scopes, reads the subscription
+ * types and makes the cleanup segments and workflow (milestone 4). Custom event definitions
+ * (milestone 7) join here. Idempotent. Rate limits and HubSpot
  * outages retry; other refusals are recorded on the connection for the admin and not retried
  * until an owner repairs.
  */
@@ -57,6 +59,7 @@ export function hubspotSetupTask(db: Db, deps: HubSpotDeps | null): Task {
         ref = { id: connection.id, generation: connection.generation };
         const details = await deps.client.accountDetails(accessToken);
         if (details.portalId !== connection.portalId) throw new HubSpotError(`HubSpot answered for portal ${details.portalId}, not the connected portal ${connection.portalId}`, 409);
+        await setUpCleanup(deps.client, accessToken, connection, (fn) => withTenant(db, { tenantId: payload.tenantId }, fn));
         return connection.portalId;
       });
       if (!done?.value) return;

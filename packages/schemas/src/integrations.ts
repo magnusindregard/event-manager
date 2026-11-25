@@ -8,6 +8,9 @@ const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(t: T) => T
 export const IntegrationSettings = Type.Object({
   syncInvitedGuests: Type.Boolean({ description: "Upsert invited guests as HubSpot contacts" }),
   syncOpenAttendees: Type.Boolean({ description: "Upsert attendees of open registration as HubSpot contacts" }),
+  eventSubscriptionTypeId: Nullable(Type.String({ description: "The subscription type the platform's HubSpot emails use; temporary contacts are unsubscribed from every other" })),
+  cleanupGraceDays: Type.Integer({ minimum: 0, maximum: 90, description: "Days after a contact's last occurrence before the cleanup takes back what the platform did" }),
+  deleteMirroredContacts: Type.Boolean({ description: "Delete contacts the platform created only for mirroring, once no event needs them" }),
 });
 
 export const Integration = Type.Object({
@@ -23,13 +26,23 @@ export const Integration = Type.Object({
     customEvents: Type.Boolean({ description: "Custom behavioural events can be sent (Marketing Hub Enterprise)" }),
   }),
   settings: IntegrationSettings,
+  cleanup: Type.Object(
+    {
+      missingScopes: Type.Array(Type.String(), { description: "Cleanup scopes a portal admin has not allowed; HubSpot sending needs all of them" }),
+      subscriptionTypes: Type.Array(Type.Object({ id: Type.String(), name: Type.String(), active: Type.Boolean() }), { description: "The portal's subscription types, as the setup last read them" }),
+      workflowEnabled: Nullable(Type.Boolean({ description: "Whether the workflow EM · Set to non-marketing was there and on when last checked; null: not set up" })),
+      nonMarketingWaiting: Nullable(Type.Integer({ description: "Contacts left in EM · Set to non-marketing from an earlier night: the workflow is not taking them" })),
+      disconnectRequestedAt: Nullable(Type.String({ format: "date-time", description: "Clean up and disconnect is running" })),
+    },
+    { description: "Cleanup after HubSpot sending (docs/hubspot.md)" },
+  ),
   setup: Type.Object(
     {
       status: Type.Union([Type.Literal("pending"), Type.Literal("done"), Type.Literal("failed")]),
       error: Nullable(Type.String()),
       at: Nullable(DateTime),
     },
-    { description: "The setup job in the portal: for now, a check that our token reaches the connected portal" },
+    { description: "The setup job in the portal: a check that our token reaches the connected portal, and the cleanup segments and workflow" },
   ),
   connectedAt: DateTime,
   disconnectedAt: Nullable(DateTime),
@@ -54,7 +67,13 @@ export const HubSpotCallback = Type.Object(
 );
 
 export const IntegrationSettingsPatch = Type.Object(
-  { syncInvitedGuests: Type.Optional(Type.Boolean()), syncOpenAttendees: Type.Optional(Type.Boolean()) },
+  {
+    syncInvitedGuests: Type.Optional(Type.Boolean()),
+    syncOpenAttendees: Type.Optional(Type.Boolean()),
+    eventSubscriptionTypeId: Type.Optional(Nullable(Type.String({ minLength: 1, maxLength: 40 }))),
+    cleanupGraceDays: Type.Optional(Type.Integer({ minimum: 0, maximum: 90 })),
+    deleteMirroredContacts: Type.Optional(Type.Boolean()),
+  },
   { additionalProperties: false, minProperties: 1 },
 );
 
@@ -68,6 +87,26 @@ const SyncCounts = Type.Object({
 export const IntegrationSync = Type.Object({
   counts: Type.Object({ contact: SyncCounts, marketing_event: SyncCounts, attendance: SyncCounts, segment: SyncCounts, segment_member: SyncCounts }),
   lastSyncedAt: Nullable(DateTime),
+  cleanup: Type.Object(
+    {
+      pending: Type.Integer({ description: "Contacts the cleanup will take back once no event needs them" }),
+      kept: Type.Integer({ description: "Contacts the platform created that the client has taken into use, left as theirs" }),
+      failed: Type.Integer({ description: "Contacts HubSpot refused part of the cleanup for; tried again nightly" }),
+      last: Nullable(
+        Type.Object({
+          at: DateTime,
+          deleted: Type.Integer(),
+          restored: Type.Integer({ description: "Set back to non-marketing, subscriptions put back" }),
+          kept: Type.Integer(),
+          failed: Type.Integer(),
+          waiting: Type.Integer({ description: "Still needed by an event" }),
+          newTypesCovered: Type.Integer({ description: "Temporary contacts unsubscribed from subscription types made since" }),
+          error: Type.Optional(Type.String()),
+        }),
+      ),
+    },
+    { description: "Cleanup after HubSpot sending" },
+  ),
   lastReconcile: Nullable(
     Type.Object(
       {

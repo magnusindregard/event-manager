@@ -11,6 +11,7 @@ const { HORIZON_CRONTAB } = await import("./horizon.js");
 const { RETENTION_CRONTAB } = await import("./retention.js");
 const { RESERVATION_SWEEP_CRONTAB } = await import("./reservations.js");
 const { HUBSPOT_RECONCILE_CRONTAB } = await import("./hubspot/reconcile.js");
+const { HUBSPOT_CLEANUP_CRONTAB } = await import("./hubspot/cleanup.js");
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is required");
@@ -27,7 +28,7 @@ const runner = await run({
   pgPool,
   concurrency,
   taskList: buildTaskList(db, defaultHandlers, provisionDepsFromEnv(process.env, log, mailer), registrationEmailDepsFromEnv(process.env, mailer), hubspotDepsFromEnv(process.env, log)),
-  crontab: process.env.WORKER_CRONTAB ?? [HORIZON_CRONTAB, RETENTION_CRONTAB, RESERVATION_SWEEP_CRONTAB, HUBSPOT_RECONCILE_CRONTAB].join("\n"),
+  crontab: process.env.WORKER_CRONTAB ?? [HORIZON_CRONTAB, RETENTION_CRONTAB, RESERVATION_SWEEP_CRONTAB, HUBSPOT_RECONCILE_CRONTAB, HUBSPOT_CLEANUP_CRONTAB].join("\n"),
 });
 await runner.promise;
 await db.destroy();

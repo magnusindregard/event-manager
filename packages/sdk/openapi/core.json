@@ -26611,6 +26611,7 @@
                           "scopes",
                           "features",
                           "settings",
+                          "cleanup",
                           "setup",
                           "connectedAt",
                           "disconnectedAt",
@@ -26688,7 +26689,10 @@
                             "type": "object",
                             "required": [
                               "syncInvitedGuests",
-                              "syncOpenAttendees"
+                              "syncOpenAttendees",
+                              "eventSubscriptionTypeId",
+                              "cleanupGraceDays",
+                              "deleteMirroredContacts"
                             ],
                             "properties": {
                               "syncInvitedGuests": {
@@ -26698,8 +26702,106 @@
                               "syncOpenAttendees": {
                                 "type": "boolean",
                                 "description": "Upsert attendees of open registration as HubSpot contacts"
+                              },
+                              "eventSubscriptionTypeId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "description": "The subscription type the platform's HubSpot emails use; temporary contacts are unsubscribed from every other"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "cleanupGraceDays": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 90,
+                                "description": "Days after a contact's last occurrence before the cleanup takes back what the platform did"
+                              },
+                              "deleteMirroredContacts": {
+                                "type": "boolean",
+                                "description": "Delete contacts the platform created only for mirroring, once no event needs them"
                               }
                             }
+                          },
+                          "cleanup": {
+                            "type": "object",
+                            "required": [
+                              "missingScopes",
+                              "subscriptionTypes",
+                              "workflowEnabled",
+                              "nonMarketingWaiting",
+                              "disconnectRequestedAt"
+                            ],
+                            "properties": {
+                              "missingScopes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "Cleanup scopes a portal admin has not allowed; HubSpot sending needs all of them"
+                              },
+                              "subscriptionTypes": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "required": [
+                                    "id",
+                                    "name",
+                                    "active"
+                                  ],
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "active": {
+                                      "type": "boolean"
+                                    }
+                                  }
+                                },
+                                "description": "The portal's subscription types, as the setup last read them"
+                              },
+                              "workflowEnabled": {
+                                "anyOf": [
+                                  {
+                                    "type": "boolean",
+                                    "description": "Whether the workflow EM · Set to non-marketing was there and on when last checked; null: not set up"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "nonMarketingWaiting": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "description": "Contacts left in EM · Set to non-marketing from an earlier night: the workflow is not taking them"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "disconnectRequestedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "description": "Clean up and disconnect is running"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "description": "Cleanup after HubSpot sending (docs/hubspot.md)"
                           },
                           "setup": {
                             "type": "object",
@@ -26753,7 +26855,7 @@
                                 ]
                               }
                             },
-                            "description": "The setup job in the portal: for now, a check that our token reaches the connected portal"
+                            "description": "The setup job in the portal: a check that our token reaches the connected portal, and the cleanup segments and workflow"
                           },
                           "connectedAt": {
                             "type": "string",
@@ -27072,6 +27174,7 @@
                     "scopes",
                     "features",
                     "settings",
+                    "cleanup",
                     "setup",
                     "connectedAt",
                     "disconnectedAt",
@@ -27149,7 +27252,10 @@
                       "type": "object",
                       "required": [
                         "syncInvitedGuests",
-                        "syncOpenAttendees"
+                        "syncOpenAttendees",
+                        "eventSubscriptionTypeId",
+                        "cleanupGraceDays",
+                        "deleteMirroredContacts"
                       ],
                       "properties": {
                         "syncInvitedGuests": {
@@ -27159,8 +27265,106 @@
                         "syncOpenAttendees": {
                           "type": "boolean",
                           "description": "Upsert attendees of open registration as HubSpot contacts"
+                        },
+                        "eventSubscriptionTypeId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The subscription type the platform's HubSpot emails use; temporary contacts are unsubscribed from every other"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cleanupGraceDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 90,
+                          "description": "Days after a contact's last occurrence before the cleanup takes back what the platform did"
+                        },
+                        "deleteMirroredContacts": {
+                          "type": "boolean",
+                          "description": "Delete contacts the platform created only for mirroring, once no event needs them"
                         }
                       }
+                    },
+                    "cleanup": {
+                      "type": "object",
+                      "required": [
+                        "missingScopes",
+                        "subscriptionTypes",
+                        "workflowEnabled",
+                        "nonMarketingWaiting",
+                        "disconnectRequestedAt"
+                      ],
+                      "properties": {
+                        "missingScopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Cleanup scopes a portal admin has not allowed; HubSpot sending needs all of them"
+                        },
+                        "subscriptionTypes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "active"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "active": {
+                                "type": "boolean"
+                              }
+                            }
+                          },
+                          "description": "The portal's subscription types, as the setup last read them"
+                        },
+                        "workflowEnabled": {
+                          "anyOf": [
+                            {
+                              "type": "boolean",
+                              "description": "Whether the workflow EM · Set to non-marketing was there and on when last checked; null: not set up"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "nonMarketingWaiting": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "description": "Contacts left in EM · Set to non-marketing from an earlier night: the workflow is not taking them"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "disconnectRequestedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "description": "Clean up and disconnect is running"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "description": "Cleanup after HubSpot sending (docs/hubspot.md)"
                     },
                     "setup": {
                       "type": "object",
@@ -27214,7 +27418,7 @@
                           ]
                         }
                       },
-                      "description": "The setup job in the portal: for now, a check that our token reaches the connected portal"
+                      "description": "The setup job in the portal: a check that our token reaches the connected portal, and the cleanup segments and workflow"
                     },
                     "connectedAt": {
                       "type": "string",
@@ -27369,7 +27573,7 @@
     "/v1/integrations/hubspot": {
       "patch": {
         "operationId": "updateHubSpotIntegration",
-        "summary": "Owner only. Who to sync to HubSpot. Requires If-Match",
+        "summary": "Owner only. Who to sync to HubSpot and how the cleanup works. Requires If-Match",
         "tags": [
           "integrations"
         ],
@@ -27384,6 +27588,26 @@
                     "type": "boolean"
                   },
                   "syncOpenAttendees": {
+                    "type": "boolean"
+                  },
+                  "eventSubscriptionTypeId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "cleanupGraceDays": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 90
+                  },
+                  "deleteMirroredContacts": {
                     "type": "boolean"
                   }
                 },
@@ -27415,6 +27639,7 @@
                     "scopes",
                     "features",
                     "settings",
+                    "cleanup",
                     "setup",
                     "connectedAt",
                     "disconnectedAt",
@@ -27492,7 +27717,10 @@
                       "type": "object",
                       "required": [
                         "syncInvitedGuests",
-                        "syncOpenAttendees"
+                        "syncOpenAttendees",
+                        "eventSubscriptionTypeId",
+                        "cleanupGraceDays",
+                        "deleteMirroredContacts"
                       ],
                       "properties": {
                         "syncInvitedGuests": {
@@ -27502,8 +27730,106 @@
                         "syncOpenAttendees": {
                           "type": "boolean",
                           "description": "Upsert attendees of open registration as HubSpot contacts"
+                        },
+                        "eventSubscriptionTypeId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The subscription type the platform's HubSpot emails use; temporary contacts are unsubscribed from every other"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cleanupGraceDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 90,
+                          "description": "Days after a contact's last occurrence before the cleanup takes back what the platform did"
+                        },
+                        "deleteMirroredContacts": {
+                          "type": "boolean",
+                          "description": "Delete contacts the platform created only for mirroring, once no event needs them"
                         }
                       }
+                    },
+                    "cleanup": {
+                      "type": "object",
+                      "required": [
+                        "missingScopes",
+                        "subscriptionTypes",
+                        "workflowEnabled",
+                        "nonMarketingWaiting",
+                        "disconnectRequestedAt"
+                      ],
+                      "properties": {
+                        "missingScopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Cleanup scopes a portal admin has not allowed; HubSpot sending needs all of them"
+                        },
+                        "subscriptionTypes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "active"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "active": {
+                                "type": "boolean"
+                              }
+                            }
+                          },
+                          "description": "The portal's subscription types, as the setup last read them"
+                        },
+                        "workflowEnabled": {
+                          "anyOf": [
+                            {
+                              "type": "boolean",
+                              "description": "Whether the workflow EM · Set to non-marketing was there and on when last checked; null: not set up"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "nonMarketingWaiting": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "description": "Contacts left in EM · Set to non-marketing from an earlier night: the workflow is not taking them"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "disconnectRequestedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "description": "Clean up and disconnect is running"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "description": "Cleanup after HubSpot sending (docs/hubspot.md)"
                     },
                     "setup": {
                       "type": "object",
@@ -27557,7 +27883,7 @@
                           ]
                         }
                       },
-                      "description": "The setup job in the portal: for now, a check that our token reaches the connected portal"
+                      "description": "The setup job in the portal: a check that our token reaches the connected portal, and the cleanup segments and workflow"
                     },
                     "connectedAt": {
                       "type": "string",
@@ -27876,6 +28202,7 @@
                     "scopes",
                     "features",
                     "settings",
+                    "cleanup",
                     "setup",
                     "connectedAt",
                     "disconnectedAt",
@@ -27953,7 +28280,10 @@
                       "type": "object",
                       "required": [
                         "syncInvitedGuests",
-                        "syncOpenAttendees"
+                        "syncOpenAttendees",
+                        "eventSubscriptionTypeId",
+                        "cleanupGraceDays",
+                        "deleteMirroredContacts"
                       ],
                       "properties": {
                         "syncInvitedGuests": {
@@ -27963,8 +28293,106 @@
                         "syncOpenAttendees": {
                           "type": "boolean",
                           "description": "Upsert attendees of open registration as HubSpot contacts"
+                        },
+                        "eventSubscriptionTypeId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The subscription type the platform's HubSpot emails use; temporary contacts are unsubscribed from every other"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cleanupGraceDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 90,
+                          "description": "Days after a contact's last occurrence before the cleanup takes back what the platform did"
+                        },
+                        "deleteMirroredContacts": {
+                          "type": "boolean",
+                          "description": "Delete contacts the platform created only for mirroring, once no event needs them"
                         }
                       }
+                    },
+                    "cleanup": {
+                      "type": "object",
+                      "required": [
+                        "missingScopes",
+                        "subscriptionTypes",
+                        "workflowEnabled",
+                        "nonMarketingWaiting",
+                        "disconnectRequestedAt"
+                      ],
+                      "properties": {
+                        "missingScopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Cleanup scopes a portal admin has not allowed; HubSpot sending needs all of them"
+                        },
+                        "subscriptionTypes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "active"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "active": {
+                                "type": "boolean"
+                              }
+                            }
+                          },
+                          "description": "The portal's subscription types, as the setup last read them"
+                        },
+                        "workflowEnabled": {
+                          "anyOf": [
+                            {
+                              "type": "boolean",
+                              "description": "Whether the workflow EM · Set to non-marketing was there and on when last checked; null: not set up"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "nonMarketingWaiting": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "description": "Contacts left in EM · Set to non-marketing from an earlier night: the workflow is not taking them"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "disconnectRequestedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "description": "Clean up and disconnect is running"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "description": "Cleanup after HubSpot sending (docs/hubspot.md)"
                     },
                     "setup": {
                       "type": "object",
@@ -28018,7 +28446,7 @@
                           ]
                         }
                       },
-                      "description": "The setup job in the portal: for now, a check that our token reaches the connected portal"
+                      "description": "The setup job in the portal: a check that our token reaches the connected portal, and the cleanup segments and workflow"
                     },
                     "connectedAt": {
                       "type": "string",
@@ -28193,6 +28621,7 @@
                   "required": [
                     "counts",
                     "lastSyncedAt",
+                    "cleanup",
                     "lastReconcile",
                     "issues"
                   ],
@@ -28329,6 +28758,79 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "cleanup": {
+                      "type": "object",
+                      "required": [
+                        "pending",
+                        "kept",
+                        "failed",
+                        "last"
+                      ],
+                      "properties": {
+                        "pending": {
+                          "type": "integer",
+                          "description": "Contacts the cleanup will take back once no event needs them"
+                        },
+                        "kept": {
+                          "type": "integer",
+                          "description": "Contacts the platform created that the client has taken into use, left as theirs"
+                        },
+                        "failed": {
+                          "type": "integer",
+                          "description": "Contacts HubSpot refused part of the cleanup for; tried again nightly"
+                        },
+                        "last": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "required": [
+                                "at",
+                                "deleted",
+                                "restored",
+                                "kept",
+                                "failed",
+                                "waiting",
+                                "newTypesCovered"
+                              ],
+                              "properties": {
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time"
+                                },
+                                "deleted": {
+                                  "type": "integer"
+                                },
+                                "restored": {
+                                  "type": "integer",
+                                  "description": "Set back to non-marketing, subscriptions put back"
+                                },
+                                "kept": {
+                                  "type": "integer"
+                                },
+                                "failed": {
+                                  "type": "integer"
+                                },
+                                "waiting": {
+                                  "type": "integer",
+                                  "description": "Still needed by an event"
+                                },
+                                "newTypesCovered": {
+                                  "type": "integer",
+                                  "description": "Temporary contacts unsubscribed from subscription types made since"
+                                },
+                                "error": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "description": "Cleanup after HubSpot sending"
                     },
                     "lastReconcile": {
                       "anyOf": [
@@ -28719,6 +29221,431 @@
         "responses": {
           "202": {
             "description": "Default Response"
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/integrations/hubspot/cleanup-and-disconnect": {
+      "post": {
+        "operationId": "cleanUpAndDisconnectHubSpot",
+        "summary": "Owner only. Takes back what the platform did in the portal (deletes the contacts it created, sets back those it made marketing), then disconnects. Runs in the background; stays connected if a contact could not be cleaned up",
+        "tags": [
+          "integrations"
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "provider",
+                    "status",
+                    "statusReason",
+                    "portalId",
+                    "scopes",
+                    "features",
+                    "settings",
+                    "cleanup",
+                    "setup",
+                    "connectedAt",
+                    "disconnectedAt",
+                    "version",
+                    "updatedAt"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "provider": {
+                      "type": "string",
+                      "enum": [
+                        "hubspot"
+                      ]
+                    },
+                    "status": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "active"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "needs_reconnect"
+                          ]
+                        },
+                        {
+                          "type": "string",
+                          "enum": [
+                            "disconnected"
+                          ]
+                        }
+                      ],
+                      "description": "needs_reconnect: HubSpot refused our access (app uninstalled, access revoked); sync is paused until an owner connects again"
+                    },
+                    "statusReason": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "portalId": {
+                      "type": "string",
+                      "description": "The HubSpot portal (hub) id"
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Scopes granted on install"
+                    },
+                    "features": {
+                      "type": "object",
+                      "required": [
+                        "customEvents"
+                      ],
+                      "properties": {
+                        "customEvents": {
+                          "type": "boolean",
+                          "description": "Custom behavioural events can be sent (Marketing Hub Enterprise)"
+                        }
+                      }
+                    },
+                    "settings": {
+                      "type": "object",
+                      "required": [
+                        "syncInvitedGuests",
+                        "syncOpenAttendees",
+                        "eventSubscriptionTypeId",
+                        "cleanupGraceDays",
+                        "deleteMirroredContacts"
+                      ],
+                      "properties": {
+                        "syncInvitedGuests": {
+                          "type": "boolean",
+                          "description": "Upsert invited guests as HubSpot contacts"
+                        },
+                        "syncOpenAttendees": {
+                          "type": "boolean",
+                          "description": "Upsert attendees of open registration as HubSpot contacts"
+                        },
+                        "eventSubscriptionTypeId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "description": "The subscription type the platform's HubSpot emails use; temporary contacts are unsubscribed from every other"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "cleanupGraceDays": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 90,
+                          "description": "Days after a contact's last occurrence before the cleanup takes back what the platform did"
+                        },
+                        "deleteMirroredContacts": {
+                          "type": "boolean",
+                          "description": "Delete contacts the platform created only for mirroring, once no event needs them"
+                        }
+                      }
+                    },
+                    "cleanup": {
+                      "type": "object",
+                      "required": [
+                        "missingScopes",
+                        "subscriptionTypes",
+                        "workflowEnabled",
+                        "nonMarketingWaiting",
+                        "disconnectRequestedAt"
+                      ],
+                      "properties": {
+                        "missingScopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Cleanup scopes a portal admin has not allowed; HubSpot sending needs all of them"
+                        },
+                        "subscriptionTypes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "id",
+                              "name",
+                              "active"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "active": {
+                                "type": "boolean"
+                              }
+                            }
+                          },
+                          "description": "The portal's subscription types, as the setup last read them"
+                        },
+                        "workflowEnabled": {
+                          "anyOf": [
+                            {
+                              "type": "boolean",
+                              "description": "Whether the workflow EM · Set to non-marketing was there and on when last checked; null: not set up"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "nonMarketingWaiting": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "description": "Contacts left in EM · Set to non-marketing from an earlier night: the workflow is not taking them"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "disconnectRequestedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "description": "Clean up and disconnect is running"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "description": "Cleanup after HubSpot sending (docs/hubspot.md)"
+                    },
+                    "setup": {
+                      "type": "object",
+                      "required": [
+                        "status",
+                        "error",
+                        "at"
+                      ],
+                      "properties": {
+                        "status": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "pending"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "done"
+                              ]
+                            },
+                            {
+                              "type": "string",
+                              "enum": [
+                                "failed"
+                              ]
+                            }
+                          ]
+                        },
+                        "error": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "at": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "description": "The setup job in the portal: a check that our token reaches the connected portal, and the cleanup segments and workflow"
+                    },
+                    "connectedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "disconnectedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "type": "integer"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Default Response",

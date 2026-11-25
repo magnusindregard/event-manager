@@ -4,29 +4,49 @@ import {
   type AttendanceState,
   type ContactInput,
   type ContactList,
+  type ContactUsage,
   type ContactResult,
   type HubSpotClient,
   HubSpotError,
   type MarketingEventInput,
   type MembershipChange,
+  type SubscriptionState,
+  type SubscriptionType,
+  type SubscriptionWrite,
   type TokenInfo,
   type TokenSet,
+  type Workflow,
 } from "./client.js";
 
 interface FakePortal {
   portalId: string;
   scopes: string[];
-  /** Contacts by lower-case email. */
-  contacts: Map<string, { id: string; email: string; firstname: string | null; lastname: string | null }>;
+  /** Contacts by lower-case email. `marketable`, `owner`, `associations`, `conversions`: what the cleanup checks. */
+  contacts: Map<string, FakeContact>;
   /** Marketing events by external event id. */
   events: Map<string, MarketingEventInput & { objectId: string }>;
   /** Attendance records, in the order recorded. */
   attendance: { externalEventId: string; state: AttendanceState; email: string }[];
   /** Contact lists by list id, with member record ids. */
   lists: Map<string, ContactList & { members: Set<string> }>;
+  subscriptionTypes: SubscriptionType[];
+  /** Status by lower-case email and type id; NOT_SPECIFIED where not set. */
+  subscriptions: Map<string, Map<string, SubscriptionState>>;
+  workflows: Map<string, Workflow & { listId: string }>;
 }
 
-const emptyPortal = (portalId: string, scopes: string[]): FakePortal => ({ portalId, scopes, contacts: new Map(), events: new Map(), attendance: [], lists: new Map() });
+export interface FakeContact {
+  id: string;
+  email: string;
+  firstname: string | null;
+  lastname: string | null;
+  marketable?: boolean;
+  owner?: boolean;
+  associations?: number;
+  conversions?: number;
+}
+
+const emptyPortal = (portalId: string, scopes: string[]): FakePortal => ({ portalId, scopes, contacts: new Map(), events: new Map(), attendance: [], lists: new Map(), subscriptionTypes: [], subscriptions: new Map(), workflows: new Map() });
 
 /**
  * HubSpot in memory, for tests and local stacks. `approve` stands in for the owner approving
@@ -204,6 +224,108 @@ export class FakeHubSpot implements HubSpotClient {
     this.calls.push(`deleteList:${listId}`);
     if (this.listsInUse.has(listId)) throw new HubSpotError(`HubSpot DELETE /crm/v3/lists/${listId}: 400 blocked for deletion due to references`, 400);
     this.portalFor(accessToken).lists.delete(listId);
+  }
+
+  async subscriptionTypes(accessToken: string): Promise<SubscriptionType[]> {
+    this.calls.push("subscriptionTypes");
+    return this.portalFor(accessToken).subscriptionTypes.map((t) => ({ ...t }));
+  }
+
+  async subscriptionStatuses(accessToken: string, emails: string[]): Promise<Map<string, Map<string, SubscriptionState>>> {
+    this.calls.push(`subscriptionStatuses:${emails.length}`);
+    const portal = this.portalFor(accessToken);
+    return new Map(emails.map((e) => [e.toLowerCase(), new Map(portal.subscriptions.get(e.toLowerCase()) ?? [])]));
+  }
+
+  async setSubscriptionStatuses(accessToken: string, writes: SubscriptionWrite[]): Promise<void> {
+    this.calls.push(`setSubscriptionStatuses:${writes.length}`);
+    const portal = this.portalFor(accessToken);
+    for (const w of writes) {
+      const key = w.email.toLowerCase();
+      const m = portal.subscriptions.get(key) ?? new Map<string, SubscriptionState>();
+      // An app cannot subscribe someone who unsubscribed (spike run 15).
+      if (w.status === "SUBSCRIBED" && m.get(w.subscriptionId) === "UNSUBSCRIBED" && !this.allowResubscribe) {
+        throw new HubSpotError("HubSpot POST /communication-preferences/v4/statuses/batch/write: 400 cannot resubscribe", 400);
+      }
+      m.set(w.subscriptionId, w.status);
+      portal.subscriptions.set(key, m);
+    }
+  }
+  /** Lets setSubscriptionStatuses set SUBSCRIBED over UNSUBSCRIBED (HubSpot does not). */
+  allowResubscribe = false;
+
+  async marketableStatuses(accessToken: string, contactIds: string[]): Promise<Map<string, boolean>> {
+    this.calls.push(`marketableStatuses:${contactIds.length}`);
+    const byId = new Map([...this.portalFor(accessToken).contacts.values()].map((c) => [c.id, c]));
+    return new Map(contactIds.filter((id) => byId.has(id)).map((id) => [id, byId.get(id)!.marketable === true]));
+  }
+
+  async contactUsage(accessToken: string, contactId: string, email: string): Promise<ContactUsage> {
+    this.calls.push(`contactUsage:${contactId}`);
+    const portal = this.portalFor(accessToken);
+    const c = [...portal.contacts.values()].find((x) => x.id === contactId);
+    if (!c) return { missing: true, marketable: false, owner: false, associations: 0, conversions: 0, listIds: [], marketingEvents: [] };
+    const key = email.toLowerCase();
+    const events = [...new Set(portal.attendance.filter((a) => a.email === key).map((a) => a.externalEventId))];
+    return {
+      missing: false,
+      marketable: c.marketable === true,
+      owner: c.owner === true,
+      associations: c.associations ?? 0,
+      conversions: c.conversions ?? 0,
+      listIds: [...portal.lists.values()].filter((l) => l.members.has(contactId)).map((l) => l.listId),
+      marketingEvents: events.map((id) => ({ externalAccountId: portal.events.get(id)?.externalAccountId ?? this.foreignEvents.get(id) ?? null, externalEventId: id })),
+    };
+  }
+  /** Marketing events of the client's own, by external event id, with their external account id. */
+  readonly foreignEvents = new Map<string, string>();
+
+  async deleteContact(accessToken: string, contactId: string): Promise<void> {
+    this.calls.push(`deleteContact:${contactId}`);
+    const portal = this.portalFor(accessToken);
+    for (const [k, c] of portal.contacts) if (c.id === contactId) portal.contacts.delete(k);
+    for (const l of portal.lists.values()) l.members.delete(contactId);
+  }
+
+  async getWorkflow(accessToken: string, flowId: string): Promise<Workflow | null> {
+    this.calls.push(`getWorkflow:${flowId}`);
+    const f = this.portalFor(accessToken).workflows.get(flowId);
+    return f ? { id: f.id, name: f.name, enabled: f.enabled } : null;
+  }
+
+  async createNonMarketingWorkflow(accessToken: string, name: string, listId: string): Promise<Workflow> {
+    this.calls.push(`createNonMarketingWorkflow:${listId}`);
+    const f = { id: String(this.nextId++), name, enabled: true, listId };
+    this.portalFor(accessToken).workflows.set(f.id, f);
+    return { id: f.id, name, enabled: true };
+  }
+
+  async enableWorkflow(accessToken: string, flowId: string): Promise<void> {
+    this.calls.push(`enableWorkflow:${flowId}`);
+    const f = this.portalFor(accessToken).workflows.get(flowId);
+    if (!f) throw new HubSpotError(`HubSpot /automation/v4/flows/${flowId}: 404`, 404);
+    f.enabled = true;
+  }
+
+  /**
+   * Stands in for HubSpot running the non-marketing workflow: contacts in its list are set to
+   * non-marketing and taken out of the list. Returns how many it set.
+   */
+  runWorkflows(portalId: string): number {
+    const portal = this.portals.get(portalId)!;
+    let n = 0;
+    for (const f of portal.workflows.values()) {
+      if (!f.enabled) continue;
+      const list = portal.lists.get(f.listId);
+      if (!list) continue;
+      for (const id of list.members) {
+        const c = [...portal.contacts.values()].find((x) => x.id === id);
+        if (c) c.marketable = false;
+        n++;
+      }
+      list.members.clear();
+    }
+    return n;
   }
 
   private list(portal: FakePortal, listId: string) {
