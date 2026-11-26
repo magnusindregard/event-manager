@@ -57,15 +57,18 @@ export async function getAdmission(tx: Tx, id: string): Promise<Admission | null
 
 // ── Tickets ──────────────────────────────────────────────────────────────────
 
-/** Issues the admissions of new tickets, one each. Returns them by ticket id. */
+/**
+ * Issues the admissions of new tickets, one each. Returns them by ticket id. pending: they admit
+ * no one until activateTicketAdmissions (a hosted sale, until Vipps has captured the payment).
+ */
 export async function issueTicketAdmissions(
-  tx: Tx, tenantId: string, tickets: readonly { ticketId: string; occurrenceId: string; partySize: number }[],
+  tx: Tx, tenantId: string, tickets: readonly { ticketId: string; occurrenceId: string; partySize: number }[], status: "valid" | "pending" = "valid",
 ): Promise<Map<string, Admission>> {
   const out = new Map<string, Admission>();
   for (let i = 0; i < tickets.length; i += 1000) {
     const rows = await tx
       .insertInto("admission.admission")
-      .values(tickets.slice(i, i + 1000).map((t) => ({ id: newId(), tenant_id: tenantId, ticket_id: t.ticketId, occurrence_id: t.occurrenceId, party_size: t.partySize })))
+      .values(tickets.slice(i, i + 1000).map((t) => ({ id: newId(), tenant_id: tenantId, ticket_id: t.ticketId, occurrence_id: t.occurrenceId, party_size: t.partySize, status })))
       .returning(columns)
       .execute();
     for (const r of rows) out.set(r.ticket_id!, toAdmission(r));
@@ -80,6 +83,13 @@ export async function ticketAdmissions(tx: Tx, ticketIds: readonly string[]): Pr
     for (const r of rows) out.set(r.ticket_id!, toAdmission(r));
   }
   return out;
+}
+
+/** Pending admissions of these tickets start to admit (a hosted sale, once captured). Void ones stay void. */
+export async function activateTicketAdmissions(tx: Tx, ticketIds: readonly string[]): Promise<void> {
+  for (let i = 0; i < ticketIds.length; i += 1000) {
+    await tx.updateTable("admission.admission").set({ status: "valid" }).where("ticket_id", "in", ticketIds.slice(i, i + 1000)).where("status", "=", "pending").execute();
+  }
 }
 
 /** Cancelled tickets' admissions no longer admit anyone. */

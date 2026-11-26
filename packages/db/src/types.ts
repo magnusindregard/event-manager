@@ -288,7 +288,8 @@ export type RegistrationStatus = "confirmed" | "waitlisted" | "offered" | "cance
 export type RegistrationSource = "invitation" | "open" | "staff";
 /** expired: a waitlist offer that was not claimed in time. */
 export type CancelledBy = "attendee" | "staff" | "expired";
-export type AdmissionStatus = "valid" | "void";
+/** pending: a hosted sale not yet captured (docs/checkout.md); it admits no one. */
+export type AdmissionStatus = "valid" | "void" | "pending";
 
 export interface RegistrationTable {
   id: string;

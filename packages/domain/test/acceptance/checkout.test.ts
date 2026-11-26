@@ -401,6 +401,41 @@ describe("when Vipps refuses or holds a change", () => {
     expect(await process(s.paymentId)).toBe("captured");
   });
 
+  it("keeps the tickets' links and admissions shut until the capture, also for staff", async () => {
+    const { occ, adult } = await concert("pending-admissions");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
+    vipps.approve(s.row.reference);
+    vipps.failNext("capture", 423);
+    expect(await process(s.paymentId)).toBe("authorized");
+    const staffView = () => run((tx) => sales.getReservationAsStaff(tx, ctx, s.row.reservation_id, at(3)));
+    const statuses = () => run((tx) => tx.selectFrom("admission.admission as a").innerJoin("sales.ticket as t", "t.id", "a.ticket_id").select("a.status").where("t.reservation_id", "=", s.row.reservation_id).execute());
+    // Confirmed and the places taken, but nothing to share or scan yet.
+    expect((await staffView()).status).toBe("confirmed");
+    expect((await staffView()).tickets.map((t) => [t.ticketToken, t.admissionToken])).toEqual([[null, null], [null, null]]);
+    expect((await statuses()).map((a) => a.status)).toEqual(["pending", "pending"]);
+    expect(await pool(occ.id)).toMatchObject({ taken: 2 });
+    expect(await process(s.paymentId)).toBe("captured");
+    expect((await statuses()).map((a) => a.status)).toEqual(["valid", "valid"]);
+    for (const t of (await staffView()).tickets) expect(t).toMatchObject({ ticketToken: expect.any(String), admissionToken: expect.any(String) });
+  });
+
+  it("releases the tickets when Vipps refuses the capture after staff closed the checkout", async () => {
+    const { occ, adult, hosted } = await concert("closed-during-capture");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
+    vipps.approve(s.row.reference);
+    vipps.failNext("capture", 423);
+    expect(await process(s.paymentId)).toBe("authorized");
+    const ch = await run((tx) => offers.getChannel(tx, hosted.id));
+    await run((tx) => offers.updateChannel(tx, ctx, hosted.id, ch.version, { active: false }));
+    vipps.failNext("capture", 400);
+    expect(await process(s.paymentId)).toBe("cancelled");
+    expect(await reservation(s.row.reservation_id)).toMatchObject({ status: "cancelled" });
+    expect(await pool(occ.id)).toMatchObject({ taken: 0 });
+    const tickets = await run((tx) => tx.selectFrom("sales.ticket").select("status").where("reservation_id", "=", s.row.reservation_id).execute());
+    expect(tickets.map((t) => t.status)).toEqual(["cancelled", "cancelled"]);
+    await run((tx) => offers.enableHostedChannel(tx, ctx));
+  });
+
   it("does not take a refused cancel as done while the authorisation is still there", async () => {
     const { occ, adult } = await concert("cancel-locked", 1);
     const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
@@ -454,6 +489,40 @@ describe("buyer retention", () => {
   });
 });
 
+describe("a disconnect while a checkout is starting", () => {
+  it("waits for the checkout's payment and then refuses, so no payment is left without keys", async () => {
+    const { occ, adult, hosted } = await concert("disconnect-race");
+    const openBefore = Number((await run((tx) => tx.selectFrom("payments.payment").select((eb) => eb.fn.countAll<number>().as("n")).where("state", "in", ["created", "authorized"]).executeTakeFirstOrThrow())).n);
+    let locked!: () => void;
+    const isLocked = new Promise<void>((r) => (locked = r));
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let paymentId = "";
+    // What startCheckout does in its transaction: share-lock the merchant, reserve, insert the payment.
+    const checkout = withTenant(db, ctx, async (tx) => {
+      const acct = await tx.selectFrom("payments.provider_account").select("id").where("status", "=", "active").forShare().executeTakeFirstOrThrow();
+      locked();
+      await gate;
+      const r = await sales.reserve(tx, { tenantId: ctx.tenantId, channelId: hosted.id, signingKey: null }, { lines: [{ occurrenceId: occ.id, offerId: adult.id, quantity: 1 }] }, NOW);
+      paymentId = (await tx.insertInto("payments.payment").values({
+        id: crypto.randomUUID(), tenant_id: ctx.tenantId, provider_account_id: acct.id, reservation_id: r.id, provider: "vipps", reference: `em-race-${r.id.slice(-12)}`, amount: 45000, currency: "NOK",
+      }).returning("id").executeTakeFirstOrThrow()).id;
+    });
+    await isLocked;
+    const version = (await run((tx) => payments.getProviderAccount(tx)))!.version;
+    let settled = false;
+    const disconnect = payments.disconnectVipps(db, ctx, version, providerDeps).finally(() => { settled = true; });
+    await new Promise((r) => setTimeout(r, 300));
+    expect(settled).toBe(false);
+    release();
+    await checkout;
+    // The count, taken under the lock, includes the payment the checkout was making.
+    await expect(disconnect).rejects.toMatchObject({ code: "conflict", details: { openPayments: openBefore + 1 } });
+    // Tidy up for the next test: the race payment never reached Vipps.
+    await run((tx) => tx.updateTable("payments.payment").set({ state: "failed" }).where("id", "=", paymentId).execute());
+  });
+});
+
 describe("changing the merchant", () => {
   // Runs last: it changes the account's connected merchant.
   it("reuses the merchant's provider account, keeps a replaced merchant's keys, and refuses to disconnect while payments settle", async () => {
@@ -482,7 +551,21 @@ describe("changing the merchant", () => {
     await expect(payments.disconnectVipps(db, ctx, cur.version, providerDeps)).rejects.toMatchObject({ code: "conflict", details: { openPayments: 1 } });
     vipps.reject(open.row.reference);
     expect(await process(open.paymentId)).toBe("failed");
+
+    // ...and for refunds Vipps has not answered yet, which are sent again with its keys.
+    const toRefund = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(toRefund.row.reference);
+    expect(await process(toRefund.paymentId)).toBe("captured");
+    vipps.down = true;
+    const pendingRefund = await payments.refundTickets(db, { ...ctx, roles: ["box_office"] }, toRefund.row.reservation_id, { amount: 45000 }, deps, at(10));
+    vipps.down = false;
+    expect(pendingRefund).toMatchObject({ state: "pending" });
+    await expect(payments.disconnectVipps(db, ctx, cur.version, providerDeps)).rejects.toMatchObject({ code: "conflict", details: { pendingRefunds: 1 } });
+    expect((await payments.sendRefund(db, ctx.tenantId, pendingRefund!.id, deps)).state).toBe("done");
+
+    // After a checkout has started, the merchant row has the payment; once settled, disconnect goes through.
     await payments.disconnectVipps(db, ctx, cur.version, providerDeps);
+    await expect(start(occ.id, [{ offerId: adult.id, quantity: 1 }])).rejects.toMatchObject({ code: "not_on_sale" });
 
     // Connecting the first merchant again brings back its provider account.
     const back = await payments.connectVipps(db, ctx, keys, providerDeps);

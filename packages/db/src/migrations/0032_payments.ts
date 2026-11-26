@@ -15,9 +15,11 @@ import { type Kysely, sql } from "kysely";
 // Sales channels get a new kind, hosted: the platform's own checkout, at most one per account.
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`
-    -- Not used as a literal in this migration, so it may be added inside the migration's
+    -- Not used as literals in this migration, so they may be added inside the migration's
     -- transaction. IF NOT EXISTS: down cannot drop enum values.
     ALTER TYPE offers.channel_kind ADD VALUE IF NOT EXISTS 'hosted';
+    -- A hosted sale's admissions admit no one until Vipps has captured the payment.
+    ALTER TYPE admission.status ADD VALUE IF NOT EXISTS 'pending';
     -- At most one hosted channel per account. A new enum value cannot be named in the
     -- transaction that adds it, and a cast to text is not immutable, so the predicate uses
     -- the sort order instead: values sort in the order they were added, and 'hosted' is the
@@ -167,6 +169,6 @@ export async function down(db: Kysely<unknown>): Promise<void> {
     ALTER TABLE tenancy.account
       DROP COLUMN merchant_legal_name, DROP COLUMN merchant_org_number, DROP COLUMN merchant_address, DROP COLUMN merchant_vat_registered;
     DROP INDEX offers.sales_channel_one_hosted;
-    -- 'hosted' stays on offers.channel_kind; enum values cannot be dropped.
+    -- 'hosted' stays on offers.channel_kind, and 'pending' on admission.status; enum values cannot be dropped.
   `.execute(db);
 }

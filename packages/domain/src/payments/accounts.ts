@@ -209,13 +209,19 @@ export async function verifyVipps(db: Db, ctx: ActorContext, deps: ProviderDeps)
 export async function disconnectVipps(db: Db, ctx: ActorContext, expectedVersion: number, deps: ProviderDeps): Promise<void> {
   assertCan(ctx, "account.write");
   const old = await withTenant(db, ctx, async (tx) => {
-    const account = await getProviderAccount(tx);
+    // Lock the merchant first: a checkout starting now (which share-locks it) either finishes
+    // before the count below, or sees the merchant disconnected.
+    const locked = await tx.selectFrom("payments.provider_account").select("id").where("provider", "=", "vipps").where("status", "<>", "disconnected").forUpdate().executeTakeFirst();
+    const account = locked ? await getProviderAccountById(tx, locked.id) : null;
     if (!account) throw new DomainError("not_found", "Vipps MobilePay is not connected");
     if (account.version !== expectedVersion) throw new DomainError("version_conflict", "The Vipps connection was changed by someone else", { currentVersion: account.version });
     const open = await tx.selectFrom("payments.payment").select((eb) => eb.fn.countAll<number>().as("n"))
       .where("provider_account_id", "=", account.id).where("state", "in", ["created", "authorized"]).executeTakeFirstOrThrow();
-    if (Number(open.n) > 0) {
-      throw new DomainError("conflict", `${open.n} payment(s) made with this merchant are still settling; disconnect again once they have`, { openPayments: Number(open.n) });
+    // Refunds Vipps has not answered yet are sent again with the same keys.
+    const refunds = await tx.selectFrom("payments.refund as r").innerJoin("payments.payment as p", "p.id", "r.payment_id")
+      .select((eb) => eb.fn.countAll<number>().as("n")).where("p.provider_account_id", "=", account.id).where("r.state", "=", "pending").executeTakeFirstOrThrow();
+    if (Number(open.n) > 0 || Number(refunds.n) > 0) {
+      throw new DomainError("conflict", "Payments or refunds made with this merchant are still settling; disconnect again once they have", { openPayments: Number(open.n), pendingRefunds: Number(refunds.n) });
     }
     const creds = await credentialsFor(tx, ctx.tenantId, account.id);
     const { webhook_id } = await tx.selectFrom("payments.provider_account").select("webhook_id").where("id", "=", account.id).executeTakeFirstOrThrow();

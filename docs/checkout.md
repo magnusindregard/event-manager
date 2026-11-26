@@ -20,7 +20,7 @@ The checkout is a sales channel of kind `hosted`. It reserves, confirms and canc
   - Without a public URL (`PUBLIC_URL` unset, as on local stacks), no webhook is registered. Payments are then found by polling.
 - **Status.** `active`; `invalid` when Vipps refused the keys at the last check (enter new ones); `disconnected`.
 - **Verify** checks the stored keys again and registers a missing webhook.
-- **Disconnect** deletes the keys and the webhook. It is refused while payments made with the merchant are still settling. Payments already made stay; refunding them needs the same merchant connected again.
+- **Disconnect** deletes the keys and the webhook. It is refused while payments made with the merchant are still settling, or refunds of them are pending. It locks the merchant first, and a starting checkout share-locks it, so a payment cannot be created with keys that are about to go. Payments already made stay; refunding them needs the same merchant connected again.
 - **Merchant details** (on the account): legal name, organisation number (mod-11 checked), address, and whether the account is VAT-registered. They are printed on receipts.
 
 Everyone in the account can see the connection. Only owners change it (`account.write`).
@@ -42,12 +42,14 @@ Everyone in the account can see the connection. Only owners change it (`account.
 | CREATED | nothing yet (the return page waits and refreshes) | `created` |
 | AUTHORIZED | `confirm(externalOrderRef = reference)`, then capture the total | `authorized` → `captured` |
 | AUTHORIZED, but confirm fails (sold out after the hold expired, or the occurrence changed) | cancel the authorisation; no tickets | `cancelled` |
-| AUTHORIZED, and Vipps refuses the capture | cancel the authorisation, then cancel the tickets | `cancelled` |
+| AUTHORIZED, and Vipps refuses the capture | cancel the authorisation, then cancel the tickets (also if staff closed the checkout meanwhile) | `cancelled` |
 | ABORTED (the buyer said no) | cancel the reservation, releasing the places | `failed` |
 | EXPIRED | cancel the reservation | `expired` |
 | TERMINATED | cancel the reservation if it is still held | `cancelled` |
 
 **Cancelling at Vipps** counts only once Vipps confirms it. If Vipps refuses a cancel, the payment is read again, and only a cancelled amount or a final state counts. Otherwise the payment stays open, with the reason, and is tried again. A capture or refund Vipps holds (HTTP 423, the payment is locked) is retried, not refused.
+
+Confirm takes the places at once, but a hosted sale's tickets get `pending` admissions. Those admit no one, and the tickets have no links or QR codes, not even for staff, until the capture makes them valid.
 
 6. Only after capture does the buyer get the tickets email (the hosted channel sends tickets) and the receipt email. The confirmation alone sends nothing for a hosted payment. The return page shows the tickets only once the payment is captured, too. Free orders send their tickets on confirm, as any channel does. It also attaches the receipt to the payment in the Vipps app (Order Management API); that is best effort, and the email is the receipt of record.
 

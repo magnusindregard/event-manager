@@ -1,4 +1,5 @@
 import { type Db, newId, type PaymentState, sql, type Tx, withTenant } from "@event-manager/db";
+import * as admission from "../admission/index.js";
 import * as catalog from "../catalog/index.js";
 import * as offers from "../offers/index.js";
 import { emit } from "../outbox/index.js";
@@ -107,7 +108,10 @@ export async function startCheckout(db: Db, tenantId: string, input: CheckoutInp
   const prep = await withTenant(db, { tenantId }, async (tx) => {
     const channel = await offers.hostedChannel(tx);
     if (!channel?.active) throw new DomainError("not_on_sale", "The checkout is closed");
-    const account = await getProviderAccount(tx);
+    // Share lock on the merchant: a disconnect waits for this payment to exist (and then refuses),
+    // or, if it got there first, this sees the merchant disconnected and stops.
+    const account = await tx.selectFrom("payments.provider_account").select(["id", "status"])
+      .where("provider", "=", "vipps").where("status", "<>", "disconnected").forShare().executeTakeFirst();
     if (account?.status !== "active") throw new DomainError("not_on_sale", "Payment is not available right now");
     const c = caller(tenantId, channel.id);
     let r = await sales.reserve(tx, c, { lines, locale: input.locale }, now);
@@ -232,6 +236,7 @@ export async function processPayment(db: Db, tenantId: string, paymentId: string
     return withTenant(db, { tenantId }, async (tx) => {
       const locked = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).forUpdate().executeTakeFirstOrThrow();
       if (locked.state === "captured") return "captured" as const;
+      await activateTickets(tx, row.reservation_id);
       await setState(tx, row.id, "captured", { captured_at: now, failure_reason: null });
       await paymentEvent(tx, tenantId, "payment.captured.v1", row);
       return "captured" as const;
@@ -326,6 +331,7 @@ async function decide(tx: Tx, tenantId: string, row: PaymentRow, remote: Provide
   if (remote.state === "AUTHORIZED") {
     if (agg.capturedAmount.value >= row.amount) {
       // Captured at Vipps but not recorded here (we crashed after capturing).
+      await activateTickets(tx, row.reservation_id);
       await setState(tx, row.id, "captured", { captured_at: now, failure_reason: null });
       await paymentEvent(tx, tenantId, "payment.captured.v1", row);
       return { kind: "none" };
@@ -341,7 +347,8 @@ async function decide(tx: Tx, tenantId: string, row: PaymentRow, remote: Provide
     try {
       await inSavepoint(tx, async () => {
         const locale = (await tx.selectFrom("sales.reservation").select("locale").where("id", "=", row.reservation_id).executeTakeFirstOrThrow()).locale;
-        await sales.confirm(tx, caller(tenantId, channelId), row.reservation_id, { externalOrderRef: row.reference, buyer: { name: row.buyer_name, email: row.buyer_email, locale } }, now);
+        // The places are committed now; the tickets admit no one, and get no links, until capture.
+        await sales.confirm(tx, caller(tenantId, channelId), row.reservation_id, { externalOrderRef: row.reference, buyer: { name: row.buyer_name, email: row.buyer_email, locale } }, now, { admissionsPending: true });
       });
     } catch (e) {
       if (!(e instanceof DomainError)) throw e;
@@ -365,16 +372,19 @@ async function reservationChannel(tx: Tx, reservationId: string): Promise<string
   return (await tx.selectFrom("sales.reservation").select("channel_id").where("id", "=", reservationId).executeTakeFirstOrThrow()).channel_id;
 }
 
+/** Paid: the tickets' admissions start to admit, and the tickets get their links. */
+async function activateTickets(tx: Tx, reservationId: string) {
+  const tickets = await tx.selectFrom("sales.ticket").select("id").where("reservation_id", "=", reservationId).where("status", "=", "valid").execute();
+  await admission.activateTicketAdmissions(tx, tickets.map((t) => t.id));
+}
+
 /**
- * Releases the places, or cancels the tickets if confirm already issued them. Nothing when the
- * reservation is cancelled already. With the channel deactivated meanwhile, a held reservation
- * is left to the sweeper, which releases it at expiry.
+ * Releases the places, or cancels the tickets if confirm already issued them, also when staff
+ * have deactivated the hosted channel since. Nothing when the reservation is cancelled already.
  */
 async function releaseReservation(tx: Tx, tenantId: string, reservationId: string, now: Date) {
-  const r = await tx.selectFrom("sales.reservation").select(["status", "channel_id"]).where("id", "=", reservationId).executeTakeFirstOrThrow();
-  if (r.status === "cancelled" || !(await offers.activeChannel(tx, r.channel_id))) return;
   try {
-    await inSavepoint(tx, () => sales.cancelReservation(tx, caller(tenantId, r.channel_id), reservationId, {}, now));
+    await inSavepoint(tx, () => sales.releaseForPlatform(tx, tenantId, reservationId, now));
   } catch (e) {
     // occurrence_started: tickets for a show that has begun stay; staff settle it.
     if (!(e instanceof DomainError)) throw e;

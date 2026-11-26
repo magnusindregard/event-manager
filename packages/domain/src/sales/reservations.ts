@@ -401,7 +401,8 @@ async function view(tx: Tx, caller: Reader, id: string, now: Date): Promise<Rese
   const tickets: Ticket[] = [];
   for (const t of ticketRows) {
     const a = admissions.get(t.id)!;
-    const valid = t.status === "valid";
+    // No links for a ticket whose admission is not valid yet (a hosted sale before capture).
+    const valid = t.status === "valid" && a.status === "valid";
     tickets.push({
       id: t.id, lineId: t.line_id, occurrenceId: t.occurrence_id, offerId: t.offer_id, status: t.status, admissionId: a.id, partySize: a.partySize,
       cancelledAt: t.cancelled_at, cancelledBy: t.cancelled_by, externalRefundRef: t.external_refund_ref,
@@ -461,7 +462,11 @@ export async function extendReservation(tx: Tx, caller: ChannelCaller, id: strin
  * free, and fails with expired_sold_out if not (the channel then refunds). Confirming again
  * with the same order returns the reservation as it is; with another order it fails.
  */
-export async function confirm(tx: Tx, caller: ChannelCaller, id: string, input: ConfirmInput, now: Date = new Date()): Promise<Reservation> {
+export async function confirm(
+  tx: Tx, caller: ChannelCaller, id: string, input: ConfirmInput, now: Date = new Date(),
+  /** admissionsPending: the tickets admit no one, and get no links, until activated (the hosted checkout, until capture). */
+  opts: { admissionsPending?: boolean } = {},
+): Promise<Reservation> {
   const channel = await requireChannel(tx, caller);
   const externalOrderRef = ref("externalOrderRef", input.externalOrderRef, true)!;
   const buyer = await normalizeBuyer(tx, input.buyer);
@@ -506,7 +511,7 @@ export async function confirm(tx: Tx, caller: ChannelCaller, id: string, input: 
   for (let i = 0; i < tickets.length; i += 1000) {
     await tx.insertInto("sales.ticket").values(tickets.slice(i, i + 1000).map(({ partySize: _p, ...t }) => ({ ...t, created_at: now }))).execute();
   }
-  await admission.issueTicketAdmissions(tx, caller.tenantId, tickets.map((t) => ({ ticketId: t.id, occurrenceId: t.occurrence_id, partySize: t.partySize })));
+  await admission.issueTicketAdmissions(tx, caller.tenantId, tickets.map((t) => ({ ticketId: t.id, occurrenceId: t.occurrence_id, partySize: t.partySize })), opts.admissionsPending ? "pending" : "valid");
   // Reserve detached the occurrences already; a reattach since then detaches them again.
   for (const occurrenceId of new Set(lines.map((l) => l.occurrence_id))) await catalog.detachForRegistrations(tx, occurrenceId);
 
@@ -642,6 +647,28 @@ async function cancelTickets(
     });
   }
   return ids;
+}
+
+/**
+ * The platform's own release, for the hosted checkout when a payment is called off: cancels like
+ * the channel's cancel (held: the places go back; confirmed: every valid ticket is cancelled),
+ * also when staff have deactivated the channel since. Throws occurrence_started like the cancel.
+ * Already cancelled: nothing.
+ */
+export async function releaseForPlatform(tx: Tx, tenantId: string, id: string, now: Date = new Date()): Promise<void> {
+  const { row, holds } = await lockReservation(tx, id, null);
+  if (row.status === "cancelled") return;
+  if (row.status === "confirmed") {
+    const valid = await tx.selectFrom("sales.ticket").select("id").where("reservation_id", "=", id).where("status", "=", "valid").executeTakeFirst();
+    if (valid) await cancelTickets(tx, tenantId, row, holds, null, { by: "channel", refundRef: null }, now);
+    return;
+  }
+  if (row.status === "held") for (const h of holds) await inventory.endHold(tx, h.hold_id, false, now);
+  await tx.updateTable("sales.reservation").set({ status: "cancelled", cancelled_at: now, version: sql<number>`version + 1` }).where("id", "=", id).execute();
+  await emit(tx, tenantId, {
+    type: "reservation.cancelled.v1", subject: `reservation/${id}`,
+    data: { reservationId: id, channelId: row.channel_id, previousStatus: row.status, occurrenceIds: holds.map((h) => h.occurrence_id), by: "channel" },
+  });
 }
 
 // ── Expiry ────────────────────────────────────────────────────────────────────
