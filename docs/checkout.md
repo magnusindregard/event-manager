@@ -46,11 +46,13 @@ Everyone in the account can see the connection. Only owners change it (`account.
 | AUTHORIZED and fully captured, but not confirmed here (the merchant captured in the Vipps portal) | confirm now; if the tickets cannot be issued, refund the money | `captured`, or `cancelled` with a refund |
 | AUTHORIZED, part captured and the rest cancelled (in the portal) | refund what was captured, then cancel the tickets | `cancelled` with a refund |
 | AUTHORIZED, part captured, the rest still authorised | capture only what is left | `captured` |
+| AUTHORIZED, captured and then refunded in the portal before we settled it | issue no tickets; refund what is still held, if anything | `cancelled` |
+| AUTHORIZED and confirmed, but the occurrence was cancelled or has ended, or the tickets were cancelled, before the capture | cancel the authorisation instead of capturing | `cancelled` |
 | ABORTED (the buyer said no) | cancel the reservation, releasing the places | `failed` |
 | EXPIRED | cancel the reservation | `expired` |
 | TERMINATED | cancel the reservation if it is still held | `cancelled` |
 
-**Money already captured** is never left behind. Whenever an order is called off, or ends at Vipps, after something was captured, the net captured amount (captured minus refunded) is refunded through Vipps, like a staff refund. A refund Vipps does not answer is sent again by the reconcile job; one it refuses shows in Sales with a retry. The return page then says how much is refunded.
+**Money already captured** is never left behind. Whenever an order is called off, or ends at Vipps, after something was captured, the net captured amount (captured minus refunded) is refunded through Vipps, like a staff refund. A refund Vipps does not answer is sent again by the reconcile job; one it refuses shows in Sales with a retry. The return page then says how much is refunded, and whether the refund is done, still on its way, or failed (in which case it tells the buyer to contact the account).
 
 **Cancelling at Vipps** counts only once Vipps confirms it. If Vipps refuses a cancel, the payment is read again, and only a cancelled amount or a final state counts. Otherwise the payment stays open, with the reason, and is tried again. A capture or refund Vipps holds (HTTP 423, the payment is locked) is retried, not refused.
 
@@ -67,7 +69,7 @@ Confirm takes the places at once, but a hosted sale's tickets get `pending` admi
 - `payments:reconcile` runs every minute in the worker. It settles payments that have sat in `created` or `authorized` for 2 minutes, in case no webhook came.
 - When the sweeper expires a hold whose payment still waits, `payments.abandon` cancels the payment at Vipps. If the buyer approved meanwhile, the payment is settled as usual instead.
 
-**Expiry.** If the reservation sweeper expires a hold whose payment is still `created`, the payment is cancelled at Vipps. If a payment is authorised after its hold expired, `confirm` checks capacity again. If places are free, the payment is captured. If not, the authorisation is cancelled.
+**Expiry.** If the reservation sweeper expires a hold whose payment is still `created`, the payment is cancelled at Vipps with `cancelTransactionOnly`, so only a payment the buyer has not approved is cancelled. If the buyer approves just before, Vipps refuses the cancel and the payment is settled as usual. If a payment is authorised after its hold expired, `confirm` checks capacity again. If places are free, the payment is captured. If not, the authorisation is cancelled.
 
 ## Refunds
 

@@ -123,11 +123,12 @@ export class FakeVipps implements VippsClient {
     this.calls.push({ op: "capture", reference, amount: amount.value, idempotencyKey });
   }
 
-  async cancel(c: VippsCredentials, reference: string, idempotencyKey: string): Promise<void> {
+  async cancel(c: VippsCredentials, reference: string, idempotencyKey: string, opts: { transactionOnly?: boolean } = {}): Promise<void> {
     this.check(c);
     this.failIfAsked("cancel");
     const p = this.get(reference, c);
     if (this.seen.has(`cancel:${idempotencyKey}`)) return;
+    if (opts.transactionOnly && p.state !== "CREATED") throw new VippsError(`Vipps cancel: 400 payment is ${p.state} (cancelTransactionOnly)`, 400);
     if (p.state === "CREATED") p.state = "TERMINATED";
     else if (p.state === "AUTHORIZED") {
       if (p.captured >= p.authorized || p.cancelled > 0) throw new VippsError("Vipps cancel: 400 nothing left to cancel", 400);

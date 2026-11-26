@@ -480,7 +480,7 @@ describe("money moved in the Vipps portal", () => {
     expect(await process(s.paymentId, at(27))).toBe("cancelled");
     expect((await vipps.getPayment(keys, s.row.reference)).aggregate.refundedAmount.value).toBe(90000);
     const status = await run((tx) => payments.checkoutStatus(tx, s.token, at(28)));
-    expect(status).toMatchObject({ state: "cancelled", refunded: 90000 });
+    expect(status).toMatchObject({ state: "cancelled", refund: { amount: 90000, state: "done" } });
     const tickets = await run((tx) => tx.selectFrom("sales.ticket").select("id").where("reservation_id", "=", s.row.reservation_id).execute());
     expect(tickets).toEqual([]);
   });
@@ -499,6 +499,34 @@ describe("money moved in the Vipps portal", () => {
     expect(await pool(occ.id)).toMatchObject({ taken: 0 });
   });
 
+  it("issues no tickets for a portal capture that was refunded before the platform settled it", async () => {
+    const { occ, adult } = await concert("portal-refunded");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
+    vipps.approve(s.row.reference);
+    await vipps.capture(keys, s.row.reference, { currency: "NOK", value: 90000 }, "portal-cap");
+    await vipps.refund(keys, s.row.reference, { currency: "NOK", value: 90000 }, "portal-ref");
+    expect(await process(s.paymentId)).toBe("cancelled");
+    expect(await reservation(s.row.reservation_id)).toMatchObject({ status: "cancelled" });
+    const tickets = await run((tx) => tx.selectFrom("sales.ticket").select("id").where("reservation_id", "=", s.row.reservation_id).execute());
+    expect(tickets).toEqual([]);
+    // Nothing more to give back: no refund of its own, and the return page says no money is held.
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate.refundedAmount.value).toBe(90000);
+    expect(await run((tx) => payments.checkoutStatus(tx, s.token, at(3)))).toMatchObject({ state: "cancelled", refund: null });
+  });
+
+  it("tells the buyer when the refund of a portal capture failed", async () => {
+    const { occ, adult } = await concert("portal-refund-fails", 1);
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    await run((tx) => sales.expireReservation(tx, ctx.tenantId, s.row.reservation_id, at(25)));
+    const webCaller = { tenantId: ctx.tenantId, channelId: web.id, signingKey: null };
+    await run((tx) => sales.reserve(tx, webCaller, { lines: [{ occurrenceId: occ.id, offerId: adult.id, quantity: 1 }], confirm: true, externalOrderRef: "WEB-F" }, at(26)));
+    vipps.approve(s.row.reference);
+    await vipps.capture(keys, s.row.reference, { currency: "NOK", value: 45000 }, "portal-cap-f");
+    vipps.failNext("refund", 400);
+    expect(await process(s.paymentId, at(27))).toBe("cancelled");
+    expect(await run((tx) => payments.checkoutStatus(tx, s.token, at(28)))).toMatchObject({ refund: { amount: 45000, state: "failed" } });
+  });
+
   it("captures only what is left after a partial capture in the portal", async () => {
     const { occ, adult } = await concert("partial-then-rest");
     const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
@@ -508,6 +536,44 @@ describe("money moved in the Vipps portal", () => {
     await vipps.capture(keys, s.row.reference, { currency: "NOK", value: 30000 }, "portal-part");
     expect(await process(s.paymentId)).toBe("captured");
     expect((await vipps.getPayment(keys, s.row.reference)).aggregate.capturedAmount.value).toBe(90000);
+  });
+});
+
+describe("a capture that waited too long", () => {
+  it("is called off, not charged, when the occurrence ended while Vipps held the capture", async () => {
+    const { occ, adult } = await concert("capture-after-end");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(s.row.reference);
+    vipps.failNext("capture", 423);
+    expect(await process(s.paymentId)).toBe("authorized");
+    const afterEnd = new Date(START.getTime() + 6 * 60 * MIN);
+    expect(await process(s.paymentId, afterEnd)).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate).toMatchObject({ capturedAmount: { value: 0 }, cancelledAmount: { value: 45000 } });
+    const row = await run((tx) => tx.selectFrom("payments.payment").select("failure_reason").where("id", "=", s.paymentId).executeTakeFirstOrThrow());
+    expect(row.failure_reason).toMatch(/occurrence_ended/);
+  });
+});
+
+describe("expiry racing the buyer's approval", () => {
+  it("cancels only an unapproved payment; an approval that wins is settled as usual", async () => {
+    const { occ, adult } = await concert("expiry-race");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    await run((tx) => sales.expireReservation(tx, ctx.tenantId, s.row.reservation_id, at(25)));
+    // Vipps says CREATED, then the buyer approves before the cancel arrives.
+    let first = true;
+    const racing: payments.PaymentProvider = {
+      ...vipps,
+      verifyCredentials: (...a) => vipps.verifyCredentials(...a), registerWebhook: (...a) => vipps.registerWebhook(...a), deleteWebhook: (...a) => vipps.deleteWebhook(...a),
+      createPayment: (...a) => vipps.createPayment(...a), capture: (...a) => vipps.capture(...a), cancel: (...a) => vipps.cancel(...a),
+      refund: (...a) => vipps.refund(...a), sendReceipt: (...a) => vipps.sendReceipt(...a),
+      getPayment: async (c, ref) => {
+        const p = await vipps.getPayment(c, ref);
+        if (first) { first = false; vipps.approve(ref); }
+        return p;
+      },
+    };
+    expect(await payments.abandonPayment(db, ctx.tenantId, s.paymentId, { provider: racing }, at(26))).toBe("captured");
+    expect(await reservation(s.row.reservation_id)).toMatchObject({ status: "confirmed" });
   });
 });
 

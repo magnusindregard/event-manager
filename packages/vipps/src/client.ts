@@ -123,8 +123,12 @@ export interface VippsClient {
   createPayment(c: VippsCredentials, input: CreatePaymentInput, idempotencyKey: string): Promise<CreatedPayment>;
   getPayment(c: VippsCredentials, reference: string): Promise<VippsPayment>;
   capture(c: VippsCredentials, reference: string, amount: Money, idempotencyKey: string): Promise<void>;
-  /** Cancels what is authorised and not captured; a created payment can no longer be approved. */
-  cancel(c: VippsCredentials, reference: string, idempotencyKey: string): Promise<void>;
+  /**
+   * Cancels what is authorised and not captured; a created payment can no longer be approved.
+   * transactionOnly (Vipps' cancelTransactionOnly): only a payment the buyer has not approved yet;
+   * an authorised one is refused and left as it is.
+   */
+  cancel(c: VippsCredentials, reference: string, idempotencyKey: string, opts?: { transactionOnly?: boolean }): Promise<void>;
   refund(c: VippsCredentials, reference: string, amount: Money, idempotencyKey: string): Promise<void>;
   sendReceipt(c: VippsCredentials, reference: string, receipt: Receipt): Promise<void>;
 }
@@ -215,8 +219,8 @@ export class HttpVipps implements VippsClient {
     await this.call(c, "POST", `/epayment/v1/payments/${encodeURIComponent(reference)}/capture`, { modificationAmount: amount }, idempotencyKey);
   }
 
-  async cancel(c: VippsCredentials, reference: string, idempotencyKey: string): Promise<void> {
-    await this.call(c, "POST", `/epayment/v1/payments/${encodeURIComponent(reference)}/cancel`, {}, idempotencyKey);
+  async cancel(c: VippsCredentials, reference: string, idempotencyKey: string, opts: { transactionOnly?: boolean } = {}): Promise<void> {
+    await this.call(c, "POST", `/epayment/v1/payments/${encodeURIComponent(reference)}/cancel`, opts.transactionOnly ? { cancelTransactionOnly: true } : {}, idempotencyKey);
   }
 
   async refund(c: VippsCredentials, reference: string, amount: Money, idempotencyKey: string): Promise<void> {

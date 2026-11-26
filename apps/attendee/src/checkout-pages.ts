@@ -40,7 +40,11 @@ const T = {
     vat: (rate: string) => `Of which VAT ${rate} %`, tickets: "Your tickets", openTicket: "Open ticket", free: "Your tickets are confirmed",
     failed: "The payment was not completed", failedLead: "No money has been taken, and the tickets have been released.",
     cancelledLead: "The tickets could not be issued, so the payment was cancelled. No money has been taken.", tryAgain: "Try again",
-    refundedLead: (amount: string) => `The tickets could not be issued, so the order was cancelled. ${amount} is refunded to you through Vipps.`,
+    refunded: {
+      done: (amount: string) => `The tickets could not be issued, so the order was cancelled. ${amount} has been refunded to you through Vipps.`,
+      pending: (amount: string) => `The tickets could not be issued, so the order was cancelled. We are refunding ${amount} to you through Vipps; it can take a little while.`,
+      failed: (amount: string, shop: string) => `The tickets could not be issued, so the order was cancelled. ${amount} was charged and has not been refunded yet. Contact ${shop} if it has not come back within a few days.`,
+    },
     orgNumber: "Org. no.", errors: {
       sold_out: "Sorry, there are not enough tickets left.", quantity_out_of_range: "Choose a number of tickets within the limits shown.",
       not_on_sale: "These tickets are not on sale right now.", offer_unavailable: "These tickets are not on sale right now.",
@@ -57,7 +61,11 @@ const T = {
     vat: (rate: string) => `Herav mva. ${rate} %`, tickets: "Billettene dine", openTicket: "Åpne billetten", free: "Billettene dine er bekreftet",
     failed: "Betalingen ble ikke fullført", failedLead: "Ingen penger er trukket, og billettene er frigitt.",
     cancelledLead: "Billettene kunne ikke utstedes, så betalingen ble kansellert. Ingen penger er trukket.", tryAgain: "Prøv igjen",
-    refundedLead: (amount: string) => `Billettene kunne ikke utstedes, så bestillingen ble kansellert. ${amount} refunderes til deg gjennom Vipps.`,
+    refunded: {
+      done: (amount: string) => `Billettene kunne ikke utstedes, så bestillingen ble kansellert. ${amount} er refundert til deg gjennom Vipps.`,
+      pending: (amount: string) => `Billettene kunne ikke utstedes, så bestillingen ble kansellert. Vi refunderer ${amount} til deg gjennom Vipps; det kan ta litt tid.`,
+      failed: (amount: string, shop: string) => `Billettene kunne ikke utstedes, så bestillingen ble kansellert. ${amount} ble trukket og er ikke refundert ennå. Ta kontakt med ${shop} hvis pengene ikke er tilbake innen noen dager.`,
+    },
     orgNumber: "Org.nr.", errors: {
       sold_out: "Beklager, det er ikke nok billetter igjen.", quantity_out_of_range: "Velg et antall innenfor grensene som vises.",
       not_on_sale: "Billettene selges ikke akkurat nå.", offer_unavailable: "Billettene selges ikke akkurat nå.",
@@ -178,7 +186,9 @@ ${!selling && !soldOut ? html`<p class="notice error" role="status">${t.closed}<
       return send(reply, 200, page({ locale, title: t.waiting, account: s.accountName, body, head: html`<meta http-equiv="refresh" content="3">` }));
     }
     if (s.state === "failed" || s.state === "expired" || s.state === "cancelled") {
-      const lead = s.refunded > 0 ? t.refundedLead(money(locale, s.refunded, r.total.currency)) : s.state === "cancelled" ? t.cancelledLead : t.failedLead;
+      const amount = s.refund ? money(locale, s.refund.amount, r.total.currency) : "";
+      const lead = !s.refund ? (s.state === "cancelled" ? t.cancelledLead : t.failedLead)
+        : s.refund.state === "failed" ? t.refunded.failed(amount, s.accountName) : t.refunded[s.refund.state](amount);
       const body = html`<h1>${t.failed}</h1><p>${lead}</p>
 ${occurrenceId ? html`<p><a href="/b/${occurrenceId}">${t.tryAgain}</a></p>` : ""}`;
       return send(reply, 200, page({ locale, title: t.failed, account: s.accountName, body }));

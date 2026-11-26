@@ -50,7 +50,8 @@ export interface PaymentProvider {
   ): Promise<{ reference: string; redirectUrl: string }>;
   getPayment(c: ProviderCredentials, reference: string): Promise<ProviderPayment>;
   capture(c: ProviderCredentials, reference: string, amount: Money, idempotencyKey: string): Promise<void>;
-  cancel(c: ProviderCredentials, reference: string, idempotencyKey: string): Promise<void>;
+  /** transactionOnly: only a payment not yet approved (an approved one is refused and left alone). */
+  cancel(c: ProviderCredentials, reference: string, idempotencyKey: string, opts?: { transactionOnly?: boolean }): Promise<void>;
   refund(c: ProviderCredentials, reference: string, amount: Money, idempotencyKey: string): Promise<void>;
   sendReceipt(c: ProviderCredentials, reference: string, receipt: { currency: string; lines: ReceiptLine[]; receiptNumber: string }): Promise<void>;
 }
