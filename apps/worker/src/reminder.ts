@@ -113,7 +113,7 @@ export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => D
         registration.admissionToken(tx, tenantId, message.registration),
         integrations.eventChannel(tx, message.target.event.id),
       ]);
-      return { message, manage, admission, channel, taken, eligible: due !== null };
+      return { message, manage, admission, channel, taken };
     });
     if (!prepared) {
       helpers.logger.info(`registration ${registrationId}: no reminder now`);
@@ -125,6 +125,7 @@ export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => D
 
     // The event sends through HubSpot, or HubSpot took this welcome already: HubSpot first.
     let fallbackReason: string | null = null;
+    let message = prepared.message;
     if (prepared.channel === "hubspot" || prepared.taken) {
       let r;
       try {
@@ -161,23 +162,40 @@ export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => D
         helpers.logger.warn(`registration ${registrationId}: welcome ${r.recheck ? "checked again later" : "left unresolved"} (${r.reason})`);
         return;
       }
-      if (!prepared.eligible) {
-        // HubSpot did not send it, and a welcome is no longer due (cancelled, or the event has
-        // started): recorded, and kept as reminded, with no platform email.
+      // HubSpot did not send it. The reminder rules are read again now, after the call to
+      // HubSpot: the guest may have cancelled, or the occurrence moved, while it ran. (This run
+      // holds the claim, so the rules are read as if it did not.)
+      const fresh = await withTenant(db, { tenantId }, async (tx) => {
+        const m = await registration.loadMessage(tx, registrationId);
+        return m ? { message: m, due: registration.reminderTime({ ...m.registration, remindedAt: null }, m.target, now) } : null;
+      });
+      if (!fresh?.due) {
+        // No longer due (cancelled, or the event has started): recorded, kept as reminded, no platform email.
         await withTenant(db, { tenantId }, (tx) => registration.recordReminderChannel(tx, registrationId, null, `HubSpot did not send it (${r.reason}), and it is no longer due`));
         helpers.logger.info(`registration ${registrationId}: HubSpot did not send the welcome, and it is no longer due`);
         return;
       }
+      if (fresh.due.getTime() - now.getTime() > EARLY_MS) {
+        // The occurrence moved later: the platform's welcome goes at the new reminder time, not now.
+        await release();
+        await withTenant(db, { tenantId }, async (tx) => {
+          await registration.recordReminderChannel(tx, registrationId, null, `HubSpot did not send it (${r.reason}); the platform sends it at the reminder time`);
+          await enqueue(tx, tenantId, [{ id: registrationId, runAt: fresh.due! }]);
+        });
+        helpers.logger.info(`registration ${registrationId}: HubSpot did not send the welcome; the platform sends it at ${fresh.due.toISOString()}`);
+        return;
+      }
+      message = fresh.message;
       fallbackReason = r.reason;
     }
 
     const qrPng = prepared.admission ? (await QRCode.toBuffer(prepared.admission, { type: "png", width: 400, margin: 1, errorCorrectionLevel: "M" })).toString("base64") : null;
-    const mail = registrationEmail({ kind: "reminder", message: prepared.message, manageUrl: `${base}/m/${prepared.manage}`, qrPng });
+    const mail = registrationEmail({ kind: "reminder", message, manageUrl: `${base}/m/${prepared.manage}`, qrPng });
     // Claimed above, so two runs never both send; released again if sending fails, so a retry
     // sends. A permanent rejection is released too, but not retried.
     let sent;
     try {
-      sent = await sendOrGiveUp(deps.mailer, { to: prepared.message.registration.email, ...mail }, (l) => helpers.logger.error(l), `registration ${registrationId}: reminder`);
+      sent = await sendOrGiveUp(deps.mailer, { to: message.registration.email, ...mail }, (l) => helpers.logger.error(l), `registration ${registrationId}: reminder`);
     } catch (e) {
       await release();
       throw e;

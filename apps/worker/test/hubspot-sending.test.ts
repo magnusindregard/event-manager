@@ -431,6 +431,27 @@ describe("sending to a guest", () => {
     expect(mailer.sent).toEqual([]);
   });
 
+  it("reads again whether the guest needs the invitation after asking HubSpot, so an answer during the call stops the platform's email", async () => {
+    await connect();
+    const { event } = await hubspotEvent("Under kallet");
+    const [kari] = await addGuests(event.id, "kari@example.com");
+    // While the job asks HubSpot how the send went, the guest declines; HubSpot then says it bounced.
+    const read = hubspot.sendStatus.bind(hubspot);
+    hubspot.sendStatus = async (token, statusId) => {
+      await run((tx) => registration.declineInvitation(tx, ctx.tenantId, kari!.id));
+      return { ...(await read(token, statusId)), status: "COMPLETE", sendResult: "PREVIOUSLY_BOUNCED" };
+    };
+    try {
+      await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation" }));
+      await drain();
+    } finally {
+      hubspot.sendStatus = read;
+    }
+    const row = await run((tx) => tx.selectFrom("registration.invitation_send").select(["delivery_status", "delivery_detail"]).executeTakeFirstOrThrow());
+    expect(row).toMatchObject({ delivery_status: "failed", delivery_detail: expect.stringMatching(/^guest_declined: HubSpot did not send it/) });
+    expect(mailer.sent).toEqual([]);
+  });
+
   it("finishes a contact's preparation from the first snapshot when two sends prepare it at once", async () => {
     await connect();
     const { event } = await hubspotEvent("Samtidig");
@@ -508,6 +529,71 @@ describe("sending to a guest", () => {
     expect(byId.get(regs[1]!.id)!.reminded_at).not.toBeNull();
     // Nothing left that reads it again.
     expect(await jobRunAt(`reminder:${regs[1]!.id}`)).toBeNull();
+  });
+
+  /** An event with a welcome a day before; the guest accepted long enough ago that the welcome is due now. Returns the registration. */
+  async function welcomeDue(title: string) {
+    const g = await hubspotEvent(title, { start: new Date(Date.now() + 3 * DAY), reminderMinBefore: 24 * 60 });
+    const [kari] = await addGuests(g.event.id, "kari@example.com");
+    const reg = await run((tx) => registration.acceptInvitation(tx, ctx.tenantId, kari!.id, { occurrenceId: g.occ.id }));
+    await drain();
+    await admin.query(`update registration.registration set created_at = now() - interval '2 days', confirmed_at = now() - interval '2 days' where id = $1`, [reg.id]);
+    return { ...g, reg };
+  }
+  const moveTo = async (occurrenceId: string, start: Date) => {
+    const o = await run((tx) => catalog.getOccurrence(tx, occurrenceId));
+    await run((tx) => catalog.updateOccurrence(tx, ctx, occurrenceId, o.version, { startUtc: start, endUtc: new Date(start.getTime() + 3_600_000) }));
+  };
+  const welcomes = () => mailer.sent.filter((m) => m.subject.startsWith("Påminnelse"));
+
+  it("sends no platform welcome when the guest cancels while the job asks HubSpot", async () => {
+    await connect();
+    const { occ, reg } = await welcomeDue("Avbestilt under kallet");
+    const read = hubspot.sendStatus.bind(hubspot);
+    hubspot.sendStatus = async (token, statusId) => {
+      await run((tx) => registration.cancelRegistration(tx, ctx.tenantId, reg.id, { kind: "attendee" }));
+      return { ...(await read(token, statusId)), status: "COMPLETE", sendResult: "CANCELED" };
+    };
+    mailer.sent.length = 0;
+    try {
+      await moveTo(occ.id, new Date(Date.now() + DAY / 2));
+      await drain();
+    } finally {
+      hubspot.sendStatus = read;
+    }
+    expect(welcomes()).toEqual([]);
+    const row = await run((tx) => tx.selectFrom("registration.registration").select(["reminder_detail"]).where("id", "=", reg.id).executeTakeFirstOrThrow());
+    expect(row.reminder_detail).toMatch(/no longer due/);
+  });
+
+  it("holds the platform's welcome until the new reminder time when the occurrence moved later while HubSpot worked on it", async () => {
+    await connect();
+    const { occ, reg } = await welcomeDue("Flyttet");
+    hubspot.pendingPolls = 1000;
+    await moveTo(occ.id, new Date(Date.now() + DAY / 2));
+    await drain(2);
+    expect(portal().sends.filter((x) => x.sendId === `welcome-${reg.id}`)).toHaveLength(1);
+    // Staff move the occurrence three days on; then HubSpot cancels the welcome.
+    const start = new Date(Date.now() + 3 * DAY);
+    await moveTo(occ.id, start);
+    portal().sends.find((x) => x.sendId === `welcome-${reg.id}`)!.sendResult = "CANCELED";
+    hubspot.completeSends();
+    mailer.sent.length = 0;
+    const once = () =>
+      runOnce({
+        connectionString: tdb.appUrl,
+        taskList: buildTaskList(db, defaultHandlers, { directory: new FakeDirectory(), mailer, adminUrl: "https://admin.test/" }, { mailer, attendeeUrl: "https://attend.test/" }, { client: hubspot, pollMs: 0 }),
+      });
+    // The move's own event first (it queues the welcome for the new time), then the welcome's job
+    // now, as a pending recheck would: it reads HubSpot, and must not send the platform's welcome early.
+    await once();
+    await admin.query(`update graphile_worker._private_jobs set run_at = now() where locked_at is null and key = $1`, [`reminder:${reg.id}`]);
+    await once();
+    expect(welcomes()).toEqual([]);
+    const at = await jobRunAt(`reminder:${reg.id}`);
+    expect(at?.getTime()).toBe(start.getTime() - DAY);
+    const row = await run((tx) => tx.selectFrom("registration.registration").select(["reminded_at", "reminder_detail"]).where("id", "=", reg.id).executeTakeFirstOrThrow());
+    expect(row).toMatchObject({ reminded_at: null, reminder_detail: expect.stringMatching(/at the reminder time/) });
   });
 
   it("sends the welcome before the event through HubSpot, with a link to the guest's manage page", async () => {
