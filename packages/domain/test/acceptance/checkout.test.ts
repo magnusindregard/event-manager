@@ -455,6 +455,79 @@ describe("when Vipps refuses or holds a change", () => {
   });
 });
 
+describe("money moved in the Vipps portal", () => {
+  it("confirms the tickets when the merchant captured in the portal before the platform saw the approval", async () => {
+    const { occ, adult } = await concert("portal-capture");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
+    vipps.approve(s.row.reference);
+    await vipps.capture(keys, s.row.reference, { currency: "NOK", value: 90000 }, "portal-capture");
+    expect(await process(s.paymentId)).toBe("captured");
+    expect(await reservation(s.row.reservation_id)).toMatchObject({ status: "confirmed" });
+    const view = await run((tx) => sales.getReservationAsStaff(tx, ctx, s.row.reservation_id, at(3)));
+    for (const t of view.tickets) expect(t.admissionToken).toEqual(expect.any(String));
+    // Nothing captured twice.
+    expect(vipps.callsFor(s.row.reference, "capture")).toHaveLength(1);
+  });
+
+  it("refunds a portal capture when the tickets can no longer be issued", async () => {
+    const { occ, adult } = await concert("portal-capture-sold-out", 2);
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
+    await run((tx) => sales.expireReservation(tx, ctx.tenantId, s.row.reservation_id, at(25)));
+    const webCaller = { tenantId: ctx.tenantId, channelId: web.id, signingKey: null };
+    await run((tx) => sales.reserve(tx, webCaller, { lines: [{ occurrenceId: occ.id, offerId: adult.id, quantity: 2 }], confirm: true, externalOrderRef: "WEB-P" }, at(26)));
+    vipps.approve(s.row.reference);
+    await vipps.capture(keys, s.row.reference, { currency: "NOK", value: 90000 }, "portal-capture-2");
+    expect(await process(s.paymentId, at(27))).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate.refundedAmount.value).toBe(90000);
+    const status = await run((tx) => payments.checkoutStatus(tx, s.token, at(28)));
+    expect(status).toMatchObject({ state: "cancelled", refunded: 90000 });
+    const tickets = await run((tx) => tx.selectFrom("sales.ticket").select("id").where("reservation_id", "=", s.row.reservation_id).execute());
+    expect(tickets).toEqual([]);
+  });
+
+  it("refunds what was captured when the merchant captured part and cancelled the rest", async () => {
+    const { occ, adult } = await concert("partial-capture");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
+    vipps.approve(s.row.reference);
+    vipps.failNext("capture", 423);
+    expect(await process(s.paymentId)).toBe("authorized");
+    await vipps.capture(keys, s.row.reference, { currency: "NOK", value: 20000 }, "portal-partial");
+    await vipps.cancel(keys, s.row.reference, "portal-cancel-rest");
+    expect(await process(s.paymentId)).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate).toMatchObject({ capturedAmount: { value: 20000 }, refundedAmount: { value: 20000 }, cancelledAmount: { value: 70000 } });
+    expect(await reservation(s.row.reservation_id)).toMatchObject({ status: "cancelled" });
+    expect(await pool(occ.id)).toMatchObject({ taken: 0 });
+  });
+
+  it("captures only what is left after a partial capture in the portal", async () => {
+    const { occ, adult } = await concert("partial-then-rest");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
+    vipps.approve(s.row.reference);
+    vipps.failNext("capture", 423);
+    expect(await process(s.paymentId)).toBe("authorized");
+    await vipps.capture(keys, s.row.reference, { currency: "NOK", value: 30000 }, "portal-part");
+    expect(await process(s.paymentId)).toBe("captured");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate.capturedAmount.value).toBe(90000);
+  });
+});
+
+describe("a capture refused after the show has started", () => {
+  it("still releases tickets that were never usable", async () => {
+    const { occ, adult } = await concert("refused-after-start");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
+    vipps.approve(s.row.reference);
+    vipps.failNext("capture", 423);
+    expect(await process(s.paymentId)).toBe("authorized");
+    vipps.failNext("capture", 400);
+    const afterStart = new Date(START.getTime() + 30 * MIN);
+    expect(await process(s.paymentId, afterStart)).toBe("cancelled");
+    const tickets = await run((tx) => tx.selectFrom("sales.ticket as t").innerJoin("admission.admission as a", "a.ticket_id", "t.id")
+      .select(["t.status", "a.status as admission"]).where("t.reservation_id", "=", s.row.reservation_id).execute());
+    expect(tickets).toEqual([{ status: "cancelled", admission: "void" }, { status: "cancelled", admission: "void" }]);
+    expect(await pool(occ.id)).toMatchObject({ taken: 0 });
+  });
+});
+
 describe("the return link", () => {
   it("still shows a completed order after staff deactivate the hosted channel", async () => {
     const { occ, adult, hosted } = await concert("return-closed");
@@ -563,9 +636,18 @@ describe("changing the merchant", () => {
     await expect(payments.disconnectVipps(db, ctx, cur.version, providerDeps)).rejects.toMatchObject({ code: "conflict", details: { pendingRefunds: 1 } });
     expect((await payments.sendRefund(db, ctx.tenantId, pendingRefund!.id, deps)).state).toBe("done");
 
-    // After a checkout has started, the merchant row has the payment; once settled, disconnect goes through.
+    // A captured order on this merchant, to refund after the disconnect.
+    const late = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(late.row.reference);
+    expect(await process(late.paymentId)).toBe("captured");
+
+    // Once settled, disconnect goes through, and no new checkout can start.
     await payments.disconnectVipps(db, ctx, cur.version, providerDeps);
     await expect(start(occ.id, [{ offerId: adult.id, quantity: 1 }])).rejects.toMatchObject({ code: "not_on_sale" });
+    // Refunding without the merchant's keys is refused before any ticket is cancelled.
+    await expect(payments.refundTickets(db, { ...ctx, roles: ["box_office"] }, late.row.reservation_id, { amount: 45000 }, deps, at(10))).rejects.toMatchObject({ code: "conflict" });
+    const stillValid = await run((tx) => tx.selectFrom("sales.ticket").select("status").where("reservation_id", "=", late.row.reservation_id).execute());
+    expect(stillValid.map((t) => t.status)).toEqual(["valid"]);
 
     // Connecting the first merchant again brings back its provider account.
     const back = await payments.connectVipps(db, ctx, keys, providerDeps);

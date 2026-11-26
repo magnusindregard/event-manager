@@ -79,9 +79,13 @@ export interface RefundInput {
 export async function refundTickets(db: Db, ctx: ActorContext, reservationId: string, input: RefundInput, deps: { provider: PaymentProvider }, now: Date = new Date()): Promise<Refund | null> {
   assertCan(ctx, "sales.write");
   const refundId = await withTenant(db, ctx, async (tx) => {
-    const p = await tx.selectFrom("payments.payment").select(["id", "state", "amount", "reference"]).where("reservation_id", "=", reservationId).forUpdate().executeTakeFirst();
+    const p = await tx.selectFrom("payments.payment").select(["id", "state", "amount", "reference", "provider_account_id"]).where("reservation_id", "=", reservationId).forUpdate().executeTakeFirst();
     if (!p) throw new DomainError("conflict", "The reservation was not paid in the hosted checkout; refund it in its channel");
     if (p.state !== "captured") throw new DomainError("conflict", "The payment is not captured, so there is nothing to refund yet");
+    // Share lock on the merchant: a disconnect then either sees this refund pending (and waits),
+    // or has finished, and this refuses before any ticket is cancelled.
+    const merchant = await tx.selectFrom("payments.provider_account").select(["credentials"]).where("id", "=", p.provider_account_id).forShare().executeTakeFirstOrThrow();
+    if (!merchant.credentials) throw new DomainError("conflict", "The Vipps merchant this was paid with is disconnected; connect it again to refund");
 
     const tickets = await tx.selectFrom("sales.ticket as t").innerJoin("sales.reservation_line as l", "l.id", "t.line_id")
       .select(["t.id", "t.status", "l.unit_price"]).where("t.reservation_id", "=", reservationId).execute();

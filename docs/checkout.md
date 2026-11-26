@@ -42,10 +42,15 @@ Everyone in the account can see the connection. Only owners change it (`account.
 | CREATED | nothing yet (the return page waits and refreshes) | `created` |
 | AUTHORIZED | `confirm(externalOrderRef = reference)`, then capture the total | `authorized` → `captured` |
 | AUTHORIZED, but confirm fails (sold out after the hold expired, or the occurrence changed) | cancel the authorisation; no tickets | `cancelled` |
-| AUTHORIZED, and Vipps refuses the capture | cancel the authorisation, then cancel the tickets (also if staff closed the checkout meanwhile) | `cancelled` |
+| AUTHORIZED, and Vipps refuses the capture | cancel the authorisation, then cancel the tickets (also if staff closed the checkout meanwhile, or the show has started, since those tickets were never usable) | `cancelled` |
+| AUTHORIZED and fully captured, but not confirmed here (the merchant captured in the Vipps portal) | confirm now; if the tickets cannot be issued, refund the money | `captured`, or `cancelled` with a refund |
+| AUTHORIZED, part captured and the rest cancelled (in the portal) | refund what was captured, then cancel the tickets | `cancelled` with a refund |
+| AUTHORIZED, part captured, the rest still authorised | capture only what is left | `captured` |
 | ABORTED (the buyer said no) | cancel the reservation, releasing the places | `failed` |
 | EXPIRED | cancel the reservation | `expired` |
 | TERMINATED | cancel the reservation if it is still held | `cancelled` |
+
+**Money already captured** is never left behind. Whenever an order is called off, or ends at Vipps, after something was captured, the net captured amount (captured minus refunded) is refunded through Vipps, like a staff refund. A refund Vipps does not answer is sent again by the reconcile job; one it refuses shows in Sales with a retry. The return page then says how much is refunded.
 
 **Cancelling at Vipps** counts only once Vipps confirms it. If Vipps refuses a cancel, the payment is read again, and only a cancelled amount or a final state counts. Otherwise the payment stays open, with the reason, and is tried again. A capture or refund Vipps holds (HTTP 423, the payment is locked) is retried, not refused.
 
@@ -72,7 +77,7 @@ Staff (`sales.write`) cancel tickets of a hosted sale from **Occurrence → Sale
 2. The refund goes to Vipps with that key.
 3. The refund is marked `done` (`payment.refunded.v1`) or `failed` with Vipps' reason.
 
-If Vipps does not answer, the refund stays `pending` and the reconcile job sends it again. If Vipps refuses it, staff see the reason in Sales and can retry (`POST /v1/sales/refunds/:id/retry`). Every attempt uses the same key, so the money moves once. A refund never exceeds what was paid.
+If Vipps does not answer, the refund stays `pending` and the reconcile job sends it again. If Vipps refuses it, staff see the reason in Sales and can retry (`POST /v1/sales/refunds/:id/retry`). Every attempt uses the same key, so the money moves once. A refund never exceeds what was paid. Creating a refund share-locks the merchant and checks that its keys are there, so a disconnect either waits for the refund or has finished, and then the refund is refused before any ticket is cancelled.
 
 The plain cancel (`/cancel`) refuses every reservation with a hosted payment. Once captured, it would cancel the tickets without giving the money back; before capture, the capture could still charge for tickets that are gone. The hosted channel takes no channel keys, so no shop can cancel its tickets either. Free hosted orders have no payment and use the plain cancel.
 

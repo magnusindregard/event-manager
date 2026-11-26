@@ -581,7 +581,7 @@ export async function cancelTicketsAsStaff(tx: Tx, ctx: ActorContext, id: string
 /** Cancels tickets of a locked, confirmed reservation. Returns the ids cancelled. */
 async function cancelTickets(
   tx: Tx, tenantId: string, row: Row, holds: HoldRow[], ticketIds: readonly string[] | null,
-  opts: { by: TicketCancelledBy; refundRef: string | null }, now: Date,
+  opts: { by: TicketCancelledBy; refundRef: string | null; evenIfStarted?: boolean }, now: Date,
 ): Promise<string[]> {
   const all = await tx.selectFrom("sales.ticket as t").innerJoin("sales.reservation_line as l", "l.id", "t.line_id")
     .select(["t.id", "t.status", "t.occurrence_id", "l.places_per_unit", "l.unit_price", "l.currency"])
@@ -604,7 +604,7 @@ async function cancelTickets(
   // occurrence's tickets can always be cancelled: that is the refund for the cancelled show.
   const occurrences = await tx.selectFrom("catalog.occurrence").select(["id", "start_utc", "status"])
     .where("id", "in", [...new Set(chosen.map((t) => t.occurrence_id))]).execute();
-  const started = occurrences.filter((o) => o.status !== "cancelled" && o.start_utc <= now);
+  const started = opts.evenIfStarted ? [] : occurrences.filter((o) => o.status !== "cancelled" && o.start_utc <= now);
   if (started.length) {
     throw new DomainError("occurrence_started", "The occurrence has started; its tickets can no longer be cancelled", {
       occurrenceIds: started.map((o) => o.id), ticketIds: chosen.filter((t) => started.some((o) => o.id === t.occurrence_id)).map((t) => t.id),
@@ -659,8 +659,13 @@ export async function releaseForPlatform(tx: Tx, tenantId: string, id: string, n
   const { row, holds } = await lockReservation(tx, id, null);
   if (row.status === "cancelled") return;
   if (row.status === "confirmed") {
-    const valid = await tx.selectFrom("sales.ticket").select("id").where("reservation_id", "=", id).where("status", "=", "valid").executeTakeFirst();
-    if (valid) await cancelTickets(tx, tenantId, row, holds, null, { by: "channel", refundRef: null }, now);
+    const valid = await tx.selectFrom("sales.ticket as t").innerJoin("admission.admission as a", "a.ticket_id", "t.id")
+      .select(["t.id", "a.status"]).where("t.reservation_id", "=", id).where("t.status", "=", "valid").execute();
+    if (!valid.length) return;
+    // Tickets whose admissions were never activated (not paid) were never usable: they go also
+    // after the start. Once any admits, the usual rule holds (occurrence_started).
+    const neverUsable = valid.every((t) => t.status === "pending");
+    await cancelTickets(tx, tenantId, row, holds, null, { by: "channel", refundRef: null, evenIfStarted: neverUsable }, now);
     return;
   }
   if (row.status === "held") for (const h of holds) await inventory.endHold(tx, h.hold_id, false, now);

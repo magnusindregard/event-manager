@@ -130,9 +130,10 @@ export class FakeVipps implements VippsClient {
     if (this.seen.has(`cancel:${idempotencyKey}`)) return;
     if (p.state === "CREATED") p.state = "TERMINATED";
     else if (p.state === "AUTHORIZED") {
-      if (p.captured > 0) throw new VippsError("Vipps cancel: 400 payment is captured", 400);
-      p.cancelled = p.authorized;
-      p.state = "TERMINATED";
+      if (p.captured >= p.authorized || p.cancelled > 0) throw new VippsError("Vipps cancel: 400 nothing left to cancel", 400);
+      // After a partial capture only the rest is cancelled, and the payment stays AUTHORIZED.
+      p.cancelled = p.authorized - p.captured;
+      if (p.captured === 0) p.state = "TERMINATED";
     } else throw new VippsError(`Vipps cancel: 400 payment is ${p.state}`, 400);
     this.seen.add(`cancel:${idempotencyKey}`);
     this.calls.push({ op: "cancel", reference, idempotencyKey });
