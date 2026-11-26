@@ -592,8 +592,42 @@ describe("sending to a guest", () => {
     expect(welcomes()).toEqual([]);
     const at = await jobRunAt(`reminder:${reg.id}`);
     expect(at?.getTime()).toBe(start.getTime() - DAY);
-    const row = await run((tx) => tx.selectFrom("registration.registration").select(["reminded_at", "reminder_detail"]).where("id", "=", reg.id).executeTakeFirstOrThrow());
-    expect(row).toMatchObject({ reminded_at: null, reminder_detail: expect.stringMatching(/at the reminder time/) });
+    const row = await run((tx) => tx.selectFrom("registration.registration").select(["reminded_at", "reminder_detail", "reminder_refusal"]).where("id", "=", reg.id).executeTakeFirstOrThrow());
+    expect(row).toMatchObject({ reminded_at: null, reminder_detail: expect.stringMatching(/at the reminder time/), reminder_refusal: expect.stringMatching(/CANCELED/) });
+
+    // HubSpot is disconnected before the reminder time comes; the platform's welcome still goes,
+    // on HubSpot's earlier answer, without asking HubSpot again.
+    await run((tx) => integrations.disconnect(tx, ctx, "hubspot"));
+    await moveTo(occ.id, new Date(Date.now() + DAY / 2));
+    const calls = hubspot.calls.length;
+    await drain();
+    expect(hubspot.calls.slice(calls).filter((c) => c.startsWith("sendStatus") || c.startsWith("singleSend"))).toEqual([]);
+    expect(welcomes()).toHaveLength(1);
+    const done = await run((tx) => tx.selectFrom("registration.registration").select(["reminded_at", "reminder_channel"]).where("id", "=", reg.id).executeTakeFirstOrThrow());
+    expect(done.reminder_channel).toBe("platform");
+    expect(done.reminded_at).not.toBeNull();
+  });
+
+  it("sends no pre-event welcome from the platform when the event starts while the job asks HubSpot", async () => {
+    await connect();
+    const { occ, reg } = await welcomeDue("Startet under kallet");
+    const read = hubspot.sendStatus.bind(hubspot);
+    hubspot.sendStatus = async (token, statusId) => {
+      // The occurrence starts a moment from now; HubSpot answers after it has.
+      await moveTo(occ.id, new Date(Date.now() + 300));
+      await new Promise((r) => setTimeout(r, 600));
+      return { ...(await read(token, statusId)), status: "COMPLETE", sendResult: "CANCELED" };
+    };
+    mailer.sent.length = 0;
+    try {
+      await moveTo(occ.id, new Date(Date.now() + DAY / 2));
+      await drain(3);
+    } finally {
+      hubspot.sendStatus = read;
+    }
+    expect(welcomes()).toEqual([]);
+    const row = await run((tx) => tx.selectFrom("registration.registration").select(["reminder_detail"]).where("id", "=", reg.id).executeTakeFirstOrThrow());
+    expect(row.reminder_detail).toMatch(/no longer due/);
   });
 
   it("sends the welcome before the event through HubSpot, with a link to the guest's manage page", async () => {

@@ -313,6 +313,7 @@ export interface RegistrationTable {
   reminder_detail: string | null;
   reminder_portal_id: string | null;
   reminder_status_at: Timestamp | null;
+  reminder_refusal: string | null;
   form_version: number | null;
   sensitive_consent_at: Timestamp | null;
   anonymised_at: Timestamp | null;

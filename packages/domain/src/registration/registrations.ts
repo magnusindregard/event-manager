@@ -529,10 +529,21 @@ export async function markReminded(tx: Tx, id: string, now: Date = new Date()): 
 }
 
 /** What the welcome's HubSpot send left: its status id, if HubSpot accepted it (docs/hubspot.md). */
-export async function reminderStatusId(tx: Tx, id: string): Promise<{ statusId: string; portalId: string | null; takenAt: Date | null } | null> {
-  const r = await tx.selectFrom("registration.registration").select(["reminder_status_id", "reminder_portal_id", "reminder_channel", "reminder_status_at"]).where("id", "=", id).executeTakeFirst();
+/**
+ * `refusal`: HubSpot has confirmed it did not send the welcome, and the platform's own was put off
+ * to a later reminder time: nothing is left to read from HubSpot, only the platform sends.
+ */
+export async function reminderStatusId(tx: Tx, id: string): Promise<{ statusId: string; portalId: string | null; takenAt: Date | null; refusal: string | null } | null> {
+  const r = await tx.selectFrom("registration.registration").select(["reminder_status_id", "reminder_portal_id", "reminder_channel", "reminder_status_at", "reminder_refusal"]).where("id", "=", id).executeTakeFirst();
   // Resolved already (sent by either channel): nothing left to read.
-  return r?.reminder_status_id && !r.reminder_channel ? { statusId: r.reminder_status_id, portalId: r.reminder_portal_id, takenAt: r.reminder_status_at } : null;
+  return r?.reminder_status_id && !r.reminder_channel
+    ? { statusId: r.reminder_status_id, portalId: r.reminder_portal_id, takenAt: r.reminder_status_at, refusal: r.reminder_refusal }
+    : null;
+}
+
+/** HubSpot confirmed it did not send the welcome; the platform sends its own later. */
+export async function recordReminderRefusal(tx: Tx, id: string, refusal: string, detail: string): Promise<void> {
+  await tx.updateTable("registration.registration").set({ reminder_refusal: refusal.slice(0, 500), reminder_detail: detail.slice(0, 500) }).where("id", "=", id).execute();
 }
 
 /** HubSpot accepted the welcome: kept so a retry reads the result instead of sending again. */

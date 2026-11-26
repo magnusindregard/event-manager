@@ -439,7 +439,8 @@ export async function unresolvedProviderSends(tx: Tx, portalId: string): Promise
       .where("sent_at", "is", null)
       .where((eb) => eb.or([eb("delivery_status", "=", "queued"), eb("provider_unresolved_at", "is not", null)])).execute(),
     tx.selectFrom("registration.registration").select("id").where("reminder_status_id", "is not", null).where("reminder_portal_id", "=", portalId)
-      .where("reminder_channel", "is", null).where("reminded_at", "is", null).execute(),
+      // A welcome HubSpot refused is the platform's to send, at its time: nothing to resume.
+      .where("reminder_channel", "is", null).where("reminder_refusal", "is", null).where("reminded_at", "is", null).execute(),
   ]);
   return { sends: sends.map((r) => r.id), welcomes: welcomes.map((r) => r.id) };
 }
