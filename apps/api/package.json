@@ -17,6 +17,7 @@
     "@azure/monitor-opentelemetry": "^1.21.0",
     "@event-manager/db": "workspace:*",
     "@event-manager/domain": "workspace:*",
+    "@event-manager/hubspot": "workspace:*",
     "@event-manager/schemas": "workspace:*",
     "@event-manager/vipps": "workspace:*",
     "@fastify/cors": "^11.0.0",

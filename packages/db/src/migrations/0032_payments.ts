@@ -2,15 +2,8 @@ import { type Kysely, sql } from "kysely";
 
 // Hosted checkout milestone 1 (docs/checkout.md, ADR 0018): payments with Vipps MobilePay.
 //
-// Numbered 0030 so it stays clear of the paused HubSpot branch's 0022–0029. When that branch
-// resumes, its migrations are renumbered above this one.
-//
-// The data key moves from registration to platform: envelope encryption is now shared, so the
-// payments module can encrypt the client's Vipps keys with the same per-tenant key. This is the
-// same move the HubSpot branch makes. The stored format and the rows are unchanged, and the
-// policies and grants move with the table. Apps on the previous image keep running while this
-// migrates, so registration.data_key stays as a view over the moved table until a later migration
-// drops it. security_invoker applies the caller's role and row-level security through the view.
+// The client's Vipps keys are encrypted with the account's data key (platform.data_key, shared
+// since 0022_integrations).
 //
 // A new module, payments, holds each account's provider account (its own Vipps merchant: the
 // platform initiates payments on the client's behalf and never holds money), one payment per
@@ -22,10 +15,6 @@ import { type Kysely, sql } from "kysely";
 // Sales channels get a new kind, hosted: the platform's own checkout, at most one per account.
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`
-    ALTER TABLE registration.data_key SET SCHEMA platform;
-    CREATE VIEW registration.data_key WITH (security_invoker = true) AS SELECT * FROM platform.data_key;
-    GRANT SELECT, INSERT, UPDATE ON registration.data_key TO em_app;
-
     -- Not used as a literal in this migration, so it may be added inside the migration's
     -- transaction. IF NOT EXISTS: down cannot drop enum values.
     ALTER TYPE offers.channel_kind ADD VALUE IF NOT EXISTS 'hosted';
@@ -179,7 +168,5 @@ export async function down(db: Kysely<unknown>): Promise<void> {
       DROP COLUMN merchant_legal_name, DROP COLUMN merchant_org_number, DROP COLUMN merchant_address, DROP COLUMN merchant_vat_registered;
     DROP INDEX offers.sales_channel_one_hosted;
     -- 'hosted' stays on offers.channel_kind; enum values cannot be dropped.
-    DROP VIEW registration.data_key;
-    ALTER TABLE platform.data_key SET SCHEMA registration;
   `.execute(db);
 }

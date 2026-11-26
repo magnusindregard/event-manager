@@ -312,6 +312,12 @@ export interface RegistrationTable {
   cancelled_at: Timestamp | null;
   cancelled_by: CancelledBy | null;
   reminded_at: Timestamp | null;
+  reminder_channel: SendChannel | null;
+  reminder_status_id: string | null;
+  reminder_detail: string | null;
+  reminder_portal_id: string | null;
+  reminder_status_at: Timestamp | null;
+  reminder_refusal: string | null;
   form_version: number | null;
   sensitive_consent_at: Timestamp | null;
   anonymised_at: Timestamp | null;
@@ -322,6 +328,8 @@ export interface RegistrationTable {
 
 export type InvitationStatus = "pending" | "sent" | "accepted" | "declined";
 export type SendKind = "invitation" | "reminder";
+/** Who sent a guest email: the platform's own mail service, or HubSpot's single-send API (docs/hubspot.md). */
+export type SendChannel = "platform" | "hubspot";
 export type DeliveryStatus = "queued" | "sent" | "delivered" | "bounced" | "spam_complaint" | "failed";
 
 export interface GuestInvitationTable {
@@ -355,6 +363,11 @@ export interface InvitationSendTable {
   delivery_status: Generated<DeliveryStatus>;
   delivery_detail: string | null;
   delivery_at: Timestamp | null;
+  channel: ColumnType<SendChannel, SendChannel | undefined, SendChannel>;
+  provider_status_id: string | null;
+  fallback_reason: string | null;
+  provider_portal_id: string | null;
+  provider_unresolved_at: Timestamp | null;
 }
 
 export interface GuestImportTable {
@@ -405,6 +418,133 @@ export interface DataKeyTable {
   master_key_id: string;
   created_at: GeneratedTimestamp;
   updated_at: GeneratedTimestamp;
+}
+
+export type IntegrationProvider = "hubspot";
+export type ConnectionStatus = "active" | "needs_reconnect" | "disconnected";
+
+export interface ConnectionTable {
+  id: string;
+  tenant_id: string;
+  provider: IntegrationProvider;
+  status: ConnectionStatus;
+  external_account_id: string;
+  scopes: ColumnType<string[], string[] | undefined, string[]>;
+  settings: ColumnType<unknown, string | undefined, string>;
+  setup_status: ColumnType<"pending" | "done" | "failed", "pending" | "done" | "failed" | undefined, "pending" | "done" | "failed">;
+  setup_error: string | null;
+  setup_at: Timestamp | null;
+  status_reason: string | null;
+  connected_by: string | null;
+  connected_at: Timestamp;
+  generation: Generated<number>;
+  disconnected_at: Timestamp | null;
+  /** What the nightly segment reconcile found and fixed (milestone 3). */
+  last_reconcile: ColumnType<unknown, string | null | undefined, string | null>;
+  /** What the setup made or found in the portal (milestone 4). */
+  portal_setup: ColumnType<unknown, string | undefined, string>;
+  last_cleanup: ColumnType<unknown, string | null | undefined, string | null>;
+  cleanup_disconnect_requested_at: Timestamp | null;
+  cleanup_disconnect_requested_by: string | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface CredentialTable {
+  connection_id: string;
+  tenant_id: string;
+  ciphertext: Buffer;
+  access_expires_at: Timestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export type SyncItemKind = "contact" | "marketing_event" | "attendance" | "segment" | "segment_member";
+
+export interface SyncItemTable {
+  tenant_id: string;
+  connection_id: string;
+  kind: SyncItemKind;
+  local_key: string;
+  remote_id: string | null;
+  data: ColumnType<unknown, string | undefined, string>;
+  created_by_us: boolean | null;
+  synced_state: string | null;
+  dirty: Generated<boolean>;
+  attempts: Generated<number>;
+  last_error: string | null;
+  last_synced_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export type CleanupStatus = "none" | "pending" | "kept" | "failed";
+
+export interface ContactStateTable {
+  tenant_id: string;
+  connection_id: string;
+  email: string;
+  contact_id: string | null;
+  created_by_us: Generated<boolean>;
+  marketable_before: boolean | null;
+  subscriptions_before: ColumnType<unknown, string | undefined, string>;
+  subscriptions_set: ColumnType<string[], string[] | undefined, string[]>;
+  marketing_by_us_at: Timestamp | null;
+  needed_until: Timestamp | null;
+  cleanup_status: ColumnType<CleanupStatus, CleanupStatus | undefined, CleanupStatus>;
+  cleanup_reason: string | null;
+  cleanup_at: Timestamp | null;
+  prepared_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export type HubSpotEmailKind = "invitation" | "reminder" | "welcome";
+
+export interface EventSendingTable {
+  tenant_id: string;
+  event_id: string;
+  channel: ColumnType<SendChannel, SendChannel | undefined, SendChannel>;
+  templates: ColumnType<unknown, string | undefined, string>;
+  texts: ColumnType<unknown, string | undefined, string>;
+  marketing_check: ColumnType<unknown, string | null | undefined, string | null>;
+  updated_by: string | null;
+  version: Generated<number>;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface EventEmailTable {
+  tenant_id: string;
+  connection_id: string;
+  event_id: string;
+  kind: HubSpotEmailKind;
+  template_id: string;
+  remote_id: string | null;
+  name: string | null;
+  subject: string | null;
+  preview_text: string | null;
+  status: ColumnType<"pending" | "ready" | "failed", "pending" | "ready" | "failed" | undefined, "pending" | "ready" | "failed">;
+  error: string | null;
+  warnings: ColumnType<string[], string[] | undefined, string[]>;
+  first_sent_at: Timestamp | null;
+  created_at: GeneratedTimestamp;
+  updated_at: GeneratedTimestamp;
+}
+
+export interface GuestListSourceTable {
+  tenant_id: string;
+  event_id: string;
+  provider: "hubspot";
+  list_id: string;
+  list_name: string;
+  status: ColumnType<"fetching" | "ready" | "failed", "fetching" | "ready" | "failed" | undefined, "fetching" | "ready" | "failed">;
+  import_id: string | null;
+  error: string | null;
+  member_count: number | null;
+  requested_by: string | null;
+  requested_at: GeneratedTimestamp;
+  fetched_at: Timestamp | null;
 }
 
 export interface TokenKeyTable {
@@ -767,7 +907,6 @@ export interface DB {
   "registration.form_version": FormVersionTable;
   "registration.answer": AnswerTable;
   "registration.sensitive_answer": SensitiveAnswerTable;
-  "platform.data_key": DataKeyTable;
   "admission.admission": AdmissionTable;
   "offers.vat_class": VatClassTable;
   "offers.offer": OfferTable;
@@ -793,6 +932,14 @@ export interface DB {
   "tenancy.api_key": ApiKeyTable;
   "outbox.event": OutboxEventTable;
   "outbox.handled": OutboxHandledTable;
+  "platform.data_key": DataKeyTable;
+  "integrations.connection": ConnectionTable;
+  "integrations.credential": CredentialTable;
+  "integrations.sync_item": SyncItemTable;
+  "integrations.contact_state": ContactStateTable;
+  "integrations.event_sending": EventSendingTable;
+  "integrations.event_email": EventEmailTable;
+  "integrations.guest_list_source": GuestListSourceTable;
   "payments.provider_account": ProviderAccountTable;
   "payments.payment": PaymentTable;
   "payments.refund": RefundTable;

@@ -14,6 +14,7 @@ import { type Account, ApiProblem, unwrap } from "../api.js";
 import { useApp } from "../AppContext.js";
 import { useAccount } from "../queries.js";
 import { ApiKeys } from "./settings/ApiKeys.js";
+import { Integrations } from "./settings/Integrations.js";
 import { Payments } from "./settings/Payments.js";
 import { SalesChannels, SkuMappings } from "./settings/SalesChannels.js";
 import { TagVocabularies } from "./settings/TagVocabularies.js";
@@ -176,6 +177,7 @@ export function Settings() {
       <VatClasses canEdit={canEdit} />
       <SalesChannels canEdit={canEdit} />
       <SkuMappings canEdit={canEdit} />
+      <Integrations canEdit={canEdit} />
       <Payments canEdit={canEdit} />
       {canEdit && <ApiKeys />}
 

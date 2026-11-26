@@ -30,6 +30,8 @@ param mailFrom string = ''
 param postmarkWebhook bool = false
 @description('Master keys for sensitive registration answers. Needs Key Vault secret "sensitive-data-keys" holding "id:base64-32-bytes".')
 param sensitiveDataKeys bool = false
+@description('Client id of our HubSpot app (docs/hubspot.md). Needs Key Vault secret "hubspot-client-secret" and sensitiveDataKeys. Empty: connecting HubSpot is off.')
+param hubspotClientId string = ''
 @description('Hosted checkout with Vipps MobilePay (docs/checkout.md). Needs sensitiveDataKeys.')
 param vippsPayments bool = false
 @description('Admin URL in invitation emails. Defaults to where the admin is served (Front Door, or the storage static website without it).')
@@ -182,6 +184,7 @@ module apps 'modules/apps.bicep' = if (deployApps) {
     mailFrom: mailFrom
     postmarkWebhook: postmarkWebhook
     sensitiveDataKeys: sensitiveDataKeys
+    hubspotClientId: hubspotClientId
     vippsPayments: vippsPayments
     adminUrl: !empty(adminUrl) ? adminUrl : (deployFrontDoor ? '' : '${adminWebOrigin}/')
     corsOrigins: adminOrigin

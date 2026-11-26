@@ -478,6 +478,100 @@
         "--strictPort"
       ],
       "port": 5210
+    },
+    {
+      "name": "api-hs",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3090",
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_hs",
+        "CORS_ORIGINS=http://localhost:5215",
+        "OIDC_ISSUER=",
+        "OIDC_AUDIENCE=",
+        "ADMIN_URL=http://localhost:5215/",
+        "HUBSPOT=fake",
+        "pnpm",
+        "--filter",
+        "@event-manager/api",
+        "dev"
+      ],
+      "port": 3090
+    },
+    {
+      "name": "worker-hs",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_hs",
+        "HUBSPOT=fake",
+        "pnpm",
+        "--filter",
+        "@event-manager/worker",
+        "dev"
+      ],
+      "port": 3995
+    },
+    {
+      "name": "admin-hs",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_AUTH_MODE=dev",
+        "VITE_API_BASE_URL=http://localhost:3090",
+        "pnpm",
+        "--filter",
+        "@event-manager/admin",
+        "exec",
+        "vite",
+        "--port",
+        "5215",
+        "--strictPort"
+      ],
+      "port": 5215
+    },
+    {
+      "name": "api-hubspot",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=3090",
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_hs",
+        "CORS_ORIGINS=http://localhost:5173",
+        "OIDC_ISSUER=",
+        "OIDC_AUDIENCE=",
+        "ADMIN_URL=http://localhost:5173/",
+        "pnpm",
+        "--filter",
+        "@event-manager/api",
+        "dev"
+      ],
+      "port": 3090
+    },
+    {
+      "name": "worker-hubspot",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DATABASE_URL=postgres://app_user:app_user@localhost:5432/event_manager_hs",
+        "pnpm",
+        "--filter",
+        "@event-manager/worker",
+        "dev"
+      ],
+      "port": 3994
+    },
+    {
+      "name": "admin-hubspot",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_AUTH_MODE=dev",
+        "VITE_API_BASE_URL=http://localhost:3090",
+        "pnpm",
+        "--filter",
+        "@event-manager/admin",
+        "exec",
+        "vite",
+        "--port",
+        "5173",
+        "--strictPort"
+      ],
+      "port": 5173
     }
   ]
 }

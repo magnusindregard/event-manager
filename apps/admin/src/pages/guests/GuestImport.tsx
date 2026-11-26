@@ -1,6 +1,6 @@
-import { useMutation } from "@tanstack/react-query";
-import { CircleAlert, FileUp } from "lucide-react";
-import { type ChangeEvent, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { CircleAlert, FileUp, RefreshCw, Search } from "lucide-react";
+import { type ChangeEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Field } from "@/components/page";
@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,6 +18,11 @@ import { useApp } from "../../AppContext.js";
 // Guest list import (docs/registration.md, "Guest list import"): upload, map columns,
 // preview, import. Nothing is saved before the last step, and guests missing from the file
 // are only removed if staff tick them.
+//
+// With HubSpot connected, the guests can come from a HubSpot list instead (docs/hubspot.md,
+// milestone 6): staff search the portal's lists and pick one; the worker fetches its members,
+// and the same mapping, preview and import follow. The event remembers the list, so "Refresh
+// from HubSpot" fetches it again.
 
 const FIELDS = ["email", "name", "firstName", "lastName", "locale", "guestAllowed", "externalContactId"] as const;
 type FieldKey = (typeof FIELDS)[number];
@@ -31,9 +37,21 @@ const toBase64 = (file: File) =>
     r.readAsDataURL(file);
   });
 
-export function GuestImport({ eventId, open, onClose, onDone }: { eventId: string; open: boolean; onClose: () => void; onDone: () => void }) {
+export function GuestImport({ eventId, open, onClose, onDone, hubspot = false, refresh = false }: {
+  eventId: string;
+  open: boolean;
+  onClose: () => void;
+  onDone: () => void;
+  /** HubSpot is connected: offer a HubSpot list as the source. */
+  hubspot?: boolean;
+  /** Open straight on fetching the remembered HubSpot list again. */
+  refresh?: boolean;
+}) {
   const { t } = useTranslation();
   const { api } = useApp();
+  const [source, setSource] = useState<"file" | "hubspot">("file");
+  /** Waiting for the worker to fetch a HubSpot list: the request's time, to tell its result from an earlier fetch's. */
+  const [fetching, setFetching] = useState<string | null>(null);
   const [draft, setDraft] = useState<GuestImportDraft | null>(null);
   const [mapping, setMapping] = useState<ImportMapping>({});
   const [preview, setPreview] = useState<GuestImportPreview | null>(null);
@@ -41,6 +59,8 @@ export function GuestImport({ eventId, open, onClose, onDone }: { eventId: strin
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
+    setFetching(null);
+    setSource("file");
     setDraft(null);
     setMapping({});
     setPreview(null);
@@ -118,6 +138,71 @@ export function GuestImport({ eventId, open, onClose, onDone }: { eventId: strin
     setPreview(null);
   };
 
+  /** Another source: what was staged from the other one goes. */
+  const switchTo = (k: "file" | "hubspot") => {
+    if (k === source) return;
+    if (draft) void api.DELETE("/v1/guest-imports/{id}", { params: { path: { id: draft.id } } });
+    reset();
+    setSource(k);
+  };
+  const takeDraft = (d: GuestImportDraft) => {
+    setDraft(d);
+    setMapping(d.mapping);
+    setPreview(null);
+    setError(null);
+  };
+
+  // ── From HubSpot ──
+  const fetchList = useMutation({
+    mutationFn: async (list: { listId: string; listName: string } | null) =>
+      unwrap(list
+        ? await api.POST("/v1/events/{id}/guest-source", { params: { path: { id: eventId } }, body: list })
+        : await api.POST("/v1/events/{id}/guest-source/refresh", { params: { path: { id: eventId } } })),
+    onMutate: () => {
+      setDraft(null);
+      setPreview(null);
+      setError(null);
+    },
+    onSuccess: (r) => setFetching(r.source?.requestedAt ?? null),
+    onError: (e) => setError(problem(e)),
+  });
+  const sourceQuery = useQuery({
+    queryKey: ["guest-source", eventId],
+    enabled: open && !!fetching,
+    queryFn: async () => unwrap(await api.GET("/v1/events/{id}/guest-source", { params: { path: { id: eventId } } })).source,
+    refetchInterval: 1500,
+  });
+  useEffect(() => {
+    const s = sourceQuery.data;
+    if (!fetching || !s) return;
+    // The page caches this query: until the fresh read comes back it may still show the last fetch's result.
+    if (s.requestedAt < fetching) return;
+    // Someone (another tab) asked for a fetch since: this one's result will never come.
+    if (s.requestedAt > fetching) {
+      setFetching(null);
+      return setError(t("guests.import.superseded"));
+    }
+    if (s.status === "fetching") return;
+    setFetching(null);
+    if (s.status === "failed") return setError(s.error ?? t("error.generic"));
+    if (!s.importId) return setError(t("guests.import.expired"));
+    void (async () => {
+      try {
+        takeDraft(unwrap(await api.GET("/v1/guest-imports/{id}", { params: { path: { id: s.importId! } } })));
+      } catch (e) {
+        setError(problem(e));
+      }
+    })();
+    // takeDraft and problem only set state.
+  }, [sourceQuery.data, fetching]);
+  // "Refresh from HubSpot": start at once.
+  useEffect(() => {
+    if (open && refresh) {
+      setSource("hubspot");
+      fetchList.mutate(null);
+    }
+  }, [open, refresh]);
+
   const removable = preview?.missing.filter((m) => m.removable) ?? [];
   const blocked = preview?.missing.filter((m) => !m.removable) ?? [];
 
@@ -130,6 +215,19 @@ export function GuestImport({ eventId, open, onClose, onDone }: { eventId: strin
         </DialogHeader>
 
         <div className="grid gap-5">
+          {hubspot && !refresh && (
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t("guests.import.source")}>
+              {(["file", "hubspot"] as const).map((k) => (
+                <Button key={k} size="sm" role="radio" aria-checked={source === k} variant={source === k ? "default" : "outline"}
+                  onClick={() => switchTo(k)}>
+                  {t(`guests.import.sources.${k}`)}
+                </Button>
+              ))}
+            </div>
+          )}
+          {source === "hubspot" ? (
+            <HubSpotListPicker disabled={fetchList.isPending || !!fetching} onPick={(l) => fetchList.mutate(l)} hideSearch={refresh} />
+          ) : (
           <div className="flex flex-wrap items-center gap-3">
             <Button asChild variant={draft ? "outline" : "default"} disabled={upload.isPending}>
               <label htmlFor="guest-file" className="cursor-pointer">
@@ -140,6 +238,11 @@ export function GuestImport({ eventId, open, onClose, onDone }: { eventId: strin
             {upload.isPending && <span className="text-sm text-muted-foreground">{t("guests.import.reading")}</span>}
             {draft && <span className="text-sm">{t("guests.import.fileInfo", { name: draft.fileName, count: draft.rowCount })}</span>}
           </div>
+          )}
+          {(fetchList.isPending || !!fetching) && (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground"><RefreshCw className="size-4 animate-spin" /> {t("guests.import.fetching")}</p>
+          )}
+          {source === "hubspot" && draft && <p className="text-sm">{t("guests.import.fileInfo", { name: draft.fileName, count: draft.rowCount })}</p>}
 
           {error && (
             <Alert variant="destructive">
@@ -255,5 +358,43 @@ export function GuestImport({ eventId, open, onClose, onDone }: { eventId: strin
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Searches the portal's contact lists by name; picking one fetches it. */
+function HubSpotListPicker({ onPick, disabled, hideSearch }: { onPick: (l: { listId: string; listName: string }) => void; disabled: boolean; hideSearch: boolean }) {
+  const { t } = useTranslation();
+  const { api, accountId } = useApp();
+  const [q, setQ] = useState("");
+  const [term, setTerm] = useState("");
+  const lists = useQuery({
+    queryKey: ["hubspot-lists", accountId, term],
+    enabled: !hideSearch,
+    queryFn: async () => unwrap(await api.GET("/v1/integrations/hubspot/lists", { params: { query: { q: term } } })).items,
+  });
+  if (hideSearch) return null;
+  return (
+    <div className="grid gap-2">
+      <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setTerm(q.trim()); }}>
+        <Input type="search" className="w-full sm:w-72" placeholder={t("guests.import.searchLists")} aria-label={t("guests.import.searchLists")} value={q} onChange={(e) => setQ(e.target.value)} />
+        <Button type="submit" variant="outline"><Search /> {t("guests.import.search")}</Button>
+      </form>
+      {lists.error && <p className="text-sm text-destructive">{lists.error.message}</p>}
+      {lists.data && lists.data.length === 0 && <p className="text-sm text-muted-foreground">{t("guests.import.noLists")}</p>}
+      {lists.data && lists.data.length > 0 && (
+        <ul className="max-h-56 divide-y overflow-y-auto rounded-md border text-sm">
+          {lists.data.map((l) => (
+            <li key={l.listId} className="flex items-center justify-between gap-2 px-3 py-2">
+              <span>
+                {l.name}
+                <span className="text-muted-foreground"> · {l.size === null ? t(`guests.import.listKinds.${l.processingType === "MANUAL" ? "static" : "active"}`) : t("guests.import.members", { count: l.size })}</span>
+              </span>
+              <Button size="sm" variant="outline" disabled={disabled} onClick={() => onPick({ listId: l.listId, listName: l.name })}>{t("guests.import.useList")}</Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-xs text-muted-foreground">{t("guests.import.hubspotHint")}</p>
+    </div>
   );
 }

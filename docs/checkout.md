@@ -81,7 +81,7 @@ The plain cancel (`/cancel`) refuses reservations paid in the hosted checkout, b
 - `tenancy.account`: the merchant details.
 - `offers.sales_channel.kind`: `hosted`, at most one per account.
 
-Every table has row-level security (ADR 0004). Migration `0030_payments` also moves the data key to `platform.data_key`, as the HubSpot branch does, and leaves a view at the old name for the rolling deploy.
+Every table has row-level security (ADR 0004). The migration is `0032_payments`. The keys are encrypted with the account's data key in `platform.data_key`, shared with the HubSpot connector.
 
 ## Configuration
 
@@ -93,7 +93,7 @@ Every table has row-level security (ADR 0004). Migration `0030_payments` also mo
 
 ## Milestones
 
-1. **Foundations** (done): ADR 0018 and this document; the secrets move to `shared`; migration 0030; `packages/vipps` (client, fake, webhook signatures); the payments module (connect, verify, disconnect); merchant details; Settings → Payments.
+1. **Foundations** (done): ADR 0018 and this document; migration 0032; `packages/vipps` (client, fake, webhook signatures); the payments module (connect, verify, disconnect); merchant details; Settings → Payments.
 2. **Buy flow** (done): attendee pages, `startCheckout`, `processPayment` (confirm, capture and cancel), the tickets and receipt emails, enabling the hosted channel.
 3. **Webhooks and reconciliation** (done): the webhook route, the worker job, the reconcile cron, and how expiry interacts with payments.
 4. **Refunds and admin visibility** (done): staff refunds of whole or partial reservations, payment state in Sales, outbox events.

@@ -373,7 +373,23 @@ gh variable set SENSITIVE_ANSWERS --env staging --body true
 
 Never delete or overwrite the key: answers encrypted with it cannot be read without it. To rotate,
 put the new key first and keep the old one (`k2:<new>,k1:<old>`), rewrap each account's data key
-(`registration.rewrapDataKey`), then drop the old one. Without the key, forms cannot take sensitive answers.
+(`rewrapDataKey`), then drop the old one. Without the key, forms cannot take sensitive answers.
+
+### 4e. HubSpot app
+
+Connecting HubSpot (docs/hubspot.md) needs our HubSpot app (`integrations/hubspot-app/`) and the
+master key from 4d, since OAuth tokens are encrypted with each account's data key. Register the
+admin's callback page, `<admin>/integrations/hubspot/callback`, as a redirect URL in the app, then:
+
+```bash
+az keyvault secret set --vault-name <kv-em-staging-…> -n hubspot-client-secret --value '<client secret>'
+gh variable set HUBSPOT_CLIENT_ID --env staging --body '<client id>'
+```
+
+The api gets `HUBSPOT_CLIENT_ID`, `HUBSPOT_CLIENT_SECRET` and the redirect URL from `ADMIN_URL`; the
+worker gets the client credentials and the master key. Without `HUBSPOT_CLIENT_ID` the admin says
+HubSpot is not set up. Locally, `HUBSPOT=fake` on the api and the worker gives a fake portal that
+approves installs at once.
 
 ### 4e. Hosted checkout with Vipps MobilePay
 

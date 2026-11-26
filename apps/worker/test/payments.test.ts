@@ -31,7 +31,7 @@ async function drain() {
     await admin.query(`update graphile_worker._private_jobs set run_at = now() where locked_at is null`);
     await runOnce({
       connectionString: tdb.appUrl,
-      taskList: buildTaskList(db, defaultHandlers, { directory: new FakeDirectory(), mailer, adminUrl: "https://admin.test/" }, { mailer, attendeeUrl: "https://attend.test/" }, { provider: vipps, mailer }),
+      taskList: buildTaskList(db, defaultHandlers, { directory: new FakeDirectory(), mailer, adminUrl: "https://admin.test/" }, { mailer, attendeeUrl: "https://attend.test/" }, null, { provider: vipps, mailer }),
     });
   }
 }

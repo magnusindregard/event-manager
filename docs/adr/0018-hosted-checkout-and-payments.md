@@ -1,6 +1,6 @@
 # 0018 – Hosted checkout and payments: Vipps MobilePay on the client's own merchant
 
-**Status:** Accepted · 2026-11-25 · Refines 0010 (payments, phase 3) · Number 0017 is taken by the HubSpot connector (on hold)
+**Status:** Accepted · 2026-11-25 · Refines 0010 (payments, phase 3) · Follows 0017 (HubSpot connector)
 
 ## Context
 
