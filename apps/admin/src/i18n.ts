@@ -386,6 +386,7 @@ const resources = {
           disconnectLeaves_other: "{{count}} kontakter som plattformen har opprettet eller gjort til markedsføringskontakter, blir værende hvis dere bare kobler fra.",
           disconnectQueued: "Rydder opp i HubSpot og kobler fra i bakgrunnen",
           running: "Rydder opp i HubSpot før frakobling …",
+          cancel: "Avbryt", cancelled: "Opprydding og frakobling er avbrutt. Det som allerede er ryddet, er ryddet.",
         },
         log: {
           title: "Synkronisering", lastSynced: "Sist synkronisert {{date}}", never: "Ingenting synkronisert ennå",
@@ -867,6 +868,7 @@ const resources = {
           disconnectLeaves_other: "{{count}} contacts the platform created or made marketing contacts stay in HubSpot if you only disconnect.",
           disconnectQueued: "Cleaning up in HubSpot and disconnecting in the background",
           running: "Cleaning up in HubSpot before disconnecting …",
+          cancel: "Cancel", cancelled: "Clean up and disconnect is cancelled. What was already cleaned up stays cleaned up.",
         },
         log: {
           title: "Sync", lastSynced: "Last synced {{date}}", never: "Nothing synced yet",

@@ -147,6 +147,31 @@ describe("setup", () => {
     expect((await connection()).portalSetup.temporaryListId).toBe(listNamed(TEMPORARY_LIST)!.listId);
   });
 
+  it("creates the workflow switched off and then switches it on, and repairs a failed switch-on without a second workflow", async () => {
+    const enable = hubspot.enableWorkflow.bind(hubspot);
+    hubspot.enableWorkflow = async () => {
+      throw new HubSpotError("HubSpot PUT /automation/v4/flows/1: 400 Invalid request", 400);
+    };
+    try {
+      await connect();
+    } finally {
+      hubspot.enableWorkflow = enable;
+    }
+    const c = await connection();
+    expect(c.setup).toMatchObject({ status: "failed", error: expect.stringContaining("400") });
+    const [flow] = [...portal().workflows.values()];
+    expect(flow!.enabled).toBe(false);
+    // The workflow made before the failure is known, so repairing switches that one on.
+    expect(c.portalSetup).toMatchObject({ workflowId: flow!.id, workflowEnabled: false });
+    expect(hubspot.calls.filter((x) => x.startsWith("createNonMarketingWorkflow"))).toHaveLength(1);
+    await run((tx) => integrations.requestSetup(tx, ctx, "hubspot"));
+    await drain();
+    expect((await connection()).setup.status).toBe("done");
+    expect(portal().workflows.size).toBe(1);
+    expect(flow!.enabled).toBe(true);
+    expect(hubspot.calls.filter((x) => x.startsWith("createNonMarketingWorkflow"))).toHaveLength(1);
+  });
+
   it("only checks the portal without the cleanup scopes, and refuses an unknown event subscription type", async () => {
     await connect([...REQUIRED_SCOPES]);
     expect(listNamed(TEMPORARY_LIST)).toBeUndefined();
@@ -371,6 +396,41 @@ describe("clean up and disconnect", () => {
     expect(hubspot.calls).toContain("revoke");
     const audit = await run((tx) => tx.selectFrom("tenancy.audit_log").select(["action", "actor_user_id"]).where("action", "=", "integration.disconnected").orderBy("at", "desc").executeTakeFirstOrThrow());
     expect(audit.actor_user_id).toBe(ctx.userId);
+  });
+
+  it("drops the request when HubSpot refuses our access, instead of hanging; a reconnect starts clean", async () => {
+    await connect();
+    await run((tx) => integrations.requestCleanupAndDisconnect(tx, ctx, "hubspot"));
+    // The install is replaced in HubSpot (to grant the optional scopes) before the cleanup runs.
+    hubspot.uninstall(PORTAL);
+    await drain();
+    let c = await connection();
+    expect(c.status).toBe("needs_reconnect");
+    expect(c.cleanupDisconnectRequestedAt).toBeNull();
+    expect(c.lastCleanup).toMatchObject({ error: expect.stringContaining("refused our access") });
+
+    // Asked again, then reconnected before it ran: the new install has nothing pending.
+    await admin.query(`update integrations.connection set cleanup_disconnect_requested_at = now() where tenant_id = $1`, [ctx.tenantId]);
+    const t = await hubspot.exchangeCode(hubspot.approve(PORTAL, ALL_SCOPES));
+    await run((tx) => integrations.saveConnection(tx, ctx, { provider: "hubspot", portalId: PORTAL, scopes: ALL_SCOPES, tokens: { ...t, accessExpiresAt: t.expiresAt }, requiredScopes: REQUIRED_SCOPES }));
+    c = await connection();
+    expect(c).toMatchObject({ status: "active", cleanupDisconnectRequestedAt: null });
+  });
+
+  it("lets an owner cancel a clean up and disconnect that has not run yet", async () => {
+    await connect();
+    const { event } = await gala("Avbrutt", new Date(Date.now() + 14 * DAY));
+    await invite(event.id, "kari@example.com");
+    await run((tx) => integrations.requestCleanupAndDisconnect(tx, ctx, "hubspot"));
+    await expect(run((tx) => integrations.cancelCleanupAndDisconnect(tx, { ...ctx, roles: ["event_manager"] }, "hubspot"))).rejects.toMatchObject({ code: "forbidden" });
+    const c = await run((tx) => integrations.cancelCleanupAndDisconnect(tx, ctx, "hubspot"));
+    expect(c.cleanupDisconnectRequestedAt).toBeNull();
+    await drain();
+    // The queued job found nothing to do: still connected, the contact still there.
+    expect((await connection()).status).toBe("active");
+    expect(portal().contacts.has("kari@example.com")).toBe(true);
+    // Cancelling again is a no-op.
+    expect((await run((tx) => integrations.cancelCleanupAndDisconnect(tx, ctx, "hubspot"))).version).toBe(c.version);
   });
 
   it("stays connected when a contact could not be cleaned up, and says so", async () => {

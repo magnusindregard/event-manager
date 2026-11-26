@@ -173,6 +173,10 @@ describe("/v1/integrations", () => {
     expect(q.body.cleanup.disconnectRequestedAt).not.toBeNull();
     // The worker does the rest; here the connection stays until it has.
     expect(q.body.status).toBe("active");
+    // Owners can stop it before it has finished.
+    expect((await call("DELETE", "/v1/integrations/hubspot/cleanup-and-disconnect", { as: "manager@a.test" })).status).toBe(403);
+    const stopped = await call("DELETE", "/v1/integrations/hubspot/cleanup-and-disconnect");
+    expect(stopped).toMatchObject({ status: 200, body: { status: "active", cleanup: { disconnectRequestedAt: null } } });
   });
 
   it("offers HubSpot sending for an event only when the account is ready for it, and takes the event's choice with If-Match", async () => {

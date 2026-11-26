@@ -942,7 +942,8 @@ export interface paths {
         put?: never;
         /** Owner only. Takes back what the platform did in the portal (deletes the contacts it created, sets back those it made marketing), then disconnects. Runs in the background; stays connected if a contact could not be cleaned up */
         post: operations["cleanUpAndDisconnectHubSpot"];
-        delete?: never;
+        /** Owner only. Stops a Clean up and disconnect that has not finished; the connection stays. What the cleanup already did in the portal stays done */
+        delete: operations["cancelHubSpotCleanup"];
         options?: never;
         head?: never;
         patch?: never;
@@ -12861,6 +12862,183 @@ export interface operations {
         responses: {
             /** @description Default Response */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** @enum {string} */
+                        provider: "hubspot";
+                        /** @description needs_reconnect: HubSpot refused our access (app uninstalled, access revoked); sync is paused until an owner connects again */
+                        status: "active" | "needs_reconnect" | "disconnected";
+                        statusReason: string | null;
+                        /** @description The HubSpot portal (hub) id */
+                        portalId: string;
+                        /** @description Scopes granted on install */
+                        scopes: string[];
+                        features: {
+                            /** @description Custom behavioural events can be sent (Marketing Hub Enterprise) */
+                            customEvents: boolean;
+                            /** @description Events can send their invitations, reminders and welcome through HubSpot */
+                            sending: boolean;
+                        };
+                        /** @description HubSpot sending (docs/hubspot.md) */
+                        sending: {
+                            blocker: string | null;
+                            /** @description The portal's emails saved for the single-send API, as the setup last read them */
+                            templates: {
+                                id: string;
+                                name: string;
+                                subscriptionId: string | null;
+                                /** @description The content has [[em:invitation_link]] */
+                                hasInvitationLink: boolean;
+                                /** @description The content has [[em:manage_link]] (for the welcome) */
+                                hasManageLink: boolean;
+                            }[];
+                            /** @description The client's own emails that use the subscription type for event emails, which only the platform's should */
+                            eventTypeUsedBy: {
+                                id: string;
+                                name: string;
+                            }[];
+                        };
+                        settings: {
+                            /** @description Upsert invited guests as HubSpot contacts */
+                            syncInvitedGuests: boolean;
+                            /** @description Upsert attendees of open registration as HubSpot contacts */
+                            syncOpenAttendees: boolean;
+                            eventSubscriptionTypeId: string | null;
+                            /** @description Days after a contact's last occurrence before the cleanup takes back what the platform did */
+                            cleanupGraceDays: number;
+                            /** @description Delete contacts the platform created only for mirroring, once no event needs them */
+                            deleteMirroredContacts: boolean;
+                            invitationTemplateId: string | null;
+                            reminderTemplateId: string | null;
+                            welcomeTemplateId: string | null;
+                        };
+                        /** @description Cleanup after HubSpot sending (docs/hubspot.md) */
+                        cleanup: {
+                            /** @description Cleanup scopes a portal admin has not allowed; HubSpot sending needs all of them */
+                            missingScopes: string[];
+                            /** @description The portal's subscription types, as the setup last read them */
+                            subscriptionTypes: {
+                                id: string;
+                                name: string;
+                                active: boolean;
+                            }[];
+                            workflowEnabled: boolean | null;
+                            nonMarketingWaiting: number | null;
+                            disconnectRequestedAt: string | null;
+                        };
+                        /** @description The setup job in the portal: a check that our token reaches the connected portal, and the cleanup segments and workflow */
+                        setup: {
+                            status: "pending" | "done" | "failed";
+                            error: string | null;
+                            at: string | null;
+                        };
+                        /** Format: date-time */
+                        connectedAt: string;
+                        disconnectedAt: string | null;
+                        version: number;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    cancelHubSpotCleanup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

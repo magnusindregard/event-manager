@@ -252,7 +252,10 @@ export interface HubSpotClient {
   deleteContact(accessToken: string, contactId: string): Promise<void>;
   /** The workflow, or null if HubSpot no longer has it. */
   getWorkflow(accessToken: string, flowId: string): Promise<Workflow | null>;
-  /** Creates the enabled contact workflow that sets contacts enrolled from the list to non-marketing and takes them out of it. */
+  /**
+   * Creates the contact workflow that sets contacts enrolled from the list to non-marketing, switched
+   * off: the shape spike run 16 proved. `enableWorkflow` switches it on.
+   */
   createNonMarketingWorkflow(accessToken: string, name: string, listId: string): Promise<Workflow>;
   /** Turns a workflow on. */
   enableWorkflow(accessToken: string, flowId: string): Promise<void>;
@@ -595,8 +598,10 @@ export class HttpHubSpot implements HubSpotClient {
 
   async createNonMarketingWorkflow(accessToken: string, name: string, listId: string): Promise<Workflow> {
     // Spike run 16: the action *Set marketing contact status* is actionTypeId 0-31.
+    // Created switched off, as in run 16: HubSpot refused an enabled one on staging ("Invalid
+    // request to flow creation"). enableWorkflow switches it on afterwards.
     const body = {
-      type: "CONTACT_FLOW", objectTypeId: "0-1", flowType: "WORKFLOW", isEnabled: true, name,
+      type: "CONTACT_FLOW", objectTypeId: "0-1", flowType: "WORKFLOW", isEnabled: false, name,
       startActionId: "1", nextAvailableActionId: "2",
       actions: [{ type: "SINGLE_CONNECTION", actionId: "1", actionTypeVersion: 0, actionTypeId: "0-31", fields: { marketableType: "NON_MARKETABLE" } }],
       enrollmentCriteria: {
@@ -613,7 +618,9 @@ export class HttpHubSpot implements HubSpotClient {
     // v4 updates take the whole flow with its revision.
     const f = (await this.call("GET", `/automation/v4/flows/${encodeURIComponent(flowId)}`, undefined, accessToken)) as RawFlow | null;
     if (!f) throw new HubSpotError(`HubSpot GET /automation/v4/flows/${flowId}: empty answer`, 502);
-    await this.call("PUT", `/automation/v4/flows/${encodeURIComponent(flowId)}`, { ...f, isEnabled: true }, accessToken);
+    // Read-only fields in the GET answer are left out of the update.
+    const { id: _id, createdAt: _c, updatedAt: _u, ...flow } = f as RawFlow & { createdAt?: unknown; updatedAt?: unknown };
+    await this.call("PUT", `/automation/v4/flows/${encodeURIComponent(flowId)}`, { ...flow, isEnabled: true }, accessToken);
   }
 
   async contactsByEmail(accessToken: string, emails: string[]): Promise<Map<string, { id: string; marketable: boolean }>> {
@@ -705,8 +712,13 @@ export class HttpHubSpot implements HubSpotClient {
     const text = await res.text().catch(() => "");
     let message = text.slice(0, 300);
     try {
-      const j = JSON.parse(text) as { message?: string };
+      // HubSpot's validation details are in `errors` (and sometimes `context`); without them a
+      // 400 says only "Invalid request".
+      const j = JSON.parse(text) as { message?: string; errors?: { message?: string; in?: string; context?: unknown }[]; context?: unknown };
       if (j.message) message = j.message;
+      const details = (j.errors ?? []).map((e) => [e.in, e.message, e.context ? JSON.stringify(e.context) : null].filter(Boolean).join(": ")).filter(Boolean);
+      if (!details.length && j.context) details.push(JSON.stringify(j.context));
+      if (details.length) message = `${message} (${details.join("; ").slice(0, 600)})`;
     } catch {
       // not JSON
     }

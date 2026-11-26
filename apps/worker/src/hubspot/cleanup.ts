@@ -60,8 +60,13 @@ export async function setUpCleanup(client: HubSpotClient, accessToken: string, c
   const temporaryListId = await ownList(client, accessToken, known.temporaryListId, TEMPORARY_LIST);
   const nonMarketingListId = await ownList(client, accessToken, known.nonMarketingListId, NON_MARKETING_LIST);
   let flow = known.workflowId ? await client.getWorkflow(accessToken, known.workflowId) : null;
-  if (!flow) flow = await client.createNonMarketingWorkflow(accessToken, NON_MARKETING_WORKFLOW, nonMarketingListId);
-  else if (!flow.enabled) await client.enableWorkflow(accessToken, flow.id);
+  if (!flow) {
+    // Created switched off, and its id recorded at once: if switching it on fails, Repair setup
+    // switches this one on rather than make another.
+    flow = await client.createNonMarketingWorkflow(accessToken, NON_MARKETING_WORKFLOW, nonMarketingListId);
+    await t((tx) => integrations.recordPortalSetup(tx, ref, { portalId: connection.portalId, subscriptionTypes, temporaryListId, nonMarketingListId, workflowId: flow!.id, workflowEnabled: false }));
+  }
+  if (!flow.enabled) await client.enableWorkflow(accessToken, flow.id);
   await t((tx) =>
     integrations.recordPortalSetup(tx, ref, {
       portalId: connection.portalId, subscriptionTypes, temporaryListId, nonMarketingListId, workflowId: flow.id, workflowEnabled: true, checkedAt: new Date().toISOString(),
@@ -339,8 +344,19 @@ export function hubspotCleanupTask(db: Db, deps: HubSpotDeps | null): Task {
     if (!deps) return;
     const { tenantId } = payload;
     const t = inTenant(db, tenantId);
+    // Cancelled before it started (or reconnected since): nothing to do.
+    if (payload.disconnect && !(await t((tx) => integrations.cleanupDisconnectRequested(tx, "hubspot")))) return;
     const done = await runCleanup(db, tenantId, deps, { all: true });
-    if (!done || !payload.disconnect) return;
+    if (!done) {
+      // No usable connection (HubSpot refused our access, or it is gone): the cleanup could not
+      // run, so the request goes rather than hang, and the sync log says why.
+      if (payload.disconnect) {
+        await t((tx) => integrations.dropCleanupRequest(tx, "hubspot", "HubSpot refused our access, so the cleanup could not run. Reconnect, then clean up and disconnect again"));
+        helpers.logger.warn(`hubspot cleanup for ${tenantId}: no usable connection; the request was dropped`);
+      }
+      return;
+    }
+    if (!payload.disconnect) return;
     const { result, ref } = done;
     if (result.failed) {
       const error = `${result.failed} contacts could not be cleaned up, so HubSpot is still connected`;
