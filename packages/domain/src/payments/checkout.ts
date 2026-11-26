@@ -217,6 +217,9 @@ export async function processPayment(
   if (!first) return null;
   if (!first.creds) return first.row.state;
   const creds = first.creds;
+  // The time a decision is taken, sampled under the lock: a reconcile batch passes one `now` for
+  // all its payments, and an occurrence may end while one waits its turn or a capture is out.
+  const settleAt = () => (deps.clock ? deps.clock() : new Date(Math.max(now.getTime(), Date.now())));
 
   let remote: ProviderPayment;
   try {
@@ -228,7 +231,7 @@ export async function processPayment(
 
   const { row, action } = await withTenant(db, { tenantId }, async (tx) => {
     const row = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).forUpdate().executeTakeFirstOrThrow();
-    const action = await decide(tx, tenantId, row, remote, now);
+    const action = await decide(tx, tenantId, row, remote, settleAt());
     return { row, action };
   });
 
@@ -250,7 +253,7 @@ export async function processPayment(
       }
       // Vipps refused the capture: the buyer has not paid, so the order is called off. The tickets
       // go only once Vipps confirms the authorisation is cancelled; until then the capture is retried.
-      return callOff(db, tenantId, row, creds, `Vipps refused the capture (${providerMessage(e)}); the order was cancelled`, deps, now);
+      return callOff(db, tenantId, row, creds, `Vipps refused the capture (${providerMessage(e)}); the order was cancelled`, deps, settleAt());
     }
     // The capture is done at Vipps. What it covers now (a portal refund may have come in between).
     // Without that answer nothing is activated: the reconcile job reads it again and settles it.
@@ -266,8 +269,17 @@ export async function processPayment(
       if (TERMINAL.includes(locked.state)) return { state: locked.state, refundId: null };
       await storeAggregate(tx, row.id, after);
       // The time now, not when processing began: the occurrence may have ended while the capture was out.
-      const at = deps.clock ? deps.clock() : new Date(Math.max(now.getTime(), Date.now()));
-      const net = after.aggregate.capturedAmount.value - after.aggregate.refundedAmount.value;
+      const at = settleAt();
+      const captured = after.aggregate.capturedAmount.value;
+      const refunded = after.aggregate.refundedAmount.value;
+      const net = captured - refunded;
+      // A successful answer is not proof of the capture: until Vipps shows the full amount captured
+      // (and nothing refunded explains the gap), the payment stays open and the reconcile job reads
+      // it again. Nothing is released and the authorisation is not given up.
+      if (captured < row.amount && refunded === 0) {
+        await tx.updateTable("payments.payment").set({ failure_reason: "Captured at Vipps, but Vipps does not show it yet; checking again" }).where("id", "=", row.id).execute();
+        return { state: locked.state, refundId: null };
+      }
       // Refunded at Vipps (in the portal) before the answer came: not paid for, as in decide.
       // Or no longer deliverable: give the money back.
       const gone = net < row.amount ? "refunded_at_vipps" : await unfulfillable(tx, row.reservation_id, at);
@@ -287,7 +299,7 @@ export async function processPayment(
     return settled.state;
   }
 
-  if (action.kind === "cancel") return callOff(db, tenantId, row, creds, action.reason, deps, now);
+  if (action.kind === "cancel") return callOff(db, tenantId, row, creds, action.reason, deps, settleAt());
 
   return withTenant(db, { tenantId }, async (tx) => (await tx.selectFrom("payments.payment").select("state").where("id", "=", paymentId).executeTakeFirstOrThrow()).state);
 }

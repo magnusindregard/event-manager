@@ -648,11 +648,41 @@ describe("a capture whose answer comes back late", () => {
     const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
     vipps.approve(s.row.reference);
     const afterEnd = new Date(START.getTime() + 6 * 60 * MIN);
-    // Processing starts before the end; the answer is settled after it.
-    expect(await payments.processPayment(db, ctx.tenantId, s.paymentId, { provider: vipps, clock: () => afterEnd }, at(2))).toBe("cancelled");
+    // The decision to capture is taken before the end; the answer is settled after it.
+    let ticks = 0;
+    const clock = () => (ticks++ === 0 ? at(2) : afterEnd);
+    expect(await payments.processPayment(db, ctx.tenantId, s.paymentId, { provider: vipps, clock }, at(2))).toBe("cancelled");
     expect((await vipps.getPayment(keys, s.row.reference)).aggregate).toMatchObject({ capturedAmount: { value: 45000 }, refundedAmount: { value: 45000 } });
     const row = await run((tx) => tx.selectFrom("payments.payment").select("failure_reason").where("id", "=", s.paymentId).executeTakeFirstOrThrow());
     expect(row.failure_reason).toMatch(/occurrence_ended/);
+  });
+
+  it("keeps a capture Vipps does not show yet open, without releasing anything, until it does", async () => {
+    const { occ, adult } = await concert("unconfirmed-capture");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(s.row.reference);
+    // Vipps answers the capture successfully but has not applied it yet.
+    const unapplied: payments.PaymentProvider = { ...slowCapture(async () => undefined), capture: async () => undefined };
+    expect(await payments.processPayment(db, ctx.tenantId, s.paymentId, { provider: unapplied }, at(2))).toBe("authorized");
+    expect(await reservation(s.row.reservation_id)).toMatchObject({ status: "confirmed" });
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate).toMatchObject({ capturedAmount: { value: 0 }, cancelledAmount: { value: 0 } });
+    const row = await run((tx) => tx.selectFrom("payments.payment").select(["state", "failure_reason"]).where("id", "=", s.paymentId).executeTakeFirstOrThrow());
+    expect(row).toMatchObject({ state: "authorized", failure_reason: expect.stringMatching(/does not show it yet/) });
+    // Next time round the capture is applied, and the order settles.
+    expect(await process(s.paymentId, at(3))).toBe("captured");
+  });
+
+  it("judges a recovered capture at the time of settling, not the start of the reconcile batch", async () => {
+    const { occ, adult } = await concert("stale-batch-time");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(s.row.reference);
+    vipps.failNext("capture", 423);
+    expect(await process(s.paymentId)).toBe("authorized");
+    await vipps.capture(keys, s.row.reference, { currency: "NOK", value: 45000 }, "portal-cap-batch");
+    // The batch started before the end; this payment's turn comes after it.
+    const afterEnd = new Date(START.getTime() + 6 * 60 * MIN);
+    expect(await payments.processPayment(db, ctx.tenantId, s.paymentId, { provider: vipps, clock: () => afterEnd }, at(2))).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate.refundedAmount.value).toBe(45000);
   });
 
   it("refunds a capture that landed after the occurrence was cancelled", async () => {
