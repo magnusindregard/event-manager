@@ -253,6 +253,41 @@ export async function processPayment(db: Db, tenantId: string, paymentId: string
   return withTenant(db, { tenantId }, async (tx) => (await tx.selectFrom("payments.payment").select("state").where("id", "=", paymentId).executeTakeFirstOrThrow()).state);
 }
 
+/**
+ * The reservation's hold expired while the payment still waited for the buyer (the sweeper's
+ * reservation.expired). Cancels the payment at Vipps so it can no longer be approved, and records
+ * it as expired. If the buyer approved meanwhile, it is processed as usual instead: confirm takes
+ * the places again if they are free.
+ */
+export async function abandonPayment(db: Db, tenantId: string, paymentId: string, deps: { provider: PaymentProvider }, now: Date = new Date()): Promise<PaymentState | null> {
+  const first = await withTenant(db, { tenantId }, async (tx) => {
+    const row = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).executeTakeFirst();
+    if (!row) return null;
+    const r = await tx.selectFrom("sales.reservation").select("status").where("id", "=", row.reservation_id).executeTakeFirstOrThrow();
+    return { row, held: r.status === "held", creds: row.state === "created" ? await credentialsFor(tx, tenantId, row.provider_account_id) : null };
+  });
+  if (!first) return null;
+  if (!first.creds || first.held) return first.row.state;
+  // Errors (Vipps not answering) fail the job, which retries.
+  const remote = await deps.provider.getPayment(first.creds, first.row.reference);
+  if (remote.state !== "CREATED") return processPayment(db, tenantId, paymentId, deps, now);
+  try {
+    await deps.provider.cancel(first.creds, first.row.reference, `cancel-${paymentId}`);
+  } catch (e) {
+    // Approved or expired at Vipps meanwhile: settle it from what Vipps says now.
+    if (!providerUnavailable(e)) return processPayment(db, tenantId, paymentId, deps, now);
+    throw e;
+  }
+  return withTenant(db, { tenantId }, async (tx) => {
+    const row = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).forUpdate().executeTakeFirstOrThrow();
+    if (row.state !== "created") return row.state;
+    await releaseReservation(tx, tenantId, row.reservation_id, now);
+    await setState(tx, row.id, "expired", { failure_reason: "The hold expired before the buyer approved" });
+    await paymentEvent(tx, tenantId, "payment.failed.v1", row, { providerState: "TERMINATED", reason: "hold_expired" });
+    return "expired" as const;
+  });
+}
+
 /** Decides what to do, under the lock on the payment, and records what needs no call to Vipps. */
 async function decide(tx: Tx, tenantId: string, row: PaymentRow, remote: ProviderPayment, now: Date): Promise<Action> {
   if (TERMINAL.includes(row.state)) return { kind: "none" };
@@ -436,6 +471,24 @@ export async function sendReceiptToProvider(db: Db, tenantId: string, paymentId:
       taxPercentage: Math.round(l.vatRatePct), unitPrice: l.unitPrice, quantity: l.quantity,
     })),
   });
+}
+
+/** The tenant of a published ticketed event's occurrence, for the buy page; runs without a tenant (SECURITY DEFINER lookup). */
+export async function checkoutOccurrenceTenant(tx: Tx, occurrenceId: string): Promise<string | null> {
+  const r = await sql<{ id: string | null }>`select payments.checkout_occurrence_tenant(${occurrenceId}::uuid) as id`.execute(tx);
+  return r.rows[0]?.id ?? null;
+}
+
+/** The worker's job that settles one payment (apps/worker/src/payments.ts). */
+export const PROCESS_PAYMENT_JOB = "payments.process";
+
+/** Queues processPayment for the worker; the job key collapses repeats while one is waiting. */
+export async function queueProcessing(tx: Tx, tenantId: string, paymentId: string): Promise<void> {
+  await sql`select graphile_worker.add_job(
+    ${PROCESS_PAYMENT_JOB},
+    json_build_object('tenantId', ${tenantId}::text, 'paymentId', ${paymentId}::text),
+    job_key := ${`payment:${paymentId}`},
+    max_attempts := 10)`.execute(tx);
 }
 
 // ── Reconcile ─────────────────────────────────────────────────────────────────

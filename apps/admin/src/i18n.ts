@@ -362,6 +362,9 @@ const resources = {
         merchant: "Selgeropplysninger på kvitteringer", legalName: "Juridisk navn", orgNumber: "Organisasjonsnummer", address: "Adresse",
         vatRegistered: "Registrert i Merverdiavgiftsregisteret", merchantHint: "Vises på kvitteringen kjøperen får på e-post og i Vipps-appen.",
         unavailable: "Betaling er ikke satt opp på denne plattformen.",
+        checkout: "Plattformens kasse", enableCheckout: "Slå på kassen", checkoutEnabled: "Kassen er slått på",
+        checkoutHint: "Selg billetter på en side plattformen lager, uten egen nettbutikk. Kassen blir en salgskanal du legger billettypene på.",
+        checkoutOn: "Slått på. Legg billettypene på salgskanalen «Checkout» og del billettlenken fra forekomsten.",
       },
       channels: {
         title: "Salgskanaler", description: "Nettbutikken og billettluken som selger billettene. Hver kanal kobles til med sin egen nøkkel.",
@@ -770,6 +773,9 @@ const resources = {
         merchant: "Merchant details on receipts", legalName: "Legal name", orgNumber: "Organisation number", address: "Address",
         vatRegistered: "Registered for VAT", merchantHint: "Shown on the receipt the buyer gets by email and in the Vipps app.",
         unavailable: "Payments are not set up on this platform.",
+        checkout: "Hosted checkout", enableCheckout: "Enable the checkout", checkoutEnabled: "The checkout is enabled",
+        checkoutHint: "Sell tickets on a page the platform hosts, without a web shop of your own. The checkout becomes a sales channel you put ticket types on.",
+        checkoutOn: "Enabled. Put ticket types on the \u201cCheckout\u201d sales channel and share the ticket link from the occurrence.",
       },
       channels: {
         title: "Sales channels", description: "The web shop and box office that sell the tickets. Each channel connects with its own key.",

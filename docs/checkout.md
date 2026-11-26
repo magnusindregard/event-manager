@@ -34,7 +34,7 @@ Everyone in the account can see the connection. Only owners change it (`account.
    2. Extends the hold, so that it outlives the Vipps payment's expiry.
    3. Creates a Vipps payment for exactly the reservation's total, with a new reference.
    4. Sends the buyer to the Vipps landing page (303).
-4. The buyer approves or rejects in the Vipps app. Vipps sends the buyer back to `/b/return/:reference?sig=…` (signed with the `checkout` token purpose), and sends a webhook.
+4. The buyer approves or rejects in the Vipps app. Vipps sends the buyer back to `/b/return/:token`, a signed token with the `checkout` purpose that names the tenant and the payment. Vipps also sends a webhook.
 5. `processPayment(reference)` runs from the return page, the webhook job and the reconcile job. It is idempotent and reads Vipps as the source of truth:
 
 | Vipps says | Platform does | Payment state |
@@ -46,7 +46,16 @@ Everyone in the account can see the connection. Only owners change it (`account.
 | EXPIRED | cancel the reservation | `expired` |
 | TERMINATED | cancel the reservation if it is still held | `cancelled` |
 
-6. On capture, the buyer gets the tickets email (the hosted channel sends tickets) and a receipt. The receipt is also attached to the payment in the Vipps app (Order Management API).
+6. On confirm, the buyer gets the tickets email (the hosted channel sends tickets). On capture, the worker sends the receipt email. It also attaches the receipt to the payment in the Vipps app (Order Management API); that is best effort, and the email is the receipt of record.
+
+**Enabling.** Owners enable the checkout under Settings → Payments once Vipps is connected. This creates the sales channel `hosted-checkout` ("Checkout"). It holds places for 20 minutes and emails tickets. VAT classes without a SKU there get `TICKET-<code>`, which staff can change. Offers created afterwards are on sale there by default, as on every active channel. Older offers are added to it in the offer editor. Free tickets (a total of 0) are confirmed at once, without Vipps.
+
+**Pages.** The buy page lets the form go on to Vipps' domains (`form-action`, because browsers check it on the redirect too). The return page settles the payment itself before it shows anything. While Vipps still waits for the buyer, it refreshes every 3 seconds. Tokens in `/b/return/` are hidden in logs, like the other attendee links.
+
+**Webhooks and reconciliation.**
+- `POST /webhooks/vipps/:accountId/:providerAccountId` checks the signature with the provider account's secret. The host it checks is `PUBLIC_URL`'s, because behind Front Door the request carries the origin host. A valid webhook queues `payments.process` for the payment (job key `payment:<id>`, so a burst runs once) and answers 200. Webhooks for references the platform does not know are acknowledged and ignored. A bad signature gets 401; an unknown account gets 404.
+- `payments:reconcile` runs every minute in the worker. It settles payments that have sat in `created` or `authorized` for 2 minutes, in case no webhook came.
+- When the sweeper expires a hold whose payment still waits, `payments.abandon` cancels the payment at Vipps. If the buyer approved meanwhile, the payment is settled as usual instead.
 
 **Expiry.** If the reservation sweeper expires a hold whose payment is still `created`, the payment is cancelled at Vipps. If a payment is authorised after its hold expired, `confirm` checks capacity again. If places are free, the payment is captured. If not, the authorisation is cancelled.
 
@@ -66,16 +75,17 @@ Every table has row-level security (ADR 0004). Migration `0030_payments` also mo
 
 ## Configuration
 
-- `VIPPS=http` calls Vipps.
-- `VIPPS=fake` uses an in-memory Vipps. It is the default outside production, and it is refused in production.
+- `VIPPS=http` calls Vipps (API, attendee app and worker).
+- `VIPPS=fake` uses an in-memory Vipps. It is the default outside production, and it is refused in production. In the attendee app, it adds `/b/fake-vipps/:reference`, a page to approve or reject the payment. The fake lives in one process, so on a local stack the return page settles payments, and the worker's payment jobs stay off.
 - `VIPPS=off` leaves payments off. It is the default in production.
-- `PUBLIC_URL`: the core API's public base URL, for the webhook.
+- `PUBLIC_URL` (API): the public base URL, for the webhook and its signature check.
+- `ATTENDEE_URL` (attendee app): its public base URL, where Vipps sends buyers back. Required with `VIPPS=http`.
 
 ## Milestones
 
-1. **Foundations** (this branch): ADR 0018 and this document; the secrets move to `shared`; migration 0030; `packages/vipps` (client, fake, webhook signatures); the payments module (connect, verify, disconnect); merchant details; Settings → Payments.
-2. **Buy flow**: attendee pages, `startCheckout`, `processPayment` (confirm, capture and cancel), the tickets and receipt emails, enabling the hosted channel.
-3. **Webhooks and reconciliation**: the webhook route, the worker job, the reconcile cron, and how expiry interacts with payments.
+1. **Foundations** (done): ADR 0018 and this document; the secrets move to `shared`; migration 0030; `packages/vipps` (client, fake, webhook signatures); the payments module (connect, verify, disconnect); merchant details; Settings → Payments.
+2. **Buy flow** (done): attendee pages, `startCheckout`, `processPayment` (confirm, capture and cancel), the tickets and receipt emails, enabling the hosted channel.
+3. **Webhooks and reconciliation** (done): the webhook route, the worker job, the reconcile cron, and how expiry interacts with payments.
 4. **Refunds and admin visibility**: staff refunds of whole or partial reservations, payment state in Sales, outbox events.
 5. **Distribution and pilot**: the ticket link in the admin, `checkoutUrl` in the public API, and a run-through in the Vipps test environment with a pilot client.
 

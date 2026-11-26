@@ -1,9 +1,9 @@
 import { SignJWT } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createDb, type Db, sql } from "@event-manager/db";
+import { createDb, type Db, sql, withTenant } from "@event-manager/db";
 import { startTestDatabase, type TestDatabase } from "@event-manager/db/testing";
-import { tenancy } from "@event-manager/domain";
-import { FakeVipps } from "@event-manager/vipps";
+import { catalog, offers, payments, tenancy } from "@event-manager/domain";
+import { FakeVipps, signHeaders } from "@event-manager/vipps";
 import { buildApp } from "../src/app.js";
 import { DEV_ISSUER, devVerifier } from "../src/auth.js";
 
@@ -53,14 +53,14 @@ afterAll(async () => {
 
 describe("/v1 payments", () => {
   it("connects Vipps with keys Vipps accepts, stores them encrypted and registers the webhook", async () => {
-    expect((await call("GET", "/v1/payments")).body).toEqual({ vipps: null });
+    expect((await call("GET", "/v1/payments")).body).toEqual({ vipps: null, checkout: null });
     expect((await call("PUT", "/v1/payments/vipps", { as: "manager@a.test", body: keys })).status).toBe(403);
     expect((await call("PUT", "/v1/payments/vipps", { body: { ...keys, merchantSerialNumber: "12" } })).status).toBe(400);
 
     vipps.refusedSecrets.add("wrong");
     const refused = await call("PUT", "/v1/payments/vipps", { body: { ...keys, clientSecret: "wrong" } });
     expect(refused).toMatchObject({ status: 422, body: { code: "validation_failed" } });
-    expect((await call("GET", "/v1/payments")).body).toEqual({ vipps: null });
+    expect((await call("GET", "/v1/payments")).body).toEqual({ vipps: null, checkout: null });
 
     const connected = await call("PUT", "/v1/payments/vipps", { body: keys });
     expect(connected).toMatchObject({ status: 200, body: { provider: "vipps", environment: "test", merchantSerialNumber: "123456", clientId: "client-a", status: "active", webhookRegistered: true } });
@@ -75,7 +75,7 @@ describe("/v1 payments", () => {
 
     // Everyone in the account sees it; other accounts do not.
     expect((await call("GET", "/v1/payments", { as: "manager@a.test" })).body.vipps.id).toBe(connected.body.id);
-    expect((await call("GET", "/v1/payments", { as: "owner@b.test", account: B })).body).toEqual({ vipps: null });
+    expect((await call("GET", "/v1/payments", { as: "owner@b.test", account: B })).body).toEqual({ vipps: null, checkout: null });
   });
 
   it("marks the connection invalid when Vipps later refuses the keys, and active again once accepted", async () => {
@@ -103,7 +103,7 @@ describe("/v1 payments", () => {
     expect((await call("DELETE", "/v1/payments/vipps", { as: "manager@a.test", headers: { "if-match": `"${current.version}"` } })).status).toBe(403);
     expect((await call("DELETE", "/v1/payments/vipps", { headers: { "if-match": `"${current.version + 5}"` } })).status).toBe(412);
     expect((await call("DELETE", "/v1/payments/vipps", { headers: { "if-match": `"${current.version}"` } })).status).toBe(204);
-    expect((await call("GET", "/v1/payments")).body).toEqual({ vipps: null });
+    expect((await call("GET", "/v1/payments")).body).toEqual({ vipps: null, checkout: null });
     expect(vipps.webhooks.size).toBe(0);
     expect((await call("POST", "/v1/payments/vipps/verify")).status).toBe(404);
   });
@@ -124,5 +124,52 @@ describe("/v1 payments without a provider", () => {
     const res = await off.inject({ method: "PUT", url: "/v1/payments/vipps", payload: keys, headers: { authorization: `Bearer ${await token("owner@a.test")}`, "account-id": A } });
     expect(res.statusCode).toBe(409);
     await off.close();
+  });
+});
+
+describe("the hosted checkout and Vipps webhooks", () => {
+  it("enables the checkout's channel (owner), and queues a payment when a signed webhook names it", async () => {
+    expect((await call("POST", "/v1/payments/checkout", { as: "manager@a.test" })).status).toBe(403);
+    const enabled = await call("POST", "/v1/payments/checkout");
+    expect(enabled).toMatchObject({ status: 200, body: { active: true } });
+    expect((await call("GET", "/v1/payments")).body.checkout).toEqual({ channelId: enabled.body.channelId, active: true });
+    const channels = (await call("GET", "/v1/sales-channels")).body.items;
+    expect(channels.find((c: { id: string }) => c.id === enabled.body.channelId)).toMatchObject({ kind: "hosted", sendTickets: true });
+
+    const connected = (await call("PUT", "/v1/payments/vipps", { body: keys })).body;
+    const hook = [...vipps.webhooks.values()].at(-1)!;
+    const ctx = { tenantId: A, userId: null, clientId: null, roles: ["owner"] };
+    const occId = await withTenant(db, ctx, async (tx) => {
+      const vat = await offers.createVatClass(tx, ctx, { code: "culture", label: "Kultur", ratePct: 12 });
+      const event = await catalog.createEvent(tx, ctx, { translations: { nb: { title: "Hamlet" } }, admissionMode: "tickets", registration: { capacity: 10 } });
+      const occ = await catalog.createOccurrence(tx, ctx, event.id, { startUtc: new Date(Date.now() + 10 * 86_400_000) });
+      await offers.enableHostedChannel(tx, ctx);
+      await offers.createOffer(tx, ctx, event.id, { translations: { nb: { name: "Voksen" } }, vatClassId: vat.id, defaultPrice: 45000 });
+      await catalog.transitionEvent(tx, ctx, event.id, (await catalog.getEvent(tx, event.id)).version, "publish");
+      return occ.id;
+    });
+    const offerId = (await withTenant(db, ctx, (tx) => payments.checkoutPage(tx, occId, "nb")))!.occurrence.offers[0]!.id;
+    const started = await payments.startCheckout(db, A, { occurrenceId: occId, lines: [{ offerId, quantity: 1 }], buyer: { name: "Kari", email: "kari@example.com" } }, { provider: vipps, attendeeUrl: "http://attendee.test" });
+    if (started.kind !== "pay") throw new Error("expected a payment");
+    const reference = (await withTenant(db, ctx, (tx) => tx.selectFrom("payments.payment").select("reference").where("id", "=", started.paymentId).executeTakeFirstOrThrow())).reference;
+
+    const url = `/webhooks/vipps/${A}/${connected.id}`;
+    const post = (body: string, secret = hook.secret, path = url) =>
+      app.inject({ method: "POST", url: path, headers: { host: "origin.internal", "content-type": "application/json", ...signHeaders(secret, { method: "POST", pathAndQuery: path, host: "api.example.test", body }) }, payload: body });
+    const jobs = async () => (await sql<{ n: number }>`select count(*)::int as n from graphile_worker._private_jobs where key = ${`payment:${started.paymentId}`}`.execute(su)).rows[0]!.n;
+
+    const body = JSON.stringify({ msn: "123456", reference, name: "AUTHORIZED", pspReference: "1", timestamp: new Date().toISOString() });
+    expect((await post(body, "wrong-secret")).statusCode).toBe(401);
+    expect(await jobs()).toBe(0);
+    expect((await post(body)).statusCode).toBe(200);
+    expect((await post(body)).statusCode).toBe(200);
+    // A burst for one payment is one job.
+    expect(await jobs()).toBe(1);
+    // Payments made outside the platform are acknowledged and ignored.
+    expect((await post(JSON.stringify({ reference: "someone-elses-ref", name: "AUTHORIZED" }))).json()).toEqual({ ok: true, ignored: true });
+    // Unknown accounts, and another tenant's account under this tenant's id, are not found.
+    expect((await post(body, hook.secret, `/webhooks/vipps/${A}/${B}`)).statusCode).toBe(404);
+    expect((await post(body, hook.secret, `/webhooks/vipps/${B}/${connected.id}`)).statusCode).toBe(404);
+    expect((await post(body, hook.secret, "/webhooks/vipps/x/y")).statusCode).toBe(404);
   });
 });

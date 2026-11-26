@@ -6,7 +6,8 @@ const { run } = await import("graphile-worker");
 const { createDb, createPool } = await import("@event-manager/db");
 const { buildTaskList } = await import("./tasks.js");
 const { defaultHandlers } = await import("./handlers.js");
-const { mailerFromEnv, provisionDepsFromEnv, registrationEmailDepsFromEnv } = await import("./config.js");
+const { mailerFromEnv, paymentsDepsFromEnv, provisionDepsFromEnv, registrationEmailDepsFromEnv } = await import("./config.js");
+const { PAYMENTS_RECONCILE_CRONTAB } = await import("./payments.js");
 const { HORIZON_CRONTAB } = await import("./horizon.js");
 const { RETENTION_CRONTAB } = await import("./retention.js");
 const { RESERVATION_SWEEP_CRONTAB } = await import("./reservations.js");
@@ -17,6 +18,7 @@ if (!connectionString) throw new Error("DATABASE_URL is required");
 const db = createDb(connectionString);
 const log = (line: string) => console.log(line);
 const mailer = mailerFromEnv(process.env, log);
+const paymentsDeps = paymentsDepsFromEnv(process.env, mailer, log);
 const concurrency = Number(process.env.WORKER_CONCURRENCY ?? 5);
 // graphile-worker gets a configured pool: with a bare connection string it would skip Entra auth and TLS.
 const pgPool = createPool(connectionString, concurrency + 2);
@@ -25,8 +27,8 @@ pgPool.on("connect", (client) => client.on("error", (e) => console.error("pg cli
 const runner = await run({
   pgPool,
   concurrency,
-  taskList: buildTaskList(db, defaultHandlers, provisionDepsFromEnv(process.env, log, mailer), registrationEmailDepsFromEnv(process.env, mailer)),
-  crontab: process.env.WORKER_CRONTAB ?? [HORIZON_CRONTAB, RETENTION_CRONTAB, RESERVATION_SWEEP_CRONTAB].join("\n"),
+  taskList: buildTaskList(db, defaultHandlers, provisionDepsFromEnv(process.env, log, mailer), registrationEmailDepsFromEnv(process.env, mailer), paymentsDeps),
+  crontab: process.env.WORKER_CRONTAB ?? [HORIZON_CRONTAB, RETENTION_CRONTAB, RESERVATION_SWEEP_CRONTAB, ...(paymentsDeps ? [PAYMENTS_RECONCILE_CRONTAB] : [])].join("\n"),
 });
 await runner.promise;
 await db.destroy();

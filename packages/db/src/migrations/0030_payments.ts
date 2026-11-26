@@ -148,6 +148,22 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     REVOKE CREATE ON SCHEMA payments FROM em_definer;
     REVOKE ALL ON FUNCTION payments.open_payment_tenants(timestamptz) FROM PUBLIC;
     GRANT EXECUTE ON FUNCTION payments.open_payment_tenants(timestamptz) TO em_app;
+
+    -- The buy page (/b/{occurrence}) knows only the occurrence id. This finds its tenant, and
+    -- only for occurrences of published ticketed events, so it reveals nothing the public API does not.
+    CREATE FUNCTION payments.checkout_occurrence_tenant(p_occurrence uuid)
+      RETURNS uuid
+      LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, catalog AS $f$
+        SELECT o.tenant_id
+          FROM catalog.occurrence o
+          JOIN catalog.event e ON e.tenant_id = o.tenant_id AND e.id = o.event_id
+         WHERE o.id = p_occurrence AND e.status IN ('published', 'cancelled') AND e.admission_mode::text = 'tickets'
+    $f$;
+    GRANT CREATE ON SCHEMA payments TO em_definer;
+    ALTER FUNCTION payments.checkout_occurrence_tenant(uuid) OWNER TO em_definer;
+    REVOKE CREATE ON SCHEMA payments FROM em_definer;
+    REVOKE ALL ON FUNCTION payments.checkout_occurrence_tenant(uuid) FROM PUBLIC;
+    GRANT EXECUTE ON FUNCTION payments.checkout_occurrence_tenant(uuid) TO em_app;
   `.execute(db);
 }
 

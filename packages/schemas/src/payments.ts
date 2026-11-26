@@ -48,8 +48,17 @@ export const VippsConnection = Type.Object(
   },
 );
 
+export const HostedCheckout = Type.Object(
+  {
+    channelId: Uuid,
+    active: Type.Boolean({ description: "Deactivate it like any sales channel, under Sales channels" }),
+  },
+  { description: "The hosted checkout's sales channel. Put offers on sale on it, and give each VAT class a SKU there" },
+);
+
 export const PaymentsSettings = Type.Object({
   vipps: Nullable(VippsConnection),
+  checkout: Nullable(HostedCheckout),
 });
 
 export const VippsConnect = Type.Object(

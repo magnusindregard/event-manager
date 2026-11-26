@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
-import { DomainError, payments } from "@event-manager/domain";
-import { PaymentsSettings, Problem, VippsConnect, VippsConnection } from "@event-manager/schemas";
+import { DomainError, offers, payments } from "@event-manager/domain";
+import { HostedCheckout, PaymentsSettings, Problem, VippsConnect, VippsConnection } from "@event-manager/schemas";
 import { inTenant } from "../plugins/context.js";
 import { expectedVersion, setEtag } from "../plugins/etag.js";
 
@@ -41,9 +41,25 @@ export const paymentRoutes: FastifyPluginAsyncTypebox<{ payments: PaymentsDeps |
   app.get(
     "/payments",
     { schema: { operationId: "getPaymentsSettings", tags: ["payments"], ...accountScoped, summary: "The account's payment provider (Vipps MobilePay), if connected", response: { 200: PaymentsSettings, ...errors } } },
+    async (req) =>
+      inTenant(app, req, async (tx) => {
+        const [a, channel] = await Promise.all([payments.getProviderAccount(tx), offers.hostedChannel(tx)]);
+        return { vipps: a ? dto(a) : null, checkout: channel ? { channelId: channel.id, active: channel.active } : null };
+      }),
+  );
+
+  app.post(
+    "/payments/checkout",
+    {
+      schema: {
+        operationId: "enableHostedCheckout", tags: ["payments"], ...accountScoped,
+        summary: "Enable the hosted checkout (owner): creates its sales channel, which emails tickets, or activates it again. VAT classes without a SKU there get TICKET-<code>.",
+        response: { 200: HostedCheckout, ...writeErrors },
+      },
+    },
     async (req) => {
-      const a = await inTenant(app, req, (tx) => payments.getProviderAccount(tx));
-      return { vipps: a ? dto(a) : null };
+      const c = await inTenant(app, req, (tx, ctx) => offers.enableHostedChannel(tx, ctx));
+      return { channelId: c.id, active: c.active };
     },
   );
 

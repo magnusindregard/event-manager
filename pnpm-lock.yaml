@@ -203,6 +203,9 @@ importers:
       '@event-manager/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
+      '@event-manager/vipps':
+        specifier: workspace:*
+        version: link:../../packages/vipps
       '@fastify/formbody':
         specifier: ^8.0.2
         version: 8.0.2
@@ -292,6 +295,9 @@ importers:
       '@event-manager/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@event-manager/vipps':
+        specifier: workspace:*
+        version: link:../../packages/vipps
       graphile-worker:
         specifier: ~0.17.1
         version: 0.17.3(typescript@6.0.3)

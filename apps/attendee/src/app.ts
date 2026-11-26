@@ -8,6 +8,7 @@ import { DomainError } from "@event-manager/domain";
 import {
   AttendeeInvitationAccept, AttendeeInvitationView, AttendeeOccurrence, AttendeeRegistration, AttendeeRegistrationCreate, AttendeeRegistrationCreated, AttendeeRegistrationPatch, AttendeeRegistrationView, Problem, problemMediaType,
 } from "@event-manager/schemas";
+import { type CheckoutPagesDeps, registerCheckoutPages } from "./checkout-pages.js";
 import { registerPages } from "./pages.js";
 import { RateLimiter } from "./rate-limit.js";
 import { type AttendeeRegistration as AttendeeRegistrationResult, AttendeeService, type Details, preferredLocale } from "./service.js";
@@ -32,12 +33,14 @@ export interface AttendeeAppDeps {
    * ranges here if one with public addresses (e.g. Front Door) is put in front.
    */
   trustedProxies?: string;
+  /** The hosted checkout (docs/checkout.md); without it the /b pages are not served. */
+  checkout?: Omit<CheckoutPagesDeps, "db" | "limiter" | "clock"> | null;
 }
 
 const TYPE_BASE = "https://docs.event-manager.dev/problems/";
 // Links carry the manage token in the path: keep it out of logs and referrers.
-/** Hides the token in /m/{token}, /i/{token} and /t/{token}. The request log serializer in main.ts uses it too. */
-export const redactUrl = (url: string) => url.replace(/\/([mit])\/[A-Za-z0-9_-]+/, "/$1/[token]");
+/** Hides the token in /m/{token}, /i/{token}, /t/{token} and /b/return/{token}. The request log serializer in main.ts uses it too. */
+export const redactUrl = (url: string) => url.replace(/\/([mit]|b\/return)\/[A-Za-z0-9_-]+/, "/$1/[token]");
 
 class ApiProblem extends Error {
   constructor(readonly status: number, readonly code: string, message: string) {
@@ -101,8 +104,11 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
       .header("cache-control", "no-store")
       .header("referrer-policy", "no-referrer")
       .header("x-content-type-options", "nosniff")
-      .header("x-robots-tag", "noindex")
-      .header("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; img-src https: data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+      .header("x-robots-tag", "noindex");
+    // Pages that need another policy (the buy page) set their own.
+    if (!reply.hasHeader("content-security-policy")) {
+      reply.header("content-security-policy", "default-src 'none'; style-src 'unsafe-inline'; img-src https: data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+    }
     return payload;
   });
 
@@ -131,6 +137,7 @@ export async function buildAttendeeApp(deps: AttendeeAppDeps) {
   });
 
   registerPages(app, svc, limiter);
+  if (deps.checkout) registerCheckoutPages(app, { ...deps.checkout, db: deps.db, limiter, clock: () => svc.now() });
 
   const bearer = (req: FastifyRequest) => {
     const h = req.headers.authorization;

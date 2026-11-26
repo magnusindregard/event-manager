@@ -13,6 +13,9 @@ import { RETENTION_TASK, retentionTask } from "./retention.js";
 import { RESOLVE_TASK, resolveTask } from "./resolver.js";
 import { TICKETS_EMAIL_TASK, ticketsEmailTask } from "./tickets-email.js";
 import { OFFER_EXPIRY_TASK, offerExpiryTask } from "./waitlist.js";
+import {
+  abandonPaymentTask, PAYMENT_ABANDON_TASK, PAYMENT_PROCESS_TASK, PAYMENT_RECEIPT_TASK, PAYMENTS_RECONCILE_TASK, type PaymentsWorkerDeps, processPaymentTask, receiptTask, reconcileTask,
+} from "./payments.js";
 
 interface DispatchPayload {
   eventId: string;
@@ -43,7 +46,7 @@ export function dispatchTask(db: Db, handlers: InternalHandler[]): Task {
   };
 }
 
-export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: ProvisionDeps, registrationEmail?: RegistrationEmailDeps): TaskList {
+export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: ProvisionDeps, registrationEmail?: RegistrationEmailDeps, paymentsDeps?: PaymentsWorkerDeps | null): TaskList {
   return {
     "outbox.dispatch": dispatchTask(db, handlers),
     [HORIZON_TASK]: horizonTask(db),
@@ -52,6 +55,14 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
     [OFFER_EXPIRY_TASK]: offerExpiryTask(db),
     [RESERVATION_SWEEP_TASK]: reservationSweepTask(db),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
+    ...(paymentsDeps
+      ? {
+          [PAYMENT_PROCESS_TASK]: processPaymentTask(db, paymentsDeps),
+          [PAYMENTS_RECONCILE_TASK]: reconcileTask(db, paymentsDeps),
+          [PAYMENT_RECEIPT_TASK]: receiptTask(db, paymentsDeps),
+          [PAYMENT_ABANDON_TASK]: abandonPaymentTask(db, paymentsDeps),
+        }
+      : {}),
     ...(registrationEmail
       ? {
           [REGISTRATION_EMAIL_TASK]: registrationEmailTask(db, registrationEmail),

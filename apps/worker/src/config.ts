@@ -2,6 +2,8 @@ import { FakeDirectory, GraphDirectory, type IdentityDirectory } from "./identit
 import { FakeMailer, type Mailer, PostmarkMailer } from "./identity/mailer.js";
 import type { ProvisionDeps } from "./provision.js";
 import type { RegistrationEmailDeps } from "./registration-email.js";
+import { HttpVipps } from "@event-manager/vipps";
+import type { PaymentsWorkerDeps } from "./payments.js";
 
 /**
  * Picks real or fake integrations from the environment. Fakes are the default, so a local
@@ -38,6 +40,19 @@ export function mailerFromEnv(env: NodeJS.ProcessEnv, log: (line: string) => voi
     return new PostmarkMailer({ token: env.POSTMARK_TOKEN, from: env.MAIL_FROM });
   }
   return new FakeMailer(log);
+}
+
+/**
+ * The hosted checkout's payment provider (docs/checkout.md). VIPPS=http calls Vipps; anything
+ * else leaves the payment jobs off. The worker never uses the fake: a local stack's fake Vipps
+ * lives in the attendee app's process, which settles payments on its return page.
+ */
+export function paymentsDepsFromEnv(env: NodeJS.ProcessEnv, mailer: Mailer, log: (line: string) => void): PaymentsWorkerDeps | null {
+  if (env.VIPPS !== "http") {
+    log("payments: off (set VIPPS=http to settle hosted checkout payments)");
+    return null;
+  }
+  return { provider: new HttpVipps(), mailer };
 }
 
 /** ATTENDEE_URL: base of the hosted attendee pages, for the links in registration emails. */

@@ -37452,7 +37452,8 @@
                 "schema": {
                   "type": "object",
                   "required": [
-                    "vipps"
+                    "vipps",
+                    "checkout"
                   ],
                   "properties": {
                     "vipps": {
@@ -37564,6 +37565,31 @@
                           }
                         }
                       ]
+                    },
+                    "checkout": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "required": [
+                            "channelId",
+                            "active"
+                          ],
+                          "properties": {
+                            "channelId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "active": {
+                              "type": "boolean",
+                              "description": "Deactivate it like any sales channel, under Sales channels"
+                            }
+                          },
+                          "description": "The hosted checkout's sales channel. Put offers on sale on it, and give each VAT class a SKU there"
+                        }
+                      ]
                     }
                   }
                 }
@@ -37616,6 +37642,168 @@
             }
           },
           "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/checkout": {
+      "post": {
+        "operationId": "enableHostedCheckout",
+        "summary": "Enable the hosted checkout (owner): creates its sales channel, which emails tickets, or activates it again. VAT classes without a SKU there get TICKET-<code>.",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "bearer": [],
+            "accountId": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The hosted checkout's sales channel. Put offers on sale on it, and give each VAT class a SKU there",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "channelId",
+                    "active"
+                  ],
+                  "properties": {
+                    "channelId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "active": {
+                      "type": "boolean",
+                      "description": "Deactivate it like any sales channel, under Sales channels"
+                    }
+                  },
+                  "description": "The hosted checkout's sales channel. Put offers on sale on it, and give each VAT class a SKU there"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "428": {
             "description": "Default Response",
             "content": {
               "application/json": {

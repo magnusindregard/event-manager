@@ -22,6 +22,8 @@ import { registrationRoutes } from "./routes/registrations.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { salesRoutes } from "./routes/sales.js";
 import { type PaymentsDeps, paymentRoutes } from "./routes/payments.js";
+import { vippsWebhookRoutes } from "./routes/vipps-webhook.js";
+import { verifyWebhook } from "@event-manager/vipps";
 
 export interface AppDeps {
   db: Db;
@@ -98,6 +100,10 @@ export async function buildApp(deps: AppDeps) {
   await app.register(mcpPlugin, { operations, authorizationServers: deps.mcp?.authorizationServers ?? [], scopes: deps.mcp?.scopes ?? [], publicUrl: deps.mcp?.publicUrl, adminUrl: deps.mcp?.adminUrl });
 
   if (deps.postmarkWebhook) await app.register(postmarkWebhookRoutes, { credentials: deps.postmarkWebhook });
+  if (deps.payments) {
+    const base = deps.payments.webhookBaseUrl;
+    await app.register(vippsWebhookRoutes, { verify: verifyWebhook, publicHost: base ? new URL(base).host : null });
+  }
 
   await app.register(
     async (v1) => {

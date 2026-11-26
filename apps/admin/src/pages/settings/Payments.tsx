@@ -65,9 +65,19 @@ export function Payments({ canEdit }: { canEdit: boolean }) {
     onError: refresh,
   });
 
+  const enable = useMutation({
+    mutationFn: async () => unwrap(await api.POST("/v1/payments/checkout")),
+    onSuccess: () => {
+      toast.success(t("payments.checkoutEnabled"));
+      refresh();
+      void qc.invalidateQueries({ queryKey: ["sales-channels", accountId] });
+    },
+  });
+
   const vipps = query.data?.vipps ?? null;
+  const checkout = query.data?.checkout ?? null;
   const unavailable = query.error instanceof ApiProblem && query.error.code === "conflict";
-  const error = connect.error ?? verify.error ?? disconnect.error;
+  const error = connect.error ?? verify.error ?? disconnect.error ?? enable.error;
   const fmt = new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium" });
   const showForm = canEdit && (!vipps || editing);
   const set = <K extends keyof typeof keys>(k: K, v: (typeof keys)[K]) => setKeys({ ...keys, [k]: v });
@@ -154,6 +164,16 @@ export function Payments({ canEdit }: { canEdit: boolean }) {
               {editing && <Button type="button" variant="ghost" onClick={() => { setEditing(false); setKeys(emptyKeys); }}>{t("common.cancel")}</Button>}
             </div>
           </form>
+        )}
+
+        {vipps && (
+          <div className="flex flex-col gap-2 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium">{t("payments.checkout")}</p>
+              <p className="text-sm text-muted-foreground">{checkout?.active ? t("payments.checkoutOn") : t("payments.checkoutHint")}</p>
+            </div>
+            {canEdit && !checkout?.active && <Button size="sm" onClick={() => enable.mutate()} disabled={enable.isPending}>{t("payments.enableCheckout")}</Button>}
+          </div>
         )}
 
         <MerchantDetails canEdit={canEdit} />
