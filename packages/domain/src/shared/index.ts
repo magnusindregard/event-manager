@@ -82,3 +82,5 @@ export interface ActorContext {
   clientId: string | null;
   roles: readonly string[];
 }
+
+export { configureMasterKeys, decryptJson, encryptJson, type MasterKeys, parseMasterKeys, rewrapDataKey } from "./secrets.js";

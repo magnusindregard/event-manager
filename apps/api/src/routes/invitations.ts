@@ -21,7 +21,7 @@ const dto = (i: registration.GuestInvitation | registration.GuestInvitationView)
   id: i.id, eventId: i.eventId, email: i.email, name: i.name, locale: i.locale, guestAllowed: i.guestAllowed, externalContactId: i.externalContactId,
   status: i.status, firstSentAt: iso(i.firstSentAt), lastSentAt: iso(i.lastSentAt), respondedAt: iso(i.respondedAt),
   lastSend: "lastSend" in i && i.lastSend
-    ? { kind: i.lastSend.kind, requestedAt: i.lastSend.requestedAt.toISOString(), sentAt: iso(i.lastSend.sentAt), deliveryStatus: i.lastSend.deliveryStatus, deliveryDetail: i.lastSend.deliveryDetail, deliveryAt: iso(i.lastSend.deliveryAt) }
+    ? { kind: i.lastSend.kind, requestedAt: i.lastSend.requestedAt.toISOString(), sentAt: iso(i.lastSend.sentAt), deliveryStatus: i.lastSend.deliveryStatus, deliveryDetail: i.lastSend.deliveryDetail, deliveryAt: iso(i.lastSend.deliveryAt), channel: i.lastSend.channel, fallbackReason: i.lastSend.fallbackReason, unresolved: i.lastSend.unresolved }
     : null,
   registration: "registration" in i ? i.registration : null,
   version: i.version, createdAt: i.createdAt.toISOString(), updatedAt: i.updatedAt.toISOString(),
@@ -198,6 +198,18 @@ export const invitationRoutes: FastifyPluginAsyncTypebox<{ attendeeUrl: string }
       const d = await inTenant(app, req, (tx, ctx) => registration.stageImport(tx, ctx, req.params.id, { fileName: req.body.fileName, content }));
       return reply.status(201).send(draftDto(d));
     },
+  );
+
+  app.get(
+    "/guest-imports/:id",
+    {
+      schema: {
+        operationId: "getGuestImport", tags: ["guest list"], ...accountScoped,
+        summary: "A staged import, as the upload returned it: for one staged in the background (a HubSpot list)",
+        params: IdParams, response: { 200: GuestImportDraft, ...writeErrors },
+      },
+    },
+    async (req) => draftDto(await inTenant(app, req, (tx, ctx) => registration.getImportDraft(tx, ctx, req.params.id))),
   );
 
   app.post(

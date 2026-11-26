@@ -264,16 +264,34 @@ export async function stageImport(tx: Tx, ctx: ActorContext, eventId: string, fi
   const event = await catalog.getEvent(tx, eventId);
   if (event.admissionMode !== "registration") throw new DomainError("conflict", "The event does not take registrations", { eventId });
   const parsed = await parseGuestFile(file.fileName, file.content);
+  return stageRows(tx, ctx.tenantId, eventId, ctx.userId, file.fileName, parsed);
+}
+
+/**
+ * Stages rows from another source than a file (a HubSpot list, fetched by the worker), for staff
+ * to map, preview and commit as for a file.
+ */
+export async function stageRows(tx: Tx, tenantId: string, eventId: string, createdBy: string | null, fileName: string, parsed: ParsedFile): Promise<ImportDraft> {
+  if (parsed.rows.length > MAX_IMPORT_ROWS) throw invalid("file", `The list has more than ${MAX_IMPORT_ROWS} guests`);
   // Old drafts with personal data go as soon as someone imports again.
   await tx.deleteFrom("registration.guest_import").where("expires_at", "<=", new Date()).execute();
   const id = newId();
   const row = await tx.insertInto("registration.guest_import")
-    .values({ id, tenant_id: ctx.tenantId, event_id: eventId, created_by: ctx.userId, file_name: file.fileName.slice(0, 255), headers: parsed.headers, rows: JSON.stringify(parsed.rows) })
+    .values({ id, tenant_id: tenantId, event_id: eventId, created_by: createdBy, file_name: fileName.slice(0, 255), headers: parsed.headers, rows: JSON.stringify(parsed.rows) })
     .returning(["expires_at"]).executeTakeFirstOrThrow();
-  return {
-    id, eventId, fileName: file.fileName, headers: parsed.headers, sample: parsed.rows.slice(0, 5), rowCount: parsed.rows.length,
-    mapping: suggestMapping(parsed.headers, await rememberedMapping(tx)), expiresAt: row.expires_at,
-  };
+  return toDraft(id, eventId, fileName, parsed, row.expires_at, await rememberedMapping(tx));
+}
+
+const toDraft = (id: string, eventId: string, fileName: string, parsed: ParsedFile, expiresAt: Date, remembered: Record<string, string> | null): ImportDraft => ({
+  id, eventId, fileName, headers: parsed.headers, sample: parsed.rows.slice(0, 5), rowCount: parsed.rows.length,
+  mapping: suggestMapping(parsed.headers, remembered), expiresAt,
+});
+
+/** A staged import, as the upload returned it: for a source staged in the background. */
+export async function getImportDraft(tx: Tx, ctx: ActorContext, importId: string): Promise<ImportDraft> {
+  assertCan(ctx, "registrations.write");
+  const d = await draft(tx, importId);
+  return toDraft(d.id, d.event_id, d.file_name, { headers: d.headers, rows: d.rows as string[][] }, d.expires_at, await rememberedMapping(tx));
 }
 
 type Existing = ReturnType<typeof toInvitation>;

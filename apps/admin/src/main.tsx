@@ -17,6 +17,7 @@ import { Members } from "./pages/Members.js";
 import { Settings } from "./pages/Settings.js";
 import { SignIn } from "./pages/SignIn.js";
 import { DoorListPage } from "./pages/registration/DoorListPage.js";
+import { HubSpotCallback } from "./pages/settings/Integrations.js";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
 
@@ -50,6 +51,7 @@ function Routed() {
         <Route path="settings" element={<Settings />} />
         <Route path="members" element={<Members />} />
         <Route path="audit" element={<Audit />} />
+        <Route path="integrations/hubspot/callback" element={<HubSpotCallback />} />
         <Route path="*" element={<Navigate to="/events" replace />} />
       </Route>
       <Route path="door-list/:occurrenceId" element={<DoorListPage />} />

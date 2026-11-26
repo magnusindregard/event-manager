@@ -23,6 +23,16 @@ import * as m0018 from "./migrations/0018_reservations.js";
 import * as m0019 from "./migrations/0019_after_sale.js";
 import * as m0020 from "./migrations/0020_user_groups.js";
 import * as m0021 from "./migrations/0021_group_prices.js";
+import * as m0022 from "./migrations/0022_integrations.js";
+import * as m0023 from "./migrations/0023_hubspot_sync.js";
+import * as m0024 from "./migrations/0024_hubspot_segments.js";
+import * as m0025 from "./migrations/0025_hubspot_cleanup.js";
+import * as m0026 from "./migrations/0026_hubspot_sending.js";
+import * as m0027 from "./migrations/0027_hubspot_guest_lists.js";
+import * as m0028 from "./migrations/0028_hubspot_review_fixes.js";
+import * as m0029 from "./migrations/0029_hubspot_unresolved_sends.js";
+import * as m0030 from "./migrations/0030_hubspot_welcome_deadline.js";
+import * as m0031 from "./migrations/0031_hubspot_welcome_refusal.js";
 
 /** By name, in order. Exported for tests that run one migration down and up again. */
 export const migrations: Record<string, Migration> = {
@@ -46,6 +56,16 @@ export const migrations: Record<string, Migration> = {
   "0019_after_sale": m0019,
   "0020_user_groups": m0020,
   "0021_group_prices": m0021,
+  "0022_integrations": m0022,
+  "0023_hubspot_sync": m0023,
+  "0024_hubspot_segments": m0024,
+  "0025_hubspot_cleanup": m0025,
+  "0026_hubspot_sending": m0026,
+  "0027_hubspot_guest_lists": m0027,
+  "0028_hubspot_review_fixes": m0028,
+  "0029_hubspot_unresolved_sends": m0029,
+  "0030_hubspot_welcome_deadline": m0030,
+  "0031_hubspot_welcome_refusal": m0031,
 };
 
 const provider: MigrationProvider = { getMigrations: async () => migrations };
@@ -83,7 +103,6 @@ export async function migrate(migratorUrl: string): Promise<void> {
 
     const migrator = new Migrator({ db, provider, migrationTableSchema: "platform_migrations" });
     await sql`CREATE SCHEMA IF NOT EXISTS platform_migrations`.execute(db);
-    await retireHubSpotMigration(db);
     const { error, results } = await migrator.migrateToLatest();
     for (const r of results ?? []) {
       console.log(`migration ${r.migrationName}: ${r.status}`);
@@ -110,28 +129,4 @@ export async function migrate(migratorUrl: string): Promise<void> {
       await adminDb.destroy();
     }
   }
-}
-
-/**
- * The HubSpot connector is on hold (feat/hubspot-connector), but staging already ran its
- * migration. Kysely refuses to migrate while an executed migration is missing, so undo it here:
- * its down(), then forget it ran. Apps on the previous image use platform.data_key until they
- * move to the new image. Remove this once no database has the migration.
- */
-export async function retireHubSpotMigration(db: Kysely<unknown>): Promise<void> {
-  await db.transaction().execute(async (tx) => {
-    const ran = await sql<{ n: number }>`
-      SELECT count(*)::int AS n FROM pg_tables
-      WHERE schemaname = 'platform_migrations' AND tablename = 'kysely_migration'
-    `.execute(tx);
-    if (!ran.rows[0]?.n) return;
-    const deleted = await sql`DELETE FROM platform_migrations.kysely_migration WHERE name = '0022_integrations'`.execute(tx);
-    if (!deleted.numAffectedRows) return;
-    await sql`
-      DROP SCHEMA IF EXISTS integrations CASCADE;
-      DROP VIEW IF EXISTS registration.data_key;
-      ALTER TABLE platform.data_key SET SCHEMA registration;
-    `.execute(tx);
-    console.log("migration 0022_integrations: retired");
-  });
 }

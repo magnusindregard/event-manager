@@ -15,6 +15,7 @@ COPY apps/worker/package.json apps/worker/
 COPY apps/admin/package.json apps/admin/
 COPY packages/db/package.json packages/db/
 COPY packages/domain/package.json packages/domain/
+COPY packages/hubspot/package.json packages/hubspot/
 COPY packages/schemas/package.json packages/schemas/
 COPY packages/sdk/package.json packages/sdk/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile

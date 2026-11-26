@@ -1,3 +1,5 @@
+import { FakeHubSpot, HttpHubSpot } from "@event-manager/hubspot";
+import type { HubSpotDeps } from "./hubspot/setup.js";
 import { FakeDirectory, GraphDirectory, type IdentityDirectory } from "./identity/directory.js";
 import { FakeMailer, type Mailer, PostmarkMailer } from "./identity/mailer.js";
 import type { ProvisionDeps } from "./provision.js";
@@ -43,4 +45,23 @@ export function mailerFromEnv(env: NodeJS.ProcessEnv, log: (line: string) => voi
 /** ATTENDEE_URL: base of the hosted attendee pages, for the links in registration emails. */
 export function registrationEmailDepsFromEnv(env: NodeJS.ProcessEnv, mailer: Mailer): RegistrationEmailDeps {
   return { mailer, attendeeUrl: env.ATTENDEE_URL ?? "http://localhost:3020" };
+}
+
+/**
+ * HUBSPOT_CLIENT_ID + HUBSPOT_CLIENT_SECRET: our HubSpot app, to refresh tokens and call the
+ * portals that connected (docs/hubspot.md). Without them HubSpot jobs are skipped.
+ * HUBSPOT=fake (local only, with the API's): a fake portal that accepts any token.
+ */
+export function hubspotDepsFromEnv(env: NodeJS.ProcessEnv, log: (line: string) => void): HubSpotDeps | null {
+  if (env.HUBSPOT === "fake") {
+    if (env.NODE_ENV === "production") throw new Error("HUBSPOT=fake must not be set in production");
+    log("hubspot: fake portal 1000");
+    return { client: new FakeHubSpot(log, { redirectUrl: "", portalId: "1000" }) };
+  }
+  if (!env.HUBSPOT_CLIENT_ID || !env.HUBSPOT_CLIENT_SECRET) {
+    log("hubspot: not configured (set HUBSPOT_CLIENT_ID and HUBSPOT_CLIENT_SECRET)");
+    return null;
+  }
+  // The worker never exchanges codes, so it needs no redirect URL.
+  return { client: new HttpHubSpot({ clientId: env.HUBSPOT_CLIENT_ID, clientSecret: env.HUBSPOT_CLIENT_SECRET, redirectUrl: "" }) };
 }

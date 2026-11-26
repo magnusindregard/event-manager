@@ -42,6 +42,8 @@ param publicUrl string = ''
 param postmarkWebhook bool = false
 @description('Master keys for sensitive registration answers. Needs Key Vault secret "sensitive-data-keys" holding "id:base64-32-bytes" (infra/README.md). Off: forms cannot take sensitive answers.')
 param sensitiveDataKeys bool = false
+@description('Client id of our HubSpot app (docs/hubspot.md). Needs Key Vault secret "hubspot-client-secret" and sensitiveDataKeys (tokens are encrypted). Empty: connecting HubSpot is off.')
+param hubspotClientId string = ''
 
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: 'cae-${name}'
@@ -85,7 +87,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
       // Reached through Front Door. TODO before personal data (phase 1): Front Door Premium + Private Link.
       ingress: { external: true, targetPort: 3000, transport: 'http' }
       registries: registries
-      secrets: concat(workerAsSidecar ? workerSecrets : [], webhookSecrets, sensitiveSecrets)
+      secrets: concat(workerAsSidecar ? workerSecrets : [], webhookSecrets, sensitiveSecrets, hubspotSecrets)
     }
     template: {
       containers: concat([{
@@ -103,7 +105,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           empty(publicUrl) ? [] : [{ name: 'PUBLIC_URL', value: publicUrl }],
           // MCP tool results link each event to its page in the admin.
           empty(adminUrl) ? [] : [{ name: 'ADMIN_URL', value: adminUrl }],
-          webhookEnabled ? [{ name: 'POSTMARK_WEBHOOK_AUTH', secretRef: 'postmark-webhook-auth' }] : [], sensitiveEnv)
+          webhookEnabled ? [{ name: 'POSTMARK_WEBHOOK_AUTH', secretRef: 'postmark-webhook-auth' }] : [], sensitiveEnv, hubspotEnv)
         probes: probesFor(3000)
       }], workerAsSidecar ? [workerContainer] : [])
       // Staging scales to zero (cold start of a few seconds) to keep cost down.
@@ -169,10 +171,19 @@ resource publicApi 'Microsoft.App/containerApps@2024-03-01' = {
 var mailEnabled = !empty(mailFrom) && !empty(keyVaultUri)
 var webhookEnabled = postmarkWebhook && !empty(keyVaultUri)
 var webhookSecrets = webhookEnabled ? [{ name: 'postmark-webhook-auth', keyVaultUrl: '${keyVaultUri}secrets/postmark-webhook-auth', identity: appIdentityId }] : []
-// The api reads sensitive answers for staff, the attendee app stores them; the worker never decrypts.
+// The api reads sensitive answers for staff, the attendee app stores them. The worker decrypts
+// only integration tokens, so it gets the keys when HubSpot is on.
 var sensitiveEnabled = sensitiveDataKeys && !empty(keyVaultUri)
 var sensitiveSecrets = sensitiveEnabled ? [{ name: 'sensitive-data-keys', keyVaultUrl: '${keyVaultUri}secrets/sensitive-data-keys', identity: appIdentityId }] : []
 var sensitiveEnv = sensitiveEnabled ? [{ name: 'SENSITIVE_DATA_KEYS', secretRef: 'sensitive-data-keys' }] : []
+// HubSpot connector (docs/hubspot.md): the api runs OAuth, the worker refreshes tokens and syncs.
+// The redirect URL is the admin's callback page, from ADMIN_URL.
+var hubspotEnabled = !empty(hubspotClientId) && sensitiveEnabled
+var hubspotSecrets = hubspotEnabled ? [{ name: 'hubspot-client-secret', keyVaultUrl: '${keyVaultUri}secrets/hubspot-client-secret', identity: appIdentityId }] : []
+var hubspotEnv = hubspotEnabled ? [
+  { name: 'HUBSPOT_CLIENT_ID', value: hubspotClientId }
+  { name: 'HUBSPOT_CLIENT_SECRET', secretRef: 'hubspot-client-secret' }
+] : []
 var workerSecrets = mailEnabled ? [{ name: 'postmark-token', keyVaultUrl: '${keyVaultUri}secrets/postmark-token', identity: appIdentityId }] : []
 var workerContainer = {
   name: 'worker'
@@ -190,7 +201,7 @@ var workerContainer = {
     { name: 'MAILER', value: 'postmark' }
     { name: 'MAIL_FROM', value: mailFrom }
     { name: 'POSTMARK_TOKEN', secretRef: 'postmark-token' }
-  ] : [])
+  ] : [], hubspotEnabled ? concat(hubspotEnv, sensitiveEnv) : [])
 }
 
 // Prod: always one replica, since graphile-worker listens for new jobs (LISTEN/NOTIFY).
@@ -204,7 +215,7 @@ resource worker 'Microsoft.App/containerApps@2024-03-01' = if (!workerAsSidecar)
   properties: {
     environmentId: environment.id
     workloadProfileName: 'Consumption'
-    configuration: { registries: registries, secrets: workerSecrets }
+    configuration: { registries: registries, secrets: concat(workerSecrets, hubspotEnabled ? concat(hubspotSecrets, sensitiveSecrets) : []) }
     template: {
       containers: [workerContainer]
       scale: { minReplicas: 1, maxReplicas: prod ? 3 : 1 }

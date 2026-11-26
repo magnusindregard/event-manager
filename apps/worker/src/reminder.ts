@@ -1,10 +1,12 @@
 import type { Task } from "graphile-worker";
 import QRCode from "qrcode";
 import { type Db, sql, type Tx, withTenant } from "@event-manager/db";
-import { registration } from "@event-manager/domain";
+import { integrations, registration } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
+import { sendThroughHubSpot } from "./hubspot/send.js";
+import type { HubSpotDeps } from "./hubspot/setup.js";
 import { sendOrGiveUp } from "./identity/mailer.js";
-import { type RegistrationEmailDeps, registrationEmail } from "./registration-email.js";
+import { formatWhen, type RegistrationEmailDeps, registrationEmail } from "./registration-email.js";
 
 // Reminder before the event (docs/registration.md, "Closed event", step 6): when the event
 // has a reminder set, each confirmed attendee gets one email that many minutes before their
@@ -15,11 +17,19 @@ import { type RegistrationEmailDeps, registrationEmail } from "./registration-em
 // a new registration, a new time for the occurrence, the event (re)published, or a change
 // of the reminder setting. The job checks the time again when it runs, so a stale job just
 // reschedules itself or does nothing.
+//
+// When the event sends through HubSpot (docs/hubspot.md, "When emails go out"), this reminder is
+// the welcome: the event's HubSpot welcome email, linking to the manage page with the QR code.
+// The platform sends its own when HubSpot will not take it, and records why.
 
 export const REMINDER_TASK = "registration.reminder";
 // Jobs that run up to this early still send (the queue may run them a little ahead of time).
 const EARLY_MS = 60_000;
 const TIME_FIELDS = ["startUtc", "endUtc", "reattached"];
+/** A welcome HubSpot is still working on is read again this much later. */
+const RECHECK_MS = 10 * 60_000;
+/** A welcome HubSpot has not settled this long after taking it is left unresolved. */
+const RECHECK_FOR_MS = 2 * 86_400_000;
 
 async function enqueue(tx: Tx, tenantId: string, plans: { id: string; runAt: Date }[]) {
   for (const p of plans) {
@@ -62,7 +72,22 @@ interface Payload {
 const isPayload = (p: unknown): p is Payload =>
   typeof p === "object" && p !== null && typeof (p as Payload).tenantId === "string" && typeof (p as Payload).registrationId === "string";
 
-export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => Date = () => new Date()): Task {
+/** Pure: the custom properties of the HubSpot welcome. */
+export function welcomeProperties(m: registration.RegistrationMessage, manageToken: string): Record<string, string> {
+  const e = m.target.event;
+  const locale = m.registration.locale;
+  const title = e.translations[locale]?.title ?? e.translations[m.account.defaultLocale]?.title ?? Object.values(e.translations)[0]?.title ?? e.slug;
+  const l = m.target.location;
+  return {
+    manage_token: manageToken,
+    event_title: title,
+    event_date: formatWhen(locale, e.timezone, m.target.occurrence.startUtc, m.target.occurrence.endUtc),
+    event_place: l ? [l.name, l.venue && l.venue !== l.name ? l.venue : null, l.address].filter(Boolean).join(", ") : "",
+    guest_name: m.registration.name ?? "",
+  };
+}
+
+export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => Date = () => new Date(), hubspot: HubSpotDeps | null = null): Task {
   const base = deps.attendeeUrl.replace(/\/+$/, "");
   return async (payload, helpers) => {
     if (!isPayload(payload)) throw new Error(`Invalid ${REMINDER_TASK} payload`);
@@ -71,40 +96,129 @@ export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => D
     const prepared = await withTenant(db, { tenantId }, async (tx) => {
       const message = await registration.loadMessage(tx, registrationId);
       if (!message) return null;
-      const at = registration.reminderTime(message.registration, message.target, now);
+      // A welcome HubSpot took already goes back to HubSpot for its result, whenever this runs.
+      const taken = await registration.reminderStatusId(tx, registrationId);
+      // Whether a welcome is due decides a new email (the first send, or the platform's fallback),
+      // never whether the result of one HubSpot has taken is read.
+      const due = registration.reminderTime(message.registration, message.target, now);
+      // Refused by HubSpot already (the platform's welcome was put off): an ordinary platform send, at its time.
+      const at = taken && !taken.refusal ? now : due;
       if (!at) return null;
       if (at.getTime() - now.getTime() > EARLY_MS) {
         // The occurrence moved later, or the setting changed: try again at the new time.
         await enqueue(tx, tenantId, [{ id: registrationId, runAt: at }]);
         return null;
       }
-      const [manage, admission] = await Promise.all([
+      const [manage, admission, channel] = await Promise.all([
         registration.manageToken(tx, tenantId, message.registration),
         registration.admissionToken(tx, tenantId, message.registration),
+        integrations.eventChannel(tx, message.target.event.id),
       ]);
-      return { message, manage, admission };
+      return { message, manage, admission, channel, taken };
     });
     if (!prepared) {
       helpers.logger.info(`registration ${registrationId}: no reminder now`);
       return;
     }
-    const qrPng = prepared.admission ? (await QRCode.toBuffer(prepared.admission, { type: "png", width: 400, margin: 1, errorCorrectionLevel: "M" })).toString("base64") : null;
-    const mail = registrationEmail({ kind: "reminder", message: prepared.message, manageUrl: `${base}/m/${prepared.manage}`, qrPng });
-    // Claimed first, so two runs never both send; released again if sending fails, so a retry
-    // sends. A permanent rejection is released too, but not retried.
     const mine = await withTenant(db, { tenantId }, (tx) => registration.markReminded(tx, registrationId, now));
     if (!mine) return;
-    let sent;
+    const release = () => withTenant(db, { tenantId }, (tx) => registration.unmarkReminded(tx, registrationId, now));
+    // Anything that fails after the claim releases it, so the retry can still send or record the
+    // outcome; unless the platform's email has gone, which a retry must not send twice.
+    let mailed = false;
     try {
-      sent = await sendOrGiveUp(deps.mailer, { to: prepared.message.registration.email, ...mail }, (l) => helpers.logger.error(l), `registration ${registrationId}: reminder`);
+      // The event sends through HubSpot, or HubSpot took this welcome already: HubSpot first.
+      let fallbackReason: string | null = null;
+      let message = prepared.message;
+      if (prepared.taken?.refusal) fallbackReason = prepared.taken.refusal;
+      else if (prepared.channel === "hubspot" || prepared.taken) {
+        let r;
+        try {
+          r = await sendThroughHubSpot(db, tenantId, hubspot, {
+            kind: "welcome", eventId: prepared.message.target.event.id, email: prepared.message.registration.email!, name: prepared.message.registration.name,
+            sendId: `welcome-${registrationId}`, customProperties: welcomeProperties(prepared.message, prepared.manage), taken: prepared.taken,
+            lastAttempt: helpers.job.attempts >= helpers.job.max_attempts,
+            saveStatusId: (statusId, portalId) => withTenant(db, { tenantId }, (tx) => registration.recordReminderStatus(tx, registrationId, statusId, portalId)),
+          });
+        } catch (e) {
+          await release();
+          throw e;
+        }
+        if (r.sent) {
+          await withTenant(db, { tenantId }, (tx) => registration.recordReminderChannel(tx, registrationId, "hubspot", null));
+          helpers.logger.info(`registration ${registrationId}: welcome sent through HubSpot`);
+          return;
+        }
+        if (r.pending) {
+          const takenAt = prepared.taken?.takenAt ?? now;
+          if (r.recheck && now.getTime() - takenAt.getTime() >= RECHECK_FOR_MS) {
+            // HubSpot never settled it: unresolved for good. Kept as reminded, so nothing reads or sends it again.
+            await withTenant(db, { tenantId }, (tx) => registration.recordReminderChannel(tx, registrationId, null, `Unresolved: ${r.reason.replace(/\. Checked again later$/, "")}`));
+            helpers.logger.warn(`registration ${registrationId}: welcome left unresolved after ${RECHECK_FOR_MS / 3_600_000} hours (${r.reason})`);
+            return;
+          }
+          // Neither sent nor refused: released. Connected to the portal that took it: read again
+          // later; otherwise a reconnect of that portal queues it again.
+          await release();
+          await withTenant(db, { tenantId }, async (tx) => {
+            await registration.recordReminderChannel(tx, registrationId, null, r.reason);
+            if (r.recheck) await enqueue(tx, tenantId, [{ id: registrationId, runAt: new Date(now.getTime() + RECHECK_MS) }]);
+          });
+          helpers.logger.warn(`registration ${registrationId}: welcome ${r.recheck ? "checked again later" : "left unresolved"} (${r.reason})`);
+          return;
+        }
+        // HubSpot did not send it. The reminder rules are read again now, after the call to
+        // HubSpot, with the clock as it is now: the guest may have cancelled, the occurrence moved
+        // or started, while it ran. (This run holds the claim, so the rules are read as if it did not.)
+        const after = clock();
+        const fresh = await withTenant(db, { tenantId }, async (tx) => {
+          const m = await registration.loadMessage(tx, registrationId);
+          return m ? { message: m, due: registration.reminderTime({ ...m.registration, remindedAt: null }, m.target, after) } : null;
+        });
+        if (!fresh?.due) {
+          // No longer due (cancelled, or the event has started): recorded, kept as reminded, no platform email.
+          await withTenant(db, { tenantId }, (tx) => registration.recordReminderChannel(tx, registrationId, null, `HubSpot did not send it (${r.reason}), and it is no longer due`));
+          helpers.logger.info(`registration ${registrationId}: HubSpot did not send the welcome, and it is no longer due`);
+          return;
+        }
+        if (fresh.due.getTime() - after.getTime() > EARLY_MS) {
+          // The occurrence moved later: the platform's welcome goes at the new reminder time, not
+          // now. HubSpot's answer is kept, so that job sends without asking HubSpot again.
+          await release();
+          await withTenant(db, { tenantId }, async (tx) => {
+            await registration.recordReminderRefusal(tx, registrationId, r.reason, `HubSpot did not send it (${r.reason}); the platform sends it at the reminder time`);
+            await enqueue(tx, tenantId, [{ id: registrationId, runAt: fresh.due! }]);
+          });
+          helpers.logger.info(`registration ${registrationId}: HubSpot did not send the welcome; the platform sends it at ${fresh.due.toISOString()}`);
+          return;
+        }
+        // Kept before the platform's welcome is tried, as for one put off: a retry of it then needs nothing from HubSpot.
+        await withTenant(db, { tenantId }, (tx) => registration.recordReminderRefusal(tx, registrationId, r.reason, `HubSpot did not send it (${r.reason}); the platform sends it`));
+        message = fresh.message;
+        fallbackReason = r.reason;
+      }
+
+      const qrPng = prepared.admission ? (await QRCode.toBuffer(prepared.admission, { type: "png", width: 400, margin: 1, errorCorrectionLevel: "M" })).toString("base64") : null;
+      const mail = registrationEmail({ kind: "reminder", message, manageUrl: `${base}/m/${prepared.manage}`, qrPng });
+      // Claimed above, so two runs never both send; released again if sending fails, so a retry
+      // sends. A permanent rejection is released too, but not retried.
+      let sent;
+      try {
+        sent = await sendOrGiveUp(deps.mailer, { to: message.registration.email, ...mail }, (l) => helpers.logger.error(l), `registration ${registrationId}: reminder`);
+      } catch (e) {
+        await release();
+        throw e;
+      }
+      if (!sent) {
+        await release();
+        return;
+      }
+      mailed = true;
+      if (prepared.channel === "hubspot" || prepared.taken) await withTenant(db, { tenantId }, (tx) => registration.recordReminderChannel(tx, registrationId, "platform", fallbackReason));
+      helpers.logger.info(`registration ${registrationId}: reminder sent`);
     } catch (e) {
-      await withTenant(db, { tenantId }, (tx) => registration.unmarkReminded(tx, registrationId, now));
+      if (!mailed) await release();
       throw e;
     }
-    if (!sent) {
-      await withTenant(db, { tenantId }, (tx) => registration.unmarkReminded(tx, registrationId, now));
-      return;
-    }
-    helpers.logger.info(`registration ${registrationId}: reminder sent`);
   };
 }

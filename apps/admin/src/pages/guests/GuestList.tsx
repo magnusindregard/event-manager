@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ApiProblem, type CatalogEvent, type GuestInvitation, unwrap } from "../../api.js";
 import { useApp } from "../../AppContext.js";
 import { sendFailure } from "../../lib/send-failure.js";
+import { EventSending } from "./EventSending.js";
 import { GuestImport } from "./GuestImport.js";
 
 // Event → Guest list (docs/registration.md, "Admin interface"): import, list with status
@@ -40,13 +41,21 @@ export function GuestList({ event }: { event: CatalogEvent }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [importing, setImporting] = useState(false);
+  const [importing, setImporting] = useState<false | "new" | "refresh">(false);
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const key = ["invitations", accountId, event.id];
   const published = event.status === "published";
   const canWrite = can("registrations.write");
 
+  // HubSpot connected: the import offers a HubSpot list, and the remembered list can be fetched again.
+  const integrations = useQuery({ queryKey: ["integrations", accountId], queryFn: async () => unwrap(await api.GET("/v1/integrations")) });
+  const hubspot = integrations.data?.items.some((c) => c.provider === "hubspot" && c.status === "active") ?? false;
+  const guestSource = useQuery({
+    queryKey: ["guest-source", event.id],
+    enabled: hubspot,
+    queryFn: async () => unwrap(await api.GET("/v1/events/{id}/guest-source", { params: { path: { id: event.id } } })).source,
+  });
   const query = useQuery({
     queryKey: key,
     queryFn: async () => unwrap(await api.GET("/v1/events/{id}/invitations", { params: { path: { id: event.id } } })),
@@ -177,7 +186,10 @@ export function GuestList({ event }: { event: CatalogEvent }) {
       cell: ({ row }) => {
         const s = row.original.lastSend;
         if (!s) return <span className="text-muted-foreground text-xs">{t("guests.notSent")}</span>;
-        if (!s.sentAt && s.deliveryStatus === "queued") return <span className="text-muted-foreground text-xs">{t("guests.queued")}</span>;
+        if (!s.sentAt && s.unresolved) {
+          return <span className="max-w-64 text-xs text-destructive" title={s.deliveryDetail ?? undefined}>{t("guests.unresolved")}</span>;
+        }
+        if (!s.sentAt && s.deliveryStatus === "queued") return <span className="text-muted-foreground text-xs" title={s.deliveryDetail ?? undefined}>{t("guests.queued")}</span>;
         // Never sent: show when it failed and why, not the time it was asked for as if it went out.
         if (!s.sentAt && s.deliveryStatus === "failed") {
           return (
@@ -193,7 +205,9 @@ export function GuestList({ event }: { event: CatalogEvent }) {
             <span className="text-muted-foreground">
               {t(`guests.kinds.${s.kind}`)}
               {s.deliveryDetail === "external" ? ` · ${t("guests.external")}` : s.deliveryStatus === "delivered" ? ` · ${t("guests.delivery.delivered")}` : ""}
+              {s.channel === "hubspot" ? ` · ${t("guests.viaHubSpot")}` : ""}
             </span>
+            {s.fallbackReason && <span className="max-w-64 text-muted-foreground" title={s.fallbackReason}>{t("guests.byPlatform", { reason: s.fallbackReason })}</span>}
           </div>
         );
       },
@@ -246,6 +260,7 @@ export function GuestList({ event }: { event: CatalogEvent }) {
       {event.registration.accessPolicy === "open" && (
         <p className="text-muted-foreground text-sm">{t("guests.openHint")}</p>
       )}
+      <EventSending event={event} />
 
       {counts && (
         <dl className="grid grid-cols-2 gap-3 sm:grid-cols-5" aria-label={t("guests.countsLabel")}>
@@ -262,7 +277,12 @@ export function GuestList({ event }: { event: CatalogEvent }) {
       <div className="flex flex-wrap items-center gap-2">
         {canWrite && (
           <>
-            <Button onClick={() => setImporting(true)}><FileUp /> {t("guests.import.open")}</Button>
+            <Button onClick={() => setImporting("new")}><FileUp /> {t("guests.import.open")}</Button>
+            {hubspot && guestSource.data && (
+              <Button variant="outline" onClick={() => setImporting("refresh")} title={t("guests.import.refreshHint", { name: guestSource.data.listName })}>
+                <RefreshCw /> {t("guests.import.refresh")}
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setAdding(true)}><UserPlus /> {t("guests.add")}</Button>
             <Button variant="outline" disabled={!published || pendingCount === 0} onClick={() => setConfirm({ kind: "invitation", count: pendingCount })}>
               <Send /> {t("guests.sendAll", { count: pendingCount })}
@@ -314,7 +334,8 @@ export function GuestList({ event }: { event: CatalogEvent }) {
 
       <DataTable columns={columns} data={rows} loading={query.isLoading} empty={items.length ? t("common.noResults") : t("guests.empty")} getRowId={(r) => r.id} />
 
-      <GuestImport eventId={event.id} open={importing} onClose={() => setImporting(false)} onDone={refresh} />
+      <GuestImport eventId={event.id} open={!!importing} hubspot={hubspot} refresh={importing === "refresh"} onClose={() => setImporting(false)}
+        onDone={() => { refresh(); void guestSource.refetch(); }} />
       <AddGuest event={event} open={adding} onClose={() => setAdding(false)} onDone={refresh} />
 
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
