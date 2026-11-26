@@ -585,6 +585,57 @@ describe("a capture that waited too long", () => {
   });
 });
 
+describe("a capture whose answer comes back late", () => {
+  /** FakeVipps with a capture that runs `meanwhile` after Vipps has applied it, before answering. */
+  const slowCapture = (meanwhile: () => Promise<unknown>): payments.PaymentProvider => ({
+    verifyCredentials: (...a) => vipps.verifyCredentials(...a), registerWebhook: (...a) => vipps.registerWebhook(...a), deleteWebhook: (...a) => vipps.deleteWebhook(...a),
+    createPayment: (...a) => vipps.createPayment(...a), getPayment: (...a) => vipps.getPayment(...a), cancel: (...a) => vipps.cancel(...a),
+    refund: (...a) => vipps.refund(...a), sendReceipt: (...a) => vipps.sendReceipt(...a),
+    capture: async (...a) => {
+      await vipps.capture(...a);
+      await meanwhile();
+    },
+  });
+
+  it("keeps the order called off when a concurrent settlement refunded it first", async () => {
+    const { occ, adult } = await concert("late-answer");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(s.row.reference);
+    const afterEnd = new Date(START.getTime() + 6 * 60 * MIN);
+    // While the capture is on its way, the webhook settles the payment after the occurrence ended.
+    const provider = slowCapture(() => payments.processPayment(db, ctx.tenantId, s.paymentId, deps, afterEnd));
+    expect(await payments.processPayment(db, ctx.tenantId, s.paymentId, { provider }, at(2))).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate.refundedAmount.value).toBe(45000);
+    const events = await run((tx) => tx.selectFrom("outbox.event").select("type").where("subject", "=", `payment/${s.paymentId}`).execute());
+    expect(events.map((e) => e.type)).not.toContain("payment.captured.v1");
+  });
+
+  it("refunds a capture that landed after the occurrence was cancelled", async () => {
+    const { occ, adult } = await concert("cancelled-mid-capture");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(s.row.reference);
+    const provider = slowCapture(() => run((tx) => tx.updateTable("catalog.occurrence").set({ status: "cancelled" }).where("id", "=", occ.id).execute()));
+    expect(await payments.processPayment(db, ctx.tenantId, s.paymentId, { provider }, at(2))).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate).toMatchObject({ capturedAmount: { value: 45000 }, refundedAmount: { value: 45000 } });
+    const tickets = await run((tx) => tx.selectFrom("sales.ticket").select("status").where("reservation_id", "=", s.row.reservation_id).execute());
+    expect(tickets.map((t) => t.status)).toEqual(["cancelled"]);
+  });
+});
+
+describe("a refund split between the Vipps portal and the platform", () => {
+  it("reports the whole refund on the return page, counting each part once", async () => {
+    const { occ, adult } = await concert("split-refund");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
+    vipps.approve(s.row.reference);
+    await vipps.capture(keys, s.row.reference, { currency: "NOK", value: 90000 }, "portal-cap-split");
+    await vipps.refund(keys, s.row.reference, { currency: "NOK", value: 30000 }, "portal-ref-split");
+    // Captured, then partly refunded in the portal: not paid for; the platform refunds the rest.
+    expect(await process(s.paymentId)).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate.refundedAmount.value).toBe(90000);
+    expect(await run((tx) => payments.checkoutStatus(tx, s.token, at(3)))).toMatchObject({ refund: { amount: 90000, state: "done", outstanding: 0 } });
+  });
+});
+
 describe("expiry racing the buyer's approval", () => {
   it("cancels only an unapproved payment; an approval that wins is settled as usual", async () => {
     const { occ, adult } = await concert("expiry-race");

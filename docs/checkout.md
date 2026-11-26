@@ -53,7 +53,9 @@ Everyone in the account can see the connection. Only owners change it (`account.
 | EXPIRED | cancel the reservation | `expired` |
 | TERMINATED | cancel the reservation if it is still held | `cancelled` |
 
-**Money already captured** is never left behind. Whenever an order is called off, or ends at Vipps, after something was captured, the net captured amount (captured minus refunded) is refunded through Vipps, like a staff refund. A refund Vipps does not answer is sent again by the reconcile job; one it refuses shows in Sales with a retry. The return page then says how much is refunded (also refunds made in the Vipps portal, from what Vipps last reported), and whether the refund is done, still on its way, or failed (in which case it tells the buyer to contact the account).
+**Money already captured** is never left behind. Whenever an order is called off, or ends at Vipps, after something was captured, the net captured amount (captured minus refunded) is refunded through Vipps, like a staff refund. A refund Vipps does not answer is sent again by the reconcile job; one it refuses shows in Sales with a retry. The return page then says how much is refunded in total, counting refunds made in the Vipps portal (from the snapshot the platform sized its own refund from) and the platform's own once each, and how much is not back yet, and whether the refund is done, still on its way, or failed (in which case it tells the buyer to contact the account).
+
+**A capture's answer** is recorded under the lock on the payment. An outcome reached meanwhile by the webhook or the return page (say, the order called off and refunded) stands. If the order became undeliverable while the capture was on its way, the captured money is refunded instead of the tickets being activated.
 
 **Cancelling at Vipps** counts only once Vipps confirms it. If Vipps refuses a cancel, the payment is read again, and only a cancelled amount or a final state counts. Otherwise the payment stays open, with the reason, and is tried again. A capture or refund Vipps holds (HTTP 423, the payment is locked) is retried, not refused.
 

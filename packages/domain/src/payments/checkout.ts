@@ -247,19 +247,41 @@ export async function processPayment(db: Db, tenantId: string, paymentId: string
       // go only once Vipps confirms the authorisation is cancelled; until then the capture is retried.
       return callOff(db, tenantId, row, creds, `Vipps refused the capture (${providerMessage(e)}); the order was cancelled`, deps, now);
     }
-    return withTenant(db, { tenantId }, async (tx) => {
+    // The capture is done at Vipps. What it covers now (a portal refund may have come in between).
+    const after = await deps.provider.getPayment(creds, row.reference).catch(() => null);
+    const settled = await withTenant(db, { tenantId }, async (tx) => {
       const locked = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).forUpdate().executeTakeFirstOrThrow();
-      if (locked.state === "captured") return "captured" as const;
+      // Settled meanwhile (the webhook or the return page got there first, maybe calling the order
+      // off and refunding it): that outcome stands.
+      if (TERMINAL.includes(locked.state)) return { state: locked.state, refundId: null };
+      if (after) await storeAggregate(tx, row.id, after);
+      // The order may have become undeliverable while the capture was on its way: give the money back.
+      const gone = await unfulfillable(tx, row.reservation_id, now);
+      if (gone) {
+        const net = after ? after.aggregate.capturedAmount.value - after.aggregate.refundedAmount.value : row.amount;
+        if (net > 0) return { state: "cancelled" as const, refundId: await returnMoney(tx, tenantId, row, net, `Captured, but the order can no longer be fulfilled (${gone}); the money is refunded`, now) };
+        await releaseReservation(tx, tenantId, row.reservation_id, now);
+        await setState(tx, row.id, "cancelled", { cancelled_at: now, failure_reason: `The order can no longer be fulfilled (${gone})` });
+        await paymentEvent(tx, tenantId, "payment.cancelled.v1", row, { reason: gone });
+        return { state: "cancelled" as const, refundId: null };
+      }
       await activateTickets(tx, row.reservation_id);
       await setState(tx, row.id, "captured", { captured_at: now, failure_reason: null });
       await paymentEvent(tx, tenantId, "payment.captured.v1", row);
-      return "captured" as const;
+      return { state: "captured" as const, refundId: null };
     });
+    if (settled.refundId) await sendRefund(db, tenantId, settled.refundId, deps);
+    return settled.state;
   }
 
   if (action.kind === "cancel") return callOff(db, tenantId, row, creds, action.reason, deps, now);
 
   return withTenant(db, { tenantId }, async (tx) => (await tx.selectFrom("payments.payment").select("state").where("id", "=", paymentId).executeTakeFirstOrThrow()).state);
+}
+
+/** Keeps what Vipps last said about the payment: its state and the amounts authorised, captured, cancelled and refunded. */
+async function storeAggregate(tx: Tx, paymentId: string, remote: ProviderPayment) {
+  await tx.updateTable("payments.payment").set({ aggregate: JSON.stringify({ state: remote.state, ...remote.aggregate }) }).where("id", "=", paymentId).execute();
 }
 
 async function recordReason(db: Db, tenantId: string, paymentId: string, reason: string) {
@@ -299,6 +321,8 @@ async function callOff(db: Db, tenantId: string, row: PaymentRow, creds: Provide
   const refundId = await withTenant(db, { tenantId }, async (tx) => {
     const locked = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", row.id).forUpdate().executeTakeFirstOrThrow();
     if (TERMINAL.includes(locked.state)) return null;
+    // The snapshot the refund is sized from: what Vipps had refunded already is not refunded again.
+    await storeAggregate(tx, row.id, after);
     if (net > 0) return returnMoney(tx, tenantId, row, net, `${reason}; ${net} was captured in Vipps and is refunded`, now);
     await releaseReservation(tx, tenantId, row.reservation_id, now);
     await setState(tx, row.id, "cancelled", { cancelled_at: now, failure_reason: reason.slice(0, 500) });
@@ -366,7 +390,7 @@ export async function abandonPayment(db: Db, tenantId: string, paymentId: string
 /** Decides what to do, under the lock on the payment, and records what needs no call to Vipps. */
 async function decide(tx: Tx, tenantId: string, row: PaymentRow, remote: ProviderPayment, now: Date): Promise<Action> {
   if (TERMINAL.includes(row.state)) return { kind: "none" };
-  await tx.updateTable("payments.payment").set({ aggregate: JSON.stringify({ state: remote.state, ...remote.aggregate }) }).where("id", "=", row.id).execute();
+  await storeAggregate(tx, row.id, remote);
   const agg = remote.aggregate;
 
   if (remote.state === "CREATED") return { kind: "none" };
@@ -504,11 +528,12 @@ export interface CheckoutStatus {
   vat: { ratePct: number; amount: number }[];
   reference: string | null;
   /**
-   * Money given back through Vipps for a cancelled order that had been charged, with how far it
-   * has got: done, pending (sent again until Vipps answers) or failed (staff follow it up). Null:
+   * Money given back through Vipps for a cancelled order that had been charged: the total, in the
+   * Vipps portal and by the platform, how far the platform's part has got (done, pending: sent again
+   * until Vipps answers, failed: staff follow it up), and how much of it is not back yet. Null:
    * nothing to give back.
    */
-  refund: { amount: number; state: "done" | "pending" | "failed" } | null;
+  refund: { amount: number; state: "done" | "pending" | "failed"; outstanding: number } | null;
 }
 
 /** The payment behind a checkout token (or the free reservation), with the reservation. Null for an invalid token. */
@@ -537,13 +562,17 @@ export async function checkoutStatus(tx: Tx, token: string, now: Date = new Date
   // Only refunds the platform made when it called the order off (no tickets named); staff refunds of tickets show in Sales.
   const refunds = claims.tokenVersion === 0 ? [] : await tx.selectFrom("payments.refund").select(["amount", "state"])
     .where("payment_id", "=", claims.subjectId).where(sql<boolean>`cardinality(ticket_ids) = 0`).execute();
-  // A cancelled order refunded in the Vipps portal (no refund row of ours): already done.
-  const refund = refunds.length
+  // The platform sizes its refund from the Vipps snapshot it stores alongside (captured minus what
+  // Vipps had refunded then), so the snapshot's refunds are the portal's, and the two add up.
+  const ours = refunds.reduce((s, r) => s + r.amount, 0);
+  const outstanding = refunds.filter((r) => r.state !== "done").reduce((s, r) => s + r.amount, 0);
+  const refund = refunds.length || (state === "cancelled" && portalRefunded > 0)
     ? {
-        amount: refunds.reduce((s, r) => s + r.amount, 0),
+        amount: portalRefunded + ours,
         state: refunds.some((r) => r.state === "failed") ? ("failed" as const) : refunds.some((r) => r.state === "pending") ? ("pending" as const) : ("done" as const),
+        outstanding,
       }
-    : state === "cancelled" && portalRefunded > 0 ? { amount: portalRefunded, state: "done" as const } : null;
+    : null;
   return { state, reservation, accountName: account.name, vat: vatPerRate(reservation.lines), reference, refund };
 }
 

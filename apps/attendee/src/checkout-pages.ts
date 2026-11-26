@@ -187,8 +187,11 @@ ${!selling && !soldOut ? html`<p class="notice error" role="status">${t.closed}<
     }
     if (s.state === "failed" || s.state === "expired" || s.state === "cancelled") {
       const amount = s.refund ? money(locale, s.refund.amount, r.total.currency) : "";
+      // Pending or failed: say what is not back yet; done: the whole amount refunded.
+      const outstanding = s.refund ? money(locale, s.refund.outstanding, r.total.currency) : "";
       const lead = !s.refund ? (s.state === "cancelled" ? t.cancelledLead : t.failedLead)
-        : s.refund.state === "failed" ? t.refunded.failed(amount, s.accountName) : t.refunded[s.refund.state](amount);
+        : s.refund.state === "failed" ? t.refunded.failed(outstanding, s.accountName)
+        : s.refund.state === "pending" ? t.refunded.pending(outstanding) : t.refunded.done(amount);
       const body = html`<h1>${t.failed}</h1><p>${lead}</p>
 ${occurrenceId ? html`<p><a href="/b/${occurrenceId}">${t.tryAgain}</a></p>` : ""}`;
       return send(reply, 200, page({ locale, title: t.failed, account: s.accountName, body }));
