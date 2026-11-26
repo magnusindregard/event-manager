@@ -117,6 +117,16 @@ const resources = {
         cancelledToast_one: "{{count}} billett er kansellert", cancelledToast_other: "{{count}} billetter er kansellert",
         help: "Salgskanalen ser kanselleringen neste gang den leser reservasjonen.",
         errors: { occurrence_started: "Tidspunktet har startet, så billettene kan ikke kanselleres.", already_cancelled: "Billettene er allerede kansellert." },
+        payment: {
+          vipps: "Vipps: {{state}}", refunded: "{{amount}} refundert",
+          states: { created: "venter på kjøperen", authorized: "godkjent", captured: "betalt", cancelled: "kansellert", expired: "utløpt", failed: "avvist" },
+        },
+        refund: {
+          body: "QR-kodene slutter å virke, plassene legges ut for salg igjen, og {{amount}} refunderes til kjøperen gjennom Vipps.",
+          confirm: "Kanseller og refunder {{amount}}", done: "{{amount}} er refundert gjennom Vipps",
+          pending: "Vipps svarte ikke. Refusjonen sendes på nytt automatisk.", failed: "Vipps avviste refusjonen", retry: "Prøv igjen",
+          ticket: { done: "refundert gjennom Vipps", pending: "refusjonen venter", failed: "refusjonen feilet" },
+        },
       },
       registrations: {
         title: "Påmeldinger", open: "Påmeldinger", openFor: "Påmeldinger {{when}}", summary: "{{count}} påmeldinger, {{people}} personer",
@@ -528,6 +538,16 @@ const resources = {
         cancelledToast_one: "{{count}} ticket cancelled", cancelledToast_other: "{{count}} tickets cancelled",
         help: "The sales channel sees the cancellation the next time it reads the reservation.",
         errors: { occurrence_started: "The occurrence has started, so its tickets can no longer be cancelled.", already_cancelled: "The tickets are already cancelled." },
+        payment: {
+          vipps: "Vipps: {{state}}", refunded: "{{amount}} refunded",
+          states: { created: "waiting for the buyer", authorized: "approved", captured: "paid", cancelled: "cancelled", expired: "expired", failed: "rejected" },
+        },
+        refund: {
+          body: "The QR codes stop working, the places go back on sale, and {{amount}} is refunded to the buyer through Vipps.",
+          confirm: "Cancel and refund {{amount}}", done: "{{amount}} refunded through Vipps",
+          pending: "Vipps did not answer. The refund is sent again automatically.", failed: "Vipps refused the refund", retry: "Retry",
+          ticket: { done: "refunded through Vipps", pending: "refund pending", failed: "refund failed" },
+        },
       },
       registrations: {
         title: "Registrations", open: "Registrations", openFor: "Registrations {{when}}", summary: "{{count}} registrations, {{people}} people",

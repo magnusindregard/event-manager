@@ -54,7 +54,16 @@ export async function reconcilePayments(db: Db, deps: Pick<PaymentsWorkerDeps, "
   const tenants = await withoutTenant(db, (tx) => payments.openPaymentTenants(tx, before));
   const result: ReconcileResult = { checked: 0, failed: 0 };
   for (const tenantId of tenants) {
-    const ids = await withTenant(db, { tenantId }, (tx) => payments.openPayments(tx, before));
+    const [ids, refunds] = await withTenant(db, { tenantId }, async (tx) => [await payments.openPayments(tx, before), await payments.pendingRefunds(tx, before)] as const);
+    for (const id of refunds) {
+      try {
+        await payments.sendRefund(db, tenantId, id, deps);
+        result.checked++;
+      } catch (e) {
+        result.failed++;
+        log(`payments: refund ${id} failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
     for (const id of ids) {
       try {
         await payments.processPayment(db, tenantId, id, deps, now);

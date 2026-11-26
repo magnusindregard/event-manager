@@ -61,7 +61,17 @@ Everyone in the account can see the connection. Only owners change it (`account.
 
 ## Refunds
 
-Staff cancel tickets on a hosted reservation from **Occurrence → Sales**. The cancel then refunds those tickets' line amounts through Vipps, and the refund's reference is stored on the tickets as `externalRefundRef`. Staff confirm the amount first.
+Staff (`sales.write`) cancel tickets of a hosted sale from **Occurrence → Sales**, all of them or the ones they tick. The dialog shows the amount, and the request carries it (`POST /v1/sales/reservations/:id/refund` with `amount`). If the tickets cost something else by then, it is refused, so staff never refund an amount they did not see.
+
+1. One transaction cancels the tickets (their places go back on sale) and records a pending refund. The refund's idempotency key is also the tickets' `externalRefundRef`.
+2. The refund goes to Vipps with that key.
+3. The refund is marked `done` (`payment.refunded.v1`) or `failed` with Vipps' reason.
+
+If Vipps does not answer, the refund stays `pending` and the reconcile job sends it again. If Vipps refuses it, staff see the reason in Sales and can retry (`POST /v1/sales/refunds/:id/retry`). Every attempt uses the same key, so the money moves once. A refund never exceeds what was paid.
+
+The plain cancel (`/cancel`) refuses reservations paid in the hosted checkout, because it would cancel the tickets without giving the money back.
+
+**In Sales**, each hosted order shows its Vipps state, how much has been refunded, and any refund that is pending or failed, with a retry button. A cancelled ticket says whether its refund is done, pending or failed.
 
 ## Data
 
@@ -76,7 +86,7 @@ Every table has row-level security (ADR 0004). Migration `0030_payments` also mo
 ## Configuration
 
 - `VIPPS=http` calls Vipps (API, attendee app and worker).
-- `VIPPS=fake` uses an in-memory Vipps. It is the default outside production, and it is refused in production. In the attendee app, it adds `/b/fake-vipps/:reference`, a page to approve or reject the payment. The fake lives in one process, so on a local stack the return page settles payments, and the worker's payment jobs stay off.
+- `VIPPS=fake` uses an in-memory Vipps. It is the default outside production, and it is refused in production. In the attendee app, it adds `/b/fake-vipps/:reference`, a page to approve or reject the payment. Set `VIPPS_FAKE_STATE` to a file path on the API and the attendee app so they share one fake Vipps; otherwise refunds from the admin cannot find payments made on the buy page. The worker's payment jobs stay off with the fake.
 - `VIPPS=off` leaves payments off. It is the default in production.
 - `PUBLIC_URL` (API): the public base URL, for the webhook and its signature check.
 - `ATTENDEE_URL` (attendee app): its public base URL, where Vipps sends buyers back. Required with `VIPPS=http`.
@@ -86,7 +96,7 @@ Every table has row-level security (ADR 0004). Migration `0030_payments` also mo
 1. **Foundations** (done): ADR 0018 and this document; the secrets move to `shared`; migration 0030; `packages/vipps` (client, fake, webhook signatures); the payments module (connect, verify, disconnect); merchant details; Settings → Payments.
 2. **Buy flow** (done): attendee pages, `startCheckout`, `processPayment` (confirm, capture and cancel), the tickets and receipt emails, enabling the hosted channel.
 3. **Webhooks and reconciliation** (done): the webhook route, the worker job, the reconcile cron, and how expiry interacts with payments.
-4. **Refunds and admin visibility**: staff refunds of whole or partial reservations, payment state in Sales, outbox events.
+4. **Refunds and admin visibility** (done): staff refunds of whole or partial reservations, payment state in Sales, outbox events.
 5. **Distribution and pilot**: the ticket link in the admin, `checkoutUrl` in the public API, and a run-through in the Vipps test environment with a pilot client.
 
 ## Out of the first release

@@ -282,3 +282,80 @@ describe("tenants", () => {
     await sql`select 1`.execute(db);
   });
 });
+
+describe("refunds", () => {
+  const staff = (): ActorContext => ({ ...ctx, roles: ["box_office"] });
+  async function paid(slug: string, quantity = 3) {
+    const { occ, adult } = await concert(slug);
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity }]);
+    vipps.approve(s.row.reference);
+    expect(await process(s.paymentId)).toBe("captured");
+    const tickets = await run((tx) => tx.selectFrom("sales.ticket").select("id").where("reservation_id", "=", s.row.reservation_id).orderBy("created_at").orderBy("id").execute());
+    return { ...s, occ, tickets: tickets.map((t) => t.id) };
+  }
+  const refund = (reservationId: string, input: payments.RefundInput, as: ActorContext = staff()) => payments.refundTickets(db, as, reservationId, input, deps, at(10));
+
+  it("refunds some tickets, then the rest, through Vipps, and puts the places back on sale", async () => {
+    const s = await paid("refund-partial");
+    const one = await refund(s.row.reservation_id, { ticketIds: [s.tickets[0]!], amount: 45000 });
+    expect(one).toMatchObject({ state: "done", amount: 45000, ticketIds: [s.tickets[0]] });
+    expect(vipps.callsFor(s.row.reference, "refund")).toEqual([expect.objectContaining({ amount: 45000, idempotencyKey: one!.reference })]);
+    const ticket = await run((tx) => tx.selectFrom("sales.ticket").select(["status", "external_refund_ref", "cancelled_by"]).where("id", "=", s.tickets[0]!).executeTakeFirstOrThrow());
+    expect(ticket).toEqual({ status: "cancelled", external_refund_ref: one!.reference, cancelled_by: "staff" });
+    expect(await pool(s.occ.id)).toMatchObject({ taken: 2 });
+
+    const rest = await refund(s.row.reservation_id, { amount: 90000 });
+    expect(rest).toMatchObject({ state: "done", amount: 90000 });
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate.refundedAmount.value).toBe(135000);
+    expect(await reservation(s.row.reservation_id)).toMatchObject({ status: "cancelled" });
+    const summary = (await run((tx) => payments.paymentSummaries(tx, [s.row.reservation_id]))).get(s.row.reservation_id)!;
+    expect(summary).toMatchObject({ state: "captured", refunded: 135000, amount: { amount: 135000 } });
+    expect(summary.refunds).toHaveLength(2);
+    const events = await run((tx) => tx.selectFrom("outbox.event").select("type").where("subject", "=", `payment/${s.paymentId}`).where("type", "=", "payment.refunded.v1").execute());
+    expect(events).toHaveLength(2);
+  });
+
+  it("refuses an amount that is not what the tickets cost, and changes nothing", async () => {
+    const s = await paid("refund-amount");
+    await expect(refund(s.row.reservation_id, { amount: 45000 })).rejects.toMatchObject({ code: "conflict", details: { amount: 135000 } });
+    expect(await pool(s.occ.id)).toMatchObject({ taken: 3 });
+    expect(vipps.callsFor(s.row.reference, "refund")).toEqual([]);
+  });
+
+  it("keeps a refund Vipps did not answer pending, and sends it again with the same key", async () => {
+    const s = await paid("refund-down", 1);
+    vipps.down = true;
+    const r = await refund(s.row.reservation_id, { amount: 45000 });
+    vipps.down = false;
+    expect(r).toMatchObject({ state: "pending" });
+    // The tickets are cancelled already; the money follows.
+    expect(await pool(s.occ.id)).toMatchObject({ taken: 0 });
+    expect(await run((tx) => payments.pendingRefunds(tx, at(60)))).toContain(r!.id);
+    expect(await db.transaction().execute((tx) => payments.openPaymentTenants(tx, at(60)))).toContain(ctx.tenantId);
+    const sent = await payments.sendRefund(db, ctx.tenantId, r!.id, deps);
+    expect(sent.state).toBe("done");
+    expect(vipps.callsFor(s.row.reference, "refund")).toEqual([expect.objectContaining({ idempotencyKey: r!.reference })]);
+    // Sent again: nothing more moves.
+    expect((await payments.sendRefund(db, ctx.tenantId, r!.id, deps)).state).toBe("done");
+    expect(vipps.callsFor(s.row.reference, "refund")).toHaveLength(1);
+  });
+
+  it("records a refund Vipps refused as failed, and staff can retry it", async () => {
+    const s = await paid("refund-refused", 1);
+    // Vipps refuses: the merchant refunded the money in the Vipps portal already.
+    await vipps.refund(keys, s.row.reference, { currency: "NOK", value: 45000 }, "portal-refund");
+    const r = await refund(s.row.reservation_id, { amount: 45000 });
+    expect(r).toMatchObject({ state: "failed", failureReason: expect.stringMatching(/more than captured/) });
+    vipps.payments.get(s.row.reference)!.refunded = 0;
+    expect((await payments.retryRefund(db, staff(), r!.id, deps)).state).toBe("done");
+  });
+
+  it("refuses reservations not paid in the hosted checkout, and staff without sales.write", async () => {
+    const { occ, adult } = await concert("refund-web");
+    const webCaller = { tenantId: ctx.tenantId, channelId: web.id, signingKey: null };
+    const r = await run((tx) => sales.reserve(tx, webCaller, { lines: [{ occurrenceId: occ.id, offerId: adult.id, quantity: 1 }], confirm: true, externalOrderRef: "WEB-9" }, NOW));
+    await expect(refund(r.id, { amount: 45000 })).rejects.toMatchObject({ code: "conflict" });
+    const s = await paid("refund-finance", 1);
+    await expect(refund(s.row.reservation_id, { amount: 45000 }, { ...ctx, roles: ["finance"] })).rejects.toMatchObject({ code: "forbidden" });
+  });
+});

@@ -27,7 +27,7 @@ export interface CheckoutPagesDeps {
   /** Where the buy form may be sent on to: the Vipps landing pages. Default: Vipps' and MobilePay's domains. */
   landingOrigins?: string[];
   /** The in-memory Vipps of a local stack, for its landing page. */
-  fake?: { approve(reference: string): void; reject(reference: string): void; payments: Map<string, { returnUrl: string; amount: { value: number; currency: string }; description: string }> } | null;
+  fake?: { approve(reference: string): void; reject(reference: string): void; find(reference: string): { returnUrl: string; amount: { value: number; currency: string }; description: string } | undefined } | null;
 }
 
 const T = {
@@ -203,7 +203,7 @@ ${s.state === "captured" ? html`<section class="card">
   if (deps.fake) {
     const fake = deps.fake;
     app.get<{ Params: { reference: string } }>("/b/fake-vipps/:reference", async (req, reply) => {
-      const p = fake.payments.get(req.params.reference);
+      const p = fake.find(req.params.reference);
       if (!p) return notFound(reply, "en");
       const body = html`<h1>Fake Vipps</h1><p class="muted">Local stack (VIPPS=fake). No money moves.</p>
 <form class="card" method="post" action="/b/fake-vipps/${req.params.reference}">
@@ -213,7 +213,7 @@ ${s.state === "captured" ? html`<section class="card">
       return send(reply, 200, page({ locale: "en", title: "Fake Vipps", body }));
     });
     app.post<{ Params: { reference: string }; Body: Form }>("/b/fake-vipps/:reference", async (req, reply) => {
-      const p = fake.payments.get(req.params.reference);
+      const p = fake.find(req.params.reference);
       if (!p) return notFound(reply, "en");
       try {
         if (req.body?.answer === "approve") fake.approve(req.params.reference);

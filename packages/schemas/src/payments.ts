@@ -61,6 +61,39 @@ export const PaymentsSettings = Type.Object({
   checkout: Nullable(HostedCheckout),
 });
 
+export const Refund = Type.Object({
+  id: Uuid,
+  paymentId: Uuid,
+  amount: Type.Integer({ description: "Minor units, VAT included" }),
+  ticketIds: Type.Array(Uuid),
+  state: Type.Union([Type.Literal("pending"), Type.Literal("done"), Type.Literal("failed")], {
+    description: "pending: Vipps did not answer and it is sent again; failed: Vipps refused, see failureReason, and staff can retry",
+  }),
+  failureReason: Nullable(Type.String()),
+  reference: Type.String({ description: "Also the cancelled tickets' externalRefundRef" }),
+  createdAt: DateTime,
+});
+
+export const PaymentSummary = Type.Object(
+  {
+    id: Uuid,
+    state: Type.Union(["created", "authorized", "captured", "cancelled", "expired", "failed"].map((s) => Type.Literal(s))),
+    reference: Type.String({ description: "The Vipps reference, also the reservation's externalOrderRef" }),
+    amount: Type.Object({ amount: Type.Integer(), currency: Type.String() }),
+    refunded: Type.Integer({ description: "Refunded through Vipps so far, minor units" }),
+    refunds: Type.Array(Refund),
+  },
+  { description: "Reservations paid in the hosted checkout: the Vipps payment and its refunds" },
+);
+
+export const RefundRequest = Type.Object(
+  {
+    ticketIds: Type.Optional(Type.Array(Uuid, { minItems: 1, maxItems: 1000, uniqueItems: true, description: "Left out: all valid tickets" })),
+    amount: Type.Integer({ minimum: 0, description: "The amount staff were shown and confirmed; refused if the tickets cost something else" }),
+  },
+  { additionalProperties: false },
+);
+
 export const VippsConnect = Type.Object(
   {
     environment: Environment,

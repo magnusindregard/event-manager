@@ -1,7 +1,7 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
 import { DomainError, offers, payments } from "@event-manager/domain";
-import { HostedCheckout, PaymentsSettings, Problem, VippsConnect, VippsConnection } from "@event-manager/schemas";
+import { HostedCheckout, PaymentsSettings, Problem, Refund, RefundRequest, Uuid, VippsConnect, VippsConnection } from "@event-manager/schemas";
 import { inTenant } from "../plugins/context.js";
 import { expectedVersion, setEtag } from "../plugins/etag.js";
 
@@ -27,6 +27,9 @@ const dto = (a: payments.ProviderAccount) => ({
   connectedAt: a.connectedAt.toISOString(), version: a.version, updatedAt: a.updatedAt.toISOString(),
 });
 
+const refundDto = (r: payments.Refund) => ({ ...r, createdAt: r.createdAt.toISOString() });
+const IdParams = Type.Object({ id: Uuid });
+
 /** Where Vipps posts payment events for one provider account (routes/vipps-webhook.ts). */
 export const webhookPath = (tenantId: string, providerAccountId: string) => `/webhooks/vipps/${tenantId}/${providerAccountId}`;
 
@@ -46,6 +49,34 @@ export const paymentRoutes: FastifyPluginAsyncTypebox<{ payments: PaymentsDeps |
         const [a, channel] = await Promise.all([payments.getProviderAccount(tx), offers.hostedChannel(tx)]);
         return { vipps: a ? dto(a) : null, checkout: channel ? { channelId: channel.id, active: channel.active } : null };
       }),
+  );
+
+  app.post(
+    "/sales/reservations/:id/refund",
+    {
+      schema: {
+        operationId: "refundTicketsAsStaff", tags: ["sales"], ...accountScoped,
+        summary: "Cancel tickets of a reservation paid in the hosted checkout and refund them through Vipps. Needs sales.write",
+        description: "amount must be what the tickets cost (staff confirm it). The refund is done, pending (Vipps did not answer; sent again by the worker) or failed (retry it). 204 when the tickets were free. Reasons: conflict, already_cancelled, occurrence_started",
+        params: IdParams, body: RefundRequest, response: { 200: Refund, 204: Type.Null(), ...writeErrors },
+      },
+    },
+    async (req, reply) => {
+      const r = await payments.refundTickets(app.db, req.actor!, req.params.id, req.body, { provider: deps().provider });
+      return r ? refundDto(r) : reply.status(204).send(null);
+    },
+  );
+
+  app.post(
+    "/sales/refunds/:id/retry",
+    {
+      schema: {
+        operationId: "retryRefund", tags: ["sales"], ...accountScoped,
+        summary: "Send a failed or pending refund to Vipps again, with the same idempotency key. Needs sales.write",
+        params: IdParams, response: { 200: Refund, ...writeErrors },
+      },
+    },
+    async (req) => refundDto(await payments.retryRefund(app.db, req.actor!, req.params.id, { provider: deps().provider })),
   );
 
   app.post(

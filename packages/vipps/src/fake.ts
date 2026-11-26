@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import {
   type CreatedPayment, type CreatePaymentInput, type Money, type Receipt, type VippsClient, type VippsCredentials, VippsError, type VippsPayment, type Webhook,
 } from "./client.js";
@@ -43,7 +44,7 @@ export class FakeVipps implements VippsClient {
   readonly refusedSecrets = new Set<string>();
   /** Makes the next calls fail as if Vipps were down. */
   down = false;
-  private readonly seen = new Set<string>();
+  protected readonly seen = new Set<string>();
   private readonly landingUrl: string;
 
   constructor(opts: FakeVippsOptions = {}) {
@@ -161,6 +162,11 @@ export class FakeVipps implements VippsClient {
     p.state = "EXPIRED";
   }
 
+  /** The payment as stored, for the fake's landing page. */
+  find(reference: string): FakePayment | undefined {
+    return this.payments.get(reference);
+  }
+
   callsFor(reference: string, op?: FakeCall["op"]): FakeCall[] {
     return this.calls.filter((c) => c.reference === reference && (!op || c.op === op));
   }
@@ -180,5 +186,58 @@ export class FakeVipps implements VippsClient {
     const p = this.payments.get(reference);
     if (!p) throw new Error(`FakeVipps: no payment ${reference}`);
     return p;
+  }
+}
+
+/**
+ * A FakeVipps whose payments live in a JSON file, so the processes of a local stack (the API,
+ * the attendee app, the worker) see one Vipps. Local development only (VIPPS_FAKE_STATE).
+ */
+export class SharedFakeVipps extends FakeVipps {
+  constructor(private readonly file: string, opts: FakeVippsOptions = {}) {
+    super(opts);
+  }
+
+  private load() {
+    if (!existsSync(this.file)) return;
+    const s = JSON.parse(readFileSync(this.file, "utf8")) as { payments: [string, FakePayment][]; webhooks: [string, { url: string; secret: string; msn: string }][]; seen: string[] };
+    this.payments.clear();
+    for (const [k, v] of s.payments) this.payments.set(k, v);
+    this.webhooks.clear();
+    for (const [k, v] of s.webhooks) this.webhooks.set(k, v);
+    this.seen.clear();
+    for (const k of s.seen) this.seen.add(k);
+  }
+
+  private save() {
+    const tmp = `${this.file}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify({ payments: [...this.payments], webhooks: [...this.webhooks], seen: [...this.seen] }));
+    renameSync(tmp, this.file);
+  }
+
+  private async around<T>(fn: () => Promise<T> | T): Promise<T> {
+    this.load();
+    try {
+      return await fn();
+    } finally {
+      this.save();
+    }
+  }
+
+  override verifyCredentials(...a: Parameters<FakeVipps["verifyCredentials"]>) { return this.around(() => super.verifyCredentials(...a)); }
+  override registerWebhook(...a: Parameters<FakeVipps["registerWebhook"]>) { return this.around(() => super.registerWebhook(...a)); }
+  override deleteWebhook(...a: Parameters<FakeVipps["deleteWebhook"]>) { return this.around(() => super.deleteWebhook(...a)); }
+  override createPayment(...a: Parameters<FakeVipps["createPayment"]>) { return this.around(() => super.createPayment(...a)); }
+  override getPayment(...a: Parameters<FakeVipps["getPayment"]>) { return this.around(() => super.getPayment(...a)); }
+  override capture(...a: Parameters<FakeVipps["capture"]>) { return this.around(() => super.capture(...a)); }
+  override cancel(...a: Parameters<FakeVipps["cancel"]>) { return this.around(() => super.cancel(...a)); }
+  override refund(...a: Parameters<FakeVipps["refund"]>) { return this.around(() => super.refund(...a)); }
+  override sendReceipt(...a: Parameters<FakeVipps["sendReceipt"]>) { return this.around(() => super.sendReceipt(...a)); }
+  override approve(reference: string) { this.load(); super.approve(reference); this.save(); }
+  override reject(reference: string) { this.load(); super.reject(reference); this.save(); }
+  override expire(reference: string) { this.load(); super.expire(reference); this.save(); }
+  override find(reference: string): FakePayment | undefined {
+    this.load();
+    return this.payments.get(reference);
   }
 }

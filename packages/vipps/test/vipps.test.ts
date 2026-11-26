@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { FakeVipps, HttpVipps, signHeaders, type VippsCredentials, VippsError, verifyWebhook } from "../src/index.js";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { FakeVipps, HttpVipps, SharedFakeVipps, signHeaders, type VippsCredentials, VippsError, verifyWebhook } from "../src/index.js";
 
 const creds: VippsCredentials = { environment: "test", merchantSerialNumber: "123456", clientId: "cid", clientSecret: "secret", subscriptionKey: "sub" };
 
@@ -103,6 +106,18 @@ describe("FakeVipps", () => {
     await v.refund(creds, "ref-12345678", { currency: "NOK", value: 400 }, "r1");
     await expect(v.refund(creds, "ref-12345678", { currency: "NOK", value: 700 }, "r2")).rejects.toThrow(/more than captured/);
     expect((await v.getPayment(creds, "ref-12345678")).aggregate).toMatchObject({ capturedAmount: { value: 1000 }, refundedAmount: { value: 400 } });
+  });
+
+  it("shares its payments between processes through a file (SharedFakeVipps)", async () => {
+    const file = join(mkdtempSync(join(tmpdir(), "fake-vipps-")), "state.json");
+    const attendee = new SharedFakeVipps(file);
+    const api = new SharedFakeVipps(file);
+    await attendee.createPayment(creds, { reference: "ref-shared01", amount: { currency: "NOK", value: 500 }, returnUrl: "x", description: "d" }, "k");
+    attendee.approve("ref-shared01");
+    await api.capture(creds, "ref-shared01", { currency: "NOK", value: 500 }, "c");
+    await api.refund(creds, "ref-shared01", { currency: "NOK", value: 200 }, "r");
+    expect((await attendee.getPayment(creds, "ref-shared01")).aggregate).toMatchObject({ capturedAmount: { value: 500 }, refundedAmount: { value: 200 } });
+    expect(attendee.find("ref-shared01")?.state).toBe("AUTHORIZED");
   });
 
   it("refuses keys it was told to refuse, and other merchants' payments", async () => {

@@ -30,6 +30,7 @@ async function call(method: string, url: string, opts: { as?: string; account?: 
   return { status: res.statusCode, headers: res.headers, body: res.body ? res.json() : undefined };
 }
 
+let sold: { occId: string; paymentId: string; reference: string };
 const keys = { environment: "test", merchantSerialNumber: "123456", clientId: "client-a", clientSecret: "secret-a", subscriptionKey: "sub-a" };
 
 beforeAll(async () => {
@@ -152,6 +153,7 @@ describe("the hosted checkout and Vipps webhooks", () => {
     const started = await payments.startCheckout(db, A, { occurrenceId: occId, lines: [{ offerId, quantity: 1 }], buyer: { name: "Kari", email: "kari@example.com" } }, { provider: vipps, attendeeUrl: "http://attendee.test" });
     if (started.kind !== "pay") throw new Error("expected a payment");
     const reference = (await withTenant(db, ctx, (tx) => tx.selectFrom("payments.payment").select("reference").where("id", "=", started.paymentId).executeTakeFirstOrThrow())).reference;
+    sold = { occId, paymentId: started.paymentId, reference };
 
     const url = `/webhooks/vipps/${A}/${connected.id}`;
     const post = (body: string, secret = hook.secret, path = url) =>
@@ -171,5 +173,25 @@ describe("the hosted checkout and Vipps webhooks", () => {
     expect((await post(body, hook.secret, `/webhooks/vipps/${A}/${B}`)).statusCode).toBe(404);
     expect((await post(body, hook.secret, `/webhooks/vipps/${B}/${connected.id}`)).statusCode).toBe(404);
     expect((await post(body, hook.secret, "/webhooks/vipps/x/y")).statusCode).toBe(404);
+  });
+});
+
+describe("refunds of hosted sales", () => {
+  it("shows the payment in Sales, refuses a plain cancel, and refunds through Vipps after staff confirm the amount", async () => {
+    vipps.approve(sold.reference);
+    expect(await payments.processPayment(db, A, sold.paymentId, { provider: vipps })).toBe("captured");
+    const salesView = await call("GET", `/v1/occurrences/${sold.occId}/sales`);
+    const r = salesView.body.reservations[0];
+    expect(r.payment).toMatchObject({ state: "captured", reference: sold.reference, amount: { amount: 45000, currency: "NOK" }, refunded: 0, refunds: [] });
+
+    const plain = await call("POST", `/v1/sales/reservations/${r.id}/cancel`, { body: {} });
+    expect(plain).toMatchObject({ status: 409, body: { code: "conflict" } });
+    expect((await call("POST", `/v1/sales/reservations/${r.id}/refund`, { body: { amount: 100 } })).body).toMatchObject({ code: "conflict", details: { amount: 45000 } });
+    const refunded = await call("POST", `/v1/sales/reservations/${r.id}/refund`, { body: { amount: 45000 } });
+    expect(refunded).toMatchObject({ status: 200, body: { state: "done", amount: 45000 } });
+    expect((await call("POST", `/v1/sales/refunds/${refunded.body.id}/retry`)).body).toMatchObject({ state: "done" });
+    const after = (await call("GET", `/v1/occurrences/${sold.occId}/sales`)).body.reservations[0];
+    expect(after).toMatchObject({ status: "cancelled", payment: { refunded: 45000 } });
+    expect(after.tickets[0]).toMatchObject({ status: "cancelled", externalRefundRef: refunded.body.reference });
   });
 });

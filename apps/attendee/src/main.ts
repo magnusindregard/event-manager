@@ -17,8 +17,11 @@ if (production && vippsMode === "fake") throw new Error("VIPPS=fake must not be 
 // Vipps sends buyers back to this app's public URL.
 if (vippsMode === "http" && !process.env.ATTENDEE_URL) throw new Error("ATTENDEE_URL is required with VIPPS=http");
 const attendeeUrl = process.env.ATTENDEE_URL ?? `http://localhost:${process.env.PORT ?? 3020}`;
-const { FakeVipps, HttpVipps } = await import("@event-manager/vipps");
-const fake = vippsMode === "fake" ? new FakeVipps({ landingUrl: `${attendeeUrl.replace(/\/+$/, "")}/b/fake-vipps` }) : null;
+const { FakeVipps, HttpVipps, SharedFakeVipps } = await import("@event-manager/vipps");
+// VIPPS_FAKE_STATE: a file the local stack's processes share, so the API and worker see this app's fake payments.
+const landingUrl = `${attendeeUrl.replace(/\/+$/, "")}/b/fake-vipps`;
+const fakeState = process.env.VIPPS_FAKE_STATE;
+const fake = vippsMode === "fake" ? (fakeState ? new SharedFakeVipps(fakeState, { landingUrl }) : new FakeVipps({ landingUrl })) : null;
 const provider = vippsMode === "http" ? new HttpVipps() : fake;
 
 const app = await buildAttendeeApp({

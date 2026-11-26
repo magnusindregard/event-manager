@@ -131,17 +131,22 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       FOREIGN KEY (tenant_id, payment_id) REFERENCES payments.payment (tenant_id, id)
     );
     CREATE INDEX refund_payment ON payments.refund (payment_id);
+    CREATE INDEX refund_pending ON payments.refund (updated_at) WHERE state = 'pending';
     SELECT platform.enable_tenant_rls('payments.refund');
     CREATE TRIGGER refund_updated_at BEFORE UPDATE ON payments.refund FOR EACH ROW EXECUTE FUNCTION platform.set_updated_at();
 
     GRANT SELECT, INSERT, UPDATE ON payments.provider_account, payments.payment, payments.refund TO em_app;
 
-    -- The reconcile job finds accounts with payments that have not settled, across tenants.
-    GRANT SELECT ON payments.payment TO em_definer;
+    -- The reconcile job finds accounts with payments that have not settled, or refunds Vipps
+    -- did not answer, across tenants.
+    GRANT SELECT ON payments.payment, payments.refund TO em_definer;
     CREATE FUNCTION payments.open_payment_tenants(p_before timestamptz)
       RETURNS SETOF uuid
       LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, payments AS $f$
-        SELECT DISTINCT tenant_id FROM payments.payment WHERE state IN ('created', 'authorized') AND updated_at <= p_before ORDER BY 1
+        SELECT tenant_id FROM payments.payment WHERE state IN ('created', 'authorized') AND updated_at <= p_before
+        UNION
+        SELECT tenant_id FROM payments.refund WHERE state = 'pending' AND updated_at <= p_before
+        ORDER BY 1
     $f$;
     GRANT CREATE ON SCHEMA payments TO em_definer;
     ALTER FUNCTION payments.open_payment_tenants(timestamptz) OWNER TO em_definer;

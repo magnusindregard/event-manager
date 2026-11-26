@@ -1271,6 +1271,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/sales/reservations/{id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel tickets of a reservation paid in the hosted checkout and refund them through Vipps. Needs sales.write
+         * @description amount must be what the tickets cost (staff confirm it). The refund is done, pending (Vipps did not answer; sent again by the worker) or failed (retry it). 204 when the tickets were free. Reasons: conflict, already_cancelled, occurrence_started
+         */
+        post: operations["refundTicketsAsStaff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/refunds/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a failed or pending refund to Vipps again, with the same idempotency key. Needs sales.write */
+        post: operations["retryRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/checkout": {
         parameters: {
             query?: never;
@@ -15097,6 +15134,35 @@ export interface operations {
                             };
                             /** @description The reservation also has lines at other occurrences */
                             otherOccurrences: boolean;
+                            payment: null | {
+                                /** Format: uuid */
+                                id: string;
+                                state: "created" | "authorized" | "captured" | "cancelled" | "expired" | "failed";
+                                /** @description The Vipps reference, also the reservation's externalOrderRef */
+                                reference: string;
+                                amount: {
+                                    amount: number;
+                                    currency: string;
+                                };
+                                /** @description Refunded through Vipps so far, minor units */
+                                refunded: number;
+                                refunds: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    /** Format: uuid */
+                                    paymentId: string;
+                                    /** @description Minor units, VAT included */
+                                    amount: number;
+                                    ticketIds: string[];
+                                    /** @description pending: Vipps did not answer and it is sent again; failed: Vipps refused, see failureReason, and staff can retry */
+                                    state: "pending" | "done" | "failed";
+                                    failureReason: string | null;
+                                    /** @description Also the cancelled tickets' externalRefundRef */
+                                    reference: string;
+                                    /** Format: date-time */
+                                    createdAt: string;
+                                }[];
+                            };
                             /** Format: date-time */
                             expiresAt: string;
                             /** Format: date-time */
@@ -15595,6 +15661,256 @@ export interface operations {
             };
             /** @description Default Response */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    refundTicketsAsStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Left out: all valid tickets */
+                    ticketIds?: string[];
+                    /** @description The amount staff were shown and confirmed; refused if the tickets cost something else */
+                    amount: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        paymentId: string;
+                        /** @description Minor units, VAT included */
+                        amount: number;
+                        ticketIds: string[];
+                        /** @description pending: Vipps did not answer and it is sent again; failed: Vipps refused, see failureReason, and staff can retry */
+                        state: "pending" | "done" | "failed";
+                        failureReason: string | null;
+                        /** @description Also the cancelled tickets' externalRefundRef */
+                        reference: string;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    retryRefund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        paymentId: string;
+                        /** @description Minor units, VAT included */
+                        amount: number;
+                        ticketIds: string[];
+                        /** @description pending: Vipps did not answer and it is sent again; failed: Vipps refused, see failureReason, and staff can retry */
+                        state: "pending" | "done" | "failed";
+                        failureReason: string | null;
+                        /** @description Also the cancelled tickets' externalRefundRef */
+                        reference: string;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
                 headers: {
                     [name: string]: unknown;
                 };
