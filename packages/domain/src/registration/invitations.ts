@@ -355,8 +355,12 @@ export interface InvitationMessage {
   /**
    * `providerStatusId`: HubSpot took the send already, in portal `providerPortalId`; a retried job
    * reads its result instead of sending again, whatever the event's channel is now.
+   * `providerRefusal`: HubSpot has confirmed it did not send it; only the platform's email is left.
    */
-  send: { id: string; kind: SendKind; sentAt: Date | null; requestedAt: Date; providerStatusId: string | null; providerPortalId: string | null; providerUnresolved: boolean };
+  send: {
+    id: string; kind: SendKind; sentAt: Date | null; requestedAt: Date; providerStatusId: string | null; providerPortalId: string | null; providerUnresolved: boolean;
+    providerRefusal: string | null;
+  };
   invitation: GuestInvitation;
   event: catalog.CatalogEvent;
   /** Occurrences still to come, soonest first. */
@@ -368,7 +372,7 @@ export interface InvitationMessage {
 
 /** Everything an invitation email needs; null when the send or its guest is gone. */
 export async function loadInvitationMessage(tx: Tx, tenantId: string, sendId: string, now: Date = new Date()): Promise<InvitationMessage | null> {
-  const send = await tx.selectFrom("registration.invitation_send").select(["id", "kind", "sent_at", "requested_at", "invitation_id", "provider_status_id", "provider_portal_id", "provider_unresolved_at"]).where("id", "=", sendId).executeTakeFirst();
+  const send = await tx.selectFrom("registration.invitation_send").select(["id", "kind", "sent_at", "requested_at", "invitation_id", "provider_status_id", "provider_portal_id", "provider_unresolved_at", "fallback_reason"]).where("id", "=", sendId).executeTakeFirst();
   if (!send) return null;
   const row = await tx.selectFrom("registration.guest_invitation").select(invitationColumns).where("id", "=", send.invitation_id).executeTakeFirst();
   if (!row) return null;
@@ -378,7 +382,9 @@ export async function loadInvitationMessage(tx: Tx, tenantId: string, sendId: st
   ]);
   const locale = invitation.locale && account.locales.includes(invitation.locale) ? invitation.locale : account.defaultLocale;
   return {
-    send: { id: send.id, kind: send.kind, sentAt: send.sent_at, requestedAt: send.requested_at, providerStatusId: send.provider_status_id, providerPortalId: send.provider_portal_id, providerUnresolved: send.provider_unresolved_at !== null },
+    send: { id: send.id, kind: send.kind, sentAt: send.sent_at, requestedAt: send.requested_at, providerStatusId: send.provider_status_id, providerPortalId: send.provider_portal_id, providerUnresolved: send.provider_unresolved_at !== null,
+      providerRefusal: send.provider_status_id ? send.fallback_reason : null,
+    },
     invitation, event, occurrences, account: { name: account.name, defaultLocale: account.defaultLocale }, locale,
     token: await invitationToken(tx, tenantId, invitation),
   };
@@ -436,13 +442,21 @@ export async function unresolvedProviderSends(tx: Tx, portalId: string): Promise
   // Only the portal that took a send can say how it went.
   const [sends, welcomes] = await Promise.all([
     tx.selectFrom("registration.invitation_send").select("id").where("provider_status_id", "is not", null).where("provider_portal_id", "=", portalId)
-      .where("sent_at", "is", null)
+      .where("sent_at", "is", null).where("fallback_reason", "is", null)
       .where((eb) => eb.or([eb("delivery_status", "=", "queued"), eb("provider_unresolved_at", "is not", null)])).execute(),
     tx.selectFrom("registration.registration").select("id").where("reminder_status_id", "is not", null).where("reminder_portal_id", "=", portalId)
       // A welcome HubSpot refused is the platform's to send, at its time: nothing to resume.
       .where("reminder_channel", "is", null).where("reminder_refusal", "is", null).where("reminded_at", "is", null).execute(),
   ]);
   return { sends: sends.map((r) => r.id), welcomes: welcomes.map((r) => r.id) };
+}
+
+/**
+ * HubSpot confirmed it did not send a send it took: kept before the platform's own email is tried,
+ * so a retry of that email sends it without asking HubSpot again (which may be gone by then).
+ */
+export async function recordProviderRefusal(tx: Tx, sendId: string, reason: string): Promise<void> {
+  await tx.updateTable("registration.invitation_send").set({ fallback_reason: reason.slice(0, 500) }).where("id", "=", sendId).where("sent_at", "is", null).execute();
 }
 
 /** HubSpot accepted the send: its status id, so a retry reads the result rather than sending again. */

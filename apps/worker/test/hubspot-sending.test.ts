@@ -452,6 +452,37 @@ describe("sending to a guest", () => {
     expect(mailer.sent).toEqual([]);
   });
 
+  it("keeps HubSpot's refusal of an invitation, so a retry of the platform's email needs nothing from HubSpot", async () => {
+    await connect();
+    const { event } = await hubspotEvent("Prøv igjen");
+    await addGuests(event.id, "kari@example.com");
+    const read = hubspot.sendStatus.bind(hubspot);
+    hubspot.sendStatus = async (token, statusId) => ({ ...(await read(token, statusId)), status: "COMPLETE", sendResult: "PREVIOUSLY_BOUNCED" });
+    // The platform's email fails once for a passing reason, and HubSpot is disconnected before the retry.
+    const send = mailer.send.bind(mailer);
+    let failed = false;
+    mailer.send = async (m) => {
+      if (!failed) {
+        failed = true;
+        await run((tx) => integrations.disconnect(tx, ctx, "hubspot"));
+        throw new Error("Postmark did not answer");
+      }
+      return send(m);
+    };
+    try {
+      await run((tx) => registration.requestSends(tx, ctx, event.id, { kind: "invitation" }));
+      const calls = hubspot.calls.length;
+      await drain();
+      // The retry asked HubSpot nothing: one status read in all, from the first try.
+      expect(hubspot.calls.slice(calls).filter((c) => c.startsWith("sendStatus"))).toHaveLength(1);
+    } finally {
+      hubspot.sendStatus = read;
+      mailer.send = send;
+    }
+    expect((await sends())[0]).toMatchObject({ channel: "platform", delivery_status: "sent", fallback_reason: expect.stringMatching(/PREVIOUSLY_BOUNCED/) });
+    expect(mailer.sent.map((m) => m.to)).toEqual(["kari@example.com"]);
+  });
+
   it("finishes a contact's preparation from the first snapshot when two sends prepare it at once", async () => {
     await connect();
     const { event } = await hubspotEvent("Samtidig");
@@ -606,6 +637,36 @@ describe("sending to a guest", () => {
     const done = await run((tx) => tx.selectFrom("registration.registration").select(["reminded_at", "reminder_channel"]).where("id", "=", reg.id).executeTakeFirstOrThrow());
     expect(done.reminder_channel).toBe("platform");
     expect(done.reminded_at).not.toBeNull();
+  });
+
+  it("keeps HubSpot's refusal of a welcome due now, so a retry of the platform's welcome needs nothing from HubSpot", async () => {
+    await connect();
+    const { occ, reg } = await welcomeDue("Velkomst igjen");
+    const read = hubspot.sendStatus.bind(hubspot);
+    hubspot.sendStatus = async (token, statusId) => ({ ...(await read(token, statusId)), status: "COMPLETE", sendResult: "CANCELED" });
+    const send = mailer.send.bind(mailer);
+    let failed = false;
+    mailer.send = async (m) => {
+      if (!failed && m.subject.startsWith("Påminnelse")) {
+        failed = true;
+        await run((tx) => integrations.disconnect(tx, ctx, "hubspot"));
+        throw new Error("Postmark did not answer");
+      }
+      return send(m);
+    };
+    mailer.sent.length = 0;
+    try {
+      await moveTo(occ.id, new Date(Date.now() + DAY / 2));
+      const calls = hubspot.calls.length;
+      await drain();
+      expect(hubspot.calls.slice(calls).filter((c) => c.startsWith("sendStatus"))).toHaveLength(1);
+    } finally {
+      hubspot.sendStatus = read;
+      mailer.send = send;
+    }
+    expect(welcomes()).toHaveLength(1);
+    const row = await run((tx) => tx.selectFrom("registration.registration").select(["reminder_channel", "reminder_refusal"]).where("id", "=", reg.id).executeTakeFirstOrThrow());
+    expect(row).toMatchObject({ reminder_channel: "platform", reminder_refusal: expect.stringMatching(/CANCELED/) });
   });
 
   it("sends no pre-event welcome from the platform when the event starts while the job asks HubSpot", async () => {

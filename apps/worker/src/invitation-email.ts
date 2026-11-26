@@ -138,7 +138,8 @@ export function invitationEmailTask(db: Db, deps: RegistrationEmailDeps, hubspot
       if (!m || m.send.sentAt) return null;
       // Whether the guest still needs the email decides a new email (the first send, or the
       // platform's fallback), never whether the result of one HubSpot has taken is read.
-      if (!registration.shouldSend(m) && !m.send.providerStatusId) {
+      // (A send HubSpot refused is the platform's to send, so the usual rules apply to it.)
+      if (!registration.shouldSend(m) && !(m.send.providerStatusId && !m.send.providerRefusal)) {
         await registration.recordNotSent(tx, sendId, m.event.status !== "published" ? "event_not_published" : `guest_${m.invitation.status}`);
         return null;
       }
@@ -155,8 +156,11 @@ export function invitationEmailTask(db: Db, deps: RegistrationEmailDeps, hubspot
     let fallbackReason: string | null = null;
     // A send HubSpot took already goes back to HubSpot for its result, whatever the event's
     // channel is now: only HubSpot's answer settles it, and the platform never sends a second email.
-    const taken = message.send.providerStatusId ? { statusId: message.send.providerStatusId, portalId: message.send.providerPortalId } : null;
-    if (loaded.channel === "hubspot" || taken) {
+    // One HubSpot refused already (an earlier try of the platform's email failed): the platform's, on that answer.
+    const refused = message.send.providerRefusal;
+    const taken = message.send.providerStatusId && !refused ? { statusId: message.send.providerStatusId, portalId: message.send.providerPortalId } : null;
+    if (refused) fallbackReason = refused;
+    else if (loaded.channel === "hubspot" || taken) {
       const r = await sendThroughHubSpot(db, tenantId, hubspot, {
         kind: message.send.kind, eventId: message.event.id, email: message.invitation.email, name: message.invitation.name, sendId,
         customProperties: invitationProperties(message), taken, lastAttempt,
@@ -199,6 +203,9 @@ export function invitationEmailTask(db: Db, deps: RegistrationEmailDeps, hubspot
         helpers.logger.info(`invitation send ${sendId}: HubSpot did not send it after all (${r.reason})`);
         return;
       }
+      // Kept before the platform's email is tried: a retry of it then needs nothing from HubSpot.
+      // (Counts as HubSpot's refusal only on a send HubSpot took, this run or an earlier one.)
+      await withTenant(db, { tenantId }, (tx) => registration.recordProviderRefusal(tx, sendId, r.reason));
       fallbackReason = r.reason;
       helpers.logger.info(`invitation send ${sendId}: the platform sends it (${r.reason})`);
     }

@@ -192,6 +192,8 @@ export function reminderTask(db: Db, deps: RegistrationEmailDeps, clock: () => D
           helpers.logger.info(`registration ${registrationId}: HubSpot did not send the welcome; the platform sends it at ${fresh.due.toISOString()}`);
           return;
         }
+        // Kept before the platform's welcome is tried, as for one put off: a retry of it then needs nothing from HubSpot.
+        await withTenant(db, { tenantId }, (tx) => registration.recordReminderRefusal(tx, registrationId, r.reason, `HubSpot did not send it (${r.reason}); the platform sends it`));
         message = fresh.message;
         fallbackReason = r.reason;
       }
