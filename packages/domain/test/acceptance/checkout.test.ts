@@ -672,6 +672,29 @@ describe("a capture whose answer comes back late", () => {
     expect(await process(s.paymentId, at(3))).toBe("captured");
   });
 
+  it("cancels the rest of the authorisation when the read-back shows a partial capture refunded", async () => {
+    const { occ, adult } = await concert("partial-refund-on-answer");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
+    vipps.approve(s.row.reference);
+    vipps.failNext("capture", 423);
+    expect(await process(s.paymentId)).toBe("authorized");
+    await vipps.capture(keys, s.row.reference, { currency: "NOK", value: 30000 }, "portal-part-x");
+    // Our capture of the remaining NOK 600 is answered but not applied, and meanwhile the merchant
+    // refunds the NOK 300 captured in the portal.
+    const provider: payments.PaymentProvider = {
+      ...slowCapture(async () => undefined),
+      capture: async () => { await vipps.refund(keys, s.row.reference, { currency: "NOK", value: 30000 }, "portal-ref-x"); },
+    };
+    // Vipps holds the cancel of the rest the first time: the payment stays open.
+    vipps.failNext("cancel", 423);
+    expect(await payments.processPayment(db, ctx.tenantId, s.paymentId, { provider }, at(2))).toBe("authorized");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate.cancelledAmount.value).toBe(0);
+    // Next time round the rest is cancelled, and the order with it.
+    expect(await process(s.paymentId, at(3))).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate).toMatchObject({ capturedAmount: { value: 30000 }, refundedAmount: { value: 30000 }, cancelledAmount: { value: 60000 } });
+    expect(await reservation(s.row.reservation_id)).toMatchObject({ status: "cancelled" });
+  });
+
   it("judges a recovered capture at the time of settling, not the start of the reconcile batch", async () => {
     const { occ, adult } = await concert("stale-batch-time");
     const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);

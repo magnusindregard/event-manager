@@ -266,7 +266,7 @@ export async function processPayment(
       const locked = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).forUpdate().executeTakeFirstOrThrow();
       // Settled meanwhile (the webhook or the return page got there first, maybe calling the order
       // off and refunding it): that outcome stands.
-      if (TERMINAL.includes(locked.state)) return { state: locked.state, refundId: null };
+      if (TERMINAL.includes(locked.state)) return { state: locked.state, refundId: null, callOff: null };
       await storeAggregate(tx, row.id, after);
       // The time now, not when processing began: the occurrence may have ended while the capture was out.
       const at = settleAt();
@@ -278,23 +278,30 @@ export async function processPayment(
       // it again. Nothing is released and the authorisation is not given up.
       if (captured < row.amount && refunded === 0) {
         await tx.updateTable("payments.payment").set({ failure_reason: "Captured at Vipps, but Vipps does not show it yet; checking again" }).where("id", "=", row.id).execute();
-        return { state: locked.state, refundId: null };
+        return { state: locked.state, refundId: null, callOff: null };
+      }
+      if (captured < row.amount) {
+        // Part captured and refunded in the Vipps portal, the rest perhaps still authorised: the
+        // order is being reversed. As in decide: cancel the rest at Vipps, and only once Vipps
+        // confirms it, refund what is still held and release the tickets (callOff, below).
+        return { state: locked.state, refundId: null, callOff: "Part of the payment was captured and refunded in Vipps; the order was cancelled" };
       }
       // Refunded at Vipps (in the portal) before the answer came: not paid for, as in decide.
       // Or no longer deliverable: give the money back.
       const gone = net < row.amount ? "refunded_at_vipps" : await unfulfillable(tx, row.reservation_id, at);
       if (gone) {
-        if (net > 0) return { state: "cancelled" as const, refundId: await returnMoney(tx, tenantId, row, net, `Captured, but the order cannot stand (${gone}); the money still held is refunded`, at) };
+        if (net > 0) return { state: "cancelled" as const, refundId: await returnMoney(tx, tenantId, row, net, `Captured, but the order cannot stand (${gone}); the money still held is refunded`, at), callOff: null };
         await releaseReservation(tx, tenantId, row.reservation_id, at);
         await setState(tx, row.id, "cancelled", { cancelled_at: at, failure_reason: `The order cannot stand (${gone})` });
         await paymentEvent(tx, tenantId, "payment.cancelled.v1", row, { reason: gone });
-        return { state: "cancelled" as const, refundId: null };
+        return { state: "cancelled" as const, refundId: null, callOff: null };
       }
       await activateTickets(tx, row.reservation_id);
       await setState(tx, row.id, "captured", { captured_at: at, failure_reason: null });
       await paymentEvent(tx, tenantId, "payment.captured.v1", row);
-      return { state: "captured" as const, refundId: null };
+      return { state: "captured" as const, refundId: null, callOff: null };
     });
+    if (settled.callOff) return callOff(db, tenantId, row, creds, settled.callOff, deps, settleAt());
     if (settled.refundId) await sendRefund(db, tenantId, settled.refundId, deps);
     return settled.state;
   }
