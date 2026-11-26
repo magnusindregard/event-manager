@@ -71,6 +71,7 @@ export function Payments({ canEdit }: { canEdit: boolean }) {
       toast.success(t("payments.checkoutEnabled"));
       refresh();
       void qc.invalidateQueries({ queryKey: ["sales-channels", accountId] });
+      void qc.invalidateQueries({ queryKey: ["sku-mappings", accountId] });
     },
   });
 
