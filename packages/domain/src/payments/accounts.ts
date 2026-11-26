@@ -109,8 +109,15 @@ export async function webhookSecretFor(tx: Tx, tenantId: string, id: string): Pr
 
 /**
  * Connects the account's Vipps merchant (owner). The keys are checked with Vipps first and
- * refused if Vipps refuses them. A merchant already connected is replaced: its keys are deleted
- * and its webhook removed at Vipps.
+ * refused if Vipps refuses them.
+ *
+ * Payments belong to the provider account they were made on, so its keys must stay reachable
+ * while those payments settle or are refunded:
+ *   - The same merchant again (same serial number and environment, connected now or before)
+ *     reuses its provider account: the new keys replace the old ones in place, and its payments,
+ *     even from before a disconnect, settle and refund with them.
+ *   - Another merchant replaces the connected one. The old one is retired: no longer used for new
+ *     payments and its webhook removed, but its keys are kept for the payments made on it.
  */
 export async function connectVipps(db: Db, ctx: ActorContext, input: ConnectVippsInput, deps: ProviderDeps): Promise<ProviderAccount> {
   assertCan(ctx, "account.write");
@@ -122,27 +129,42 @@ export async function connectVipps(db: Db, ctx: ActorContext, input: ConnectVipp
     throw new DomainError("conflict", `Vipps could not be reached; try again. (${providerMessage(e)})`);
   }
 
-  const id = newId();
-  const replaced = await withTenant(db, ctx, async (tx) => {
-    const before = await tx.selectFrom("payments.provider_account").select(["id"]).where("provider", "=", "vipps").where("status", "<>", "disconnected").forUpdate().executeTakeFirst();
-    const old = before ? { id: before.id, creds: await credentialsFor(tx, ctx.tenantId, before.id), webhookId: (await tx.selectFrom("payments.provider_account").select("webhook_id").where("id", "=", before.id).executeTakeFirstOrThrow()).webhook_id } : null;
-    if (before) await markDisconnected(tx, before.id, "Replaced by another merchant");
+  const { id, retired, hasWebhook } = await withTenant(db, ctx, async (tx) => {
+    const rows = await tx.selectFrom("payments.provider_account").select(["id", "status", "environment", "merchant_serial_number", "webhook_id"])
+      .where("provider", "=", "vipps").orderBy("connected_at", "desc").forUpdate().execute();
+    const current = rows.find((r) => r.status !== "disconnected") ?? null;
+    const same = rows.find((r) => r.environment === creds.environment && r.merchant_serial_number === creds.merchantSerialNumber) ?? null;
+    let retired: { creds: ProviderCredentials | null; webhookId: string } | null = null;
+    if (current && current.id !== same?.id) {
+      // Retire the other merchant first: at most one is connected (provider_account_connected).
+      retired = current.webhook_id ? { creds: await credentialsFor(tx, ctx.tenantId, current.id), webhookId: current.webhook_id } : null;
+      await markDisconnected(tx, current.id, "Replaced by another merchant; kept for the payments made on it", { keepCredentials: true });
+    }
+    const id = same?.id ?? newId();
     const sealed = await encryptJson(tx, ctx.tenantId, credentialsAad(ctx.tenantId, id), { clientSecret: creds.clientSecret, subscriptionKey: creds.subscriptionKey } satisfies Secrets);
     const now = new Date();
-    await tx.insertInto("payments.provider_account").values({
-      id, tenant_id: ctx.tenantId, provider: "vipps", environment: creds.environment, merchant_serial_number: creds.merchantSerialNumber,
-      client_id: creds.clientId, credentials: sealed, status: "active", verified_at: now, connected_by: ctx.userId, connected_at: now,
-    }).execute();
+    if (same) {
+      await tx.updateTable("payments.provider_account").set({
+        client_id: creds.clientId, credentials: sealed, status: "active", status_reason: null, verified_at: now, connected_by: ctx.userId, connected_at: now,
+        disconnected_at: null, version: sql<number>`version + 1`,
+      }).where("id", "=", id).execute();
+    } else {
+      await tx.insertInto("payments.provider_account").values({
+        id, tenant_id: ctx.tenantId, provider: "vipps", environment: creds.environment, merchant_serial_number: creds.merchantSerialNumber,
+        client_id: creds.clientId, credentials: sealed, status: "active", verified_at: now, connected_by: ctx.userId, connected_at: now,
+      }).execute();
+    }
     await recordAudit(tx, ctx, {
       action: "payments.provider_connected", entityType: "account", entityId: ctx.tenantId,
-      diff: { id, provider: "vipps", environment: creds.environment, merchantSerialNumber: creds.merchantSerialNumber, replaced: before?.id ?? null },
+      diff: { id, provider: "vipps", environment: creds.environment, merchantSerialNumber: creds.merchantSerialNumber, reused: !!same, replaced: current && current.id !== id ? current.id : null },
     });
     await emit(tx, ctx.tenantId, { type: "payments.provider_account.changed.v1", subject: `payment-provider-account/${id}`, data: { id, change: "connected" } });
-    return old;
+    return { id, retired, hasWebhook: !!same?.webhook_id && same.status !== "disconnected" };
   });
 
-  if (replaced?.creds && replaced.webhookId) await deps.provider.deleteWebhook(replaced.creds, replaced.webhookId).catch(() => undefined);
-  await registerWebhook(db, ctx.tenantId, id, creds, deps);
+  if (retired?.creds) await deps.provider.deleteWebhook(retired.creds, retired.webhookId).catch(() => undefined);
+  // The merchant's webhook belongs to the merchant, not the keys: one still registered stays.
+  if (!hasWebhook) await registerWebhook(db, ctx.tenantId, id, creds, deps);
   return withTenant(db, ctx, (tx) => getProviderAccountById(tx, id));
 }
 
@@ -179,16 +201,25 @@ export async function verifyVipps(db: Db, ctx: ActorContext, deps: ProviderDeps)
   return withTenant(db, ctx, (tx) => getProviderAccountById(tx, account.id));
 }
 
-/** Disconnects the merchant (owner): deletes the keys here and the webhook at Vipps. Payments already made stay. */
+/**
+ * Disconnects the merchant (owner): deletes the keys here and the webhook at Vipps. Refused while
+ * payments made on it are still settling. Payments already made stay; refunding them needs the
+ * same merchant connected again, which brings back its provider account.
+ */
 export async function disconnectVipps(db: Db, ctx: ActorContext, expectedVersion: number, deps: ProviderDeps): Promise<void> {
   assertCan(ctx, "account.write");
   const old = await withTenant(db, ctx, async (tx) => {
     const account = await getProviderAccount(tx);
     if (!account) throw new DomainError("not_found", "Vipps MobilePay is not connected");
     if (account.version !== expectedVersion) throw new DomainError("version_conflict", "The Vipps connection was changed by someone else", { currentVersion: account.version });
+    const open = await tx.selectFrom("payments.payment").select((eb) => eb.fn.countAll<number>().as("n"))
+      .where("provider_account_id", "=", account.id).where("state", "in", ["created", "authorized"]).executeTakeFirstOrThrow();
+    if (Number(open.n) > 0) {
+      throw new DomainError("conflict", `${open.n} payment(s) made with this merchant are still settling; disconnect again once they have`, { openPayments: Number(open.n) });
+    }
     const creds = await credentialsFor(tx, ctx.tenantId, account.id);
     const { webhook_id } = await tx.selectFrom("payments.provider_account").select("webhook_id").where("id", "=", account.id).executeTakeFirstOrThrow();
-    await markDisconnected(tx, account.id, null);
+    await markDisconnected(tx, account.id, null, { keepCredentials: false });
     await recordAudit(tx, ctx, { action: "payments.provider_disconnected", entityType: "account", entityId: ctx.tenantId, diff: { id: account.id, merchantSerialNumber: account.merchantSerialNumber } });
     await emit(tx, ctx.tenantId, { type: "payments.provider_account.changed.v1", subject: `payment-provider-account/${account.id}`, data: { id: account.id, change: "disconnected" } });
     return { creds, webhookId: webhook_id };
@@ -196,9 +227,12 @@ export async function disconnectVipps(db: Db, ctx: ActorContext, expectedVersion
   if (old.creds && old.webhookId) await deps.provider.deleteWebhook(old.creds, old.webhookId).catch(() => undefined);
 }
 
-async function markDisconnected(tx: Tx, id: string, reason: string | null) {
+async function markDisconnected(tx: Tx, id: string, reason: string | null, opts: { keepCredentials: boolean }) {
   await tx.updateTable("payments.provider_account")
-    .set({ status: "disconnected", status_reason: reason, credentials: null, webhook_id: null, webhook_secret: null, disconnected_at: new Date(), version: sql<number>`version + 1` })
+    .set({
+      status: "disconnected", status_reason: reason, ...(opts.keepCredentials ? {} : { credentials: null }),
+      webhook_id: null, webhook_secret: null, disconnected_at: new Date(), version: sql<number>`version + 1`,
+    })
     .where("id", "=", id).execute();
 }
 

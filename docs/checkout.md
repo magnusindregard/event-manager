@@ -15,12 +15,12 @@ The checkout is a sales channel of kind `hosted`. It reserves, confirms and canc
 - **Connect.** Choose test (the Vipps MT environment) or production. Enter the merchant serial number (MSN), client id, client secret and subscription key from the Vipps portal.
   - The keys are checked first, by fetching an access token. Vipps refusing them refuses the connection.
   - The keys are stored encrypted with the account's data key, bound to the provider account. They are never shown again.
-  - Connecting another merchant replaces the old one. Its keys are deleted, and its webhook is removed at Vipps.
+  - Payments belong to the provider account they were made on, so its keys stay reachable while they settle or are refunded. Entering keys for the same merchant again (same serial number and environment) updates its provider account in place, even after a disconnect. Connecting another merchant retires the old one: it gets no new payments and its webhook is removed, but its keys are kept for the payments made on it.
 - **Webhook.** On connect and on verify, the platform registers a webhook at Vipps for the ePayment events, at `POST /webhooks/vipps/:accountId/:providerAccountId` on the core API. Its signing secret is stored encrypted.
   - Without a public URL (`PUBLIC_URL` unset, as on local stacks), no webhook is registered. Payments are then found by polling.
 - **Status.** `active`; `invalid` when Vipps refused the keys at the last check (enter new ones); `disconnected`.
 - **Verify** checks the stored keys again and registers a missing webhook.
-- **Disconnect** deletes the keys and the webhook. Payments already made stay.
+- **Disconnect** deletes the keys and the webhook. It is refused while payments made with the merchant are still settling. Payments already made stay; refunding them needs the same merchant connected again.
 - **Merchant details** (on the account): legal name, organisation number (mod-11 checked), address, and whether the account is VAT-registered. They are printed on receipts.
 
 Everyone in the account can see the connection. Only owners change it (`account.write`).
@@ -42,11 +42,14 @@ Everyone in the account can see the connection. Only owners change it (`account.
 | CREATED | nothing yet (the return page waits and refreshes) | `created` |
 | AUTHORIZED | `confirm(externalOrderRef = reference)`, then capture the total | `authorized` → `captured` |
 | AUTHORIZED, but confirm fails (sold out after the hold expired, or the occurrence changed) | cancel the authorisation; no tickets | `cancelled` |
+| AUTHORIZED, and Vipps refuses the capture | cancel the authorisation, then cancel the tickets | `cancelled` |
 | ABORTED (the buyer said no) | cancel the reservation, releasing the places | `failed` |
 | EXPIRED | cancel the reservation | `expired` |
 | TERMINATED | cancel the reservation if it is still held | `cancelled` |
 
-6. On confirm, the buyer gets the tickets email (the hosted channel sends tickets). On capture, the worker sends the receipt email. It also attaches the receipt to the payment in the Vipps app (Order Management API); that is best effort, and the email is the receipt of record.
+**Cancelling at Vipps** counts only once Vipps confirms it. If Vipps refuses a cancel, the payment is read again, and only a cancelled amount or a final state counts. Otherwise the payment stays open, with the reason, and is tried again. A capture or refund Vipps holds (HTTP 423, the payment is locked) is retried, not refused.
+
+6. Only after capture does the buyer get the tickets email (the hosted channel sends tickets) and the receipt email. The confirmation alone sends nothing for a hosted payment. The return page shows the tickets only once the payment is captured, too. Free orders send their tickets on confirm, as any channel does. It also attaches the receipt to the payment in the Vipps app (Order Management API); that is best effort, and the email is the receipt of record.
 
 **Enabling.** Owners enable the checkout under Settings → Payments once Vipps is connected. This creates the sales channel `hosted-checkout` ("Checkout"). It holds places for 20 minutes and emails tickets. VAT classes without a SKU there get `TICKET-<code>`, which staff can change. Offers created afterwards are on sale there by default, as on every active channel. Older offers are added to it in the offer editor. Free tickets (a total of 0) are confirmed at once, without Vipps.
 
@@ -69,14 +72,14 @@ Staff (`sales.write`) cancel tickets of a hosted sale from **Occurrence → Sale
 
 If Vipps does not answer, the refund stays `pending` and the reconcile job sends it again. If Vipps refuses it, staff see the reason in Sales and can retry (`POST /v1/sales/refunds/:id/retry`). Every attempt uses the same key, so the money moves once. A refund never exceeds what was paid.
 
-The plain cancel (`/cancel`) refuses reservations paid in the hosted checkout, because it would cancel the tickets without giving the money back.
+The plain cancel (`/cancel`) refuses every reservation with a hosted payment. Once captured, it would cancel the tickets without giving the money back; before capture, the capture could still charge for tickets that are gone. The hosted channel takes no channel keys, so no shop can cancel its tickets either. Free hosted orders have no payment and use the plain cancel.
 
 **In Sales**, each hosted order shows its Vipps state, how much has been refunded, and any refund that is pending or failed, with a retry button. A cancelled ticket says whether its refund is done, pending or failed.
 
 ## Data
 
 - `payments.provider_account`: one connected merchant per account and provider. It holds the encrypted keys and webhook secret, the status and the history.
-- `payments.payment`: one per hosted reservation. It holds the reference (also the reservation's `externalOrderRef`), the amount, the state, and Vipps' last aggregate.
+- `payments.payment`: one per hosted reservation. It holds the reference (also the reservation's `externalOrderRef`), the amount, the state, and Vipps' last aggregate. It also holds a copy of the buyer (name, email, phone), which the nightly retention clears once it anonymises the reservation.
 - `payments.refund`: the amount, the ticket ids and the idempotency key.
 - `tenancy.account`: the merchant details.
 - `offers.sales_channel.kind`: `hosted`, at most one per account.

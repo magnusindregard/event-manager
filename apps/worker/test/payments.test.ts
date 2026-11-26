@@ -100,6 +100,21 @@ describe("payments.process and the receipt", () => {
     expect(vipps.callsFor(p.reference, "capture")).toHaveLength(1);
   });
 
+  it("sends the tickets only once the payment is captured, not when the reservation is confirmed", async () => {
+    const p = await checkout();
+    vipps.approve(p.reference);
+    // Confirmed (tickets issued), but Vipps holds the capture for now.
+    vipps.failNext("capture", 423);
+    expect(await payments.processPayment(db, ctx.tenantId, p.id, { provider: vipps })).toBe("authorized");
+    await drain();
+    const tickets = () => mailer.sent.filter((m) => m.subject.startsWith("Billetter: "));
+    expect(tickets()).toEqual([]);
+    expect(await payments.processPayment(db, ctx.tenantId, p.id, { provider: vipps })).toBe("captured");
+    await drain();
+    expect(tickets()).toHaveLength(1);
+    expect(mailer.sent.filter((m) => m.subject === "Kvittering fra Teatret")).toHaveLength(1);
+  });
+
   it("leaves VAT out of the receipt for accounts that are not VAT-registered", () => {
     const mail = receiptEmail({
       paymentId: "p", reference: "em-1", capturedAt: new Date("2027-02-01T12:00:00Z"), locale: "en", buyer: { name: null, email: null },

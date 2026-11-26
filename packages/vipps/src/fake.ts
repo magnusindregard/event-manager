@@ -44,6 +44,8 @@ export class FakeVipps implements VippsClient {
   readonly refusedSecrets = new Set<string>();
   /** Makes the next calls fail as if Vipps were down. */
   down = false;
+  /** Calls that fail once with a status, e.g. a capture refused (400) or a payment locked (423). */
+  private readonly failures: { op: "capture" | "cancel" | "refund"; status: number }[] = [];
   protected readonly seen = new Set<string>();
   private readonly landingUrl: string;
 
@@ -97,8 +99,21 @@ export class FakeVipps implements VippsClient {
     };
   }
 
+  /** The next call of `op` fails with `status`, as Vipps answers. */
+  failNext(op: "capture" | "cancel" | "refund", status: number): void {
+    this.failures.push({ op, status });
+  }
+
+  private failIfAsked(op: "capture" | "cancel" | "refund") {
+    const i = this.failures.findIndex((f) => f.op === op);
+    if (i < 0) return;
+    const [f] = this.failures.splice(i, 1);
+    throw new VippsError(`Vipps ${op}: ${f!.status} (fake)`, f!.status);
+  }
+
   async capture(c: VippsCredentials, reference: string, amount: Money, idempotencyKey: string): Promise<void> {
     this.check(c);
+    this.failIfAsked("capture");
     const p = this.get(reference, c);
     if (this.seen.has(`capture:${idempotencyKey}`)) return;
     if (p.state !== "AUTHORIZED" || p.cancelled > 0) throw new VippsError(`Vipps capture: 400 payment is ${p.state}`, 400);
@@ -110,6 +125,7 @@ export class FakeVipps implements VippsClient {
 
   async cancel(c: VippsCredentials, reference: string, idempotencyKey: string): Promise<void> {
     this.check(c);
+    this.failIfAsked("cancel");
     const p = this.get(reference, c);
     if (this.seen.has(`cancel:${idempotencyKey}`)) return;
     if (p.state === "CREATED") p.state = "TERMINATED";
@@ -124,6 +140,7 @@ export class FakeVipps implements VippsClient {
 
   async refund(c: VippsCredentials, reference: string, amount: Money, idempotencyKey: string): Promise<void> {
     this.check(c);
+    this.failIfAsked("refund");
     const p = this.get(reference, c);
     if (this.seen.has(`refund:${idempotencyKey}`)) return;
     if (p.refunded + amount.value > p.captured) throw new VippsError("Vipps refund: 400 more than captured", 400);

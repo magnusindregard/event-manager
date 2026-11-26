@@ -80,9 +80,14 @@ export const salesRoutes: FastifyPluginAsyncTypebox<{ attendeeUrl: string }> = a
     },
     async (req, reply) => {
       const r = await inTenant(app, req, async (tx, ctx) => {
-        // Paid in the hosted checkout: cancelling must give the money back too (refundTicketsAsStaff).
-        if ((await payments.paymentForReservation(tx, req.params.id))?.state === "captured") {
-          throw new DomainError("conflict", "The reservation was paid in the hosted checkout; cancel its tickets with a refund");
+        // Sold in the hosted checkout: cancelling must go with the money (refundTicketsAsStaff once
+        // captured). Before capture a cancel here would let the capture still charge for tickets
+        // that are gone, so it waits for the payment to settle. Free hosted orders have no payment.
+        const paid = await payments.paymentForReservation(tx, req.params.id);
+        if (paid) {
+          throw new DomainError("conflict", paid.state === "captured"
+            ? "The reservation was paid in the hosted checkout; cancel its tickets with a refund"
+            : "The reservation's Vipps payment has not settled yet; try again in a minute");
         }
         return idempotent(tx, req, ctx.tenantId, 200, async () => dto(await sales.cancelTicketsAsStaff(tx, ctx, req.params.id, req.body ?? {})), {
           // The response carries the buyer; keep only the id and rebuild it on a retry.

@@ -159,6 +159,8 @@ export async function createChannelKey(tx: Tx, ctx: ActorContext, channelId: str
   assertCan(ctx, "account.write");
   const channel = await getChannel(tx, channelId);
   if (!channel.active) throw new DomainError("conflict", "The channel is inactive; activate it first");
+  // The hosted checkout reserves and settles by itself; a key would let a shop cancel its paid tickets without a refund.
+  if (channel.kind === "hosted") throw new DomainError("conflict", "The hosted checkout's channel takes no keys");
   if (!label?.trim() || label.trim().length > 100) throw invalid("label", "Label the key (at most 100 characters)");
   return createApiKey(tx, ctx, "channel", label.trim(), channelId);
 }

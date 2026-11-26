@@ -61,10 +61,13 @@ export const refusedKeys = (e: unknown): boolean => {
   return s === 401 || s === 403;
 };
 
-/** The provider did not answer, or answered 5xx/429: worth trying again later. */
+/**
+ * Worth trying again later: the provider did not answer, answered 5xx or 429, or 423 (Vipps locks
+ * a payment while it processes another change to it).
+ */
 export const providerUnavailable = (e: unknown): boolean => {
   const s = (e as { status?: unknown } | null)?.status;
-  return typeof s === "number" && (s === 0 || s === 429 || s >= 500);
+  return typeof s === "number" && (s === 0 || s === 423 || s === 429 || s >= 500);
 };
 
 export const providerMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e)).slice(0, 500);

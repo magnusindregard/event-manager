@@ -4,6 +4,7 @@ import { payments } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
 import { type Mail, type Mailer, sendOrGiveUp } from "./identity/mailer.js";
 import { esc } from "./registration-email.js";
+import { queueTicketsEmailJob } from "./tickets-email.js";
 
 // The hosted checkout's background work (docs/checkout.md):
 //   payments.process      settles one payment. The webhook enqueues it, keyed by the payment, so
@@ -94,7 +95,14 @@ export const queuePaymentWork: InternalHandler = {
       if (typeof id !== "string") return;
       await sql`select graphile_worker.add_job(${PAYMENT_RECEIPT_TASK}, json_build_object('tenantId', ${event.tenantId}::text, 'paymentId', ${id}::text),
         job_key := ${`receipt:${id}`}, max_attempts := 10)`.execute(tx);
-      log.info("receipt queued", { paymentId: id });
+      // The tickets go only now that the buyer has paid (tickets-email.ts skips hosted payments on confirm).
+      const reservationId = (event.data as { reservationId?: unknown }).reservationId;
+      if (typeof reservationId === "string") {
+        const due = await tx.selectFrom("sales.reservation as r").innerJoin("offers.sales_channel as c", "c.id", "r.channel_id")
+          .select("r.id").where("r.id", "=", reservationId).where("c.send_tickets", "=", true).where("r.buyer_email", "is not", null).executeTakeFirst();
+        if (due) await queueTicketsEmailJob(tx, event.tenantId, reservationId, event.id);
+      }
+      log.info("receipt and tickets queued", { paymentId: id });
       return;
     }
     const reservationId = (event.data as { reservationId?: unknown }).reservationId;

@@ -108,8 +108,9 @@ export class VippsError extends Error {
   get unauthorized() {
     return this.status === 401 || this.status === 403;
   }
+  /** 423: the payment is locked while Vipps processes another change to it. */
   get retryable() {
-    return this.status === 429 || this.status >= 500 || this.status === 0;
+    return this.status === 423 || this.status === 429 || this.status >= 500 || this.status === 0;
   }
 }
 

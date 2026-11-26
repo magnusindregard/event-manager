@@ -377,3 +377,115 @@ describe("refunds", () => {
     await expect(refund(s.row.reservation_id, { amount: 45000 }, { ...ctx, roles: ["finance"] })).rejects.toMatchObject({ code: "forbidden" });
   });
 });
+
+describe("when Vipps refuses or holds a change", () => {
+  it("calls the order off when Vipps refuses the capture: the authorisation is cancelled and the tickets go", async () => {
+    const { occ, adult } = await concert("capture-refused");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
+    vipps.approve(s.row.reference);
+    vipps.failNext("capture", 400);
+    expect(await process(s.paymentId)).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate).toMatchObject({ capturedAmount: { value: 0 }, cancelledAmount: { value: 90000 } });
+    expect(await reservation(s.row.reservation_id)).toMatchObject({ status: "cancelled" });
+    expect(await pool(occ.id)).toMatchObject({ taken: 0, held: 0 });
+    const row = await run((tx) => tx.selectFrom("payments.payment").select("failure_reason").where("id", "=", s.paymentId).executeTakeFirstOrThrow());
+    expect(row.failure_reason).toMatch(/refused the capture/);
+  });
+
+  it("retries a capture Vipps holds (423) instead of calling the order off", async () => {
+    const { occ, adult } = await concert("capture-locked");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(s.row.reference);
+    vipps.failNext("capture", 423);
+    expect(await process(s.paymentId)).toBe("authorized");
+    expect(await process(s.paymentId)).toBe("captured");
+  });
+
+  it("does not take a refused cancel as done while the authorisation is still there", async () => {
+    const { occ, adult } = await concert("cancel-locked", 1);
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    await run((tx) => sales.expireReservation(tx, ctx.tenantId, s.row.reservation_id, at(25)));
+    const webCaller = { tenantId: ctx.tenantId, channelId: web.id, signingKey: null };
+    await run((tx) => sales.reserve(tx, webCaller, { lines: [{ occurrenceId: occ.id, offerId: adult.id, quantity: 1 }], confirm: true, externalOrderRef: "WEB-L" }, at(26)));
+    vipps.approve(s.row.reference);
+    vipps.failNext("cancel", 423);
+    // Confirm fails (sold out) and the cancel is held: the payment stays open, with the reason.
+    expect(await process(s.paymentId, at(27))).toBe("created");
+    const row = await run((tx) => tx.selectFrom("payments.payment").select("failure_reason").where("id", "=", s.paymentId).executeTakeFirstOrThrow());
+    expect(row.failure_reason).toMatch(/waiting for Vipps to confirm the cancellation/);
+    expect((await vipps.getPayment(keys, s.row.reference)).state).toBe("AUTHORIZED");
+    // Next time round Vipps takes the cancel.
+    expect(await process(s.paymentId, at(28))).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate.cancelledAmount.value).toBe(45000);
+  });
+});
+
+describe("the return link", () => {
+  it("still shows a completed order after staff deactivate the hosted channel", async () => {
+    const { occ, adult, hosted } = await concert("return-closed");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(s.row.reference);
+    expect(await process(s.paymentId)).toBe("captured");
+    const ch = await run((tx) => offers.getChannel(tx, hosted.id));
+    await run((tx) => offers.updateChannel(tx, ctx, hosted.id, ch.version, { active: false }));
+    const status = await run((tx) => payments.checkoutStatus(tx, s.token, at(5)));
+    expect(status).toMatchObject({ state: "captured", reservation: { status: "confirmed" } });
+    expect(status!.reservation.tickets[0]!.ticketToken).toEqual(expect.any(String));
+    await run((tx) => offers.enableHostedChannel(tx, ctx));
+  });
+
+  it("gives the hosted channel no channel keys, so no shop can cancel its paid tickets", async () => {
+    const hosted = (await run((tx) => offers.hostedChannel(tx)))!;
+    await expect(run((tx) => offers.createChannelKey(tx, ctx, hosted.id, "Shop"))).rejects.toMatchObject({ code: "conflict" });
+  });
+});
+
+describe("buyer retention", () => {
+  it("clears the payment's copy of the buyer when retention anonymises the reservation, keeping amounts and references", async () => {
+    const { occ, adult } = await concert("retention");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    const later = new Date(START.getTime() + 3 * 365 * 86_400_000);
+    await run((tx) => sales.applySalesRetention(tx, later));
+    const r = await run((tx) => payments.applyPaymentRetention(tx));
+    expect(r.paymentsAnonymised).toBeGreaterThan(0);
+    const row = await run((tx) => tx.selectFrom("payments.payment").select(["buyer_name", "buyer_email", "buyer_phone", "amount", "reference"]).where("id", "=", s.paymentId).executeTakeFirstOrThrow());
+    expect(row).toEqual({ buyer_name: null, buyer_email: null, buyer_phone: null, amount: 45000, reference: s.row.reference });
+    expect((await run((tx) => payments.applyPaymentRetention(tx))).paymentsAnonymised).toBe(0);
+  });
+});
+
+describe("changing the merchant", () => {
+  // Runs last: it changes the account's connected merchant.
+  it("reuses the merchant's provider account, keeps a replaced merchant's keys, and refuses to disconnect while payments settle", async () => {
+    const { occ, adult } = await concert("merchant-change");
+    const first = (await run((tx) => payments.getProviderAccount(tx)))!;
+    // A paid order, and one still waiting for the buyer, on the first merchant.
+    const paidOrder = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(paidOrder.row.reference);
+    expect(await process(paidOrder.paymentId)).toBe("captured");
+    const waiting = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+
+    // New keys for the same merchant: the same provider account.
+    const again = await payments.connectVipps(db, ctx, { ...keys, clientSecret: "s2" }, providerDeps);
+    expect(again.id).toBe(first.id);
+
+    // Another merchant: the first is retired with its keys, so its payments still settle and refund.
+    const other = await payments.connectVipps(db, ctx, { ...keys, merchantSerialNumber: "777777" }, providerDeps);
+    expect(other.id).not.toBe(first.id);
+    vipps.approve(waiting.row.reference);
+    expect(await process(waiting.paymentId)).toBe("captured");
+    expect(await payments.refundTickets(db, { ...ctx, roles: ["box_office"] }, paidOrder.row.reservation_id, { amount: 45000 }, deps, at(10))).toMatchObject({ state: "done" });
+
+    // Disconnecting waits for the merchant's open payments.
+    const open = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    const cur = (await run((tx) => payments.getProviderAccount(tx)))!;
+    await expect(payments.disconnectVipps(db, ctx, cur.version, providerDeps)).rejects.toMatchObject({ code: "conflict", details: { openPayments: 1 } });
+    vipps.reject(open.row.reference);
+    expect(await process(open.paymentId)).toBe("failed");
+    await payments.disconnectVipps(db, ctx, cur.version, providerDeps);
+
+    // Connecting the first merchant again brings back its provider account.
+    const back = await payments.connectVipps(db, ctx, keys, providerDeps);
+    expect(back.id).toBe(first.id);
+  });
+});

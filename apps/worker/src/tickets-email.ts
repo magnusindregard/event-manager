@@ -1,6 +1,6 @@
 import type { Task } from "graphile-worker";
 import QRCode from "qrcode";
-import { type Db, sql, withTenant } from "@event-manager/db";
+import { type Db, sql, type Tx, withTenant } from "@event-manager/db";
 import { sales } from "@event-manager/domain";
 import type { InternalHandler } from "./handlers.js";
 import { type Mail, sendOrGiveUp } from "./identity/mailer.js";
@@ -26,14 +26,22 @@ export const queueTicketsEmail: InternalHandler = {
     const due = await tx.selectFrom("sales.reservation as r").innerJoin("offers.sales_channel as c", "c.id", "r.channel_id")
       .select("r.id").where("r.id", "=", id).where("c.send_tickets", "=", true).where("r.buyer_email", "is not", null).executeTakeFirst();
     if (!due) return;
-    await sql`select graphile_worker.add_job(
-      ${TICKETS_EMAIL_TASK},
-      json_build_object('tenantId', ${event.tenantId}::text, 'reservationId', ${id}::text),
-      job_key := ${`ticketmail:${event.id}`},
-      max_attempts := 10)`.execute(tx);
+    // Paid in the hosted checkout: the tickets go once the payment is captured (payments.ts).
+    const paid = await tx.selectFrom("payments.payment").select("id").where("reservation_id", "=", id).executeTakeFirst();
+    if (paid) return;
+    await queueTicketsEmailJob(tx, event.tenantId, id, event.id);
     log.info("tickets email queued", { reservationId: id });
   },
 };
+
+/** Queues the tickets email for a reservation; the job key makes a redelivered event send once. */
+export async function queueTicketsEmailJob(tx: Tx, tenantId: string, reservationId: string, eventId: string): Promise<void> {
+  await sql`select graphile_worker.add_job(
+    ${TICKETS_EMAIL_TASK},
+    json_build_object('tenantId', ${tenantId}::text, 'reservationId', ${reservationId}::text),
+    job_key := ${`ticketmail:${eventId}`},
+    max_attempts := 10)`.execute(tx);
+}
 
 interface Payload {
   tenantId: string;

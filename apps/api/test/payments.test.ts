@@ -95,8 +95,9 @@ describe("/v1 payments", () => {
     expect(next.body).toMatchObject({ merchantSerialNumber: "654321", status: "active" });
     expect(next.body.id).not.toBe(before.id);
     expect(vipps.webhooks.size).toBe(hooks);
-    const old = await sql`select status, credentials from payments.provider_account where id = ${before.id}`.execute(su);
-    expect(old.rows[0]).toEqual({ status: "disconnected", credentials: null });
+    // Retired, not deleted: its keys stay for the payments made on it.
+    const old = await sql<{ status: string; credentials: Buffer | null; webhook_id: string | null }>`select status, credentials, webhook_id from payments.provider_account where id = ${before.id}`.execute(su);
+    expect(old.rows[0]).toMatchObject({ status: "disconnected", credentials: expect.any(Buffer), webhook_id: null });
   });
 
   it("disconnects with If-Match, deleting the keys and the webhook", async () => {
@@ -178,6 +179,12 @@ describe("the hosted checkout and Vipps webhooks", () => {
 
 describe("refunds of hosted sales", () => {
   it("shows the payment in Sales, refuses a plain cancel, and refunds through Vipps after staff confirm the amount", async () => {
+    // Before the payment settles, a plain cancel would let the capture charge for cancelled tickets.
+    const before = (await call("GET", `/v1/occurrences/${sold.occId}/sales`)).body.reservations[0];
+    expect(before.payment).toMatchObject({ state: "created" });
+    const early = await call("POST", `/v1/sales/reservations/${before.id}/cancel`, { body: {} });
+    expect(early).toMatchObject({ status: 409, body: { code: "conflict", title: expect.stringMatching(/not settled/) } });
+
     vipps.approve(sold.reference);
     expect(await payments.processPayment(db, A, sold.paymentId, { provider: vipps })).toBe("captured");
     const salesView = await call("GET", `/v1/occurrences/${sold.occId}/sales`);

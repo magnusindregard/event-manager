@@ -220,9 +220,14 @@ export async function processPayment(db: Db, tenantId: string, paymentId: string
     try {
       await deps.provider.capture(creds, row.reference, { currency: row.currency, value: row.amount }, `capture-${row.id}`);
     } catch (e) {
-      // The tickets are issued; the reconcile job captures later. A refused capture needs staff.
-      await withTenant(db, { tenantId }, (tx) => tx.updateTable("payments.payment").set({ failure_reason: `Capture failed: ${providerMessage(e)}`.slice(0, 500) }).where("id", "=", row.id).execute());
-      return "authorized";
+      if (providerUnavailable(e)) {
+        // Vipps did not answer (or the payment is locked): the reconcile job captures later.
+        await recordReason(db, tenantId, row.id, `Capture not done yet: ${providerMessage(e)}`);
+        return "authorized";
+      }
+      // Vipps refused the capture: the buyer has not paid, so the order is called off. The tickets
+      // go only once Vipps confirms the authorisation is cancelled; until then the capture is retried.
+      return callOff(db, tenantId, row, creds, `Vipps refused the capture (${providerMessage(e)}); the order was cancelled`, deps, now);
     }
     return withTenant(db, { tenantId }, async (tx) => {
       const locked = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).forUpdate().executeTakeFirstOrThrow();
@@ -233,24 +238,46 @@ export async function processPayment(db: Db, tenantId: string, paymentId: string
     });
   }
 
-  if (action.kind === "cancel") {
-    try {
-      await deps.provider.cancel(creds, row.reference, `cancel-${row.id}`);
-    } catch (e) {
-      if (providerUnavailable(e)) return row.state;
-      // Already cancelled, expired or terminated at Vipps: nothing left to cancel.
-    }
-    return withTenant(db, { tenantId }, async (tx) => {
-      const locked = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).forUpdate().executeTakeFirstOrThrow();
-      if (TERMINAL.includes(locked.state)) return locked.state;
-      await releaseReservation(tx, tenantId, row.reservation_id, now);
-      await setState(tx, row.id, "cancelled", { cancelled_at: now, failure_reason: action.reason.slice(0, 500) });
-      await paymentEvent(tx, tenantId, "payment.cancelled.v1", row, { reason: action.reason });
-      return "cancelled" as const;
-    });
-  }
+  if (action.kind === "cancel") return callOff(db, tenantId, row, creds, action.reason, deps, now);
 
   return withTenant(db, { tenantId }, async (tx) => (await tx.selectFrom("payments.payment").select("state").where("id", "=", paymentId).executeTakeFirstOrThrow()).state);
+}
+
+async function recordReason(db: Db, tenantId: string, paymentId: string, reason: string) {
+  await withTenant(db, { tenantId }, (tx) => tx.updateTable("payments.payment").set({ failure_reason: reason.slice(0, 500) }).where("id", "=", paymentId).execute());
+}
+
+/**
+ * Cancels the authorisation at Vipps and, once Vipps confirms it, releases the reservation (or its
+ * tickets) and records the payment as cancelled. Vipps refusing the cancel is not taken as done:
+ * the payment is read again, and only a cancelled amount or a final state (aborted, expired,
+ * terminated) counts. Otherwise the payment stays as it is, with the reason, and the reconcile job
+ * tries again.
+ */
+async function callOff(db: Db, tenantId: string, row: PaymentRow, creds: ProviderCredentials, reason: string, deps: { provider: PaymentProvider }, now: Date): Promise<PaymentState> {
+  let done = false;
+  try {
+    await deps.provider.cancel(creds, row.reference, `cancel-${row.id}`);
+    done = true;
+  } catch (e) {
+    if (!providerUnavailable(e)) {
+      // Refused: already cancelled or final (fine), or still processing at Vipps (not yet).
+      const now2 = await deps.provider.getPayment(creds, row.reference).catch(() => null);
+      done = !!now2 && (now2.aggregate.cancelledAmount.value > 0 || ["ABORTED", "EXPIRED", "TERMINATED"].includes(now2.state));
+    }
+    if (!done) {
+      await recordReason(db, tenantId, row.id, `${reason}; waiting for Vipps to confirm the cancellation (${providerMessage(e)})`);
+      return row.state;
+    }
+  }
+  return withTenant(db, { tenantId }, async (tx) => {
+    const locked = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", row.id).forUpdate().executeTakeFirstOrThrow();
+    if (TERMINAL.includes(locked.state)) return locked.state;
+    await releaseReservation(tx, tenantId, row.reservation_id, now);
+    await setState(tx, row.id, "cancelled", { cancelled_at: now, failure_reason: reason.slice(0, 500) });
+    await paymentEvent(tx, tenantId, "payment.cancelled.v1", row, { reason });
+    return "cancelled" as const;
+  });
 }
 
 /**
@@ -380,9 +407,11 @@ export async function checkoutStatus(tx: Tx, token: string, now: Date = new Date
     if (!p) return null;
     ({ reservation_id: reservationId, state, reference } = p);
   }
-  const r = await tx.selectFrom("sales.reservation").select("channel_id").where("id", "=", reservationId).executeTakeFirst();
+  const r = await tx.selectFrom("sales.reservation").select("id").where("id", "=", reservationId).executeTakeFirst();
   if (!r) return null;
-  const reservation = await sales.getReservation(tx, caller(claims.tenantId, r.channel_id), reservationId, now);
+  // The signed token is the buyer's access. Not as the channel: a completed order stays readable
+  // after staff deactivate the hosted channel.
+  const reservation = await sales.getReservationView(tx, claims.tenantId, reservationId, now);
   return { state, reservation, accountName: account.name, vat: vatPerRate(reservation.lines), reference };
 }
 
