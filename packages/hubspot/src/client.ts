@@ -618,8 +618,10 @@ export class HttpHubSpot implements HubSpotClient {
     // v4 updates take the whole flow with its revision.
     const f = (await this.call("GET", `/automation/v4/flows/${encodeURIComponent(flowId)}`, undefined, accessToken)) as RawFlow | null;
     if (!f) throw new HubSpotError(`HubSpot GET /automation/v4/flows/${flowId}: empty answer`, 502);
-    // Read-only fields in the GET answer are left out of the update.
-    const { id: _id, createdAt: _c, updatedAt: _u, ...flow } = f as RawFlow & { createdAt?: unknown; updatedAt?: unknown };
+    // The whole flow goes back, its `id` and `revisionId` included: without `id` HubSpot answers 404
+    // "Existing CRM object not found for flowId" (staging). HubSpot's guide says to leave out
+    // `createdAt`, `updatedAt` and `dataSources`, which fail validation.
+    const { createdAt: _c, updatedAt: _u, dataSources: _d, ...flow } = f as RawFlow & { createdAt?: unknown; updatedAt?: unknown; dataSources?: unknown };
     await this.call("PUT", `/automation/v4/flows/${encodeURIComponent(flowId)}`, { ...flow, isEnabled: true }, accessToken);
   }
 
