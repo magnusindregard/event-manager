@@ -14,9 +14,12 @@ const db = createDb(url);
 const production = process.env.NODE_ENV === "production";
 const vippsMode = process.env.VIPPS ?? (production ? "off" : "fake");
 if (production && vippsMode === "fake") throw new Error("VIPPS=fake must not be used in production");
-// Vipps sends buyers back to this app's public URL.
-if (vippsMode === "http" && !process.env.ATTENDEE_URL) throw new Error("ATTENDEE_URL is required with VIPPS=http");
-const attendeeUrl = process.env.ATTENDEE_URL ?? `http://localhost:${process.env.PORT ?? 3020}`;
+// Vipps sends buyers back to this app's public URL: ATTENDEE_URL, or in Azure Container Apps the
+// app's own host, which the platform gives as CONTAINER_APP_NAME and CONTAINER_APP_ENV_DNS_SUFFIX.
+const azureHost = process.env.CONTAINER_APP_NAME && process.env.CONTAINER_APP_ENV_DNS_SUFFIX
+  ? `https://${process.env.CONTAINER_APP_NAME}.${process.env.CONTAINER_APP_ENV_DNS_SUFFIX}` : null;
+const attendeeUrl = process.env.ATTENDEE_URL ?? azureHost ?? `http://localhost:${process.env.PORT ?? 3020}`;
+if (vippsMode === "http" && !process.env.ATTENDEE_URL && !azureHost) throw new Error("ATTENDEE_URL is required with VIPPS=http");
 const { FakeVipps, HttpVipps, SharedFakeVipps } = await import("@event-manager/vipps");
 // VIPPS_FAKE_STATE: a file the local stack's processes share, so the API and worker see this app's fake payments.
 const landingUrl = `${attendeeUrl.replace(/\/+$/, "")}/b/fake-vipps`;

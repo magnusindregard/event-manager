@@ -117,6 +117,8 @@ const resources = {
         cancelledToast_one: "{{count}} billett er kansellert", cancelledToast_other: "{{count}} billetter er kansellert",
         help: "Salgskanalen ser kanselleringen neste gang den leser reservasjonen.",
         errors: { occurrence_started: "Tidspunktet har startet, så billettene kan ikke kanselleres.", already_cancelled: "Billettene er allerede kansellert." },
+        ticketLink: "Billettlenke", copyLink: "Kopier lenken", openLink: "Åpne billettsiden", linkCopied: "Lenken er kopiert", linkSelect: "Lenken er merket. Kopier den med Cmd+C eller Ctrl+C.",
+        ticketLinkHint: "Del lenken på egne nettsider, i sosiale medier eller i nyhetsbrev. Kjøperne betaler med Vipps.",
         payment: {
           vipps: "Vipps: {{state}}", refunded: "{{amount}} refundert",
           states: { created: "venter på kjøperen", authorized: "godkjent", captured: "betalt", cancelled: "kansellert", expired: "utløpt", failed: "avvist" },
@@ -538,6 +540,8 @@ const resources = {
         cancelledToast_one: "{{count}} ticket cancelled", cancelledToast_other: "{{count}} tickets cancelled",
         help: "The sales channel sees the cancellation the next time it reads the reservation.",
         errors: { occurrence_started: "The occurrence has started, so its tickets can no longer be cancelled.", already_cancelled: "The tickets are already cancelled." },
+        ticketLink: "Ticket link", copyLink: "Copy the link", openLink: "Open the ticket page", linkCopied: "Link copied", linkSelect: "The link is selected. Copy it with Cmd+C or Ctrl+C.",
+        ticketLinkHint: "Share the link on your own website, in social posts or newsletters. Buyers pay with Vipps.",
         payment: {
           vipps: "Vipps: {{state}}", refunded: "{{amount}} refunded",
           states: { created: "waiting for the buyer", authorized: "approved", captured: "paid", cancelled: "cancelled", expired: "expired", failed: "rejected" },

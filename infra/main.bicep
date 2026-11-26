@@ -30,6 +30,8 @@ param mailFrom string = ''
 param postmarkWebhook bool = false
 @description('Master keys for sensitive registration answers. Needs Key Vault secret "sensitive-data-keys" holding "id:base64-32-bytes".')
 param sensitiveDataKeys bool = false
+@description('Hosted checkout with Vipps MobilePay (docs/checkout.md). Needs sensitiveDataKeys.')
+param vippsPayments bool = false
 @description('Admin URL in invitation emails. Defaults to where the admin is served (Front Door, or the storage static website without it).')
 param adminUrl string = ''
 @description('API scope MCP clients ask for at sign-in (docs/mcp.md), e.g. api://em-api-staging/access. Empty: none advertised.')
@@ -180,6 +182,7 @@ module apps 'modules/apps.bicep' = if (deployApps) {
     mailFrom: mailFrom
     postmarkWebhook: postmarkWebhook
     sensitiveDataKeys: sensitiveDataKeys
+    vippsPayments: vippsPayments
     adminUrl: !empty(adminUrl) ? adminUrl : (deployFrontDoor ? '' : '${adminWebOrigin}/')
     corsOrigins: adminOrigin
     mcpScopes: mcpScopes

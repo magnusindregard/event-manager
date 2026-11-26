@@ -97,7 +97,12 @@ Every table has row-level security (ADR 0004). Migration `0030_payments` also mo
 2. **Buy flow** (done): attendee pages, `startCheckout`, `processPayment` (confirm, capture and cancel), the tickets and receipt emails, enabling the hosted channel.
 3. **Webhooks and reconciliation** (done): the webhook route, the worker job, the reconcile cron, and how expiry interacts with payments.
 4. **Refunds and admin visibility** (done): staff refunds of whole or partial reservations, payment state in Sales, outbox events.
-5. **Distribution and pilot**: the ticket link in the admin, `checkoutUrl` in the public API, and a run-through in the Vipps test environment with a pilot client.
+5. **Distribution and pilot** (built; the pilot is still to run): the ticket link in the admin, `checkoutUrl` in the public API, the infra switch (`VIPPS_PAYMENTS`, infra/README.md 4e), and a run-through in the Vipps test environment with a pilot client.
+
+## Distribution
+
+- **Ticket link.** Occurrence → Sales in the admin shows the occurrence's ticket link (`<attendee app>/b/<occurrence>`), with copy and open buttons. It appears when the event is published, the checkout is enabled and Vipps is connected. Clients put it on their own site, in social posts or on HubSpot pages.
+- **Public API.** A ticketed occurrence's `admission` is `{ "mode": "tickets", "checkoutUrl": … }`. `checkoutUrl` is the same link when the checkout can sell there: the hosted channel is active, Vipps is connected, and an offer on sale at the occurrence is on the hosted channel. Otherwise it is null. A frontend can show a "Buy tickets" button without knowing anything else about the checkout. Events have no link of their own, because a checkout covers one occurrence.
 
 ## Out of the first release
 
@@ -115,6 +120,19 @@ Stripe and cards, group prices in checkout, discount codes, several occurrences 
 
 ## Pilot checklist
 
-- Connect a Vipps **test** merchant (MT) in the admin, and verify it.
-- Pay on `/b/:occurrenceId` with the Vipps test app.
-- Check that the tickets email arrives, the receipt is correct, Sales shows the payment as captured, and a refund appears in the Vipps test portal.
+Before:
+- Staging has the master key (infra/README.md 4d), `VIPPS_PAYMENTS=true` (4e), a real mailer, and `PUBLIC_URL` on the api (Front Door), so webhooks arrive.
+- The pilot client has a Vipps MobilePay **test** merchant (MT) with ePayment, and the Vipps test app on a phone with a test user.
+- The account has merchant details and a VAT class for its tickets.
+
+Run:
+1. Settings → Payments: connect the test merchant (environment Test), and check that it says connected and that the webhook is registered.
+2. Enable the checkout. Put the event's ticket types on the "Checkout" channel, and check the SKUs.
+3. Open the ticket link from Occurrence → Sales. Buy two tickets and pay in the Vipps test app.
+4. Check: the receipt page, the tickets email with QR codes, the receipt email (VAT, organisation number), the receipt in the Vipps app, and "Vipps: betalt" in Sales. The payment should show as captured in the Vipps test portal.
+5. Reject a payment in the app: the page says no money was taken, and the places are back.
+6. Start a payment and leave it: after the hold (20 minutes), the payment is cancelled at Vipps.
+7. Refund one ticket from Sales: it shows as refunded in Sales and in the Vipps test portal, and the buyer sees it in the app.
+8. Check that `checkoutUrl` appears in the public API for the occurrence.
+
+After: decide with the client when to switch to production keys (Settings → Payments, environment Production).

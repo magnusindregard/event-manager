@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import { Copy, ExternalLink, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -19,6 +19,8 @@ import { ApiProblem, type CatalogEvent, type Occurrence, type OccurrenceSales, t
 import { useApp } from "../../AppContext.js";
 import { useUserGroups } from "../../queries.js";
 import { formatMoney } from "../../lib/money.js";
+
+const ATTENDEE_URL = (import.meta.env.VITE_ATTENDEE_URL ?? "").replace(/\/+$/, "");
 
 type Show = "confirmed" | "held" | "ended";
 type Selection = { reservation: SalesReservation; ticketIds: string[] };
@@ -51,6 +53,10 @@ export function Sales({ event, occurrence, label, onClose }: { event: CatalogEve
     enabled: !!occurrence,
     queryFn: async (): Promise<OccurrenceSales> => unwrap(await api.GET("/v1/occurrences/{id}/sales", { params: { path: { id: occurrence!.id } } })),
   });
+  // The hosted checkout's ticket link (docs/checkout.md), when the account sells through it.
+  const paymentsSettings = useQuery({ queryKey: ["payments", accountId], enabled: !!occurrence, queryFn: async () => unwrap(await api.GET("/v1/payments")) });
+  const ticketLink = ATTENDEE_URL && occurrence && event.status === "published" && paymentsSettings.data?.checkout?.active && paymentsSettings.data.vipps?.status === "active"
+    ? `${ATTENDEE_URL}/b/${occurrence.id}` : null;
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: key });
     void qc.invalidateQueries({ queryKey: ["occurrences", accountId, event.id] });
@@ -219,6 +225,29 @@ export function Sales({ event, occurrence, label, onClose }: { event: CatalogEve
               {pool && pool.bookableLimit !== null && <> · {t("occurrences.placesOf", { taken: pool.taken + pool.held, limit: pool.bookableLimit })}</>}
               {pool && pool.held > 0 && <> · {t("sales.heldPlaces", { count: pool.held })}</>}
             </p>
+            {ticketLink && (
+              <div className="grid gap-1 rounded-lg border p-3">
+                <span className="text-sm font-medium">{t("sales.ticketLink")}</span>
+                <div className="flex items-center gap-2">
+                  <Input readOnly value={ticketLink} aria-label={t("sales.ticketLink")} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+                  <Button variant="outline" size="icon" aria-label={t("sales.copyLink")}
+                    onClick={(e) => {
+                      const input = e.currentTarget.parentElement?.querySelector("input");
+                      void navigator.clipboard.writeText(ticketLink).then(
+                        () => toast.success(t("sales.linkCopied")),
+                        // No clipboard access: select the link so it can be copied by hand.
+                        () => { input?.select(); toast.info(t("sales.linkSelect")); },
+                      );
+                    }}>
+                    <Copy />
+                  </Button>
+                  <Button variant="outline" size="icon" asChild aria-label={t("sales.openLink")}>
+                    <a href={ticketLink} target="_blank" rel="noreferrer"><ExternalLink /></a>
+                  </Button>
+                </div>
+                <span className="text-muted-foreground text-xs">{t("sales.ticketLinkHint")}</span>
+              </div>
+            )}
 
             <div className="overflow-x-auto rounded-lg border">
               <table className="w-full text-sm">

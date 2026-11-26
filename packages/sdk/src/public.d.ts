@@ -177,6 +177,8 @@ export interface operations {
                             } | {
                                 /** @enum {string} */
                                 mode: "tickets";
+                                /** @description The platform's hosted checkout for this occurrence, where buyers pay with Vipps MobilePay. Null when the account does not sell here through it */
+                                checkoutUrl: string | null;
                             };
                             availability: null | {
                                 /** @description Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets: sold_out: no on-sale offer's smallest purchase fits in the places left (held places count as gone). not_on_sale: no offer is on sale now. New statuses may be added */
@@ -517,6 +519,8 @@ export interface operations {
                                 } | {
                                     /** @enum {string} */
                                     mode: "tickets";
+                                    /** @description The platform's hosted checkout for this occurrence, where buyers pay with Vipps MobilePay. Null when the account does not sell here through it */
+                                    checkoutUrl: string | null;
                                 };
                                 availability: null | {
                                     /** @description Registration: waitlist: full, but registering joins the waitlist. closed: registration has not opened, has closed, or the occurrence is cancelled. Tickets: sold_out: no on-sale offer's smallest purchase fits in the places left (held places count as gone). not_on_sale: no offer is on sale now. New statuses may be added */

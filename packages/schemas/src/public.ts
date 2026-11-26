@@ -25,7 +25,13 @@ export const Admission = Type.Union(
       mode: Type.Literal("registration"),
       url: Nullable(Type.String({ description: "Hosted registration page. Null for invite-only occurrences: guests register through their personal invitation links" })),
     }),
-    Type.Object({ mode: Type.Literal("tickets") }, { description: "Tickets are sold through the account's own web shop and box office; offers lists what is for sale" }),
+    Type.Object(
+      {
+        mode: Type.Literal("tickets"),
+        checkoutUrl: Nullable(Type.String({ description: "The platform's hosted checkout for this occurrence, where buyers pay with Vipps MobilePay. Null when the account does not sell here through it" })),
+      },
+      { description: "Tickets are sold through the account's own web shop and box office, and the hosted checkout where checkoutUrl is set; offers lists what is for sale" },
+    ),
   ],
   { description: "How to get in. More modes (registration, tickets) are added later without changing these." },
 );

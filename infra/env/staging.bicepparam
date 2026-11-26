@@ -14,6 +14,7 @@ param graphTenantDomain = readEnvironmentVariable('GRAPH_TENANT_DOMAIN', '')
 param mailFrom = readEnvironmentVariable('MAIL_FROM', '')
 param postmarkWebhook = bool(readEnvironmentVariable('POSTMARK_WEBHOOK', 'false'))
 param sensitiveDataKeys = bool(readEnvironmentVariable('SENSITIVE_ANSWERS', 'false'))
+param vippsPayments = bool(readEnvironmentVariable('VIPPS_PAYMENTS', 'false'))
 param adminUrl = readEnvironmentVariable('ADMIN_URL', '')
 // MCP server (docs/mcp.md): the same API scope the admin asks for; the API's public URL defaults to ADMIN_URL behind Front Door.
 param mcpScopes = readEnvironmentVariable('ENTRA_API_SCOPE', '')

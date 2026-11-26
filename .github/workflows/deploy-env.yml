@@ -34,6 +34,7 @@ jobs:
       MAIL_FROM: ${{ vars.MAIL_FROM }}
       POSTMARK_WEBHOOK: ${{ vars.POSTMARK_WEBHOOK || 'false' }}
       SENSITIVE_ANSWERS: ${{ vars.SENSITIVE_ANSWERS || 'false' }}
+      VIPPS_PAYMENTS: ${{ vars.VIPPS_PAYMENTS || 'false' }}
       ADMIN_URL: ${{ vars.ADMIN_URL }}
       PG_ADMIN_TYPE: ${{ vars.PG_ADMIN_TYPE || 'Group' }}
     steps:

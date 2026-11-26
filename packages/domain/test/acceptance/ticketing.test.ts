@@ -71,7 +71,7 @@ describe("acceptance: Adult 450 and Student 250, Student off sale on Saturday ev
     await run(async (tx) => catalog.transitionEvent(tx, ctx, event.id, (await catalog.getEvent(tx, event.id)).version, "publish"));
     const pub = await run((tx) => catalog.listPublicOccurrences(tx, { preview: false, now: new Date("2027-01-01T00:00:00Z") }, { event: event.id, from: new Date("2027-01-01T00:00:00Z"), limit: 10 }));
     const byId = new Map(pub.items.map((o) => [o.id, o]));
-    expect(byId.get(fri!.id)!.admission).toEqual({ mode: "tickets" });
+    expect(byId.get(fri!.id)!.admission).toEqual({ mode: "tickets", checkoutUrl: null });
     expect(byId.get(fri!.id)!.offers.map((o) => [o.code, o.price.amount])).toEqual([["voksen", 45000], ["student", 25000]]);
     expect(byId.get(satEve!.id)!.offers.map((o) => o.code)).toEqual(["voksen"]);
     expect(byId.get(satEve!.id)!.offers[0]).toMatchObject({ name: "Voksen", price: { amount: 45000, currency: "NOK", vatIncluded: true }, onSale: true });

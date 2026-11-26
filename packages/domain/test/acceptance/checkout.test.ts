@@ -82,6 +82,24 @@ describe("the buy page", () => {
     const skus = await run((tx) => offers.listSkuMappings(tx));
     expect(skus.filter((m) => m.vatClassId === vat12.id).map((m) => m.externalSku).sort()).toEqual(["TICKET-12", "TICKET-CULTURE"]);
   });
+
+  it("gives occurrences sold on the hosted checkout a checkoutUrl in the public API", async () => {
+    const { event, occ, adult, child, hosted } = await concert("public-link");
+    const read = async () => (await run((tx) => catalog.listPublicOccurrences(tx, { preview: false, attendeeUrl: "https://billett.example.test/", now: NOW }, { event: event.id, from: NOW, limit: 5 }))).items[0]!.admission;
+    expect(await read()).toEqual({ mode: "tickets", checkoutUrl: `https://billett.example.test/b/${occ.id}` });
+    // Without the attendee URL the API cannot link anywhere.
+    const noUrl = await run((tx) => catalog.listPublicOccurrences(tx, { preview: false, now: NOW }, { event: event.id, from: NOW, limit: 5 }));
+    expect(noUrl.items[0]!.admission).toEqual({ mode: "tickets", checkoutUrl: null });
+    // Offers taken off the hosted channel: no link.
+    for (const o of [adult, child]) {
+      const cur = await run((tx) => offers.getOffer(tx, o.id));
+      await run((tx) => offers.updateOffer(tx, ctx, o.id, cur.version, { channelIds: [web.id] }));
+    }
+    expect(await read()).toEqual({ mode: "tickets", checkoutUrl: null });
+    const cur = await run((tx) => offers.getOffer(tx, adult.id));
+    await run((tx) => offers.updateOffer(tx, ctx, adult.id, cur.version, { channelIds: [hosted.id, web.id] }));
+    expect((await read()) as { checkoutUrl: string | null }).toMatchObject({ checkoutUrl: expect.stringContaining(occ.id) });
+  });
 });
 
 describe("happy path", () => {
