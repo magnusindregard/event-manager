@@ -17,6 +17,7 @@
     "@event-manager/db": "workspace:*",
     "@event-manager/domain": "workspace:*",
     "@event-manager/hubspot": "workspace:*",
+    "@event-manager/vipps": "workspace:*",
     "graphile-worker": "~0.17.1",
     "qrcode": "^1.5.4"
   },

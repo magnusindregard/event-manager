@@ -19,6 +19,7 @@
     "@event-manager/domain": "workspace:*",
     "@event-manager/hubspot": "workspace:*",
     "@event-manager/schemas": "workspace:*",
+    "@event-manager/vipps": "workspace:*",
     "@fastify/cors": "^11.0.0",
     "@fastify/swagger": "^9.9.3",
     "@fastify/type-provider-typebox": "^6.3.0",

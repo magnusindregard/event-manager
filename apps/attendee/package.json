@@ -16,6 +16,7 @@
     "@event-manager/db": "workspace:*",
     "@event-manager/domain": "workspace:*",
     "@event-manager/schemas": "workspace:*",
+    "@event-manager/vipps": "workspace:*",
     "@fastify/formbody": "^8.0.2",
     "@fastify/swagger": "^9.9.3",
     "@fastify/type-provider-typebox": "^6.3.0",

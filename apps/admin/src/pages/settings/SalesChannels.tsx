@@ -16,7 +16,8 @@ import { etagOf, type SalesChannel, unwrap } from "../../api.js";
 import { useApp } from "../../AppContext.js";
 import { useSalesChannels, useSkuMappings, useVatClasses } from "../../queries.js";
 
-type Kind = SalesChannel["kind"];
+/** Kinds staff create here; the hosted channel comes from enabling the checkout under Payments. */
+type Kind = Exclude<SalesChannel["kind"], "hosted">;
 type Patch = { name?: string; holdMinutes?: number; sendTickets?: boolean; active?: boolean };
 
 /**

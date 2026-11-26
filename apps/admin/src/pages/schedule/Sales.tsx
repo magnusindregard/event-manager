@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import { Copy, ExternalLink, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -20,6 +20,8 @@ import { useApp } from "../../AppContext.js";
 import { useUserGroups } from "../../queries.js";
 import { formatMoney } from "../../lib/money.js";
 
+const ATTENDEE_URL = (import.meta.env.VITE_ATTENDEE_URL ?? "").replace(/\/+$/, "");
+
 type Show = "confirmed" | "held" | "ended";
 type Selection = { reservation: SalesReservation; ticketIds: string[] };
 const statusVariant: Record<SalesReservation["status"], "default" | "secondary" | "outline" | "destructive"> = {
@@ -29,7 +31,9 @@ const statusVariant: Record<SalesReservation["status"], "default" | "secondary" 
 /**
  * Occurrence → Sales (docs/ticketing.md, "Admin interface"): held and sold per offer, the
  * reservations with their channel's order references and buyers, and cancelling tickets
- * (sales.write). Cancelling here does not refund: the money moves in the channel.
+ * (sales.write). For a shop's sale, cancelling here does not refund: the money moves in the
+ * channel. For a sale in the hosted checkout (docs/checkout.md), cancelling refunds the
+ * tickets through Vipps, after staff confirm the amount.
  */
 export function Sales({ event, occurrence, label, onClose }: { event: CatalogEvent; occurrence: Occurrence | null; label: string; onClose: () => void }) {
   const { t, i18n } = useTranslation();
@@ -49,25 +53,55 @@ export function Sales({ event, occurrence, label, onClose }: { event: CatalogEve
     enabled: !!occurrence,
     queryFn: async (): Promise<OccurrenceSales> => unwrap(await api.GET("/v1/occurrences/{id}/sales", { params: { path: { id: occurrence!.id } } })),
   });
+  // The hosted checkout's ticket link (docs/checkout.md), when the account sells through it.
+  const paymentsSettings = useQuery({ queryKey: ["payments", accountId], enabled: !!occurrence, queryFn: async () => unwrap(await api.GET("/v1/payments")) });
+  const ticketLink = ATTENDEE_URL && occurrence && event.status === "published" && paymentsSettings.data?.checkout?.active && paymentsSettings.data.vipps?.status === "active"
+    ? `${ATTENDEE_URL}/b/${occurrence.id}` : null;
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: key });
     void qc.invalidateQueries({ queryKey: ["occurrences", accountId, event.id] });
     void qc.invalidateQueries({ queryKey: ["audit", accountId] });
   };
+  /** What the chosen tickets cost: the amount a hosted sale refunds. */
+  const amountOf = (c: Selection) => c.ticketIds.reduce((s, id) => {
+    const tk = c.reservation.tickets.find((x) => x.id === id);
+    return s + (c.reservation.lines.find((l) => l.id === tk?.lineId)?.unitPrice ?? 0);
+  }, 0);
+  const paidHere = (c: Selection | null) => c?.reservation.payment?.state === "captured";
   const cancel = useMutation({
-    mutationFn: async (c: Selection) =>
+    mutationFn: async (c: Selection) => {
+      if (paidHere(c)) {
+        const r = await api.POST("/v1/sales/reservations/{id}/refund", { params: { path: { id: c.reservation.id } }, body: { ticketIds: c.ticketIds, amount: amountOf(c) } });
+        if (r.error) unwrap(r);
+        return r.data ?? null;
+      }
       unwrap(await api.POST("/v1/sales/reservations/{id}/cancel", {
         params: { path: { id: c.reservation.id } },
         body: { ticketIds: c.ticketIds, ...(refundRef.trim() ? { externalRefundRef: refundRef.trim() } : {}) },
-      })),
-    onSuccess: (_r, c) => {
-      toast.success(t("sales.cancelledToast", { count: c.ticketIds.length }));
+      }));
+      return null;
+    },
+    onSuccess: (refund, c) => {
+      if (refund && refund.state !== "done") toast.warning(t(`sales.refund.${refund.state}`));
+      else toast.success(paidHere(c) ? t("sales.refund.done", { amount: money(amountOf(c)) }) : t("sales.cancelledToast", { count: c.ticketIds.length }));
       setSelection(null);
       setConfirming(null);
       setRefundRef("");
       refresh();
     },
-    onError: (e) => toast.error(e instanceof ApiProblem && ["occurrence_started", "already_cancelled"].includes(e.code) ? t(`sales.errors.${e.code}`) : t("error.generic")),
+    onError: (e) => {
+      refresh();
+      toast.error(e instanceof ApiProblem && ["occurrence_started", "already_cancelled"].includes(e.code) ? t(`sales.errors.${e.code}`) : e instanceof ApiProblem ? e.message : t("error.generic"));
+    },
+  });
+  const retry = useMutation({
+    mutationFn: async (refundId: string) => unwrap(await api.POST("/v1/sales/refunds/{id}/retry", { params: { path: { id: refundId } } })),
+    onSuccess: (r) => {
+      if (r.state === "done") toast.success(t("sales.refund.done", { amount: money(r.amount) }));
+      else toast.warning(t(`sales.refund.${r.state}`));
+      refresh();
+    },
+    onError: () => toast.error(t("error.generic")),
   });
 
   const data = query.data;
@@ -99,6 +133,18 @@ export function Sales({ event, occurrence, label, onClose }: { event: CatalogEve
               <span className="text-xs">{[r.buyer.name, r.buyer.email].filter(Boolean).join(" · ")}</span>
             )}
             {r.otherOccurrences && <span className="text-muted-foreground text-xs">{t("sales.otherOccurrences")}</span>}
+            {r.payment && (
+              <span className="text-muted-foreground text-xs">
+                {t("sales.payment.vipps", { state: t(`sales.payment.states.${r.payment.state}`) })}
+                {r.payment.refunded > 0 && ` · ${t("sales.payment.refunded", { amount: money(r.payment.refunded) })}`}
+              </span>
+            )}
+            {r.payment?.refunds.filter((x) => x.state !== "done").map((x) => (
+              <span key={x.id} className="flex items-center gap-2 text-xs text-destructive">
+                {t(`sales.refund.${x.state}`)} ({money(x.amount)}){x.failureReason ? `: ${x.failureReason}` : ""}
+                {canWrite && <Button variant="outline" size="sm" className="h-6 px-2 text-xs" disabled={retry.isPending} onClick={() => retry.mutate(x.id)}>{t("sales.refund.retry")}</Button>}
+              </span>
+            ))}
           </div>
         );
       },
@@ -128,7 +174,14 @@ export function Sales({ event, occurrence, label, onClose }: { event: CatalogEve
                   {offerName.get(tk.offerId) ?? ""}{tk.partySize > 1 ? ` (${tk.partySize})` : ""}
                 </span>
                 {tk.status === "cancelled" && (
-                  <span className="text-muted-foreground text-xs">{t(`sales.cancelledBy.${tk.cancelledBy ?? "channel"}`)}{tk.externalRefundRef ? ` · ${tk.externalRefundRef}` : ""}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {t(`sales.cancelledBy.${tk.cancelledBy ?? "channel"}`)}
+                    {/* A hosted sale's refund reference is ours; say what it means instead. */}
+                    {tk.externalRefundRef ? ` · ${(() => {
+                      const refund = r.payment?.refunds.find((x) => x.reference === tk.externalRefundRef);
+                      return refund ? t(`sales.refund.ticket.${refund.state}`) : tk.externalRefundRef;
+                    })()}` : ""}
+                  </span>
                 )}
               </li>
             ))}
@@ -172,6 +225,29 @@ export function Sales({ event, occurrence, label, onClose }: { event: CatalogEve
               {pool && pool.bookableLimit !== null && <> · {t("occurrences.placesOf", { taken: pool.taken + pool.held, limit: pool.bookableLimit })}</>}
               {pool && pool.held > 0 && <> · {t("sales.heldPlaces", { count: pool.held })}</>}
             </p>
+            {ticketLink && (
+              <div className="grid gap-1 rounded-lg border p-3">
+                <span className="text-sm font-medium">{t("sales.ticketLink")}</span>
+                <div className="flex items-center gap-2">
+                  <Input readOnly value={ticketLink} aria-label={t("sales.ticketLink")} className="font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+                  <Button variant="outline" size="icon" aria-label={t("sales.copyLink")}
+                    onClick={(e) => {
+                      const input = e.currentTarget.parentElement?.querySelector("input");
+                      void navigator.clipboard.writeText(ticketLink).then(
+                        () => toast.success(t("sales.linkCopied")),
+                        // No clipboard access: select the link so it can be copied by hand.
+                        () => { input?.select(); toast.info(t("sales.linkSelect")); },
+                      );
+                    }}>
+                    <Copy />
+                  </Button>
+                  <Button variant="outline" size="icon" asChild aria-label={t("sales.openLink")}>
+                    <a href={ticketLink} target="_blank" rel="noreferrer"><ExternalLink /></a>
+                  </Button>
+                </div>
+                <span className="text-muted-foreground text-xs">{t("sales.ticketLinkHint")}</span>
+              </div>
+            )}
 
             <div className="overflow-x-auto rounded-lg border">
               <table className="w-full text-sm">
@@ -230,6 +306,7 @@ export function Sales({ event, occurrence, label, onClose }: { event: CatalogEve
         order={confirming?.reservation.externalOrderRef ?? ""}
         refundRef={refundRef}
         onRefundRef={setRefundRef}
+        refund={paidHere(confirming) && confirming ? money(amountOf(confirming)) : null}
         pending={cancel.isPending}
         onCancel={() => setConfirming(null)}
         onConfirm={() => confirming && cancel.mutate(confirming)}
@@ -240,6 +317,8 @@ export function Sales({ event, occurrence, label, onClose }: { event: CatalogEve
 
 function CancelDialog(p: {
   open: boolean; count: number; order: string; refundRef: string; pending: boolean;
+  /** Paid in the hosted checkout: the amount that will be refunded through Vipps. */
+  refund: string | null;
   onRefundRef: (v: string) => void; onCancel: () => void; onConfirm: () => void;
 }) {
   const { t } = useTranslation();
@@ -248,14 +327,16 @@ function CancelDialog(p: {
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{t("sales.cancelTitle", { count: p.count, order: p.order })}</AlertDialogTitle>
-          <AlertDialogDescription>{t("sales.cancelBody")}</AlertDialogDescription>
+          <AlertDialogDescription>{p.refund ? t("sales.refund.body", { amount: p.refund }) : t("sales.cancelBody")}</AlertDialogDescription>
         </AlertDialogHeader>
-        <Field label={t("sales.refundRef")} htmlFor="refund-ref" hint={t("sales.refundRefHint")}>
-          <Input id="refund-ref" maxLength={200} autoComplete="off" value={p.refundRef} onChange={(e) => p.onRefundRef(e.target.value)} />
-        </Field>
+        {!p.refund && (
+          <Field label={t("sales.refundRef")} htmlFor="refund-ref" hint={t("sales.refundRefHint")}>
+            <Input id="refund-ref" maxLength={200} autoComplete="off" value={p.refundRef} onChange={(e) => p.onRefundRef(e.target.value)} />
+          </Field>
+        )}
         <AlertDialogFooter>
           <AlertDialogCancel>{t("common.back")}</AlertDialogCancel>
-          <AlertDialogAction onClick={p.onConfirm} disabled={p.pending}>{t("sales.cancelConfirm", { count: p.count })}</AlertDialogAction>
+          <AlertDialogAction onClick={p.onConfirm} disabled={p.pending}>{p.refund ? t("sales.refund.confirm", { amount: p.refund }) : t("sales.cancelConfirm", { count: p.count })}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

@@ -19,6 +19,9 @@ import { RETENTION_TASK, retentionTask } from "./retention.js";
 import { RESOLVE_TASK, resolveTask } from "./resolver.js";
 import { TICKETS_EMAIL_TASK, ticketsEmailTask } from "./tickets-email.js";
 import { OFFER_EXPIRY_TASK, offerExpiryTask } from "./waitlist.js";
+import {
+  abandonPaymentTask, PAYMENT_ABANDON_TASK, PAYMENT_PROCESS_TASK, PAYMENT_RECEIPT_TASK, PAYMENTS_RECONCILE_TASK, type PaymentsWorkerDeps, processPaymentTask, receiptTask, reconcileTask,
+} from "./payments.js";
 
 interface DispatchPayload {
   eventId: string;
@@ -49,7 +52,7 @@ export function dispatchTask(db: Db, handlers: InternalHandler[]): Task {
   };
 }
 
-export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: ProvisionDeps, registrationEmail?: RegistrationEmailDeps, hubspotDeps: HubSpotDeps | null = null): TaskList {
+export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: ProvisionDeps, registrationEmail?: RegistrationEmailDeps, hubspotDeps: HubSpotDeps | null = null, paymentsDeps: PaymentsWorkerDeps | null = null): TaskList {
   // The links in the event's HubSpot emails go to the same attendee pages as the platform's own.
   const hubspot = hubspotDeps ? { ...hubspotDeps, attendeeUrl: hubspotDeps.attendeeUrl ?? registrationEmail?.attendeeUrl } : null;
   return {
@@ -69,6 +72,14 @@ export function buildTaskList(db: Db, handlers: InternalHandler[], provision?: P
     [HUBSPOT_MARKETING_CHECK_TASK]: hubspotMarketingCheckTask(db, hubspot),
     [HUBSPOT_GUEST_LIST_TASK]: hubspotGuestListTask(db, hubspot),
     ...(provision ? { [PROVISION_TASK]: provisionTask(db, provision) } : {}),
+    ...(paymentsDeps
+      ? {
+          [PAYMENT_PROCESS_TASK]: processPaymentTask(db, paymentsDeps),
+          [PAYMENTS_RECONCILE_TASK]: reconcileTask(db, paymentsDeps),
+          [PAYMENT_RECEIPT_TASK]: receiptTask(db, paymentsDeps),
+          [PAYMENT_ABANDON_TASK]: abandonPaymentTask(db, paymentsDeps),
+        }
+      : {}),
     ...(registrationEmail
       ? {
           [REGISTRATION_EMAIL_TASK]: registrationEmailTask(db, registrationEmail),

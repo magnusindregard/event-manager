@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { Type } from "typebox";
-import { sales } from "@event-manager/domain";
+import { DomainError, payments, sales } from "@event-manager/domain";
 import { OccurrenceSales, Problem, Reservation, ReservationCancel, Uuid } from "@event-manager/schemas";
 import { inTenant } from "../plugins/context.js";
 import { idempotent } from "../plugins/idempotency.js";
@@ -32,12 +32,19 @@ export const salesRoutes: FastifyPluginAsyncTypebox<{ attendeeUrl: string }> = a
       },
     },
     async (req, reply) => {
-      const s = await inTenant(app, req, (tx, ctx) => sales.occurrenceSales(tx, ctx, req.params.id));
+      const { s, paid } = await inTenant(app, req, async (tx, ctx) => {
+        const s = await sales.occurrenceSales(tx, ctx, req.params.id);
+        return { s, paid: await payments.paymentSummaries(tx, s.reservations.map((r) => r.id)) };
+      });
       reply.header("cache-control", "no-store");
       return {
         ...s,
         reservations: s.reservations.map((r) => ({
           ...r,
+          payment: (() => {
+            const p = paid.get(r.id);
+            return p ? { ...p, state: p.state as never, refunds: p.refunds.map((x) => ({ ...x, createdAt: iso(x.createdAt) })) } : null;
+          })(),
           anonymisedAt: isoOrNull(r.anonymisedAt), expiresAt: iso(r.expiresAt), confirmedAt: isoOrNull(r.confirmedAt), cancelledAt: isoOrNull(r.cancelledAt), createdAt: iso(r.createdAt),
           tickets: r.tickets.map((t) => ({ ...t, cancelledAt: isoOrNull(t.cancelledAt) })),
         })),
@@ -72,12 +79,22 @@ export const salesRoutes: FastifyPluginAsyncTypebox<{ attendeeUrl: string }> = a
       preValidation: emptyBody,
     },
     async (req, reply) => {
-      const r = await inTenant(app, req, (tx, ctx) =>
-        idempotent(tx, req, ctx.tenantId, 200, async () => dto(await sales.cancelTicketsAsStaff(tx, ctx, req.params.id, req.body ?? {})), {
+      const r = await inTenant(app, req, async (tx, ctx) => {
+        // Sold in the hosted checkout: cancelling must go with the money (refundTicketsAsStaff once
+        // captured). Before capture a cancel here would let the capture still charge for tickets
+        // that are gone, so it waits for the payment to settle. Free hosted orders have no payment.
+        const paid = await payments.paymentForReservation(tx, req.params.id);
+        if (paid) {
+          throw new DomainError("conflict", paid.state === "captured"
+            ? "The reservation was paid in the hosted checkout; cancel its tickets with a refund"
+            : "The reservation's Vipps payment has not settled yet; try again in a minute");
+        }
+        return idempotent(tx, req, ctx.tenantId, 200, async () => dto(await sales.cancelTicketsAsStaff(tx, ctx, req.params.id, req.body ?? {})), {
           // The response carries the buyer; keep only the id and rebuild it on a retry.
           store: (body) => ({ reservationId: (body as { id: string }).id }),
           replay: async (stored) => dto(await sales.getReservationAsStaff(tx, ctx, (stored as { reservationId: string }).reservationId)),
-        }));
+        });
+      });
       return reply.status(r.status).header("cache-control", "no-store").send(r.body as never);
     },
   );

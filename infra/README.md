@@ -391,6 +391,23 @@ worker gets the client credentials and the master key. Without `HUBSPOT_CLIENT_I
 HubSpot is not set up. Locally, `HUBSPOT=fake` on the api and the worker gives a fake portal that
 approves installs at once.
 
+### 4e. Hosted checkout with Vipps MobilePay
+
+The hosted checkout (docs/checkout.md) needs the master key from 4d, which encrypts each client's
+Vipps keys. Turn it on with:
+
+```bash
+gh variable set VIPPS_PAYMENTS --env staging --body true
+```
+
+This sets `VIPPS=http` on the api, the attendee app and the worker, and gives the worker the master
+key. The attendee app builds its public URL from the host Container Apps gives it. Vipps' webhooks
+go to `PUBLIC_URL` on the api (the Front Door host). Without Front Door there is no `PUBLIC_URL`,
+and payments are found by the worker's reconcile job instead. In staging the worker runs as a
+sidecar of the api, which scales to zero, so it only reconciles while the api is awake. The return
+page settles each payment itself, so buyers are not affected. Clients connect their own Vipps
+merchant under Settings → Payments; the platform holds no Vipps keys of its own.
+
 ### 5. GitHub environment `staging`
 
 ```bash

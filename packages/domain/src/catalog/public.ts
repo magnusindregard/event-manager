@@ -68,8 +68,12 @@ export type Admission =
   | { mode: "none" }
   /** url: the hosted registration page; null for invite-only occurrences (guests use their personal links). */
   | { mode: "registration"; url: string | null }
-  /** Sold through the account's own sales channels; offers lists what is for sale. */
-  | { mode: "tickets" };
+  /**
+   * Sold through the account's own sales channels; offers lists what is for sale. checkoutUrl:
+   * the platform's hosted checkout for this occurrence (docs/checkout.md), when the account has it
+   * on, Vipps is connected and an offer on sale here is on its channel; null otherwise.
+   */
+  | { mode: "tickets"; checkoutUrl: string | null };
 
 /** Tickets are priced in the account's currency; NOK only for now (docs/ticketing.md). */
 export const CURRENCY = "NOK";
@@ -235,6 +239,8 @@ export interface PublicOccurrenceFilter {
   tagId?: string;
   status?: OccurrenceStatus;
   after?: { startUtc: Date; id: string };
+  /** One occurrence by id; like asking for its event, this finds unlisted events too. */
+  occurrenceId?: string;
   limit: number;
 }
 
@@ -261,8 +267,9 @@ export async function listPublicOccurrences(
     .limit(f.limit);
   if (f.to) q = q.where("o.start_utc", "<", f.to);
   // Unlisted events (closed events) stay out of listings, but asking for the event by id or slug finds them.
+  if (f.occurrenceId) q = q.where("o.id", "=", f.occurrenceId);
   if (f.event) q = UUID_RE.test(f.event) ? q.where("e.id", "=", f.event) : q.where("e.slug", "=", f.event);
-  else q = q.where("e.listed", "=", true);
+  else if (!f.occurrenceId) q = q.where("e.listed", "=", true);
   if (f.status === "cancelled") q = q.where((eb) => eb.or([eb("o.status", "=", "cancelled"), eb("e.status", "=", "cancelled")]));
   if (f.status === "scheduled") q = q.where("o.status", "=", "scheduled").where("e.status", "<>", "cancelled");
   if (f.after) {
@@ -307,6 +314,20 @@ type OccRow = {
   registration_opens_min: number | null; registration_closes_min: number; waitlist_enabled: boolean; waitlist_cutoff_min: number;
 };
 
+/**
+ * The offers on the hosted checkout's channel, when the checkout can sell: its channel is active
+ * and the account's Vipps merchant is connected (docs/checkout.md). Null when it cannot. Reads
+ * the payments module's provider account, as the public projection reads every module.
+ */
+async function hostedCheckoutOffers(tx: Tx): Promise<Set<string> | null> {
+  const channel = await tx.selectFrom("offers.sales_channel").select("id").where("kind", "=", "hosted").where("active", "=", true).executeTakeFirst();
+  if (!channel) return null;
+  const vipps = await tx.selectFrom("payments.provider_account").select("id").where("status", "=", "active").executeTakeFirst();
+  if (!vipps) return null;
+  const rows = await tx.selectFrom("offers.offer_channel").select("offer_id").where("channel_id", "=", channel.id).execute();
+  return new Set(rows.map((r) => r.offer_id));
+}
+
 async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<PublicOccurrence[]> {
   const eff = await loadEffectiveValues(tx, rows.map((r) => r.id));
   const locIds: string[] = [];
@@ -326,6 +347,7 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
     ticketed.length ? offersFor(tx, c, ticketed) : Promise.resolve({ byOccurrence: new Map<string, PublicOffer[]>(), smallest: new Map<string, number>() }),
   ]);
   const { byOccurrence: offers, smallest } = offerData;
+  const hostedOffers = ticketed.length && c.attendeeUrl ? await hostedCheckoutOffers(tx) : null;
   return rows.map((r) => {
     const e = eff.get(r.id) ?? {};
     const url = e.externalUrl?.value ?? null;
@@ -345,7 +367,8 @@ async function toPublicOccurrences(tx: Tx, c: Ctx, rows: OccRow[]): Promise<Publ
       availability = { status: a.status, opensAt: a.opensAt?.toISOString() ?? null, closesAt: a.closesAt.toISOString() };
     }
     if (r.admission_mode === "tickets") {
-      admission = { mode: "tickets" };
+      const sellsHere = hostedOffers && status !== "cancelled" && (offers.get(r.id) ?? []).some((o) => o.onSale && hostedOffers.has(o.id));
+      admission = { mode: "tickets", checkoutUrl: sellsHere ? `${c.attendeeUrl}/b/${r.id}` : null };
       const a = ticketAvailability(offers.get(r.id) ?? [], pools.get(r.id) ?? null, smallest);
       // Exact places left for channel callers only (docs/registration.md, open question 6).
       availability = c.channelId ? a : { status: a.status, opensAt: a.opensAt, closesAt: a.closesAt };

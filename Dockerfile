@@ -18,6 +18,7 @@ COPY packages/domain/package.json packages/domain/
 COPY packages/hubspot/package.json packages/hubspot/
 COPY packages/schemas/package.json packages/schemas/
 COPY packages/sdk/package.json packages/sdk/
+COPY packages/vipps/package.json packages/vipps/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm turbo run build --filter=@event-manager/${APP}...

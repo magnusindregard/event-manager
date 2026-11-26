@@ -1497,6 +1497,112 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The account's payment provider (Vipps MobilePay), if connected */
+        get: operations["getPaymentsSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/reservations/{id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel tickets of a reservation paid in the hosted checkout and refund them through Vipps. Needs sales.write
+         * @description amount must be what the tickets cost (staff confirm it). The refund is done, pending (Vipps did not answer; sent again by the worker) or failed (retry it). 204 when the tickets were free. Reasons: conflict, already_cancelled, occurrence_started
+         */
+        post: operations["refundTicketsAsStaff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/sales/refunds/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a failed or pending refund to Vipps again, with the same idempotency key. Needs sales.write */
+        post: operations["retryRefund"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enable the hosted checkout (owner): creates its sales channel, which emails tickets, or activates it again. VAT classes without a SKU there get TICKET-<code>. */
+        post: operations["enableHostedCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/vipps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Connect the account's Vipps MobilePay merchant (owner). The keys are checked with Vipps first; a merchant already connected is replaced. */
+        put: operations["connectVipps"];
+        post?: never;
+        /** Disconnect Vipps MobilePay (owner): deletes the keys and the webhook. Payments already made stay. Requires If-Match. */
+        delete: operations["disconnectVipps"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/vipps/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check the stored keys with Vipps again and register the webhook if it is missing (owner) */
+        post: operations["verifyVipps"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1601,6 +1707,16 @@ export interface operations {
                         anonymiseAfterMonths: number;
                         /** @description Sensitive answers are deleted this many days after their occurrence */
                         sensitiveDeleteAfterDays: number;
+                        /** @description Printed on receipts from the hosted checkout */
+                        merchant: {
+                            /** @description The legal name on receipts */
+                            legalName: string | null;
+                            /** @description Norwegian organisation number, 9 digits */
+                            orgNumber: string | null;
+                            address: string | null;
+                            /** @description Registered for VAT: receipts show VAT per rate and MVA after the organisation number */
+                            vatRegistered: boolean;
+                        };
                         version: number;
                         /** Format: date-time */
                         updatedAt: string;
@@ -1670,6 +1786,12 @@ export interface operations {
                     horizonMonths?: number;
                     anonymiseAfterMonths?: number;
                     sensitiveDeleteAfterDays?: number;
+                    merchant?: {
+                        legalName?: string | null;
+                        orgNumber?: string | null;
+                        address?: string | null;
+                        vatRegistered?: boolean;
+                    };
                 };
             };
         };
@@ -1698,6 +1820,16 @@ export interface operations {
                         anonymiseAfterMonths: number;
                         /** @description Sensitive answers are deleted this many days after their occurrence */
                         sensitiveDeleteAfterDays: number;
+                        /** @description Printed on receipts from the hosted checkout */
+                        merchant: {
+                            /** @description The legal name on receipts */
+                            legalName: string | null;
+                            /** @description Norwegian organisation number, 9 digits */
+                            orgNumber: string | null;
+                            address: string | null;
+                            /** @description Registered for VAT: receipts show VAT per rate and MVA after the organisation number */
+                            vatRegistered: boolean;
+                        };
                         version: number;
                         /** Format: date-time */
                         updatedAt: string;
@@ -10442,7 +10574,8 @@ export interface operations {
                             /** @description Stable, e.g. web or pos */
                             code: string;
                             name: string;
-                            kind: "ecom" | "pos";
+                            /** @description hosted: the platform's own checkout (docs/checkout.md); created by enabling it under Payments, at most one per account */
+                            kind: "ecom" | "pos" | "hosted";
                             /** @description How long a reservation holds its places; extend brings it to at most 60 minutes in total */
                             holdMinutes: number;
                             /** @description The platform emails the tickets on confirm when a buyer email is given */
@@ -10534,7 +10667,8 @@ export interface operations {
                         /** @description Stable, e.g. web or pos */
                         code: string;
                         name: string;
-                        kind: "ecom" | "pos";
+                        /** @description hosted: the platform's own checkout (docs/checkout.md); created by enabling it under Payments, at most one per account */
+                        kind: "ecom" | "pos" | "hosted";
                         /** @description How long a reservation holds its places; extend brings it to at most 60 minutes in total */
                         holdMinutes: number;
                         /** @description The platform emails the tickets on confirm when a buyer email is given */
@@ -10654,7 +10788,8 @@ export interface operations {
                         /** @description Stable, e.g. web or pos */
                         code: string;
                         name: string;
-                        kind: "ecom" | "pos";
+                        /** @description hosted: the platform's own checkout (docs/checkout.md); created by enabling it under Payments, at most one per account */
+                        kind: "ecom" | "pos" | "hosted";
                         /** @description How long a reservation holds its places; extend brings it to at most 60 minutes in total */
                         holdMinutes: number;
                         /** @description The platform emails the tickets on confirm when a buyer email is given */
@@ -10743,7 +10878,8 @@ export interface operations {
                         /** @description Stable, e.g. web or pos */
                         code: string;
                         name: string;
-                        kind: "ecom" | "pos";
+                        /** @description hosted: the platform's own checkout (docs/checkout.md); created by enabling it under Payments, at most one per account */
+                        kind: "ecom" | "pos" | "hosted";
                         /** @description How long a reservation holds its places; extend brings it to at most 60 minutes in total */
                         holdMinutes: number;
                         /** @description The platform emails the tickets on confirm when a buyer email is given */
@@ -17835,6 +17971,35 @@ export interface operations {
                             };
                             /** @description The reservation also has lines at other occurrences */
                             otherOccurrences: boolean;
+                            payment: null | {
+                                /** Format: uuid */
+                                id: string;
+                                state: "created" | "authorized" | "captured" | "cancelled" | "expired" | "failed";
+                                /** @description The Vipps reference, also the reservation's externalOrderRef */
+                                reference: string;
+                                amount: {
+                                    amount: number;
+                                    currency: string;
+                                };
+                                /** @description Refunded through Vipps so far, minor units */
+                                refunded: number;
+                                refunds: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    /** Format: uuid */
+                                    paymentId: string;
+                                    /** @description Minor units, VAT included */
+                                    amount: number;
+                                    ticketIds: string[];
+                                    /** @description pending: Vipps did not answer and it is sent again; failed: Vipps refused, see failureReason, and staff can retry */
+                                    state: "pending" | "done" | "failed";
+                                    failureReason: string | null;
+                                    /** @description Also the cancelled tickets' externalRefundRef */
+                                    reference: string;
+                                    /** Format: date-time */
+                                    createdAt: string;
+                                }[];
+                            };
                             /** Format: date-time */
                             expiresAt: string;
                             /** Format: date-time */
@@ -18244,6 +18409,803 @@ export interface operations {
             };
             /** @description Default Response */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getPaymentsSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        vipps: null | {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            provider: "vipps";
+                            /** @description test: the Vipps test environment (MT); production: real money */
+                            environment: "test" | "production";
+                            merchantSerialNumber: string;
+                            clientId: string;
+                            /** @description active: the keys work. invalid: Vipps refused them when last verified; enter new ones */
+                            status: "active" | "invalid" | "disconnected";
+                            statusReason: string | null;
+                            /** @description Vipps tells the platform at once when a payment changes; without it, payments are checked by polling */
+                            webhookRegistered: boolean;
+                            /** Format: date-time */
+                            verifiedAt: string | null;
+                            /** Format: date-time */
+                            connectedAt: string;
+                            version: number;
+                            /** Format: date-time */
+                            updatedAt: string;
+                        };
+                        checkout: null | {
+                            /** Format: uuid */
+                            channelId: string;
+                            /** @description Deactivate it like any sales channel, under Sales channels */
+                            active: boolean;
+                        };
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    refundTicketsAsStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Left out: all valid tickets */
+                    ticketIds?: string[];
+                    /** @description The amount staff were shown and confirmed; refused if the tickets cost something else */
+                    amount: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        paymentId: string;
+                        /** @description Minor units, VAT included */
+                        amount: number;
+                        ticketIds: string[];
+                        /** @description pending: Vipps did not answer and it is sent again; failed: Vipps refused, see failureReason, and staff can retry */
+                        state: "pending" | "done" | "failed";
+                        failureReason: string | null;
+                        /** @description Also the cancelled tickets' externalRefundRef */
+                        reference: string;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    retryRefund: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** Format: uuid */
+                        paymentId: string;
+                        /** @description Minor units, VAT included */
+                        amount: number;
+                        ticketIds: string[];
+                        /** @description pending: Vipps did not answer and it is sent again; failed: Vipps refused, see failureReason, and staff can retry */
+                        state: "pending" | "done" | "failed";
+                        failureReason: string | null;
+                        /** @description Also the cancelled tickets' externalRefundRef */
+                        reference: string;
+                        /** Format: date-time */
+                        createdAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    enableHostedCheckout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The hosted checkout's sales channel. Put offers on sale on it, and give each VAT class a SKU there */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        channelId: string;
+                        /** @description Deactivate it like any sales channel, under Sales channels */
+                        active: boolean;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    connectVipps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description test: the Vipps test environment (MT); production: real money */
+                    environment: "test" | "production";
+                    /** @description MSN, from the Vipps portal */
+                    merchantSerialNumber: string;
+                    clientId: string;
+                    clientSecret: string;
+                    /** @description Ocp-Apim-Subscription-Key */
+                    subscriptionKey: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** @enum {string} */
+                        provider: "vipps";
+                        /** @description test: the Vipps test environment (MT); production: real money */
+                        environment: "test" | "production";
+                        merchantSerialNumber: string;
+                        clientId: string;
+                        /** @description active: the keys work. invalid: Vipps refused them when last verified; enter new ones */
+                        status: "active" | "invalid" | "disconnected";
+                        statusReason: string | null;
+                        /** @description Vipps tells the platform at once when a payment changes; without it, payments are checked by polling */
+                        webhookRegistered: boolean;
+                        /** Format: date-time */
+                        verifiedAt: string | null;
+                        /** Format: date-time */
+                        connectedAt: string;
+                        version: number;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    disconnectVipps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    verifyVipps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        id: string;
+                        /** @enum {string} */
+                        provider: "vipps";
+                        /** @description test: the Vipps test environment (MT); production: real money */
+                        environment: "test" | "production";
+                        merchantSerialNumber: string;
+                        clientId: string;
+                        /** @description active: the keys work. invalid: Vipps refused them when last verified; enter new ones */
+                        status: "active" | "invalid" | "disconnected";
+                        statusReason: string | null;
+                        /** @description Vipps tells the platform at once when a payment changes; without it, payments are checked by polling */
+                        webhookRegistered: boolean;
+                        /** Format: date-time */
+                        verifiedAt: string | null;
+                        /** Format: date-time */
+                        connectedAt: string;
+                        version: number;
+                        /** Format: date-time */
+                        updatedAt: string;
+                    };
+                };
+            };
+            /** @description Default Response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Default Response */
+            428: {
                 headers: {
                     [name: string]: unknown;
                 };

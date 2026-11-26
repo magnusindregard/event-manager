@@ -9,7 +9,7 @@ import { startTestDatabase, type TestDatabase } from "../src/testing.js";
 
 type Ids = {
   tenantA: string; tenantB: string; user: string; event: string;
-  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string; vatClass: string; offer: string; channel: string; reservation: string; line: string; ticket: string; group: string; connection: string;
+  vocabulary: string; tag: string; location: string; catalogEvent: string; occurrence: string; series: string; rule: string; pool: string; registration: string; guestInvitation: string; vatClass: string; offer: string; channel: string; reservation: string; line: string; ticket: string; group: string; connection: string; providerAccount: string; payment: string;
 };
 type Fixture = (c: pg.ClientBase, tenantId: string, ids: Ids) => Promise<void>;
 
@@ -152,13 +152,22 @@ const fixtures: Record<string, Fixture> = {
   "sales.ticket": (c, t, ids) =>
     c.query(`insert into sales.ticket (id, tenant_id, reservation_id, line_id, occurrence_id, offer_id) values ($1, $2, $3, $4, $5, $6)`,
       [ids.ticket, t, ids.reservation, ids.line, ids.occurrence, ids.offer]).then(() => {}),
+  "payments.provider_account": (c, t, ids) =>
+    c.query(`insert into payments.provider_account (id, tenant_id, provider, environment, merchant_serial_number, client_id, credentials, status, connected_at)
+              values ($1, $2, 'vipps', 'test', '123456', 'client', '\\x00', 'active', now())`, [ids.providerAccount, t]).then(() => {}),
+  "payments.payment": (c, t, ids) =>
+    c.query(`insert into payments.payment (id, tenant_id, provider_account_id, reservation_id, provider, reference, amount, currency)
+              values ($1, $2, $3, $4, 'vipps', $5, 45000, 'NOK')`, [ids.payment, t, ids.providerAccount, ids.reservation, `em-${randomUUID()}`]).then(() => {}),
+  "payments.refund": (c, t, ids) =>
+    c.query(`insert into payments.refund (id, tenant_id, payment_id, amount, idempotency_key) values ($1, $2, $3, 45000, $4)`,
+      [randomUUID(), t, ids.payment, randomUUID()]).then(() => {}),
   // After registrations and tickets: an admission belongs to one of them.
   "admission.admission": (c, t, ids) =>
     c.query(`insert into admission.admission (id, tenant_id, registration_id, ticket_id, occurrence_id, party_size) values ($1, $2, $3, null, $5, 1), ($6, $2, null, $4, $5, 1)`,
       [randomUUID(), t, ids.registration, ids.ticket, ids.occurrence, randomUUID()]).then(() => {}),
 };
 
-const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID(), vatClass: randomUUID(), offer: randomUUID(), channel: randomUUID(), reservation: randomUUID(), line: randomUUID(), ticket: randomUUID(), group: randomUUID(), connection: randomUUID() });
+const randomRowIds = () => ({ vocabulary: randomUUID(), tag: randomUUID(), location: randomUUID(), catalogEvent: randomUUID(), occurrence: randomUUID(), series: randomUUID(), rule: randomUUID(), pool: randomUUID(), registration: randomUUID(), guestInvitation: randomUUID(), vatClass: randomUUID(), offer: randomUUID(), channel: randomUUID(), reservation: randomUUID(), line: randomUUID(), ticket: randomUUID(), group: randomUUID(), connection: randomUUID(), providerAccount: randomUUID(), payment: randomUUID() });
 
 let db: TestDatabase;
 let admin: pg.Client;

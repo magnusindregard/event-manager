@@ -1,5 +1,6 @@
 import { Type } from "typebox";
 import { Nullable } from "./nullable.js";
+import { PaymentSummary } from "./payments.js";
 
 // Reservations API (/v1/reservations, docs/ticketing.md, milestone 3), called by a sales
 // channel's connector with its channel key. Every write needs an Idempotency-Key.
@@ -169,6 +170,7 @@ export const OccurrenceSales = Type.Object({
     }), { description: "Tickets at this occurrence" }),
     total: Money,
     otherOccurrences: Type.Boolean({ description: "The reservation also has lines at other occurrences" }),
+    payment: Nullable(PaymentSummary),
     expiresAt: DateTime,
     confirmedAt: Nullable(DateTime),
     cancelledAt: Nullable(DateTime),

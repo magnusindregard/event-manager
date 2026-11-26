@@ -19,6 +19,8 @@ The platform takes no payments, sends no invoices and keeps no customer records 
 9. [Things that happen without you](#things-that-happen-without-you)
 10. [Going live](#going-live)
 
+> **No web shop?** The platform's hosted checkout ([checkout.md](checkout.md)) sells tickets with Vipps MobilePay on the account's own merchant. It is a sales channel of kind `hosted`; this guide is for shops that connect their own channel.
+
 ## Who owns what, stage by stage
 
 | Stage | The platform owns | Your shop owns | Calls |

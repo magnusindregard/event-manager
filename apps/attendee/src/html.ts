@@ -45,7 +45,7 @@ p { margin: 0 0 1rem; }
 .status.available { color: var(--ok); } .status.few_left, .status.waitlist, .status.waitlisted, .status.offered { color: var(--warn); } .status.full, .status.closed, .status.cancelled { color: var(--bad); }
 label { display: block; font-weight: 500; margin: 1rem 0 .25rem; }
 label.check { display: flex; gap: .5rem; align-items: center; font-weight: 400; }
-input[type=text], input[type=email], textarea { width: 100%; padding: .625rem .75rem; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: .5rem; }
+input[type=text], input[type=email], input[type=number], textarea { width: 100%; padding: .625rem .75rem; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: .5rem; }
 input[type=checkbox], input[type=radio] { width: 1.125rem; height: 1.125rem; flex: none; }
 textarea { min-height: 5rem; resize: vertical; }
 label .opt { color: var(--muted); font-weight: 400; }
@@ -65,7 +65,8 @@ fieldset { border: 0; padding: 0; margin: 1rem 0 0; }
 legend { font-weight: 500; margin-bottom: .25rem; padding: 0; }
 label.option { display: flex; gap: .75rem; align-items: flex-start; font-weight: 400; margin: .5rem 0; padding: .75rem; border: 1px solid var(--line); border-radius: .5rem; cursor: pointer; }
 label.option:has(input:disabled) { opacity: .6; cursor: not-allowed; }
-label.option input { margin-top: .25rem; width: 1.125rem; height: 1.125rem; flex: none; }
+label.option input:not([type=number]) { margin-top: .25rem; width: 1.125rem; height: 1.125rem; flex: none; }
+label.option input[type=number] { flex: none; align-self: center; }
 label.option span.when { display: block; font-weight: 500; }
 label.option span.where { display: block; color: var(--muted); font-size: .875rem; }
 .readonly { padding: .625rem 0 0; }
@@ -77,7 +78,7 @@ label.option span.where { display: block; color: var(--muted); font-size: .875re
 img.hero { width: 100%; border-radius: .75rem; margin-bottom: 1rem; }
 `;
 
-export function page(opts: { locale: string; title: string; account?: string; langLinks?: { locale: string; href: string }[]; body: Raw }): string {
+export function page(opts: { locale: string; title: string; account?: string; langLinks?: { locale: string; href: string }[]; body: Raw; head?: Raw }): string {
   return `<!doctype html>${html`<html lang="${opts.locale}">
 <head>
 <meta charset="utf-8">
@@ -85,6 +86,7 @@ export function page(opts: { locale: string; title: string; account?: string; la
 <meta name="robots" content="noindex">
 <title>${opts.title}${opts.account ? ` · ${opts.account}` : ""}</title>
 <style>${raw(STYLE)}</style>
+${opts.head ?? ""}
 </head>
 <body><main>
 <header><span>${opts.account ?? ""}</span>${opts.langLinks?.length ? html`<nav>${opts.langLinks.map((l) => html`<a href="${l.href}" lang="${l.locale}" hreflang="${l.locale}">${l.locale.toUpperCase()}</a>`)}</nav>` : ""}</header>

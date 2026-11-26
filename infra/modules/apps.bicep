@@ -44,6 +44,8 @@ param postmarkWebhook bool = false
 param sensitiveDataKeys bool = false
 @description('Client id of our HubSpot app (docs/hubspot.md). Needs Key Vault secret "hubspot-client-secret" and sensitiveDataKeys (tokens are encrypted). Empty: connecting HubSpot is off.')
 param hubspotClientId string = ''
+@description('Hosted checkout with Vipps MobilePay (docs/checkout.md): VIPPS=http on the api, attendee app and worker. Needs sensitiveDataKeys, which encrypts the clients\' Vipps keys; off without it.')
+param vippsPayments bool = false
 
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: 'cae-${name}'
@@ -105,7 +107,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           empty(publicUrl) ? [] : [{ name: 'PUBLIC_URL', value: publicUrl }],
           // MCP tool results link each event to its page in the admin.
           empty(adminUrl) ? [] : [{ name: 'ADMIN_URL', value: adminUrl }],
-          webhookEnabled ? [{ name: 'POSTMARK_WEBHOOK_AUTH', secretRef: 'postmark-webhook-auth' }] : [], sensitiveEnv, hubspotEnv)
+          webhookEnabled ? [{ name: 'POSTMARK_WEBHOOK_AUTH', secretRef: 'postmark-webhook-auth' }] : [], sensitiveEnv, hubspotEnv, vippsEnv)
         probes: probesFor(3000)
       }], workerAsSidecar ? [workerContainer] : [])
       // Staging scales to zero (cold start of a few seconds) to keep cost down.
@@ -134,7 +136,9 @@ resource attendee 'Microsoft.App/containerApps@2024-03-01' = {
         name: 'attendee'
         image: '${registryServer}/event-manager/attendee:${imageTag}'
         resources: { cpu: json('0.25'), memory: '0.5Gi' }
-        env: concat(runtimeEnv, [{ name: 'PORT', value: '3020' }], sensitiveEnv)
+        // With Vipps on, the app builds its public URL (where Vipps sends buyers back) from the
+        // CONTAINER_APP_NAME and CONTAINER_APP_ENV_DNS_SUFFIX that Container Apps sets.
+        env: concat(runtimeEnv, [{ name: 'PORT', value: '3020' }], sensitiveEnv, vippsEnv)
         probes: probesFor(3020)
       }]
       scale: { minReplicas: prod ? 1 : 0, maxReplicas: prod ? 4 : 1, rules: [{ name: 'http', http: { metadata: { concurrentRequests: '50' } } }] }
@@ -184,6 +188,9 @@ var hubspotEnv = hubspotEnabled ? [
   { name: 'HUBSPOT_CLIENT_ID', value: hubspotClientId }
   { name: 'HUBSPOT_CLIENT_SECRET', secretRef: 'hubspot-client-secret' }
 ] : []
+// The hosted checkout decrypts the clients' Vipps keys in the api, the attendee app and the worker.
+var vippsEnabled = vippsPayments && sensitiveEnabled
+var vippsEnv = vippsEnabled ? [{ name: 'VIPPS', value: 'http' }] : []
 var workerSecrets = mailEnabled ? [{ name: 'postmark-token', keyVaultUrl: '${keyVaultUri}secrets/postmark-token', identity: appIdentityId }] : []
 var workerContainer = {
   name: 'worker'
@@ -201,7 +208,7 @@ var workerContainer = {
     { name: 'MAILER', value: 'postmark' }
     { name: 'MAIL_FROM', value: mailFrom }
     { name: 'POSTMARK_TOKEN', secretRef: 'postmark-token' }
-  ] : [], hubspotEnabled ? concat(hubspotEnv, sensitiveEnv) : [])
+  ] : [], hubspotEnabled ? hubspotEnv : [], vippsEnv, hubspotEnabled || vippsEnabled ? sensitiveEnv : [])
 }
 
 // Prod: always one replica, since graphile-worker listens for new jobs (LISTEN/NOTIFY).
@@ -215,7 +222,7 @@ resource worker 'Microsoft.App/containerApps@2024-03-01' = if (!workerAsSidecar)
   properties: {
     environmentId: environment.id
     workloadProfileName: 'Consumption'
-    configuration: { registries: registries, secrets: concat(workerSecrets, hubspotEnabled ? concat(hubspotSecrets, sensitiveSecrets) : []) }
+    configuration: { registries: registries, secrets: concat(workerSecrets, hubspotEnabled ? hubspotSecrets : [], hubspotEnabled || vippsEnabled ? sensitiveSecrets : []) }
     template: {
       containers: [workerContainer]
       scale: { minReplicas: 1, maxReplicas: prod ? 3 : 1 }

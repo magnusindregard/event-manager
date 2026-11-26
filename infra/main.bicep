@@ -32,6 +32,8 @@ param postmarkWebhook bool = false
 param sensitiveDataKeys bool = false
 @description('Client id of our HubSpot app (docs/hubspot.md). Needs Key Vault secret "hubspot-client-secret" and sensitiveDataKeys. Empty: connecting HubSpot is off.')
 param hubspotClientId string = ''
+@description('Hosted checkout with Vipps MobilePay (docs/checkout.md). Needs sensitiveDataKeys.')
+param vippsPayments bool = false
 @description('Admin URL in invitation emails. Defaults to where the admin is served (Front Door, or the storage static website without it).')
 param adminUrl string = ''
 @description('API scope MCP clients ask for at sign-in (docs/mcp.md), e.g. api://em-api-staging/access. Empty: none advertised.')
@@ -183,6 +185,7 @@ module apps 'modules/apps.bicep' = if (deployApps) {
     postmarkWebhook: postmarkWebhook
     sensitiveDataKeys: sensitiveDataKeys
     hubspotClientId: hubspotClientId
+    vippsPayments: vippsPayments
     adminUrl: !empty(adminUrl) ? adminUrl : (deployFrontDoor ? '' : '${adminWebOrigin}/')
     corsOrigins: adminOrigin
     mcpScopes: mcpScopes

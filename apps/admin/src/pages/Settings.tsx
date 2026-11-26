@@ -15,6 +15,7 @@ import { useApp } from "../AppContext.js";
 import { useAccount } from "../queries.js";
 import { ApiKeys } from "./settings/ApiKeys.js";
 import { Integrations } from "./settings/Integrations.js";
+import { Payments } from "./settings/Payments.js";
 import { SalesChannels, SkuMappings } from "./settings/SalesChannels.js";
 import { TagVocabularies } from "./settings/TagVocabularies.js";
 import { UserGroups } from "./settings/UserGroups.js";
@@ -177,6 +178,7 @@ export function Settings() {
       <SalesChannels canEdit={canEdit} />
       <SkuMappings canEdit={canEdit} />
       <Integrations canEdit={canEdit} />
+      <Payments canEdit={canEdit} />
       {canEdit && <ApiKeys />}
 
       <ConflictDialog open={conflict} onOpenChange={setConflict} onReload={() => void query.refetch()} />

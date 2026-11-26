@@ -10,6 +10,10 @@ export interface Config {
   mcp: { authorizationServers: string[]; scopes: string[]; publicUrl?: string; adminUrl?: string };
   /** Our HubSpot app (docs/hubspot.md). redirectUrl is the admin's callback page, registered in the app. */
   hubspot: { clientId: string; clientSecret: string; redirectUrl: string; fake: boolean } | null;
+  /** VIPPS=http calls Vipps; fake (the default outside production) uses an in-memory Vipps; off leaves payments off. */
+  vipps: "http" | "fake" | "off";
+  /** The API's public base URL, for webhooks from Vipps. */
+  publicUrl: string | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -30,7 +34,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const hubspotRedirect = env.HUBSPOT_REDIRECT_URL || (adminUrl ? new URL("integrations/hubspot/callback", adminUrl).toString() : undefined);
   if (env.HUBSPOT_CLIENT_ID && !env.HUBSPOT_CLIENT_SECRET) throw new Error("HUBSPOT_CLIENT_SECRET is required with HUBSPOT_CLIENT_ID");
   if ((env.HUBSPOT_CLIENT_ID || hubspotFake) && !hubspotRedirect) throw new Error("Set HUBSPOT_REDIRECT_URL or ADMIN_URL with HUBSPOT_CLIENT_ID");
+  const vipps = env.VIPPS === "http" || env.VIPPS === "fake" || env.VIPPS === "off" ? env.VIPPS : production ? "off" : "fake";
+  if (production && vipps === "fake") throw new Error("VIPPS=fake must not be used in production");
   return {
+    vipps,
+    publicUrl: publicUrl ?? null,
     port: Number(env.PORT ?? 3000),
     databaseUrl,
     oidc,

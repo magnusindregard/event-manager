@@ -173,7 +173,9 @@ export const SalesChannel = Type.Object({
   id: Uuid,
   code: Type.String({ description: "Stable, e.g. web or pos" }),
   name: Type.String(),
-  kind: ChannelKind,
+  kind: Type.Union([Type.Literal("ecom"), Type.Literal("pos"), Type.Literal("hosted")], {
+    description: "hosted: the platform's own checkout (docs/checkout.md); created by enabling it under Payments, at most one per account",
+  }),
   holdMinutes: Type.Integer({ description: "How long a reservation holds its places; extend brings it to at most 60 minutes in total" }),
   sendTickets: Type.Boolean({ description: "The platform emails the tickets on confirm when a buyer email is given" }),
   active: Type.Boolean({ description: "Inactive channels' keys stop working and their offers are off sale there" }),

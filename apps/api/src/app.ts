@@ -22,6 +22,9 @@ import { postmarkWebhookRoutes } from "./routes/postmark-webhook.js";
 import { registrationRoutes } from "./routes/registrations.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { salesRoutes } from "./routes/sales.js";
+import { type PaymentsDeps, paymentRoutes } from "./routes/payments.js";
+import { vippsWebhookRoutes } from "./routes/vipps-webhook.js";
+import { verifyWebhook } from "@event-manager/vipps";
 
 export interface AppDeps {
   db: Db;
@@ -36,6 +39,8 @@ export interface AppDeps {
   mcp?: { authorizationServers: string[]; scopes: string[]; publicUrl?: string; adminUrl?: string };
   /** Our HubSpot app (docs/hubspot.md); null or missing leaves connecting off. */
   hubspot?: HubSpotDeps | null;
+  /** Payment providers (docs/checkout.md); null or missing leaves payments off. */
+  payments?: PaymentsDeps | null;
 }
 
 /** Operations whose request body may be left out. */
@@ -98,6 +103,10 @@ export async function buildApp(deps: AppDeps) {
   await app.register(mcpPlugin, { operations, authorizationServers: deps.mcp?.authorizationServers ?? [], scopes: deps.mcp?.scopes ?? [], publicUrl: deps.mcp?.publicUrl, adminUrl: deps.mcp?.adminUrl });
 
   if (deps.postmarkWebhook) await app.register(postmarkWebhookRoutes, { credentials: deps.postmarkWebhook });
+  if (deps.payments) {
+    const base = deps.payments.webhookBaseUrl;
+    await app.register(vippsWebhookRoutes, { verify: verifyWebhook, publicHost: base ? new URL(base).host : null });
+  }
 
   await app.register(
     async (v1) => {
@@ -113,6 +122,7 @@ export async function buildApp(deps: AppDeps) {
       await v1.register(invitationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
       await v1.register(reservationRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
       await v1.register(salesRoutes, { attendeeUrl: deps.attendeeUrl ?? "http://localhost:3020" });
+      await v1.register(paymentRoutes, { payments: deps.payments ?? null });
       v1.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
     },
     { prefix: "/v1" },

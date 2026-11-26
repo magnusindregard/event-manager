@@ -15,6 +15,10 @@ const verifiers = [
   ...(config.devAuthSecret ? [devVerifier(config.devAuthSecret)] : []),
 ];
 const db = createDb(config.databaseUrl);
+const { FakeVipps, HttpVipps, SharedFakeVipps } = await import("@event-manager/vipps");
+// VIPPS_FAKE_STATE: the file the attendee app's fake keeps its payments in, so refunds find them locally.
+const fakeState = process.env.VIPPS_FAKE_STATE;
+const vipps = config.vipps === "http" ? new HttpVipps() : config.vipps === "fake" ? (fakeState ? new SharedFakeVipps(fakeState) : new FakeVipps()) : null;
 const app = await buildApp({
   db,
   verifier: anyVerifier(verifiers),
@@ -30,6 +34,7 @@ const app = await buildApp({
         clientSecret: config.hubspot.clientSecret,
       }
     : null,
+  payments: vipps ? { provider: vipps, webhookBaseUrl: config.publicUrl } : null,
   logger: { level: process.env.LOG_LEVEL ?? "info" },
 });
 

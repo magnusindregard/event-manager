@@ -1,4 +1,5 @@
 import { type Static, Type } from "typebox";
+import { MerchantDetails, MerchantDetailsPatch } from "./payments.js";
 
 // Shared request/response schemas (ADR 0007). Fastify validates with them and
 // @fastify/swagger turns them into the OpenAPI document the SDK is generated from.
@@ -51,6 +52,7 @@ export const Account = Type.Object(
     horizonMonths: Type.Integer({ minimum: 1, maximum: 60 }),
     anonymiseAfterMonths: Type.Integer({ minimum: 1, maximum: 120, description: "Registrations are anonymised this many months after their occurrence" }),
     sensitiveDeleteAfterDays: Type.Integer({ minimum: 1, maximum: 365, description: "Sensitive answers are deleted this many days after their occurrence" }),
+    merchant: MerchantDetails,
     version: Type.Integer(),
     updatedAt: DateTime,
   },
@@ -66,6 +68,7 @@ export const AccountPatch = Type.Object(
     horizonMonths: Type.Optional(Type.Integer({ minimum: 1, maximum: 60 })),
     anonymiseAfterMonths: Type.Optional(Type.Integer({ minimum: 1, maximum: 120 })),
     sensitiveDeleteAfterDays: Type.Optional(Type.Integer({ minimum: 1, maximum: 365 })),
+    merchant: Type.Optional(MerchantDetailsPatch),
   },
   { additionalProperties: false, minProperties: 1 },
 );
@@ -145,4 +148,5 @@ export * from "./offers.js";
 export * from "./sales.js";
 export * from "./groups.js";
 export * from "./integrations.js";
+export * from "./payments.js";
 export { problemMediaType, requireHeader } from "./openapi.js";
