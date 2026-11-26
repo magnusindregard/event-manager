@@ -184,6 +184,9 @@ export async function saveConnection(tx: Tx, ctx: ActorContext, input: ConnectIn
     connected_by: ctx.userId,
     connected_at: new Date(),
     disconnected_at: null,
+    // A new install: a "Clean up and disconnect" left over from the old one (which lost our access) is over.
+    cleanup_disconnect_requested_at: null,
+    cleanup_disconnect_requested_by: null,
   };
   let id: string;
   try {
@@ -264,6 +267,45 @@ export async function requestCleanupAndDisconnect(tx: Tx, ctx: ActorContext, pro
   await recordAudit(tx, ctx, { action: "integration.cleanup_requested", entityType: "account", entityId: ctx.tenantId, diff: { provider, disconnect: true } });
   await emit(tx, ctx.tenantId, { type: "integration.cleanup_requested.v1", subject: `integration/${provider}`, data: { connectionId: before.id, provider, disconnect: true } });
   return (await load(tx, provider))!;
+}
+
+/**
+ * Stops a "Clean up and disconnect" that has not finished (owner): the connection stays as it is.
+ * Whatever the cleanup has already done in the portal stays done; a run not yet started does not
+ * start. A no-op when nothing was requested.
+ */
+export async function cancelCleanupAndDisconnect(tx: Tx, ctx: ActorContext, provider: IntegrationProvider): Promise<Connection> {
+  assertCan(ctx, "account.write");
+  const before = await load(tx, provider, true);
+  if (!before || before.status === "disconnected") throw new DomainError("not_found", "Not connected");
+  if (!before.cleanupDisconnectRequestedAt) return before;
+  await tx
+    .updateTable("integrations.connection")
+    .set({ cleanup_disconnect_requested_at: null, cleanup_disconnect_requested_by: null, version: sql<number>`version + 1` })
+    .where("id", "=", before.id)
+    .execute();
+  await recordAudit(tx, ctx, { action: "integration.cleanup_cancelled", entityType: "account", entityId: ctx.tenantId, diff: { provider } });
+  await emit(tx, ctx.tenantId, { type: "integration.changed.v1", subject: `integration/${provider}`, data: { connectionId: before.id, provider, change: "cleanup_cancelled" } });
+  return (await load(tx, provider))!;
+}
+
+/** Whether "Clean up and disconnect" is still asked for: the worker checks before it starts. */
+export async function cleanupDisconnectRequested(tx: Tx, provider: IntegrationProvider): Promise<boolean> {
+  return !!(await load(tx, provider))?.cleanupDisconnectRequestedAt;
+}
+
+/**
+ * The cleanup could not run at all (no usable connection: our access was refused): the request is
+ * dropped, with why in the sync log, so the owner can reconnect and ask again.
+ */
+export async function dropCleanupRequest(tx: Tx, provider: IntegrationProvider, reason: string, now = new Date()): Promise<void> {
+  const result: CleanupResult = { at: now.toISOString(), deleted: 0, restored: 0, kept: 0, failed: 0, waiting: 0, newTypesCovered: 0, error: reason };
+  await tx
+    .updateTable("integrations.connection")
+    .set({ cleanup_disconnect_requested_at: null, cleanup_disconnect_requested_by: null, last_cleanup: JSON.stringify(result), version: sql<number>`version + 1` })
+    .where("provider", "=", provider)
+    .where("cleanup_disconnect_requested_at", "is not", null)
+    .execute();
 }
 
 /**

@@ -88,7 +88,7 @@ The account details do not show the Marketing Hub tier (run 1), so the connectio
 Idempotent, rerun from the admin ("Repair setup"):
 
 - Custom event definitions, if the behavioural event scopes were granted.
-- With the cleanup scopes: the static segments **`EM · Temporary marketing contacts`** and **`EM · Set to non-marketing`**, and the workflow **`EM · Set to non-marketing`**: a contact workflow enrolled on that segment (`filterType: IN_LIST`), re-enrolling, with the action *Set marketing contact status* (`actionTypeId 0-31`, `marketableType: NON_MARKETABLE`), enabled. Run 16 created it through the automation API. "Repair setup" re-enables or recreates it.
+- With the cleanup scopes: the static segments **`EM · Temporary marketing contacts`** and **`EM · Set to non-marketing`**, and the workflow **`EM · Set to non-marketing`**: a contact workflow enrolled on that segment (`filterType: IN_LIST`), re-enrolling, with the action *Set marketing contact status* (`actionTypeId 0-31`, `marketableType: NON_MARKETABLE`), enabled. Run 16 created it, switched off, through the automation API. The setup does the same and then switches it on with a separate update, recording the workflow's id in between: on staging, HubSpot refused to create it switched on ("Invalid request to flow creation"). "Repair setup" switches on the recorded workflow, or recreates it if it is gone.
 - A check that our token reaches the connected portal (`/account-info/v3/details`). Milestone 1 created the property group **Event manager** with `em_guest_key` instead; milestone 2 removed that, along with the `crm.schemas.contacts.write` scope, and leaves the property in portals that have it.
 
 ## Contacts
@@ -312,7 +312,7 @@ A marketing contact counts for the billing period it was marketing in, and setti
 
 ### Disconnecting
 
-Disconnect offers **Clean up and disconnect**: it runs the cleanup at once for every pending contact (deleting, restoring subscriptions, queuing the non-marketing workflow), waits for it to finish, then disconnects. A plain disconnect leaves the contacts as they are, and the admin says how many.
+Disconnect offers **Clean up and disconnect**: it runs the cleanup at once for every pending contact (deleting, restoring subscriptions, queuing the non-marketing workflow), waits for it to finish, then disconnects. A plain disconnect leaves the contacts as they are, and the admin says how many. An owner can cancel "Clean up and disconnect" until it has finished; what it already did in the portal stays done. If the cleanup cannot run at all (HubSpot refuses our access), the request is dropped with why in the sync log, and reconnecting clears any request left from the old install.
 
 ## Guest list from a HubSpot list
 

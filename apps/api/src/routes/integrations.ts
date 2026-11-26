@@ -330,6 +330,22 @@ export const integrationRoutes: FastifyPluginAsyncTypebox<{ hubspot: HubSpotDeps
   );
 
   app.delete(
+    "/integrations/hubspot/cleanup-and-disconnect",
+    {
+      schema: {
+        operationId: "cancelHubSpotCleanup", tags: ["integrations"], ...accountScoped,
+        summary: "Owner only. Stops a Clean up and disconnect that has not finished; the connection stays. What the cleanup already did in the portal stays done",
+        response: { 200: Integration, ...writeErrors },
+      },
+    },
+    async (req, reply) => {
+      const c = await inTenant(app, req, (tx, ctx) => integrations.cancelCleanupAndDisconnect(tx, ctx, "hubspot"));
+      setEtag(reply, c.version);
+      return dto(c);
+    },
+  );
+
+  app.delete(
     "/integrations/hubspot",
     { schema: { operationId: "disconnectHubSpot", tags: ["integrations"], ...accountScoped, summary: "Owner only. Stops all sync and deletes our tokens; what was written to HubSpot stays there", response: { 204: Type.Null(), ...writeErrors } } },
     async (req, reply) => {

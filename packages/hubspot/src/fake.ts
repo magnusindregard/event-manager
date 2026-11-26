@@ -345,9 +345,10 @@ export class FakeHubSpot implements HubSpotClient {
 
   async createNonMarketingWorkflow(accessToken: string, name: string, listId: string): Promise<Workflow> {
     this.calls.push(`createNonMarketingWorkflow:${listId}`);
-    const f = { id: String(this.nextId++), name, enabled: true, listId };
+    // Created switched off, as the real client does.
+    const f = { id: String(this.nextId++), name, enabled: false, listId };
     this.portalFor(accessToken).workflows.set(f.id, f);
-    return { id: f.id, name, enabled: true };
+    return { id: f.id, name, enabled: false };
   }
 
   async enableWorkflow(accessToken: string, flowId: string): Promise<void> {

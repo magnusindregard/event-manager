@@ -60,6 +60,13 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
       refresh();
     },
   });
+  const cancelCleanup = useMutation({
+    mutationFn: async () => unwrap(await api.DELETE("/v1/integrations/hubspot/cleanup-and-disconnect")),
+    onSuccess: () => {
+      toast.success(t("integrations.cleanup.cancelled"));
+      refresh();
+    },
+  });
   const disconnect = useMutation({
     mutationFn: async () => {
       const r = await api.DELETE("/v1/integrations/hubspot");
@@ -81,7 +88,7 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
   const hubspot = query.data?.items.find((c) => c.provider === "hubspot");
   const live = hubspot && hubspot.status !== "disconnected" ? hubspot : null;
   const available = query.data?.available.hubspot ?? false;
-  const error = connect.error ?? repair.error ?? disconnect.error ?? settings.error ?? cleanupAndDisconnect.error;
+  const error = connect.error ?? repair.error ?? disconnect.error ?? settings.error ?? cleanupAndDisconnect.error ?? cancelCleanup.error;
   // How many contacts a plain disconnect leaves in the portal, from the sync log.
   const pendingCleanup = (qc.getQueryData(syncKey(accountId)) as IntegrationSync | undefined)?.cleanup.pending ?? 0;
   const cleaningUp = !!live?.cleanup.disconnectRequestedAt;
@@ -145,7 +152,14 @@ export function Integrations({ canEdit }: { canEdit: boolean }) {
         {cleaningUp && (
           <Alert>
             <RefreshCw className="animate-spin" />
-            <AlertDescription>{t("integrations.cleanup.running")}</AlertDescription>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+              <span>{t("integrations.cleanup.running")}</span>
+              {canEdit && (
+                <Button size="sm" variant="outline" onClick={() => cancelCleanup.mutate()} disabled={cancelCleanup.isPending}>
+                  {t("integrations.cleanup.cancel")}
+                </Button>
+              )}
+            </AlertDescription>
           </Alert>
         )}
 
