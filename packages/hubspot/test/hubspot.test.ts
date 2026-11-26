@@ -86,15 +86,16 @@ describe("HttpHubSpot", () => {
     expect(e.message).toContain("Invalid request to flow creation (isEnabled: isEnabled cannot be true on create)");
   });
 
-  it("creates the non-marketing workflow switched off, as spike run 16 did, and switches it on with the flow's own fields", async () => {
-    const flow = { id: "77", name: "EM · Set to non-marketing", isEnabled: false, revisionId: "3", type: "CONTACT_FLOW", createdAt: "x", updatedAt: "y" };
+  it("creates the non-marketing workflow switched off, as spike run 16 did, and switches it on with the whole flow, its id included", async () => {
+    const flow = { id: "77", name: "EM · Set to non-marketing", isEnabled: false, revisionId: "3", type: "CONTACT_FLOW", createdAt: "x", updatedAt: "y", dataSources: [] };
     const { fn, requests } = stubFetch([{ status: 201, body: flow }, { status: 200, body: flow }, { status: 200, body: { ...flow, isEnabled: true } }]);
     const h = new HttpHubSpot(app, fn);
     expect(await h.createNonMarketingWorkflow("at", flow.name, "9")).toMatchObject({ id: "77", enabled: false });
     expect(JSON.parse(requests[0]!.body!)).toMatchObject({ isEnabled: false, actions: [{ actionTypeId: "0-31", fields: { marketableType: "NON_MARKETABLE" } }] });
     await h.enableWorkflow("at", "77");
     expect(`${requests[2]!.method} ${requests[2]!.url}`).toBe("PUT https://api.hubapi.com/automation/v4/flows/77");
-    expect(JSON.parse(requests[2]!.body!)).toEqual({ name: flow.name, isEnabled: true, revisionId: "3", type: "CONTACT_FLOW" });
+    // With its id (HubSpot answers 404 without it), without the fields HubSpot's guide says to leave out.
+    expect(JSON.parse(requests[2]!.body!)).toEqual({ id: "77", name: flow.name, isEnabled: true, revisionId: "3", type: "CONTACT_FLOW" });
   });
 
   it("revoking a token HubSpot no longer knows is fine", async () => {
