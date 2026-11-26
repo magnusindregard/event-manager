@@ -610,6 +610,51 @@ describe("a capture whose answer comes back late", () => {
     expect(events.map((e) => e.type)).not.toContain("payment.captured.v1");
   });
 
+  it("does not activate tickets for a capture the merchant refunded before the answer came back", async () => {
+    const { occ, adult } = await concert("refunded-mid-capture");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(s.row.reference);
+    const provider = slowCapture(() => vipps.refund(keys, s.row.reference, { currency: "NOK", value: 45000 }, "portal-ref-mid"));
+    expect(await payments.processPayment(db, ctx.tenantId, s.paymentId, { provider }, at(2))).toBe("cancelled");
+    expect(await reservation(s.row.reservation_id)).toMatchObject({ status: "cancelled" });
+    const events = await run((tx) => tx.selectFrom("outbox.event").select("type").where("subject", "=", `payment/${s.paymentId}`).execute());
+    expect(events.map((e) => e.type)).not.toContain("payment.captured.v1");
+    // Already refunded in full: nothing more is sent.
+    expect(vipps.callsFor(s.row.reference, "refund")).toEqual([expect.objectContaining({ idempotencyKey: "portal-ref-mid" })]);
+  });
+
+  it("leaves the payment open when it cannot read the capture back, and settles it later", async () => {
+    const { occ, adult } = await concert("unreadable-after-capture");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(s.row.reference);
+    let reads = 0;
+    const flaky: payments.PaymentProvider = {
+      ...slowCapture(async () => undefined),
+      getPayment: async (...a) => {
+        reads++;
+        if (reads === 2) throw Object.assign(new Error("Vipps did not answer"), { status: 503 });
+        return vipps.getPayment(...a);
+      },
+    };
+    expect(await payments.processPayment(db, ctx.tenantId, s.paymentId, { provider: flaky }, at(2))).toBe("authorized");
+    const pending = await run((tx) => tx.selectFrom("admission.admission as a").innerJoin("sales.ticket as t", "t.id", "a.ticket_id").select("a.status").where("t.reservation_id", "=", s.row.reservation_id).execute());
+    expect(pending.map((a) => a.status)).toEqual(["pending"]);
+    expect(await process(s.paymentId, at(3))).toBe("captured");
+    expect(vipps.callsFor(s.row.reference, "capture")).toHaveLength(1);
+  });
+
+  it("refunds instead of activating when the occurrence ends while the capture is out", async () => {
+    const { occ, adult } = await concert("ends-mid-capture");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(s.row.reference);
+    const afterEnd = new Date(START.getTime() + 6 * 60 * MIN);
+    // Processing starts before the end; the answer is settled after it.
+    expect(await payments.processPayment(db, ctx.tenantId, s.paymentId, { provider: vipps, clock: () => afterEnd }, at(2))).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate).toMatchObject({ capturedAmount: { value: 45000 }, refundedAmount: { value: 45000 } });
+    const row = await run((tx) => tx.selectFrom("payments.payment").select("failure_reason").where("id", "=", s.paymentId).executeTakeFirstOrThrow());
+    expect(row.failure_reason).toMatch(/occurrence_ended/);
+  });
+
   it("refunds a capture that landed after the occurrence was cancelled", async () => {
     const { occ, adult } = await concert("cancelled-mid-capture");
     const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);

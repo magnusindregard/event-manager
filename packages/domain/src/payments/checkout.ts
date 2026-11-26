@@ -203,7 +203,12 @@ type Action =
  * the payment's state afterwards, or null for an unknown payment. Vipps not answering leaves
  * the payment as it was; the reconcile job tries again.
  */
-export async function processPayment(db: Db, tenantId: string, paymentId: string, deps: { provider: PaymentProvider }, now: Date = new Date()): Promise<PaymentState | null> {
+export async function processPayment(
+  db: Db, tenantId: string, paymentId: string,
+  /** clock: the time when the capture's answer is settled; by default now, never before `now`. */
+  deps: { provider: PaymentProvider; clock?: () => Date },
+  now: Date = new Date(),
+): Promise<PaymentState | null> {
   const first = await withTenant(db, { tenantId }, async (tx) => {
     const row = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).executeTakeFirst();
     if (!row) return null;
@@ -248,25 +253,33 @@ export async function processPayment(db: Db, tenantId: string, paymentId: string
       return callOff(db, tenantId, row, creds, `Vipps refused the capture (${providerMessage(e)}); the order was cancelled`, deps, now);
     }
     // The capture is done at Vipps. What it covers now (a portal refund may have come in between).
+    // Without that answer nothing is activated: the reconcile job reads it again and settles it.
     const after = await deps.provider.getPayment(creds, row.reference).catch(() => null);
+    if (!after) {
+      await recordReason(db, tenantId, row.id, "Captured at Vipps; waiting to read the payment back before the tickets are activated");
+      return "authorized";
+    }
     const settled = await withTenant(db, { tenantId }, async (tx) => {
       const locked = await tx.selectFrom("payments.payment").select(rowColumns).where("id", "=", paymentId).forUpdate().executeTakeFirstOrThrow();
       // Settled meanwhile (the webhook or the return page got there first, maybe calling the order
       // off and refunding it): that outcome stands.
       if (TERMINAL.includes(locked.state)) return { state: locked.state, refundId: null };
-      if (after) await storeAggregate(tx, row.id, after);
-      // The order may have become undeliverable while the capture was on its way: give the money back.
-      const gone = await unfulfillable(tx, row.reservation_id, now);
+      await storeAggregate(tx, row.id, after);
+      // The time now, not when processing began: the occurrence may have ended while the capture was out.
+      const at = deps.clock ? deps.clock() : new Date(Math.max(now.getTime(), Date.now()));
+      const net = after.aggregate.capturedAmount.value - after.aggregate.refundedAmount.value;
+      // Refunded at Vipps (in the portal) before the answer came: not paid for, as in decide.
+      // Or no longer deliverable: give the money back.
+      const gone = net < row.amount ? "refunded_at_vipps" : await unfulfillable(tx, row.reservation_id, at);
       if (gone) {
-        const net = after ? after.aggregate.capturedAmount.value - after.aggregate.refundedAmount.value : row.amount;
-        if (net > 0) return { state: "cancelled" as const, refundId: await returnMoney(tx, tenantId, row, net, `Captured, but the order can no longer be fulfilled (${gone}); the money is refunded`, now) };
-        await releaseReservation(tx, tenantId, row.reservation_id, now);
-        await setState(tx, row.id, "cancelled", { cancelled_at: now, failure_reason: `The order can no longer be fulfilled (${gone})` });
+        if (net > 0) return { state: "cancelled" as const, refundId: await returnMoney(tx, tenantId, row, net, `Captured, but the order cannot stand (${gone}); the money still held is refunded`, at) };
+        await releaseReservation(tx, tenantId, row.reservation_id, at);
+        await setState(tx, row.id, "cancelled", { cancelled_at: at, failure_reason: `The order cannot stand (${gone})` });
         await paymentEvent(tx, tenantId, "payment.cancelled.v1", row, { reason: gone });
         return { state: "cancelled" as const, refundId: null };
       }
       await activateTickets(tx, row.reservation_id);
-      await setState(tx, row.id, "captured", { captured_at: now, failure_reason: null });
+      await setState(tx, row.id, "captured", { captured_at: at, failure_reason: null });
       await paymentEvent(tx, tenantId, "payment.captured.v1", row);
       return { state: "captured" as const, refundId: null };
     });
