@@ -393,6 +393,10 @@ async function decide(tx: Tx, tenantId: string, row: PaymentRow, remote: Provide
         await setState(tx, row.id, "authorized", { authorized_at: now });
         await paymentEvent(tx, tenantId, "payment.authorized.v1", row);
       }
+      // Paid, but the order may no longer be deliverable (occurrence cancelled or ended, tickets
+      // cancelled): give the money back rather than activate tickets nobody can use.
+      const gone = await unfulfillable(tx, row.reservation_id, now);
+      if (gone) return { kind: "refund", refundId: await returnMoney(tx, tenantId, row, net, `Captured in Vipps, but the order can no longer be fulfilled (${gone}); the money is refunded`, now) };
       await activateTickets(tx, row.reservation_id);
       await setState(tx, row.id, "captured", { captured_at: now, failure_reason: null });
       await paymentEvent(tx, tenantId, "payment.captured.v1", row);
@@ -405,6 +409,11 @@ async function decide(tx: Tx, tenantId: string, row: PaymentRow, remote: Provide
       await setState(tx, row.id, "cancelled", { cancelled_at: now });
       await paymentEvent(tx, tenantId, "payment.cancelled.v1", row, { reason: "cancelled at Vipps" });
       return { kind: "none" };
+    }
+    if (agg.refundedAmount.value > 0) {
+      // Captured in part and refunded in the Vipps portal, the rest still authorised: the order is
+      // being reversed, not paid. Cancel the rest; anything still held is refunded (callOff).
+      return { kind: "cancel", reason: "Part of the payment was captured and refunded in Vipps; the order was cancelled" };
     }
     if (row.state === "created") {
       const failed = await confirmTickets(tx, tenantId, row, now);
@@ -512,10 +521,13 @@ export async function checkoutStatus(tx: Tx, token: string, now: Date = new Date
   let reservationId = claims.subjectId;
   let state: CheckoutStatus["state"] = "free";
   let reference: string | null = null;
+  let portalRefunded = 0;
   if (claims.tokenVersion !== 0) {
-    const p = await tx.selectFrom("payments.payment").select(["reservation_id", "state", "reference"]).where("id", "=", claims.subjectId).executeTakeFirst();
+    const p = await tx.selectFrom("payments.payment").select(["reservation_id", "state", "reference", "aggregate"]).where("id", "=", claims.subjectId).executeTakeFirst();
     if (!p) return null;
     ({ reservation_id: reservationId, state, reference } = p);
+    // What Vipps last said had been refunded, including refunds made in its portal.
+    portalRefunded = Number((p.aggregate as { refundedAmount?: { value?: number } } | null)?.refundedAmount?.value ?? 0);
   }
   const r = await tx.selectFrom("sales.reservation").select("id").where("id", "=", reservationId).executeTakeFirst();
   if (!r) return null;
@@ -525,12 +537,13 @@ export async function checkoutStatus(tx: Tx, token: string, now: Date = new Date
   // Only refunds the platform made when it called the order off (no tickets named); staff refunds of tickets show in Sales.
   const refunds = claims.tokenVersion === 0 ? [] : await tx.selectFrom("payments.refund").select(["amount", "state"])
     .where("payment_id", "=", claims.subjectId).where(sql<boolean>`cardinality(ticket_ids) = 0`).execute();
+  // A cancelled order refunded in the Vipps portal (no refund row of ours): already done.
   const refund = refunds.length
     ? {
         amount: refunds.reduce((s, r) => s + r.amount, 0),
         state: refunds.some((r) => r.state === "failed") ? ("failed" as const) : refunds.some((r) => r.state === "pending") ? ("pending" as const) : ("done" as const),
       }
-    : null;
+    : state === "cancelled" && portalRefunded > 0 ? { amount: portalRefunded, state: "done" as const } : null;
   return { state, reservation, accountName: account.name, vat: vatPerRate(reservation.lines), reference, refund };
 }
 

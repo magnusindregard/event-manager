@@ -509,9 +509,40 @@ describe("money moved in the Vipps portal", () => {
     expect(await reservation(s.row.reservation_id)).toMatchObject({ status: "cancelled" });
     const tickets = await run((tx) => tx.selectFrom("sales.ticket").select("id").where("reservation_id", "=", s.row.reservation_id).execute());
     expect(tickets).toEqual([]);
-    // Nothing more to give back: no refund of its own, and the return page says no money is held.
+    // Nothing more to give back: no refund of its own, but the return page tells the buyer it was refunded.
     expect((await vipps.getPayment(keys, s.row.reference)).aggregate.refundedAmount.value).toBe(90000);
-    expect(await run((tx) => payments.checkoutStatus(tx, s.token, at(3)))).toMatchObject({ state: "cancelled", refund: null });
+    // Only the portal's own refund (made above); the platform sends none.
+    expect(vipps.callsFor(s.row.reference, "refund")).toEqual([expect.objectContaining({ idempotencyKey: "portal-ref" })]);
+    expect(await run((tx) => payments.checkoutStatus(tx, s.token, at(3)))).toMatchObject({ state: "cancelled", refund: { amount: 90000, state: "done" } });
+  });
+
+  it("refunds a portal capture made after the occurrence ended, instead of activating the tickets", async () => {
+    const { occ, adult } = await concert("portal-capture-after-end");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 1 }]);
+    vipps.approve(s.row.reference);
+    vipps.failNext("capture", 423);
+    expect(await process(s.paymentId)).toBe("authorized");
+    await vipps.capture(keys, s.row.reference, { currency: "NOK", value: 45000 }, "portal-late");
+    const afterEnd = new Date(START.getTime() + 6 * 60 * MIN);
+    expect(await process(s.paymentId, afterEnd)).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate.refundedAmount.value).toBe(45000);
+    const tickets = await run((tx) => tx.selectFrom("sales.ticket").select("status").where("reservation_id", "=", s.row.reservation_id).execute());
+    expect(tickets.map((t) => t.status)).toEqual(["cancelled"]);
+    expect(await run((tx) => payments.checkoutStatus(tx, s.token, afterEnd))).toMatchObject({ refund: { amount: 45000, state: "done" } });
+  });
+
+  it("does not capture the rest when part was captured and refunded in the portal", async () => {
+    const { occ, adult } = await concert("partial-refunded");
+    const s = await pay(occ.id, [{ offerId: adult.id, quantity: 2 }]);
+    vipps.approve(s.row.reference);
+    vipps.failNext("capture", 423);
+    expect(await process(s.paymentId)).toBe("authorized");
+    await vipps.capture(keys, s.row.reference, { currency: "NOK", value: 30000 }, "portal-part-2");
+    await vipps.refund(keys, s.row.reference, { currency: "NOK", value: 30000 }, "portal-part-refund");
+    expect(await process(s.paymentId)).toBe("cancelled");
+    expect((await vipps.getPayment(keys, s.row.reference)).aggregate).toMatchObject({ capturedAmount: { value: 30000 }, refundedAmount: { value: 30000 }, cancelledAmount: { value: 60000 } });
+    expect(await reservation(s.row.reservation_id)).toMatchObject({ status: "cancelled" });
+    expect(await run((tx) => payments.checkoutStatus(tx, s.token, at(3)))).toMatchObject({ state: "cancelled", refund: { amount: 30000, state: "done" } });
   });
 
   it("tells the buyer when the refund of a portal capture failed", async () => {

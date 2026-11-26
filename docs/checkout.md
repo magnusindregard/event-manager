@@ -43,16 +43,17 @@ Everyone in the account can see the connection. Only owners change it (`account.
 | AUTHORIZED | `confirm(externalOrderRef = reference)`, then capture the total | `authorized` → `captured` |
 | AUTHORIZED, but confirm fails (sold out after the hold expired, or the occurrence changed) | cancel the authorisation; no tickets | `cancelled` |
 | AUTHORIZED, and Vipps refuses the capture | cancel the authorisation, then cancel the tickets (also if staff closed the checkout meanwhile, or the show has started, since those tickets were never usable) | `cancelled` |
-| AUTHORIZED and fully captured, but not confirmed here (the merchant captured in the Vipps portal) | confirm now; if the tickets cannot be issued, refund the money | `captured`, or `cancelled` with a refund |
+| AUTHORIZED and fully captured, but not confirmed here (the merchant captured in the Vipps portal) | confirm now; if the tickets cannot be issued, or the order can no longer be fulfilled (occurrence cancelled or ended), refund the money | `captured`, or `cancelled` with a refund |
 | AUTHORIZED, part captured and the rest cancelled (in the portal) | refund what was captured, then cancel the tickets | `cancelled` with a refund |
 | AUTHORIZED, part captured, the rest still authorised | capture only what is left | `captured` |
+| AUTHORIZED, part captured and refunded in the portal, the rest still authorised | cancel the rest instead of capturing it; refund anything still held | `cancelled` |
 | AUTHORIZED, captured and then refunded in the portal before we settled it | issue no tickets; refund what is still held, if anything | `cancelled` |
 | AUTHORIZED and confirmed, but the occurrence was cancelled or has ended, or the tickets were cancelled, before the capture | cancel the authorisation instead of capturing | `cancelled` |
 | ABORTED (the buyer said no) | cancel the reservation, releasing the places | `failed` |
 | EXPIRED | cancel the reservation | `expired` |
 | TERMINATED | cancel the reservation if it is still held | `cancelled` |
 
-**Money already captured** is never left behind. Whenever an order is called off, or ends at Vipps, after something was captured, the net captured amount (captured minus refunded) is refunded through Vipps, like a staff refund. A refund Vipps does not answer is sent again by the reconcile job; one it refuses shows in Sales with a retry. The return page then says how much is refunded, and whether the refund is done, still on its way, or failed (in which case it tells the buyer to contact the account).
+**Money already captured** is never left behind. Whenever an order is called off, or ends at Vipps, after something was captured, the net captured amount (captured minus refunded) is refunded through Vipps, like a staff refund. A refund Vipps does not answer is sent again by the reconcile job; one it refuses shows in Sales with a retry. The return page then says how much is refunded (also refunds made in the Vipps portal, from what Vipps last reported), and whether the refund is done, still on its way, or failed (in which case it tells the buyer to contact the account).
 
 **Cancelling at Vipps** counts only once Vipps confirms it. If Vipps refuses a cancel, the payment is read again, and only a cancelled amount or a final state counts. Otherwise the payment stays open, with the reason, and is tried again. A capture or refund Vipps holds (HTTP 423, the payment is locked) is retried, not refused.
 
