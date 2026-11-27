@@ -196,6 +196,8 @@ export function GuestList({ event }: { event: CatalogEvent }) {
             <div className="grid max-w-64 text-xs" title={s.deliveryDetail ?? undefined}>
               <span className="text-destructive">{t("guests.failedAt", { when: fmt(s.deliveryAt ?? s.requestedAt) })}</span>
               <span className="text-muted-foreground">{t(`guests.kinds.${s.kind}`)} · {t(`guests.failure.${sendFailure(s.deliveryDetail)}`)}</span>
+              {/* HubSpot refused it first: the platform's email was the fallback that failed. */}
+              {s.fallbackReason && <span className="text-muted-foreground" title={s.fallbackReason}>{s.fallbackReason}</span>}
             </div>
           );
         }

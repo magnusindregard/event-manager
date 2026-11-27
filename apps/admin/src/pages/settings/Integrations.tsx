@@ -332,6 +332,12 @@ function SendingSettings({ live, canEdit, pending, save }: { live: Integration; 
           <AlertDescription>{s.blocker}</AlertDescription>
         </Alert>
       )}
+      {s.testPortal && (
+        <Alert>
+          <CircleAlert />
+          <AlertDescription>{t("integrations.sending.testPortal")}</AlertDescription>
+        </Alert>
+      )}
       {s.eventTypeUsedBy.length > 0 && (
         <Alert variant="destructive">
           <CircleAlert />

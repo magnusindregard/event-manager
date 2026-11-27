@@ -58,6 +58,8 @@ describe("HubSpot setup", () => {
     // The token reaches the portal; then the templates for HubSpot sending are read.
     expect(hubspot.calls.slice(calls)).toEqual(["accountDetails", "listEmails"]);
     expect((await connection())?.setup).toMatchObject({ status: "done", error: null });
+    // The portal's account type, for the admin's sandbox warning.
+    expect((await connection())?.portalSetup).toMatchObject({ portalId: "100", accountType: "STANDARD" });
   });
 
   it("repairs on request, and refreshes a token about to expire first", async () => {

@@ -37,6 +37,8 @@ export interface PortalSetup {
   /** The client's own emails that use the event subscription type, which only the platform's should (at most 10). */
   eventTypeUsedBy?: { id: string; name: string }[];
   checkedAt?: string;
+  /** HubSpot's account type (`/account-info/v3/details`): STANDARD, SANDBOX, DEVELOPER_TEST, … */
+  accountType?: string | null;
 }
 
 export interface CleanupResult {

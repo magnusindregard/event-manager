@@ -201,7 +201,7 @@ describe("/v1/integrations", () => {
     c = (await call("PATCH", "/v1/integrations/hubspot", { body: { eventSubscriptionTypeId: "11" }, headers: { "if-match": `"${c.version}"` } })).body;
     expect((await call("PATCH", "/v1/integrations/hubspot", { body: { invitationTemplateId: "901" }, headers: { "if-match": `"${c.version}"` } })).status).toBe(422);
     c = (await call("PATCH", "/v1/integrations/hubspot", { body: { invitationTemplateId: "900" }, headers: { "if-match": `"${c.version}"` } })).body;
-    expect(c).toMatchObject({ features: { sending: true }, sending: { blocker: null }, settings: { invitationTemplateId: "900" } });
+    expect(c).toMatchObject({ features: { sending: true }, sending: { blocker: null, testPortal: false }, settings: { invitationTemplateId: "900" } });
 
     expect((await call("PATCH", url, { body: { channel: "hubspot" } })).status).toBe(428);
     const r = await call("PATCH", url, { as: "manager@a.test", body: { channel: "hubspot", texts: { invitation: { subject: "Velkommen", previewText: "Lørdag" } } }, headers: { "if-match": '"0"' } });

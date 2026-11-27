@@ -42,6 +42,7 @@ export const Integration = Type.Object({
       blocker: Nullable(Type.String({ description: "Why events cannot send through HubSpot yet; null when they can" })),
       templates: Type.Array(SingleSendTemplate, { description: "The portal's emails saved for the single-send API, as the setup last read them" }),
       eventTypeUsedBy: Type.Array(Type.Object({ id: Type.String(), name: Type.String() }), { description: "The client's own emails that use the subscription type for event emails, which only the platform's should" }),
+      testPortal: Type.Boolean({ description: "The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them" }),
     },
     { description: "HubSpot sending (docs/hubspot.md)" },
   ),
