@@ -65,6 +65,8 @@ export function hubspotSetupTask(db: Db, deps: HubSpotDeps | null): Task {
         const details = await deps.client.accountDetails(accessToken);
         if (details.portalId !== connection.portalId) throw new HubSpotError(`HubSpot answered for portal ${details.portalId}, not the connected portal ${connection.portalId}`, 409);
         const t = <T>(fn: (tx: Tx) => Promise<T>) => withTenant(db, { tenantId: payload.tenantId }, fn);
+        // A sandbox or test portal sends marketing email only to its own users (seen on staging): the admin warns.
+        await t((tx) => integrations.recordPortalSetup(tx, ref!, { portalId: connection.portalId, accountType: details.accountType }));
         await setUpCleanup(deps.client, accessToken, connection, t);
         await readSingleSendEmails(deps.client, accessToken, connection, t);
         return connection.portalId;

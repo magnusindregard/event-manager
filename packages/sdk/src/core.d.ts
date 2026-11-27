@@ -11786,6 +11786,8 @@ export interface operations {
                                     id: string;
                                     name: string;
                                 }[];
+                                /** @description The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them */
+                                testPortal: boolean;
                             };
                             settings: {
                                 /** @description Upsert invited guests as HubSpot contacts */
@@ -12038,6 +12040,8 @@ export interface operations {
                                 id: string;
                                 name: string;
                             }[];
+                            /** @description The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them */
+                            testPortal: boolean;
                         };
                         settings: {
                             /** @description Upsert invited guests as HubSpot contacts */
@@ -12326,6 +12330,8 @@ export interface operations {
                                 id: string;
                                 name: string;
                             }[];
+                            /** @description The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them */
+                            testPortal: boolean;
                         };
                         settings: {
                             /** @description Upsert invited guests as HubSpot contacts */
@@ -12503,6 +12509,8 @@ export interface operations {
                                 id: string;
                                 name: string;
                             }[];
+                            /** @description The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them */
+                            testPortal: boolean;
                         };
                         settings: {
                             /** @description Upsert invited guests as HubSpot contacts */
@@ -13038,6 +13046,8 @@ export interface operations {
                                 id: string;
                                 name: string;
                             }[];
+                            /** @description The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them */
+                            testPortal: boolean;
                         };
                         settings: {
                             /** @description Upsert invited guests as HubSpot contacts */
@@ -13215,6 +13225,8 @@ export interface operations {
                                 id: string;
                                 name: string;
                             }[];
+                            /** @description The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them */
+                            testPortal: boolean;
                         };
                         settings: {
                             /** @description Upsert invited guests as HubSpot contacts */

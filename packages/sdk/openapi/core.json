@@ -26828,7 +26828,8 @@
                             "required": [
                               "blocker",
                               "templates",
-                              "eventTypeUsedBy"
+                              "eventTypeUsedBy",
+                              "testPortal"
                             ],
                             "properties": {
                               "blocker": {
@@ -26901,6 +26902,10 @@
                                   }
                                 },
                                 "description": "The client's own emails that use the subscription type for event emails, which only the platform's should"
+                              },
+                              "testPortal": {
+                                "type": "boolean",
+                                "description": "The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them"
                               }
                             },
                             "description": "HubSpot sending (docs/hubspot.md)"
@@ -27515,7 +27520,8 @@
                       "required": [
                         "blocker",
                         "templates",
-                        "eventTypeUsedBy"
+                        "eventTypeUsedBy",
+                        "testPortal"
                       ],
                       "properties": {
                         "blocker": {
@@ -27588,6 +27594,10 @@
                             }
                           },
                           "description": "The client's own emails that use the subscription type for event emails, which only the platform's should"
+                        },
+                        "testPortal": {
+                          "type": "boolean",
+                          "description": "The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them"
                         }
                       },
                       "description": "HubSpot sending (docs/hubspot.md)"
@@ -28140,7 +28150,8 @@
                       "required": [
                         "blocker",
                         "templates",
-                        "eventTypeUsedBy"
+                        "eventTypeUsedBy",
+                        "testPortal"
                       ],
                       "properties": {
                         "blocker": {
@@ -28213,6 +28224,10 @@
                             }
                           },
                           "description": "The client's own emails that use the subscription type for event emails, which only the platform's should"
+                        },
+                        "testPortal": {
+                          "type": "boolean",
+                          "description": "The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them"
                         }
                       },
                       "description": "HubSpot sending (docs/hubspot.md)"
@@ -28827,7 +28842,8 @@
                       "required": [
                         "blocker",
                         "templates",
-                        "eventTypeUsedBy"
+                        "eventTypeUsedBy",
+                        "testPortal"
                       ],
                       "properties": {
                         "blocker": {
@@ -28900,6 +28916,10 @@
                             }
                           },
                           "description": "The client's own emails that use the subscription type for event emails, which only the platform's should"
+                        },
+                        "testPortal": {
+                          "type": "boolean",
+                          "description": "The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them"
                         }
                       },
                       "description": "HubSpot sending (docs/hubspot.md)"
@@ -30123,7 +30143,8 @@
                       "required": [
                         "blocker",
                         "templates",
-                        "eventTypeUsedBy"
+                        "eventTypeUsedBy",
+                        "testPortal"
                       ],
                       "properties": {
                         "blocker": {
@@ -30196,6 +30217,10 @@
                             }
                           },
                           "description": "The client's own emails that use the subscription type for event emails, which only the platform's should"
+                        },
+                        "testPortal": {
+                          "type": "boolean",
+                          "description": "The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them"
                         }
                       },
                       "description": "HubSpot sending (docs/hubspot.md)"
@@ -30670,7 +30695,8 @@
                       "required": [
                         "blocker",
                         "templates",
-                        "eventTypeUsedBy"
+                        "eventTypeUsedBy",
+                        "testPortal"
                       ],
                       "properties": {
                         "blocker": {
@@ -30743,6 +30769,10 @@
                             }
                           },
                           "description": "The client's own emails that use the subscription type for event emails, which only the platform's should"
+                        },
+                        "testPortal": {
+                          "type": "boolean",
+                          "description": "The portal is a HubSpot sandbox or developer test account, which sends marketing email only to the portal's own users; HubSpot refuses other guests (VALIDATION_FAILED) and the platform sends to them"
                         }
                       },
                       "description": "HubSpot sending (docs/hubspot.md)"

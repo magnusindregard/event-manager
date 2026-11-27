@@ -26,6 +26,9 @@ const accountScoped = { security: [{ bearer: [], accountId: [] }] };
 const errors = { 400: Problem, 401: Problem, 403: Problem, 404: Problem };
 const writeErrors = { ...errors, 409: Problem, 412: Problem, 422: Problem, 428: Problem };
 
+/** HubSpot account types that send marketing email only to the portal's own users. */
+const TEST_PORTALS = ["SANDBOX", "DEVELOPER_TEST"];
+
 const dto = (c: integrations.Connection) => ({
   id: c.id,
   provider: c.provider,
@@ -37,7 +40,7 @@ const dto = (c: integrations.Connection) => ({
   settings: c.settings,
   sending: (() => {
     const setup = c.portalSetup.portalId === c.portalId ? c.portalSetup : {};
-    return { blocker: integrations.sendingBlocker(c, CLEANUP_SCOPES), templates: setup.singleSendEmails ?? [], eventTypeUsedBy: setup.eventTypeUsedBy ?? [] };
+    return { blocker: integrations.sendingBlocker(c, CLEANUP_SCOPES), templates: setup.singleSendEmails ?? [], eventTypeUsedBy: setup.eventTypeUsedBy ?? [], testPortal: TEST_PORTALS.includes(setup.accountType ?? "") };
   })(),
   cleanup: (() => {
     const setup = c.portalSetup.portalId === c.portalId ? c.portalSetup : {};
